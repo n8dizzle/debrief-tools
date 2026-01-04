@@ -480,6 +480,14 @@ class ServiceTitanClient:
                 "error": str(e),
             }
 
+    async def get_employees(self) -> Dict[str, Any]:
+        """Get list of employees (for task assignment)."""
+        return await self._request(
+            "GET",
+            f"settings/v2/tenant/{self.tenant_id}/employees",
+            params={"active": "true", "pageSize": 200}
+        )
+
     async def create_task(
         self,
         job_id: int,
@@ -488,6 +496,8 @@ class ServiceTitanClient:
         description: str = "",
         due_date: Optional[datetime] = None,
         assigned_to_id: Optional[int] = None,
+        reported_by_id: Optional[int] = None,
+        priority: str = "Medium",
     ) -> Dict[str, Any]:
         """
         Create a task in ServiceTitan Task Management.
@@ -495,16 +505,40 @@ class ServiceTitanClient:
         Args:
             job_id: The job ID to associate the task with
             task_type_id: The task type ID (from task management data)
-            title: Short title for the task
-            description: Detailed description/notes
+            title: Short title for the task (maps to 'name')
+            description: Detailed description/notes (maps to 'body')
             due_date: Optional due date (defaults to tomorrow)
-            assigned_to_id: Optional employee ID to assign task to
+            assigned_to_id: Employee ID to assign task to (required by ST)
+            reported_by_id: Employee ID who reported/created the task
+            priority: Task priority - Low, Medium, High (default Medium)
 
         Returns:
             Created task data or error info
         """
         # Task source: "Job" = 27838436
         TASK_SOURCE_JOB = 27838436
+
+        # If no assignee provided, we need to get a default employee
+        # Try to get the first active employee as fallback
+        if not assigned_to_id or not reported_by_id:
+            try:
+                employees_response = await self.get_employees()
+                employees = employees_response.get("data", [])
+                if employees:
+                    default_employee_id = employees[0].get("id")
+                    if not assigned_to_id:
+                        assigned_to_id = default_employee_id
+                    if not reported_by_id:
+                        reported_by_id = default_employee_id
+            except:
+                pass
+
+        # Still need these - if we couldn't get employees, fail gracefully
+        if not assigned_to_id or not reported_by_id:
+            return {
+                "success": False,
+                "error": "Could not determine assignee or reporter for task",
+            }
 
         # Default due date to tomorrow if not specified
         if due_date is None:
@@ -514,13 +548,14 @@ class ServiceTitanClient:
             "jobId": job_id,
             "taskTypeId": task_type_id,
             "taskSourceId": TASK_SOURCE_JOB,
-            "title": title[:100],  # Limit title length
-            "memo": description[:2000] if description else "",  # Limit memo length
+            "name": title[:100],  # ST uses 'name' not 'title'
+            "body": description[:2000] if description else "Follow-up required",  # ST uses 'body' not 'memo'
             "dueDate": due_date.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "isClosed": False,
+            "priority": priority,
+            "assignedToId": assigned_to_id,
+            "reportedById": reported_by_id,
         }
-
-        if assigned_to_id:
-            payload["assignedToId"] = assigned_to_id
 
         try:
             result = await self._request(

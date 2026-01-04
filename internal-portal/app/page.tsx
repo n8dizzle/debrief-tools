@@ -21,35 +21,73 @@ const tools = [
     category: "Reporting",
   },
   {
-    name: "Call Transcripts",
-    description: "Searchable database of call recordings for training",
-    url: "#",
+    name: "Craft",
+    description: "AI CSR and coaching for Call Center and Field",
+    url: "https://app.craftflow.co/login",
     icon: "phone",
     category: "Training",
   },
   {
-    name: "Equipment OCR",
-    description: "Warranty lookups and equipment data extraction",
+    name: "Attendance Tracker",
+    description: "Employee time and attendance",
     url: "#",
-    icon: "wrench",
-    category: "Operations",
+    icon: "clock",
+    category: "HR",
   },
 ];
 
 const resources = [
   {
+    name: "Employee Handbook",
+    description: "Policies, procedures, and company guidelines",
+    url: "#",
+    icon: "book",
+    category: "HR",
+  },
+  {
+    name: "Knowledge Base",
+    description: "Technical docs, troubleshooting, and FAQs",
+    url: "#",
+    icon: "lightbulb",
+    category: "Documentation",
+  },
+  {
     name: "SOPs & Procedures",
     description: "Standard operating procedures and guides",
-    url: "https://drive.google.com/drive/folders/YOUR_FOLDER_ID",
+    url: "#",
     icon: "document-text",
     category: "Documentation",
   },
   {
     name: "Training Materials",
     description: "Onboarding and ongoing training resources",
-    url: "https://drive.google.com/drive/folders/YOUR_FOLDER_ID",
+    url: "#",
     icon: "academic-cap",
     category: "Documentation",
+  },
+];
+
+const marketing = [
+  {
+    name: "Brand Logos",
+    description: "Official logos in various formats",
+    url: "#",
+    icon: "photo",
+    category: "Marketing",
+  },
+  {
+    name: "Brand Guidelines",
+    description: "Colors, fonts, and usage standards",
+    url: "#",
+    icon: "color-swatch",
+    category: "Marketing",
+  },
+  {
+    name: "Current Ads",
+    description: "Active marketing campaigns and creatives",
+    url: "#",
+    icon: "speakerphone",
+    category: "Marketing",
   },
 ];
 
@@ -61,18 +99,28 @@ const quickLinks = [
   },
   {
     name: "Slack",
-    url: "https://christmasac.slack.com",
+    url: "https://christmasairc-k119428.slack.com",
     icon: "chat",
-  },
-  {
-    name: "Google Workspace",
-    url: "https://workspace.google.com",
-    icon: "grid",
   },
   {
     name: "Gmail",
     url: "https://mail.google.com",
     icon: "mail",
+  },
+  {
+    name: "Bill.com",
+    url: "https://app.bill.com",
+    icon: "currency",
+  },
+  {
+    name: "Gusto",
+    url: "https://app.gusto.com",
+    icon: "users",
+  },
+  {
+    name: "Google Drive",
+    url: "https://drive.google.com",
+    icon: "folder",
   },
 ];
 
@@ -89,14 +137,24 @@ function QuickLinkIcon({ name }: { name: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
       </svg>
     ),
-    grid: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-      </svg>
-    ),
     mail: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+    currency: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    users: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    folder: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
       </svg>
     ),
   };
@@ -240,6 +298,31 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {resources.map((resource) => (
               <ToolCard key={resource.name} {...resource} />
+            ))}
+          </div>
+        </section>
+
+        {/* Marketing Section */}
+        <section className="mb-12">
+          <div className="flex items-center mb-6">
+            <div
+              className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
+              style={{ background: 'var(--christmas-gold)' }}
+            >
+              <svg className="w-4 h-4" style={{ color: 'var(--dark-bg)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+            </div>
+            <h3
+              className="text-xl font-semibold"
+              style={{ color: 'var(--christmas-cream)' }}
+            >
+              Marketing
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {marketing.map((item) => (
+              <ToolCard key={item.name} {...item} />
             ))}
           </div>
         </section>
