@@ -198,6 +198,22 @@ When a job has any tag with `isConversionOpportunity: true`, that job is flagged
 
 ---
 
+## 2026-01-04 - Session: Header Cleanup
+
+### Changes Made
+
+**1. Removed Time Display from Header** (`templates/base.html`)
+- Removed the current time display from the top-right corner of the navigation
+- Removed associated JavaScript `updateTime()` function and `setInterval` call
+- Time was deemed unnecessary UI clutter
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `templates/base.html` | Removed `#current-time` element and updateTime() JS |
+
+---
+
 ## 2026-01-04 - Session: Queue Status Management & Auth
 
 ### Changes Made
