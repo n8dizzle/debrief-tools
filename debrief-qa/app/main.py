@@ -1137,6 +1137,20 @@ async def sync_completed_jobs(
     }
 
 
+@app.get("/api/test-task-management")
+async def test_task_management_access():
+    """
+    Test if API credentials have access to ServiceTitan Task Management.
+    Returns available task sources, types, and resolutions if accessible.
+    """
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+    result = await client.test_task_management_access()
+
+    return result
+
+
 @app.post("/api/re-enrich")
 async def re_enrich_tickets(
     limit: int = 50,

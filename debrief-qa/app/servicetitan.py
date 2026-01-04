@@ -453,6 +453,33 @@ class ServiceTitanClient:
         ]
         return ", ".join(p for p in parts if p)
     
+    async def test_task_management_access(self) -> Dict[str, Any]:
+        """
+        Test if the API credentials have Task Management access.
+        Returns task sources, types, and resolutions if accessible.
+        """
+        try:
+            result = await self._request(
+                "GET",
+                f"taskmanagement/v2/tenant/{self.tenant_id}/data"
+            )
+            return {
+                "has_access": True,
+                "task_sources": result.get("taskSources", []),
+                "task_types": result.get("taskTypes", []),
+                "task_resolutions": result.get("taskResolutions", []),
+            }
+        except httpx.HTTPStatusError as e:
+            return {
+                "has_access": False,
+                "error": f"HTTP {e.response.status_code}: {e.response.text[:200]}",
+            }
+        except Exception as e:
+            return {
+                "has_access": False,
+                "error": str(e),
+            }
+
     async def close(self):
         """Close HTTP client."""
         await self._http_client.aclose()
