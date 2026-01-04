@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500 flex items-center gap-1">
+                Pending
+                <span class="cursor-help text-gray-600" title="Jobs completed in ServiceTitan waiting to be debriefed">ⓘ</span>
+            </div>
+            <div class="mt-1 text-2xl font-bold text-christmas-gold">{{ pending_count }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500 flex items-center gap-1">
+                In Progress
+                <span class="cursor-help text-gray-600" title="Debriefs currently being worked on">ⓘ</span>
+            </div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light">{{ in_progress_tickets|length }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500 flex items-center gap-1">
+                Jobs Today
+                <span class="cursor-help text-gray-600" title="Jobs marked as completed in ServiceTitan today">ⓘ</span>
+            </div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light">{{ jobs_completed_today }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500 flex items-center gap-1">
+                Debriefs Today
+                <span class="cursor-help text-gray-600" title="Debrief forms submitted today">ⓘ</span>
+            </div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light">{{ debriefs_completed_today }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500 flex items-center gap-1">
+                Rate
+                <span class="cursor-help text-gray-600" title="Percentage of today's jobs that have been debriefed">ⓘ</span>
+            </div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light">
+                {% if jobs_completed_today > 0 %}
+                    {{ "%.0f"|format((debriefs_completed_today / jobs_completed_today) * 100) }}%
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- In Progress Section -->
+    {% if in_progress_tickets %}
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-green-light">In Progress</h2>
+        </div>
+        <div class="divide-y divide-dark-border">
+            {% for ticket in in_progress_tickets %}
+            <div class="px-6 py-4 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
+                            <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}"
+                               target="_blank"
+                               onclick="event.stopPropagation();"
+                               class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
+                                ST ↗
+                            </a>
+                            <span class="px-2 py-1 text-xs rounded-full bg-christmas-green/20 text-christmas-green-light">{{ ticket.job_category or 'Unknown' }}</span>
+                            <span class="px-2 py-1 text-xs rounded-full bg-dark-border text-gray-400">{{ ticket.trade_type or 'Unknown' }}</span>
+                            {% if ticket.job_status and ticket.job_status != 'Completed' %}
+                            <span class="px-2 py-1 text-xs rounded-full {% if ticket.job_status == 'Canceled' %}bg-christmas-brown/20 text-christmas-brown{% else %}bg-christmas-gold/20 text-christmas-gold{% endif %}">
+                                {{ ticket.job_status }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="mt-1 text-sm text-gray-400">
+                            {{ ticket.customer_name or 'Unknown' }} • {{ ticket.tech_name or 'Unassigned' }}
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500 truncate">
+                            {{ ticket.location_address or 'No address' }}
+                        </div>
+                    </div>
+                    <div class="text-right ml-4 flex-shrink-0">
+                        <div class="text-lg font-semibold text-christmas-cream">${{ "%.2f"|format(ticket.invoice_total) }}</div>
+                        <div class="flex items-center justify-end gap-2 mt-1 text-xs">
+                            <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
+                                {% if ticket.payment_collected %}Paid{% else %}Unpaid{% endif %}
+                            </span>
+                            <span class="text-gray-500">{{ ticket.photo_count }} 📷</span>
+                            <span class="text-gray-500">{{ ticket.estimate_count }} 📋</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pending Queue -->
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-christmas-gold">Pending Debrief ({{ pending_count }})</h2>
+            <button onclick="location.reload()" class="text-sm text-christmas-green-light hover:text-christmas-green">
+                ↻ Refresh
+            </button>
+        </div>
+
+        {% if pending_tickets %}
+        <div class="divide-y divide-dark-border">
+            {% for ticket in pending_tickets %}
+            <div class="px-6 py-4 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
+                            <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}"
+                               target="_blank"
+                               onclick="event.stopPropagation();"
+                               class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
+                                ST ↗
+                            </a>
+                            <span class="px-2 py-1 text-xs rounded-full bg-christmas-gold/20 text-christmas-gold">{{ ticket.job_type_name or 'Unknown' }}</span>
+                            <span class="px-2 py-1 text-xs rounded-full bg-dark-border text-gray-400">{{ ticket.trade_type or 'Unknown' }}</span>
+                            {% if ticket.job_status and ticket.job_status != 'Completed' %}
+                            <span class="px-2 py-1 text-xs rounded-full {% if ticket.job_status == 'Canceled' %}bg-christmas-brown/20 text-christmas-brown{% else %}bg-christmas-gold/20 text-christmas-gold{% endif %}">
+                                {{ ticket.job_status }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="mt-1 text-sm text-gray-400">
+                            {{ ticket.customer_name or 'Unknown' }} • Tech: {{ ticket.tech_name or 'Unassigned' }}
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500 truncate">
+                            {{ ticket.location_address or 'No address' }}
+                        </div>
+                    </div>
+                    <div class="text-right ml-4 flex-shrink-0">
+                        <div class="text-lg font-semibold text-christmas-cream">${{ "%.2f"|format(ticket.invoice_total) }}</div>
+                        <div class="flex items-center justify-end gap-2 mt-1 text-xs">
+                            <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown font-semibold{% endif %}">
+                                {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
+                            </span>
+                            <span class="text-gray-500">📷 {{ ticket.photo_count }}</span>
+                            <span class="text-gray-500">📋 {{ ticket.estimate_count }}</span>
+                        </div>
+                        {% if ticket.completed_at %}
+                        <div class="mt-1 text-xs text-gray-500">
+                            Completed: {{ ticket.completed_at.strftime('%I:%M %p') if ticket.completed_at else 'N/A' }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">
+            <div class="text-4xl mb-4">🎄</div>
+            <div class="text-lg text-christmas-cream">All caught up!</div>
+            <div class="text-sm mt-2">No jobs pending debrief.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh every 30 seconds
+    setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}

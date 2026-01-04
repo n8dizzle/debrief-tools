@@ -1,0 +1,16 @@
+/* Custom styles for Debrief QA System */
+/* Most styling handled by Tailwind CDN */
+
+/* Additional custom styles can go here */
+
+/* Print styles for debrief reports */
+@media print {
+    nav, footer, button[type="submit"], a[href="/queue"] {
+        display: none !important;
+    }
+    
+    .shadow {
+        box-shadow: none !important;
+        border: 1px solid #e5e7eb;
+    }
+}

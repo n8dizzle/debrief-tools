@@ -1,0 +1,715 @@
+"""
+Debrief QA System - FastAPI Application
+
+Main entry point for the application. Handles:
+- Webhook endpoint for ServiceTitan
+- API endpoints for the dispatcher UI
+- HTML template rendering
+"""
+
+import os
+from datetime import datetime, timedelta
+from typing import List, Optional
+from fastapi import FastAPI, Request, HTTPException, Depends, Form
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
+from dotenv import load_dotenv
+
+from .database import (
+    get_db, init_db, 
+    TicketRaw, TicketStatus, CheckStatus,
+    Dispatcher, DebriefSession, WebhookLog
+)
+from .models import (
+    TicketSummary, TicketDetail, DebriefSubmission, DebriefResponse,
+    DashboardResponse, DailyStats, DispatcherStats,
+    DispatcherCreate, DispatcherResponse
+)
+from .webhook import verify_webhook_signature, process_webhook, manual_add_job
+
+load_dotenv()
+
+app = FastAPI(
+    title="Debrief QA System",
+    description="Real-time job ticket quality assurance for dispatcher debrief workflow",
+    version="1.0.0"
+)
+
+# Mount static files and templates
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+
+# ----- Startup -----
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup."""
+    init_db()
+
+
+# ----- Webhook Endpoint -----
+
+@app.post("/webhook/servicetitan")
+async def servicetitan_webhook(request: Request, db: Session = Depends(get_db)):
+    """
+    Receive webhooks from ServiceTitan.
+    Immediately returns 200 to acknowledge receipt, then processes asynchronously.
+    """
+    # Verify signature
+    if not await verify_webhook_signature(request):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    
+    payload = await request.json()
+    result = await process_webhook(payload, db)
+    
+    return JSONResponse(content=result, status_code=200)
+
+
+# ----- HTML Pages -----
+
+@app.get("/")
+async def home():
+    """Home page - redirect to queue."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/queue", status_code=302)
+
+
+@app.get("/queue", response_class=HTMLResponse)
+async def queue_page(request: Request, db: Session = Depends(get_db)):
+    """Dispatcher queue view."""
+    pending = db.query(TicketRaw).filter(
+        TicketRaw.debrief_status == TicketStatus.PENDING
+    ).order_by(TicketRaw.completed_at.desc()).all()
+
+    in_progress = db.query(TicketRaw).filter(
+        TicketRaw.debrief_status == TicketStatus.IN_PROGRESS
+    ).order_by(TicketRaw.completed_at.desc()).all()
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Jobs completed in ServiceTitan today (based on job completion time)
+    jobs_completed_today = db.query(TicketRaw).filter(
+        TicketRaw.completed_at >= today_start
+    ).count()
+
+    # Debriefs submitted today (based on debrief submission time)
+    debriefs_completed_today = db.query(DebriefSession).filter(
+        DebriefSession.completed_at >= today_start
+    ).count()
+
+    return templates.TemplateResponse("queue.html", {
+        "request": request,
+        "title": "Debrief Queue",
+        "pending_tickets": pending,
+        "in_progress_tickets": in_progress,
+        "pending_count": len(pending),
+        "jobs_completed_today": jobs_completed_today,
+        "debriefs_completed_today": debriefs_completed_today,
+    })
+
+
+@app.get("/debrief/{job_id}", response_class=HTMLResponse)
+async def debrief_page(job_id: int, request: Request, db: Session = Depends(get_db)):
+    """Single job debrief form."""
+    ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Mark as in progress if pending
+    if ticket.debrief_status == TicketStatus.PENDING:
+        ticket.debrief_status = TicketStatus.IN_PROGRESS
+        db.commit()
+    
+    # Get existing debrief if any
+    existing_debrief = db.query(DebriefSession).filter(
+        DebriefSession.job_id == job_id
+    ).first()
+    
+    # Get dispatchers for dropdown
+    dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
+    
+    return templates.TemplateResponse("debrief.html", {
+        "request": request,
+        "title": f"Debrief - Job #{ticket.job_number}",
+        "ticket": ticket,
+        "debrief": existing_debrief,
+        "dispatchers": dispatchers,
+    })
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    """Completion tracking dashboard."""
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "title": "Dashboard"
+    })
+
+
+# ----- API Endpoints -----
+
+@app.get("/api/queue", response_model=List[TicketSummary])
+async def get_queue(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get jobs in debrief queue."""
+    query = db.query(TicketRaw)
+    
+    if status:
+        query = query.filter(TicketRaw.debrief_status == status)
+    else:
+        query = query.filter(TicketRaw.debrief_status != TicketStatus.COMPLETED)
+    
+    tickets = query.order_by(TicketRaw.completed_at.desc()).all()
+    return tickets
+
+
+@app.get("/api/job/{job_id}", response_model=TicketDetail)
+async def get_job(job_id: int, db: Session = Depends(get_db)):
+    """Get full job details."""
+    ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return ticket
+
+
+@app.post("/api/job/{job_id}/debrief", response_model=DebriefResponse)
+async def submit_debrief(
+    job_id: int,
+    debrief: DebriefSubmission,
+    db: Session = Depends(get_db)
+):
+    """Submit completed debrief checklist."""
+    ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check dispatcher exists
+    dispatcher = db.query(Dispatcher).filter(Dispatcher.id == debrief.dispatcher_id).first()
+    if not dispatcher:
+        raise HTTPException(status_code=400, detail="Invalid dispatcher ID")
+    
+    # Create or update debrief session
+    existing = db.query(DebriefSession).filter(DebriefSession.job_id == job_id).first()
+    
+    if existing:
+        # Update existing
+        for key, value in debrief.dict().items():
+            setattr(existing, key, value)
+        existing.completed_at = datetime.utcnow()
+        session = existing
+    else:
+        # Create new
+        session = DebriefSession(
+            job_id=job_id,
+            dispatcher_id=debrief.dispatcher_id,
+            started_at=datetime.utcnow(),
+            completed_at=datetime.utcnow(),
+            **debrief.dict(exclude={"dispatcher_id"})
+        )
+        db.add(session)
+    
+    # Mark ticket as completed
+    ticket.debrief_status = TicketStatus.COMPLETED
+    db.commit()
+    
+    return DebriefResponse(
+        success=True,
+        job_id=job_id,
+        message="Debrief completed successfully",
+        completed_at=session.completed_at
+    )
+
+
+@app.post("/api/job/{job_id}/debrief/form")
+async def submit_debrief_form(
+    job_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Submit debrief via HTML form (non-JSON)."""
+    form_data = await request.form()
+    
+    ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Parse form data
+    dispatcher_id = int(form_data.get("dispatcher_id", 0))
+    dispatcher = db.query(Dispatcher).filter(Dispatcher.id == dispatcher_id).first()
+    if not dispatcher:
+        raise HTTPException(status_code=400, detail="Please select a dispatcher")
+    
+    # Check if follow-up is required
+    followup_required = form_data.get("followup_required") == "true"
+    
+    # Create debrief session
+    session = DebriefSession(
+        job_id=job_id,
+        dispatcher_id=dispatcher_id,
+        started_at=datetime.utcnow(),
+        completed_at=datetime.utcnow(),
+        
+        photos_reviewed=form_data.get("photos_reviewed", "pending"),
+        photos_notes=form_data.get("photos_notes"),
+        
+        invoice_summary_score=int(form_data.get("invoice_summary_score", 5)),
+        invoice_summary_notes=form_data.get("invoice_summary_notes"),
+        
+        payment_verified=form_data.get("payment_verified", "pending"),
+        no_payment_reason=form_data.get("no_payment_reason"),
+        
+        estimates_verified=form_data.get("estimates_verified", "pending"),
+        estimates_notes=form_data.get("estimates_notes"),
+        
+        membership_verified=form_data.get("membership_verified", "pending"),
+        membership_notes=form_data.get("membership_notes"),
+        
+        google_reviews_discussed=form_data.get("google_reviews_discussed", "pending"),
+        google_reviews_notes=form_data.get("google_reviews_notes"),
+        
+        replacement_discussed=form_data.get("replacement_discussed", "pending"),
+        no_replacement_reason=form_data.get("no_replacement_reason"),
+        
+        g3_contact_needed=form_data.get("g3_contact_needed") == "true",
+        g3_notes=form_data.get("g3_notes"),
+        
+        general_notes=form_data.get("general_notes"),
+        
+        # Follow-up fields
+        followup_required=followup_required,
+        followup_type=form_data.get("followup_type") if followup_required else None,
+        followup_description=form_data.get("followup_description") if followup_required else None,
+        followup_assigned_to=form_data.get("followup_assigned_to") if followup_required else None,
+        followup_completed=False,
+    )
+    
+    # Check for existing and update if needed
+    existing = db.query(DebriefSession).filter(DebriefSession.job_id == job_id).first()
+    if existing:
+        for key, value in session.__dict__.items():
+            if not key.startswith("_"):
+                setattr(existing, key, value)
+        session = existing
+    else:
+        db.add(session)
+    
+    ticket.debrief_status = TicketStatus.COMPLETED
+    db.commit()
+    
+    # Send Slack notification if follow-up required
+    if followup_required and form_data.get("followup_type"):
+        from .slack import send_followup_notification
+        
+        # Build debrief URL
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        debrief_url = f"{base_url}/debrief/{job_id}"
+        
+        slack_result = await send_followup_notification(
+            job_id=job_id,
+            job_number=ticket.job_number,
+            customer_name=ticket.customer_name,
+            tech_name=ticket.tech_name,
+            followup_type=form_data.get("followup_type"),
+            followup_description=form_data.get("followup_description", ""),
+            dispatcher_name=dispatcher.name,
+            assigned_to=form_data.get("followup_assigned_to"),
+            debrief_url=debrief_url,
+        )
+        
+        if slack_result.get("success"):
+            session.slack_notified = True
+            if slack_result.get("thread_ts"):
+                session.slack_thread_ts = slack_result["thread_ts"]
+            db.commit()
+    
+    # Redirect back to queue
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.get("/api/dashboard")
+async def get_dashboard(db: Session = Depends(get_db)):
+    """Get dashboard statistics."""
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+    
+    def get_stats(start_date: datetime, label: str) -> dict:
+        total_jobs = db.query(TicketRaw).filter(
+            TicketRaw.completed_at >= start_date
+        ).count()
+        
+        debriefed = db.query(TicketRaw).filter(
+            and_(
+                TicketRaw.completed_at >= start_date,
+                TicketRaw.debrief_status == TicketStatus.COMPLETED
+            )
+        ).count()
+        
+        pending = total_jobs - debriefed
+        rate = (debriefed / total_jobs * 100) if total_jobs > 0 else 100
+        
+        return {
+            "date": label,
+            "total_completed_jobs": total_jobs,
+            "total_debriefed": debriefed,
+            "pending_debrief": pending,
+            "completion_rate": round(rate, 1)
+        }
+    
+    # Dispatcher stats
+    dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
+    dispatcher_stats = []
+    for d in dispatchers:
+        today_count = db.query(DebriefSession).filter(
+            and_(
+                DebriefSession.dispatcher_id == d.id,
+                DebriefSession.completed_at >= today_start
+            )
+        ).count()
+        
+        week_count = db.query(DebriefSession).filter(
+            and_(
+                DebriefSession.dispatcher_id == d.id,
+                DebriefSession.completed_at >= week_start
+            )
+        ).count()
+        
+        month_count = db.query(DebriefSession).filter(
+            and_(
+                DebriefSession.dispatcher_id == d.id,
+                DebriefSession.completed_at >= month_start
+            )
+        ).count()
+        
+        dispatcher_stats.append({
+            "dispatcher_id": d.id,
+            "dispatcher_name": d.name,
+            "is_primary": d.is_primary,
+            "debriefs_completed_today": today_count,
+            "debriefs_completed_this_week": week_count,
+            "debriefs_completed_this_month": month_count,
+        })
+    
+    # Pending jobs
+    pending_jobs = db.query(TicketRaw).filter(
+        TicketRaw.debrief_status != TicketStatus.COMPLETED
+    ).order_by(TicketRaw.completed_at.desc()).limit(20).all()
+    
+    return {
+        "today": get_stats(today_start, "Today"),
+        "this_week": get_stats(week_start, "This Week"),
+        "this_month": get_stats(month_start, "This Month"),
+        "dispatchers": dispatcher_stats,
+        "pending_jobs": [TicketSummary.from_orm(t) for t in pending_jobs]
+    }
+
+
+# ----- Dispatcher Management -----
+
+@app.get("/api/dispatchers", response_model=List[DispatcherResponse])
+async def list_dispatchers(db: Session = Depends(get_db)):
+    """List all dispatchers."""
+    return db.query(Dispatcher).all()
+
+
+@app.post("/api/dispatchers", response_model=DispatcherResponse)
+async def create_dispatcher(
+    dispatcher: DispatcherCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new dispatcher."""
+    d = Dispatcher(**dispatcher.dict())
+    db.add(d)
+    db.commit()
+    db.refresh(d)
+    return d
+
+
+@app.post("/api/dispatchers/setup")
+async def setup_dispatchers(db: Session = Depends(get_db)):
+    """Quick setup - create default dispatchers."""
+    # Check if any exist
+    if db.query(Dispatcher).count() > 0:
+        return {"message": "Dispatchers already exist"}
+    
+    # Create primary dispatcher
+    primary = Dispatcher(
+        name="Primary Dispatcher",
+        email="dispatcher@example.com",
+        is_primary=True,
+        is_active=True
+    )
+    db.add(primary)
+    
+    # Create fill-in dispatcher
+    fill_in = Dispatcher(
+        name="Fill-In Dispatcher",
+        email="fillin@example.com",
+        is_primary=False,
+        is_active=True
+    )
+    db.add(fill_in)
+    
+    db.commit()
+    return {"message": "Default dispatchers created"}
+
+
+# ----- Technician Performance -----
+
+@app.get("/api/technician-stats")
+async def get_technician_stats(db: Session = Depends(get_db)):
+    """Get technician performance statistics."""
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+
+    def get_tech_stats(start_date: datetime):
+        """Get stats for all technicians from a start date."""
+        # Get all debriefed tickets with their debrief sessions from the period
+        results = db.query(
+            TicketRaw.tech_name,
+            TicketRaw.tech_id,
+            DebriefSession.invoice_summary_score,
+            DebriefSession.photos_reviewed,
+            DebriefSession.payment_verified,
+            DebriefSession.estimates_verified,
+            DebriefSession.replacement_discussed,
+            DebriefSession.membership_verified,
+            DebriefSession.google_reviews_discussed,
+            DebriefSession.g3_contact_needed,
+            DebriefSession.followup_required,
+        ).join(
+            DebriefSession, TicketRaw.job_id == DebriefSession.job_id
+        ).filter(
+            DebriefSession.completed_at >= start_date
+        ).all()
+
+        # Aggregate by technician
+        tech_data = {}
+        for row in results:
+            tech_name = row.tech_name or "Unknown"
+            if tech_name not in tech_data:
+                tech_data[tech_name] = {
+                    "tech_id": row.tech_id,
+                    "jobs_count": 0,
+                    "invoice_scores": [],
+                    "photos_pass": 0,
+                    "payment_pass": 0,
+                    "estimates_pass": 0,
+                    "replacement_pass": 0,
+                    "membership_pass": 0,
+                    "google_reviews_pass": 0,
+                    "g3_needed": 0,
+                    "followup_required": 0,
+                }
+
+            tech_data[tech_name]["jobs_count"] += 1
+            if row.invoice_summary_score:
+                tech_data[tech_name]["invoice_scores"].append(row.invoice_summary_score)
+            if row.photos_reviewed == "pass":
+                tech_data[tech_name]["photos_pass"] += 1
+            if row.payment_verified == "pass":
+                tech_data[tech_name]["payment_pass"] += 1
+            if row.estimates_verified == "pass":
+                tech_data[tech_name]["estimates_pass"] += 1
+            if row.replacement_discussed == "pass":
+                tech_data[tech_name]["replacement_pass"] += 1
+            if row.membership_verified == "pass":
+                tech_data[tech_name]["membership_pass"] += 1
+            if row.google_reviews_discussed == "pass":
+                tech_data[tech_name]["google_reviews_pass"] += 1
+            if row.g3_contact_needed:
+                tech_data[tech_name]["g3_needed"] += 1
+            if row.followup_required:
+                tech_data[tech_name]["followup_required"] += 1
+
+        # Calculate percentages and composite score
+        tech_stats = []
+        for tech_name, data in tech_data.items():
+            count = data["jobs_count"]
+            scores = data["invoice_scores"]
+
+            # Calculate individual metrics
+            avg_invoice = round(sum(scores) / len(scores), 1) if scores else None
+            photos_rate = round(data["photos_pass"] / count * 100) if count else 0
+            payment_rate = round(data["payment_pass"] / count * 100) if count else 0
+            estimates_rate = round(data["estimates_pass"] / count * 100) if count else 0
+            membership_rate = round(data["membership_pass"] / count * 100) if count else 0
+            reviews_rate = round(data["google_reviews_pass"] / count * 100) if count else 0
+
+            # Calculate composite score with weights:
+            # HIGH (2x): Photos, Payment, Estimates, Invoice Summary
+            # NORMAL (1x): Membership, Google Reviews
+            # Invoice is 1-10, convert to percentage (x10)
+            invoice_pct = (avg_invoice * 10) if avg_invoice else 50  # Default 50% if no score
+
+            # Weighted calculation: total weights = 10
+            composite = (
+                (photos_rate * 2) +      # HIGH
+                (payment_rate * 2) +      # HIGH
+                (estimates_rate * 2) +    # HIGH
+                (invoice_pct * 2) +       # HIGH (converted to %)
+                (membership_rate * 1) +   # NORMAL
+                (reviews_rate * 1)        # NORMAL
+            ) / 10
+
+            tech_stats.append({
+                "tech_name": tech_name,
+                "tech_id": data["tech_id"],
+                "jobs_debriefed": count,
+                "composite_score": round(composite, 1),
+                "avg_invoice_score": avg_invoice,
+                # Critical metrics (HIGH weight)
+                "photos_pass_rate": photos_rate,
+                "payment_pass_rate": payment_rate,
+                "estimates_pass_rate": estimates_rate,
+                # Normal metrics
+                "membership_pass_rate": membership_rate,
+                "google_reviews_pass_rate": reviews_rate,
+            })
+
+        # Sort by composite_score descending
+        return sorted(tech_stats, key=lambda x: x["composite_score"], reverse=True)
+
+    return {
+        "today": get_tech_stats(today_start),
+        "this_week": get_tech_stats(week_start),
+        "this_month": get_tech_stats(month_start),
+    }
+
+
+# ----- Debrief History / Job Log -----
+
+@app.get("/history", response_class=HTMLResponse)
+async def history_page(request: Request, db: Session = Depends(get_db)):
+    """Job history/log view - all debriefed jobs in a table."""
+    return templates.TemplateResponse("history.html", {
+        "request": request,
+        "title": "Job History"
+    })
+
+
+@app.get("/api/debrief-history")
+async def get_debrief_history(
+    limit: int = 100,
+    offset: int = 0,
+    tech_name: Optional[str] = None,
+    dispatcher_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get history of all debriefed jobs with scores."""
+    query = db.query(
+        TicketRaw,
+        DebriefSession,
+        Dispatcher.name.label("dispatcher_name")
+    ).join(
+        DebriefSession, TicketRaw.job_id == DebriefSession.job_id
+    ).outerjoin(
+        Dispatcher, DebriefSession.dispatcher_id == Dispatcher.id
+    )
+
+    # Apply filters
+    if tech_name:
+        query = query.filter(TicketRaw.tech_name == tech_name)
+    if dispatcher_id:
+        query = query.filter(DebriefSession.dispatcher_id == dispatcher_id)
+    if date_from:
+        try:
+            from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            query = query.filter(DebriefSession.completed_at >= from_date)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            # Add one day to include the entire end date
+            to_date = to_date + timedelta(days=1)
+            query = query.filter(DebriefSession.completed_at < to_date)
+        except ValueError:
+            pass
+
+    # Get total count for pagination
+    total = query.count()
+
+    # Get paginated results, most recent first
+    results = query.order_by(
+        DebriefSession.completed_at.desc()
+    ).offset(offset).limit(limit).all()
+
+    # Build response with composite scores
+    history = []
+    for ticket, debrief, dispatcher_name in results:
+        # Calculate composite score for this job
+        photos_pass = 1 if debrief.photos_reviewed == "pass" else 0
+        payment_pass = 1 if debrief.payment_verified == "pass" else 0
+        estimates_pass = 1 if debrief.estimates_verified == "pass" else 0
+        membership_pass = 1 if debrief.membership_verified == "pass" else 0
+        reviews_pass = 1 if debrief.google_reviews_discussed == "pass" else 0
+        invoice_score = debrief.invoice_summary_score or 5
+
+        invoice_pct = invoice_score * 10
+        composite = (
+            (photos_pass * 100 * 2) +
+            (payment_pass * 100 * 2) +
+            (estimates_pass * 100 * 2) +
+            (invoice_pct * 2) +
+            (membership_pass * 100 * 1) +
+            (reviews_pass * 100 * 1)
+        ) / 10
+
+        history.append({
+            "job_id": ticket.job_id,
+            "job_number": ticket.job_number,
+            "customer_name": ticket.customer_name,
+            "tech_name": ticket.tech_name or "Unknown",
+            "tech_id": ticket.tech_id,
+            "job_type": ticket.job_type_name or "Unknown",
+            "trade_type": ticket.trade_type or "Unknown",
+            "invoice_total": float(ticket.invoice_total or 0),
+            "completed_at": ticket.completed_at.isoformat() if ticket.completed_at else None,
+            "debriefed_at": debrief.completed_at.isoformat() if debrief.completed_at else None,
+            "dispatcher_name": dispatcher_name or "Unknown",
+            "composite_score": round(composite, 1),
+            "invoice_score": invoice_score,
+            "photos": debrief.photos_reviewed,
+            "payment": debrief.payment_verified,
+            "estimates": debrief.estimates_verified,
+            "membership": debrief.membership_verified,
+            "reviews": debrief.google_reviews_discussed,
+            "followup_required": debrief.followup_required,
+            "has_notes": bool(debrief.general_notes),
+        })
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "data": history
+    }
+
+
+# ----- Manual Job Addition (for testing/catchup) -----
+
+@app.post("/api/job/manual-add/{job_id}")
+async def manually_add_job(job_id: int, db: Session = Depends(get_db)):
+    """Manually add a job to the queue (for testing or catching missed webhooks)."""
+    result = await manual_add_job(job_id, db)
+    return result
+
+
+# ----- Health Check -----
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}

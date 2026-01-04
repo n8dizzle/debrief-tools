@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <a href="/queue" class="inline-flex items-center text-christmas-green-light hover:text-christmas-green mb-4">
+        ← Back to Queue
+    </a>
+
+    <!-- Job Header -->
+    <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-2xl font-bold text-christmas-cream">Job #{{ ticket.job_number }}</h1>
+                        <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}"
+                           target="_blank"
+                           class="text-sm text-christmas-green-light hover:text-christmas-green hover:underline">
+                            View in ServiceTitan ↗
+                        </a>
+                    </div>
+                    <div class="mt-1 flex items-center space-x-3 flex-wrap gap-2">
+                        <span class="px-2 py-1 text-sm rounded-full bg-christmas-green/20 text-christmas-green-light">{{ ticket.job_type_name or 'Unknown' }}</span>
+                        <span class="px-2 py-1 text-sm rounded-full bg-dark-border text-gray-400">{{ ticket.trade_type or 'Unknown' }}</span>
+                        {% if ticket.job_status and ticket.job_status != 'Completed' %}
+                        <span class="px-2 py-1 text-sm rounded-full {% if ticket.job_status == 'Canceled' %}bg-christmas-brown/20 text-christmas-brown{% else %}bg-christmas-gold/20 text-christmas-gold{% endif %}">
+                            {{ ticket.job_status }}
+                        </span>
+                        {% endif %}
+                        {% if ticket.is_new_customer %}
+                        <span class="px-2 py-1 text-sm rounded-full bg-christmas-green/20 text-christmas-green-light">New Customer</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-christmas-cream">${{ "%.2f"|format(ticket.invoice_total) }}</div>
+                    <div class="text-sm {% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown font-semibold{% endif %}">
+                        {% if ticket.payment_collected %}✓ Payment Collected{% else %}✗ Payment Outstanding: ${{ "%.2f"|format(ticket.invoice_balance) }}{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Details Grid -->
+        <div class="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+                <div class="text-gray-500">Customer</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.customer_name or 'Unknown' }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">Technician</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.tech_name or 'Unassigned' }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">Location</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.location_address or 'N/A' }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">Completed</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.completed_at.strftime('%b %d, %I:%M %p') if ticket.completed_at else 'N/A' }}</div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="px-6 py-4 bg-dark-bg rounded-b-lg grid grid-cols-3 gap-4 text-center border-t border-dark-border">
+            <div>
+                <div class="text-2xl font-bold text-christmas-green-light">{{ ticket.photo_count }}</div>
+                <div class="text-xs text-gray-500">Photos</div>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-christmas-gold">{{ ticket.estimate_count }}</div>
+                <div class="text-xs text-gray-500">Estimates</div>
+            </div>
+            <div>
+                <div class="text-2xl font-bold {% if ticket.membership_sold %}text-christmas-green-light{% else %}text-gray-500{% endif %}">
+                    {% if ticket.membership_sold %}Yes{% else %}No{% endif %}
+                </div>
+                <div class="text-xs text-gray-500">Membership</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Summary Display -->
+    {% if ticket.invoice_summary %}
+    <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Invoice Summary</h2>
+        </div>
+        <div class="px-6 py-4">
+            <div class="bg-dark-bg rounded p-4 text-gray-300 whitespace-pre-wrap border border-dark-border">{{ ticket.invoice_summary }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Debrief Form -->
+    <form action="/api/job/{{ ticket.job_id }}/debrief/form" method="POST" class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Debrief Checklist</h2>
+            <p class="text-sm text-gray-500 mt-1">Complete all items before submitting.</p>
+        </div>
+
+        <div class="px-6 py-4 space-y-6">
+            <!-- Dispatcher Selection -->
+            <div>
+                <label class="block text-sm font-medium text-christmas-cream mb-2">Dispatcher</label>
+                <select name="dispatcher_id" required class="w-full md:w-1/2 rounded-md p-2 border">
+                    <option value="">Select dispatcher...</option>
+                    {% for d in dispatchers %}
+                    <option value="{{ d.id }}">{{ d.name }}{% if d.is_primary %} (Primary){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <hr class="border-dark-border">
+
+            <!-- 1. Photos -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Photos Reviewed ({{ ticket.photo_count }} photos attached)
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="photos_reviewed" value="pass" class="sr-only" required>
+                        <span>✓ Pass</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="photos_reviewed" value="fail" class="sr-only">
+                        <span>✗ Fail</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="photos_reviewed" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="photos_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 2. Invoice Summary Score -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Invoice Summary Quality (1-10)
+                </label>
+                <div class="flex items-center space-x-4">
+                    <input type="range" name="invoice_summary_score" min="1" max="10" value="5"
+                        class="w-48 h-2 rounded-lg appearance-none cursor-pointer"
+                        oninput="document.getElementById('score-display').textContent = this.value">
+                    <span id="score-display" class="text-2xl font-bold text-christmas-green-light w-8">5</span>
+                    <span class="text-sm text-gray-500">/ 10</span>
+                </div>
+                <input type="text" name="invoice_summary_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 3. Payment -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Payment Verified
+                    <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
+                        ({{ "Collected" if ticket.payment_collected else "Not Collected - $%.2f balance"|format(ticket.invoice_balance) }})
+                    </span>
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="payment_verified" value="pass" class="sr-only" required>
+                        <span>✓ Pass</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="payment_verified" value="fail" class="sr-only">
+                        <span>✗ Fail</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="payment_verified" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="no_payment_reason" placeholder="If not collected, why?"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 4. Estimates -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Estimates Offered/Discussed ({{ ticket.estimate_count }} created{% if ticket.estimates_total %}, ${{ "%.2f"|format(ticket.estimates_total) }} total{% endif %})
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="estimates_verified" value="pass" class="sr-only" required>
+                        <span>✓ Pass</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="estimates_verified" value="fail" class="sr-only">
+                        <span>✗ Fail</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="estimates_verified" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="estimates_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 5. Membership -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Membership Offered
+                    <span class="{% if ticket.membership_sold %}text-christmas-green-light{% else %}text-gray-500{% endif %}">
+                        ({{ "Sold: " + (ticket.membership_type or "Unknown") if ticket.membership_sold else "Not Sold" }})
+                    </span>
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="membership_verified" value="pass" class="sr-only" required>
+                        <span>✓ Pass</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="membership_verified" value="fail" class="sr-only">
+                        <span>✗ Fail</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="membership_verified" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="membership_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 6. Google Reviews -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">Google Reviews Discussed</label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="google_reviews_discussed" value="pass" class="sr-only" required>
+                        <span>✓ Pass</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="google_reviews_discussed" value="fail" class="sr-only">
+                        <span>✗ Fail</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="google_reviews_discussed" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="google_reviews_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 7. Replacement Discussion -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Replacement Discussed (if aged equipment)
+                    {% if ticket.equipment_age_years %}
+                    <span class="{% if ticket.equipment_age_years >= 12 %}text-christmas-gold{% else %}text-gray-500{% endif %}">
+                        (Equipment age: {{ ticket.equipment_age_years }} years)
+                    </span>
+                    {% endif %}
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="replacement_discussed" value="pass" class="sr-only" required>
+                        <span>✓ Pass</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="replacement_discussed" value="fail" class="sr-only">
+                        <span>✗ Fail</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="replacement_discussed" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="no_replacement_reason" placeholder="If not discussed, why?"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 8. G3 Contact -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">G3 Contact Needed?</label>
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center text-gray-300">
+                        <input type="radio" name="g3_contact_needed" value="false" checked class="mr-2">
+                        <span>No</span>
+                    </label>
+                    <label class="flex items-center text-gray-300">
+                        <input type="radio" name="g3_contact_needed" value="true" class="mr-2">
+                        <span>Yes</span>
+                    </label>
+                </div>
+                <input type="text" name="g3_notes" placeholder="G3 notes (if needed)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <hr class="border-dark-border">
+
+            <!-- Follow-up Section -->
+            <div class="bg-christmas-gold/10 border border-christmas-gold/30 rounded-lg p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <label class="text-sm font-semibold text-christmas-gold">Follow-up Required?</label>
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center text-gray-300">
+                            <input type="radio" name="followup_required" value="false" checked
+                                class="mr-2" onchange="toggleFollowup(false)">
+                            <span>No</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="followup_required" value="true"
+                                class="mr-2" onchange="toggleFollowup(true)">
+                            <span class="text-christmas-gold font-medium">Yes - Flag for follow-up</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="followup-details" class="hidden space-y-4 pt-4 border-t border-christmas-gold/30">
+                    <div>
+                        <label class="block text-sm font-medium text-christmas-cream mb-2">Follow-up Type</label>
+                        <select name="followup_type" class="w-full md:w-1/2 rounded-md p-2 border">
+                            <option value="">Select type...</option>
+                            <option value="tech_coaching">🎓 Tech Coaching Needed</option>
+                            <option value="manager_review">👔 Manager Review Required</option>
+                            <option value="customer_callback">📞 Customer Callback Needed</option>
+                            <option value="billing">💰 Billing Issue</option>
+                            <option value="quality">⚠️ Quality Issue</option>
+                            <option value="other">📌 Other</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-christmas-cream mb-2">Assign To</label>
+                        <input type="text" name="followup_assigned_to"
+                            placeholder="Tech name, manager, or leave blank"
+                            class="w-full md:w-1/2 rounded-md p-2 border text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-christmas-cream mb-2">Follow-up Description</label>
+                        <textarea name="followup_description" rows="2"
+                            placeholder="What needs to be addressed? Be specific..."
+                            class="w-full rounded-md p-2 border"></textarea>
+                    </div>
+
+                    <div class="flex items-center space-x-2 text-sm text-christmas-gold">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12zm-1-5h2v2H9v-2zm0-6h2v4H9V5z"/>
+                        </svg>
+                        <span>This will send a notification to Slack #debrief-followups</span>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-dark-border">
+
+            <!-- General Notes -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">General Notes / Coaching Reminders</label>
+                <textarea name="general_notes" rows="3" placeholder="Any additional notes for this debrief..."
+                    class="w-full rounded-md p-2 border"></textarea>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="px-6 py-4 bg-dark-bg rounded-b-lg flex justify-between items-center border-t border-dark-border">
+            <a href="/queue" class="text-gray-500 hover:text-christmas-cream transition">Cancel</a>
+            <button type="submit"
+                class="bg-christmas-green hover:bg-christmas-green-dark text-christmas-cream font-semibold py-3 px-8 rounded-lg shadow transition">
+                Complete Debrief ✓
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleFollowup(show) {
+    const details = document.getElementById('followup-details');
+    if (show) {
+        details.classList.remove('hidden');
+    } else {
+        details.classList.add('hidden');
+    }
+}
+</script>
+{% endblock %}
