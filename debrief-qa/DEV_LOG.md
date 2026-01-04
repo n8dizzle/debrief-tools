@@ -4,6 +4,61 @@ This log tracks changes made across development sessions. Update this when makin
 
 ---
 
+## 2026-01-04 - Session: ServiceTitan Task Integration
+
+### Changes Made
+
+**1. ServiceTitan Task Management API** (`app/servicetitan.py`)
+- Added `test_task_management_access()` method to check if API credentials have Task Management access
+- Added `create_task()` method to create tasks in ServiceTitan linked to jobs
+- Task creation includes: job link, task type, title, description, due date
+
+**2. Database Schema Updates** (`app/database.py`)
+- Added `st_task_id` column (Integer) - stores created task ID in ServiceTitan
+- Added `st_task_created_at` column (DateTime) - timestamp of task creation
+
+**3. Supabase Migration Applied**
+```sql
+ALTER TABLE debrief_sessions
+ADD COLUMN IF NOT EXISTS st_task_id INTEGER,
+ADD COLUMN IF NOT EXISTS st_task_created_at TIMESTAMP;
+```
+
+**4. Automatic Task Creation on Follow-ups** (`app/main.py`)
+- When a dispatcher marks a follow-up required, a task is automatically created in ServiceTitan
+- Task is linked to the original job
+- Task description includes customer, tech, dispatcher, and debrief link
+
+**5. Follow-up Type to Task Type Mapping**
+| Follow-up Type | ST Task Type | ST Task ID |
+|----------------|--------------|------------|
+| tech_coaching | Tech Follow Up | 161707050 |
+| customer_callback | Call Customer | 160520468 |
+| manager_review | Management Question | 169624604 |
+| billing | Correct ticket | 173285912 |
+| quality | Customer Complaints | 317 |
+| other | Customer Follow-Up | 27930468 |
+
+**6. New API Endpoint**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/test-task-management` | Test if API has Task Management access |
+
+### How It Works
+1. Dispatcher completes debrief and checks "Follow-up Required"
+2. Selects follow-up type (tech coaching, customer callback, etc.)
+3. On submit:
+   - Slack notification is sent (existing)
+   - ServiceTitan task is created with appropriate task type
+   - Task ID is stored on the debrief session
+
+### Notes
+- Task creation is non-blocking - if it fails, the debrief still saves
+- Tasks appear in ServiceTitan's Task Management with full job linkage
+- Task source is set to "Job" for proper categorization
+
+---
+
 ## 2026-01-04 - Session: Multi-Tech & Invoice Author Feature
 
 ### Changes Made
