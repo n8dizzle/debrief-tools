@@ -104,7 +104,10 @@ class TicketRaw(Base):
     
     # Photos/Attachments
     photo_count = Column(Integer, default=0)
-    
+
+    # Forms completed
+    form_count = Column(Integer, default=0)
+
     # Equipment (from your OCR system, populated later)
     equipment_age_years = Column(Integer, nullable=True)
     equipment_brand = Column(String(100), nullable=True)

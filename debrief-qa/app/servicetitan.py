@@ -121,11 +121,19 @@ class ServiceTitanClient:
     async def get_attachments_by_job(self, job_id: int) -> Dict[str, Any]:
         """Get attachments (photos) for a job.
 
-        Uses the Forms API endpoint, not Job Planning API.
+        Note: This endpoint may not return tech photos - needs investigation.
+        Tech data plate photos may be stored differently in ST.
         """
+        # TODO: Investigate where tech photos are actually stored
+        # For now, return empty to avoid errors
+        return {"data": []}
+
+    async def get_form_submissions_by_job(self, job_id: int) -> Dict[str, Any]:
+        """Get form submissions for a job."""
         return await self._request(
             "GET",
-            f"forms/v2/tenant/{self.tenant_id}/jobs/{job_id}/attachments"
+            f"forms/v2/tenant/{self.tenant_id}/submissions",
+            params={"jobId": job_id}
         )
     
     async def get_customer_memberships(self, customer_id: int) -> Dict[str, Any]:
@@ -261,13 +269,20 @@ class ServiceTitanClient:
             elif primary_invoice.get("createdBy"):
                 invoice_author = primary_invoice.get("createdBy").split("@")[0]
         
-        # Get attachments (photos)
+        # Get attachments (photos) - currently disabled pending investigation
         try:
             attachments_response = await self.get_attachments_by_job(job_id)
             attachments = attachments_response.get("data", [])
         except:
             attachments = []
-        
+
+        # Get form submissions
+        try:
+            forms_response = await self.get_form_submissions_by_job(job_id)
+            form_submissions = forms_response.get("data", [])
+        except:
+            form_submissions = []
+
         # Check for membership sold on this job
         membership_sold = False
         membership_type = None
@@ -326,8 +341,11 @@ class ServiceTitanClient:
             # Membership
             "membership_sold": membership_sold,
             "membership_type": membership_type,
-            
-            # Photos
+
+            # Forms
+            "form_count": len(form_submissions),
+
+            # Photos (disabled pending investigation)
             "photo_count": len(attachments),
             
             # Timestamps
@@ -342,6 +360,7 @@ class ServiceTitanClient:
                 "customer": customer,
                 "location": location,
                 "attachments": attachments,
+                "form_submissions": form_submissions,
             }
         }
     
