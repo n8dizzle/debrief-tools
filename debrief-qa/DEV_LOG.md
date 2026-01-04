@@ -167,6 +167,37 @@ When a job has any tag with `isConversionOpportunity: true`, that job is flagged
 
 ---
 
+## 2026-01-04 - Session: Dashboard Materials Card & Spot Check Enhancements
+
+### Changes Made
+
+**1. Dashboard Materials Card** (`templates/dashboard.html`)
+- Added 6th card "Materials" (💰) to Performance by Trade section
+- Tracks materials_on_invoice_rate by trade (HVAC vs Plumbing)
+- Critical for gross margin tracking
+- Updated grid from 5 to 6 columns
+
+**2. Spot Check Button on Completed Debriefs** (`templates/debrief.html`, `app/main.py`)
+- Added "+ Spot Check" button in job header for completed debriefs
+- Button visible when viewing any debriefed job from history
+- Creates manual spot check and redirects to review form
+- Shows "View Spot Check" if one already exists
+
+**3. Spot Check Button in History** (`templates/history.html`)
+- Added "+ SC" button column to job history table
+- Allows managers to add any job to spot check queue
+- Shows "✓ SC" if spot check already exists
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `templates/dashboard.html` | Added Materials card, 6-column grid |
+| `templates/debrief.html` | Added spot check button in header |
+| `templates/history.html` | Added spot check button column |
+| `app/main.py` | Pass spot_check to debrief template, add debrief_session_id/has_spot_check to history API |
+
+---
+
 ## 2026-01-04 - Session: Queue Status Management & Auth
 
 ### Changes Made
