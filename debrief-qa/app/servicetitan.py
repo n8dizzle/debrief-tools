@@ -130,12 +130,32 @@ class ServiceTitanClient:
         )
 
     async def get_form_submissions_by_job(self, job_id: int) -> Dict[str, Any]:
-        """Get form submissions for a job."""
-        return await self._request(
+        """Get form submissions for a job.
+
+        The API's jobId parameter doesn't filter correctly, so we fetch
+        all submissions and filter client-side by checking the owners array.
+        """
+        # Get all submissions (API doesn't filter by jobId properly)
+        response = await self._request(
             "GET",
             f"forms/v2/tenant/{self.tenant_id}/submissions",
-            params={"jobId": job_id}
+            params={"pageSize": 200}  # Get more to ensure we find the job's forms
         )
+
+        all_submissions = response.get("data", [])
+
+        # Filter by job ID in the owners array
+        # Each submission has owners: [{"type": "Job", "id": 123456}, ...]
+        job_submissions = [
+            s for s in all_submissions
+            if any(
+                o.get("type") == "Job" and o.get("id") == job_id
+                for o in s.get("owners", [])
+            )
+        ]
+
+        # Return in same format as original API response
+        return {"data": job_submissions}
     
     async def get_customer_memberships(self, customer_id: int) -> Dict[str, Any]:
         """Get memberships for a customer."""
