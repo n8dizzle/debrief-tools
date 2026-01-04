@@ -551,7 +551,53 @@ async def submit_debrief_form(
             if slack_result.get("thread_ts"):
                 session.slack_thread_ts = slack_result["thread_ts"]
             db.commit()
-    
+
+        # Create ServiceTitan task for follow-up
+        from .servicetitan import get_st_client
+
+        # Map follow-up types to ST task type IDs
+        FOLLOWUP_TO_TASK_TYPE = {
+            "tech_coaching": 161707050,      # Tech Follow Up
+            "customer_callback": 160520468,  # Call Customer
+            "manager_review": 169624604,     # Management Question
+            "billing": 173285912,            # Correct ticket
+            "quality": 317,                  # Customer Complaints
+            "other": 27930468,               # Customer Follow-Up (general)
+        }
+
+        followup_type = form_data.get("followup_type", "other")
+        task_type_id = FOLLOWUP_TO_TASK_TYPE.get(followup_type, 27930468)
+
+        # Build task title and description
+        task_title = f"Debrief Follow-up: Job #{ticket.job_number}"
+        task_description = f"""Follow-up from Debrief QA
+
+Customer: {ticket.customer_name}
+Technician: {ticket.tech_name}
+Flagged by: {dispatcher.name}
+
+Type: {followup_type.replace('_', ' ').title()}
+Details: {form_data.get('followup_description', 'No details provided')}
+
+View debrief: {base_url}/debrief/{job_id}"""
+
+        try:
+            st_client = get_st_client()
+            task_result = await st_client.create_task(
+                job_id=job_id,
+                task_type_id=task_type_id,
+                title=task_title,
+                description=task_description,
+            )
+
+            if task_result.get("success"):
+                session.st_task_id = task_result.get("task_id")
+                session.st_task_created_at = datetime.utcnow()
+                db.commit()
+        except Exception as e:
+            # Log error but don't fail the submission
+            print(f"Failed to create ST task: {e}")
+
     # Redirect back to queue
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/queue", status_code=303)

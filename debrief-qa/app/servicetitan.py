@@ -480,6 +480,70 @@ class ServiceTitanClient:
                 "error": str(e),
             }
 
+    async def create_task(
+        self,
+        job_id: int,
+        task_type_id: int,
+        title: str,
+        description: str = "",
+        due_date: Optional[datetime] = None,
+        assigned_to_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a task in ServiceTitan Task Management.
+
+        Args:
+            job_id: The job ID to associate the task with
+            task_type_id: The task type ID (from task management data)
+            title: Short title for the task
+            description: Detailed description/notes
+            due_date: Optional due date (defaults to tomorrow)
+            assigned_to_id: Optional employee ID to assign task to
+
+        Returns:
+            Created task data or error info
+        """
+        # Task source: "Job" = 27838436
+        TASK_SOURCE_JOB = 27838436
+
+        # Default due date to tomorrow if not specified
+        if due_date is None:
+            due_date = datetime.utcnow() + timedelta(days=1)
+
+        payload = {
+            "jobId": job_id,
+            "taskTypeId": task_type_id,
+            "taskSourceId": TASK_SOURCE_JOB,
+            "title": title[:100],  # Limit title length
+            "memo": description[:2000] if description else "",  # Limit memo length
+            "dueDate": due_date.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        }
+
+        if assigned_to_id:
+            payload["assignedToId"] = assigned_to_id
+
+        try:
+            result = await self._request(
+                "POST",
+                f"taskmanagement/v2/tenant/{self.tenant_id}/tasks",
+                json=payload
+            )
+            return {
+                "success": True,
+                "task_id": result.get("id"),
+                "data": result,
+            }
+        except httpx.HTTPStatusError as e:
+            return {
+                "success": False,
+                "error": f"HTTP {e.response.status_code}: {e.response.text[:500]}",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
     async def close(self):
         """Close HTTP client."""
         await self._http_client.aclose()

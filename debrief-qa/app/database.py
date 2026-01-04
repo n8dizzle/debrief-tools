@@ -237,7 +237,11 @@ class DebriefSession(Base):
     followup_completed_by = Column(String(100), nullable=True)
     slack_notified = Column(Boolean, default=False)
     slack_thread_ts = Column(String(50), nullable=True)  # For threading follow-up replies
-    
+
+    # ServiceTitan Task Integration
+    st_task_id = Column(Integer, nullable=True)  # Created task ID in ServiceTitan
+    st_task_created_at = Column(DateTime, nullable=True)
+
     # Relationships
     ticket = relationship("TicketRaw", back_populates="debrief_session")
     dispatcher = relationship("Dispatcher", back_populates="debrief_sessions")
