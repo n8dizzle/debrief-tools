@@ -140,25 +140,55 @@
     <!-- Navigation -->
     <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Logo Row - Centered -->
-            <div class="flex justify-center py-3 border-b border-dark-border">
-                <a href="/" class="flex flex-col items-center gap-1 group">
-                    <img src="/static/logo.png" alt="Christmas Air" class="h-16 w-auto" onerror="this.style.display='none'">
-                    <div class="text-center">
-                        <span class="text-lg font-semibold text-christmas-cream">That's a Wrap</span>
-                        <span class="text-xs text-gray-500 block">Job ticket review and grading</span>
-                    </div>
+            <div class="flex items-center justify-between h-14">
+                <!-- Left: Logo -->
+                <a href="/" class="flex items-center">
+                    <img src="/static/logo.png" alt="Christmas Air" class="h-10 w-auto" onerror="this.style.display='none'">
                 </a>
-            </div>
-            <!-- Navigation Row -->
-            <div class="flex items-center justify-center gap-1 h-10">
-                <a href="/dashboard" class="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">Dashboard</a>
-                <a href="/queue" class="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">Queue</a>
-                <a href="/history" class="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">History</a>
-                <span class="mx-2 h-4 w-px bg-dark-border"></span>
-                <a href="/spot-checks" class="px-3 py-1.5 rounded-md text-sm text-christmas-gold hover:text-christmas-cream hover:bg-dark-card-hover transition">Spot Checks</a>
-                <span class="mx-3 h-4 w-px bg-dark-border"></span>
-                <span id="current-time" class="text-xs text-gray-500"></span>
+
+                <!-- Center: App Name + Nav -->
+                <div class="flex items-center gap-6">
+                    <a href="/" class="flex flex-col items-center">
+                        <span class="text-base font-semibold text-christmas-cream leading-tight">That's a Wrap</span>
+                        <span class="text-[10px] text-gray-500">Job ticket review</span>
+                    </a>
+                    <span class="h-6 w-px bg-dark-border"></span>
+                    <div class="flex items-center gap-1">
+                        <a href="/dashboard" class="px-2.5 py-1 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">Dashboard</a>
+                        <a href="/queue" class="px-2.5 py-1 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">Queue</a>
+                        <a href="/history" class="px-2.5 py-1 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">History</a>
+                        <a href="/spot-checks" class="px-2.5 py-1 rounded-md text-sm text-christmas-gold hover:text-christmas-cream hover:bg-dark-card-hover transition">Spot Checks</a>
+                    </div>
+                </div>
+
+                <!-- Right: User + Time -->
+                <div class="flex items-center gap-4">
+                    {% if current_user %}
+                    <!-- Admin link (only for Admin/Owner) -->
+                    {% if current_user.role.value in ['admin', 'owner'] %}
+                    <a href="/admin/users" class="text-xs text-purple-400 hover:text-purple-300">Admin</a>
+                    {% endif %}
+
+                    <!-- User dropdown -->
+                    <div class="relative group">
+                        <button class="flex items-center gap-2 text-sm text-gray-400 hover:text-christmas-cream">
+                            <span>{{ current_user.name }}</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-dark-border text-gray-500">{{ current_user.role.value|title }}</span>
+                        </button>
+                        <div class="absolute right-0 top-full mt-1 w-48 bg-dark-card border border-dark-border rounded-lg shadow-xl hidden group-hover:block">
+                            <div class="px-4 py-2 border-b border-dark-border">
+                                <div class="text-sm text-christmas-cream">{{ current_user.name }}</div>
+                                <div class="text-xs text-gray-500">{{ current_user.email }}</div>
+                            </div>
+                            <a href="/logout" class="block px-4 py-2 text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover">
+                                Sign out
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <span id="current-time" class="text-xs text-gray-500 min-w-[100px] text-right"></span>
+                </div>
             </div>
         </div>
     </nav>

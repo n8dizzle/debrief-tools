@@ -19,6 +19,20 @@
                            class="text-sm text-christmas-green-light hover:text-christmas-green hover:underline">
                             View in ServiceTitan ↗
                         </a>
+                        {% if debrief %}
+                        <!-- Spot Check Button (for completed debriefs) -->
+                        {% if spot_check %}
+                        <a href="/spot-check/{{ spot_check.id }}"
+                           class="px-3 py-1 text-sm bg-christmas-gold/20 text-christmas-gold rounded-lg border border-christmas-gold/50 hover:bg-christmas-gold/30 transition">
+                            View Spot Check
+                        </a>
+                        {% else %}
+                        <button onclick="addToSpotCheck({{ debrief.id }})"
+                                class="px-3 py-1 text-sm bg-christmas-gold/20 text-christmas-gold rounded-lg border border-christmas-gold/50 hover:bg-christmas-gold/30 transition">
+                            + Spot Check
+                        </button>
+                        {% endif %}
+                        {% endif %}
                     </div>
                     <div class="mt-1 flex items-center space-x-3 flex-wrap gap-2">
                         <span class="px-2 py-1 text-sm rounded-full bg-christmas-green/20 text-christmas-green-light">{{ ticket.job_type_name or 'Unknown' }}</span>
@@ -469,6 +483,26 @@ function toggleFollowup(show) {
         details.classList.remove('hidden');
     } else {
         details.classList.add('hidden');
+    }
+}
+
+async function addToSpotCheck(debriefSessionId) {
+    if (!confirm('Add this job to the spot check queue?')) return;
+
+    try {
+        const response = await fetch(`/api/spot-checks/manual/${debriefSessionId}`, { method: 'POST' });
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Added to spot check queue!');
+            // Redirect to the spot check form
+            window.location.href = `/spot-check/${result.spot_check_id}`;
+        } else {
+            alert(result.message || 'Failed to add spot check');
+        }
+    } catch (error) {
+        console.error('Failed to add spot check:', error);
+        alert('Failed to add spot check');
     }
 }
 </script>

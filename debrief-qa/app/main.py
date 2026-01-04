@@ -2,6 +2,7 @@
 Debrief QA System - FastAPI Application
 
 Main entry point for the application. Handles:
+- Google OAuth authentication
 - Webhook endpoint for ServiceTitan
 - API endpoints for the dispatcher UI
 - HTML template rendering
@@ -11,9 +12,10 @@ import os
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import FastAPI, Request, HTTPException, Depends, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from dotenv import load_dotenv
@@ -30,6 +32,10 @@ from .models import (
     DispatcherCreate, DispatcherResponse
 )
 from .webhook import verify_webhook_signature, process_webhook, manual_add_job
+from .auth import (
+    oauth, get_current_user_optional, require_auth, require_roles,
+    is_admin, handle_google_callback, create_session, clear_session
+)
 
 load_dotenv()
 
@@ -38,6 +44,10 @@ app = FastAPI(
     description="Real-time job ticket quality assurance for dispatcher debrief workflow",
     version="1.0.0"
 )
+
+# Session middleware for authentication
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 # Mount static files and templates
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -51,6 +61,177 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 async def startup_event():
     """Initialize database on startup."""
     init_db()
+
+
+# ----- Authentication Routes -----
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = None):
+    """Login page with Google sign-in button."""
+    # If already logged in, redirect to queue
+    if request.session.get("user_id"):
+        return RedirectResponse(url="/queue", status_code=302)
+
+    error_messages = {
+        "domain_error": "Only @christmasair.com emails are allowed.",
+        "no_account": "Your account hasn't been set up yet. Please contact an administrator.",
+        "inactive": "Your account has been deactivated. Please contact an administrator.",
+        "token_error": "Authentication failed. Please try again.",
+        "userinfo_error": "Could not get your information from Google. Please try again.",
+    }
+    error_text = error_messages.get(error, error)
+
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": error_text
+    })
+
+
+@app.get("/auth/google")
+async def google_login(request: Request):
+    """Initiate Google OAuth flow."""
+    redirect_uri = os.getenv("BASE_URL", "http://localhost:8000") + "/auth/google/callback"
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request, db: Session = Depends(get_db)):
+    """Handle Google OAuth callback."""
+    result = await handle_google_callback(request, db)
+
+    if not result["success"]:
+        return RedirectResponse(url=f"/login?error={result['error_code']}", status_code=302)
+
+    user = result["user"]
+    create_session(request, user)
+
+    # Redirect to the original URL or queue
+    next_url = request.session.pop("next", "/queue")
+    return RedirectResponse(url=next_url, status_code=302)
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Clear session and redirect to login."""
+    clear_session(request)
+    return RedirectResponse(url="/login", status_code=302)
+
+
+# ----- Admin Routes -----
+
+@app.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER)),
+    error: str = None,
+    success: str = None
+):
+    """User management page for admins."""
+    users = db.query(Dispatcher).order_by(
+        Dispatcher.role.desc(),  # Owners first, then admins, etc.
+        Dispatcher.name
+    ).all()
+
+    return templates.TemplateResponse("admin_users.html", {
+        "request": request,
+        "current_user": current_user,
+        "users": users,
+        "error": error,
+        "success": success
+    })
+
+
+@app.post("/admin/users")
+async def add_user(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER)),
+    email: str = Form(...),
+    name: str = Form(...),
+    role: str = Form(...)
+):
+    """Add a new user."""
+    email = email.lower().strip()
+
+    # Validate domain
+    if not email.endswith("@christmasair.com"):
+        return RedirectResponse(url="/admin/users?error=Email must be @christmasair.com", status_code=302)
+
+    # Check if email already exists
+    existing = db.query(Dispatcher).filter(Dispatcher.email == email).first()
+    if existing:
+        return RedirectResponse(url="/admin/users?error=User with this email already exists", status_code=302)
+
+    # Only owner can create other owners
+    if role == "owner" and current_user.role != DispatcherRole.OWNER:
+        return RedirectResponse(url="/admin/users?error=Only owners can create other owners", status_code=302)
+
+    # Create user
+    new_user = Dispatcher(
+        name=name.strip(),
+        email=email,
+        role=DispatcherRole(role),
+        is_active=True,
+        invited_by_id=current_user.id,
+        invited_at=datetime.utcnow()
+    )
+    db.add(new_user)
+    db.commit()
+
+    return RedirectResponse(url=f"/admin/users?success=Added {name}", status_code=302)
+
+
+@app.post("/admin/users/{user_id}/toggle")
+async def toggle_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER))
+):
+    """Activate or deactivate a user."""
+    user = db.query(Dispatcher).filter(Dispatcher.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Can't modify yourself or owners
+    if user.id == current_user.id:
+        return RedirectResponse(url="/admin/users?error=Cannot modify your own account", status_code=302)
+    if user.role == DispatcherRole.OWNER:
+        return RedirectResponse(url="/admin/users?error=Cannot modify owner accounts", status_code=302)
+
+    user.is_active = not user.is_active
+    db.commit()
+
+    status = "activated" if user.is_active else "deactivated"
+    return RedirectResponse(url=f"/admin/users?success={user.name} {status}", status_code=302)
+
+
+@app.post("/admin/users/{user_id}/role")
+async def change_user_role(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER)),
+    role: str = Form(...)
+):
+    """Change a user's role."""
+    user = db.query(Dispatcher).filter(Dispatcher.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Can't modify yourself or owners
+    if user.id == current_user.id:
+        return RedirectResponse(url="/admin/users?error=Cannot modify your own role", status_code=302)
+    if user.role == DispatcherRole.OWNER:
+        return RedirectResponse(url="/admin/users?error=Cannot modify owner accounts", status_code=302)
+
+    # Only owner can promote to admin
+    if role == "admin" and current_user.role != DispatcherRole.OWNER:
+        return RedirectResponse(url="/admin/users?error=Only owners can create admins", status_code=302)
+
+    user.role = DispatcherRole(role)
+    db.commit()
+
+    return RedirectResponse(url=f"/admin/users?success={user.name} is now {role}", status_code=302)
 
 
 # ----- Webhook Endpoint -----
@@ -74,14 +255,19 @@ async def servicetitan_webhook(request: Request, db: Session = Depends(get_db)):
 # ----- HTML Pages -----
 
 @app.get("/")
-async def home():
-    """Home page - redirect to queue."""
-    from fastapi.responses import RedirectResponse
+async def home(request: Request):
+    """Home page - redirect to queue or login."""
+    if not request.session.get("user_id"):
+        return RedirectResponse(url="/login", status_code=302)
     return RedirectResponse(url="/queue", status_code=302)
 
 
 @app.get("/queue", response_class=HTMLResponse)
-async def queue_page(request: Request, db: Session = Depends(get_db)):
+async def queue_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Dispatcher queue view."""
     pending = db.query(TicketRaw).filter(
         TicketRaw.debrief_status == TicketStatus.PENDING
@@ -105,6 +291,7 @@ async def queue_page(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("queue.html", {
         "request": request,
+        "current_user": current_user,
         "title": "Debrief Queue",
         "pending_tickets": pending,
         "in_progress_tickets": in_progress,
@@ -115,7 +302,12 @@ async def queue_page(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/debrief/{job_id}", response_class=HTMLResponse)
-async def debrief_page(job_id: int, request: Request, db: Session = Depends(get_db)):
+async def debrief_page(
+    job_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Single job debrief form."""
     from .servicetitan import get_st_client
 
@@ -123,15 +315,19 @@ async def debrief_page(job_id: int, request: Request, db: Session = Depends(get_
     if not ticket:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Mark as in progress if pending
-    if ticket.debrief_status == TicketStatus.PENDING:
-        ticket.debrief_status = TicketStatus.IN_PROGRESS
-        db.commit()
+    # Don't auto-change status on view - only change when user submits the form
 
     # Get existing debrief if any
     existing_debrief = db.query(DebriefSession).filter(
         DebriefSession.job_id == job_id
     ).first()
+
+    # Check if spot check exists for this debrief
+    existing_spot_check = None
+    if existing_debrief:
+        existing_spot_check = db.query(SpotCheck).filter(
+            SpotCheck.debrief_session_id == existing_debrief.id
+        ).first()
 
     # Get dispatchers for dropdown
     dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
@@ -148,19 +344,26 @@ async def debrief_page(job_id: int, request: Request, db: Session = Depends(get_
 
     return templates.TemplateResponse("debrief.html", {
         "request": request,
+        "current_user": current_user,
         "title": f"Debrief - Job #{ticket.job_number}",
         "ticket": ticket,
         "debrief": existing_debrief,
+        "spot_check": existing_spot_check,
         "dispatchers": dispatchers,
         "form_submissions": form_submissions,
     })
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_page(request: Request, db: Session = Depends(get_db)):
+async def dashboard_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Completion tracking dashboard."""
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
+        "current_user": current_user,
         "title": "Dashboard"
     })
 
@@ -670,10 +873,15 @@ async def get_technician_stats(db: Session = Depends(get_db)):
 # ----- Debrief History / Job Log -----
 
 @app.get("/history", response_class=HTMLResponse)
-async def history_page(request: Request, db: Session = Depends(get_db)):
+async def history_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Job history/log view - all debriefed jobs in a table."""
     return templates.TemplateResponse("history.html", {
         "request": request,
+        "current_user": current_user,
         "title": "Job History"
     })
 
@@ -794,6 +1002,36 @@ async def manually_add_job(job_id: int, db: Session = Depends(get_db)):
     """Manually add a job to the queue (for testing or catching missed webhooks)."""
     result = await manual_add_job(job_id, db)
     return result
+
+
+@app.post("/api/job/{job_id}/reset-status")
+async def reset_job_status(job_id: int, db: Session = Depends(get_db)):
+    """Reset a job's debrief status back to pending."""
+    ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Only allow reset if not completed (has no debrief session)
+    existing_debrief = db.query(DebriefSession).filter(
+        DebriefSession.job_id == job_id
+    ).first()
+
+    if existing_debrief:
+        return {
+            "success": False,
+            "message": "Cannot reset - job has a completed debrief"
+        }
+
+    old_status = ticket.debrief_status
+    ticket.debrief_status = TicketStatus.PENDING
+    db.commit()
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "old_status": old_status.value if old_status else None,
+        "new_status": "pending"
+    }
 
 
 # ----- Sync / Polling Endpoint -----
@@ -1032,7 +1270,11 @@ async def update_opportunities(
 # ----- Spot Check System -----
 
 @app.get("/spot-checks", response_class=HTMLResponse)
-async def spot_checks_page(request: Request, db: Session = Depends(get_db)):
+async def spot_checks_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Spot check queue page for managers."""
     # Get pending spot checks
     pending = db.query(SpotCheck).filter(
@@ -1065,6 +1307,7 @@ async def spot_checks_page(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("spot_checks.html", {
         "request": request,
+        "current_user": current_user,
         "title": "Spot Checks",
         "pending_spot_checks": pending,
         "in_progress_spot_checks": in_progress,
@@ -1077,7 +1320,12 @@ async def spot_checks_page(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/spot-check/{spot_check_id}", response_class=HTMLResponse)
-async def spot_check_form_page(spot_check_id: int, request: Request, db: Session = Depends(get_db)):
+async def spot_check_form_page(
+    spot_check_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Spot check review form."""
     spot_check = db.query(SpotCheck).filter(SpotCheck.id == spot_check_id).first()
     if not spot_check:
@@ -1102,6 +1350,7 @@ async def spot_check_form_page(spot_check_id: int, request: Request, db: Session
 
     return templates.TemplateResponse("spot_check_form.html", {
         "request": request,
+        "current_user": current_user,
         "title": f"Spot Check - Job #{ticket.job_number}",
         "spot_check": spot_check,
         "debrief": debrief,
@@ -1173,13 +1422,18 @@ async def submit_spot_check(
 
 
 @app.get("/spot-checks/history", response_class=HTMLResponse)
-async def spot_check_history_page(request: Request, db: Session = Depends(get_db)):
+async def spot_check_history_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
+):
     """Spot check history page."""
     # Get dispatchers for filters
     dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
 
     return templates.TemplateResponse("spot_check_history.html", {
         "request": request,
+        "current_user": current_user,
         "title": "Spot Check History",
         "dispatchers": dispatchers,
     })

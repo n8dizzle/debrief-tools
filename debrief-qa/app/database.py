@@ -157,9 +157,16 @@ class Dispatcher(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # OAuth fields
+    google_id = Column(String(100), unique=True, nullable=True)  # Google sub claim
+    last_login = Column(DateTime, nullable=True)
+    invited_by_id = Column(Integer, ForeignKey("dispatchers.id"), nullable=True)
+    invited_at = Column(DateTime, nullable=True)
+
     # Relationships
     debrief_sessions = relationship("DebriefSession", back_populates="dispatcher")
     spot_checks_performed = relationship("SpotCheck", back_populates="reviewer", foreign_keys="SpotCheck.reviewer_id")
+    invited_by = relationship("Dispatcher", remote_side=[id], foreign_keys=[invited_by_id])
 
 
 class DebriefSession(Base):

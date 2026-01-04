@@ -21,3 +21,8 @@ python-dateutil==2.8.2
 
 # For webhook signature verification
 cryptography==42.0.0
+
+# Authentication (Google OAuth)
+authlib==1.3.0
+itsdangerous==2.1.2
+starlette[full]==0.35.1

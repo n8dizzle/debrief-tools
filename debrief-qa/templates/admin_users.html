@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-christmas-cream">User Management</h1>
+            <p class="text-sm text-gray-500 mt-1">Add and manage team members who can access the system.</p>
+        </div>
+    </div>
+
+    <!-- Add User Form -->
+    <div class="bg-dark-card rounded-lg border border-dark-border p-6">
+        <h2 class="text-lg font-semibold text-christmas-cream mb-4">Add New User</h2>
+        <form action="/admin/users" method="POST" class="flex flex-wrap gap-4 items-end">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
+                <input type="email"
+                       name="email"
+                       required
+                       placeholder="name@christmasair.com"
+                       pattern=".*@christmasair\.com$"
+                       title="Must be a @christmasair.com email"
+                       class="w-full rounded-md p-2 border bg-dark-bg border-dark-border text-christmas-cream placeholder-gray-600">
+            </div>
+            <div class="w-40">
+                <label class="block text-sm font-medium text-gray-400 mb-1">Name</label>
+                <input type="text"
+                       name="name"
+                       required
+                       placeholder="John Doe"
+                       class="w-full rounded-md p-2 border bg-dark-bg border-dark-border text-christmas-cream placeholder-gray-600">
+            </div>
+            <div class="w-40">
+                <label class="block text-sm font-medium text-gray-400 mb-1">Role</label>
+                <select name="role" class="w-full rounded-md p-2 border bg-dark-bg border-dark-border text-christmas-cream">
+                    <option value="dispatcher">Dispatcher</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                    {% if current_user.role.value == 'owner' %}
+                    <option value="owner">Owner</option>
+                    {% endif %}
+                </select>
+            </div>
+            <button type="submit"
+                    class="bg-christmas-green hover:bg-christmas-green-dark text-christmas-cream font-medium py-2 px-4 rounded-lg transition">
+                Add User
+            </button>
+        </form>
+        {% if error %}
+        <p class="mt-3 text-sm text-christmas-brown">{{ error }}</p>
+        {% endif %}
+        {% if success %}
+        <p class="mt-3 text-sm text-christmas-green-light">{{ success }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Users List -->
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">All Users ({{ users|length }})</h2>
+        </div>
+        <div class="divide-y divide-dark-border">
+            {% for user in users %}
+            <div class="px-6 py-4 flex items-center justify-between {% if not user.is_active %}opacity-50{% endif %}">
+                <div class="flex items-center gap-4">
+                    <!-- Status indicator -->
+                    <div class="w-2 h-2 rounded-full {% if user.is_active %}bg-christmas-green-light{% else %}bg-gray-500{% endif %}"></div>
+
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium text-christmas-cream">{{ user.name }}</span>
+                            {% if user.id == current_user.id %}
+                            <span class="text-xs text-christmas-gold">(You)</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-sm text-gray-500">{{ user.email }}</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <!-- Role badge -->
+                    <span class="px-2 py-1 text-xs rounded-full
+                        {% if user.role.value == 'owner' %}bg-christmas-gold/20 text-christmas-gold
+                        {% elif user.role.value == 'admin' %}bg-purple-500/20 text-purple-400
+                        {% elif user.role.value == 'manager' %}bg-blue-500/20 text-blue-400
+                        {% else %}bg-dark-border text-gray-400{% endif %}">
+                        {{ user.role.value|title }}
+                    </span>
+
+                    <!-- Last login -->
+                    <div class="text-xs text-gray-500 w-32 text-right">
+                        {% if user.last_login %}
+                        Last login: {{ user.last_login.strftime('%b %d') }}
+                        {% elif user.google_id %}
+                        Active
+                        {% else %}
+                        Never signed in
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions (don't allow editing yourself or owner) -->
+                    {% if user.id != current_user.id and user.role.value != 'owner' %}
+                    <div class="flex items-center gap-2">
+                        <!-- Role change dropdown -->
+                        <form action="/admin/users/{{ user.id }}/role" method="POST" class="inline">
+                            <select name="role"
+                                    onchange="this.form.submit()"
+                                    class="text-xs rounded p-1 bg-dark-bg border border-dark-border text-gray-400">
+                                <option value="dispatcher" {% if user.role.value == 'dispatcher' %}selected{% endif %}>Dispatcher</option>
+                                <option value="manager" {% if user.role.value == 'manager' %}selected{% endif %}>Manager</option>
+                                <option value="admin" {% if user.role.value == 'admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                        </form>
+
+                        <!-- Toggle active -->
+                        <form action="/admin/users/{{ user.id }}/toggle" method="POST" class="inline">
+                            <button type="submit"
+                                    class="text-xs px-2 py-1 rounded
+                                        {% if user.is_active %}bg-christmas-brown/20 text-christmas-brown hover:bg-christmas-brown/30
+                                        {% else %}bg-christmas-green/20 text-christmas-green-light hover:bg-christmas-green/30{% endif %}">
+                                {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Help Text -->
+    <div class="text-sm text-gray-500 space-y-2">
+        <p><strong>Roles:</strong></p>
+        <ul class="list-disc list-inside ml-2 space-y-1">
+            <li><strong>Dispatcher</strong> - Can complete debriefs</li>
+            <li><strong>Manager</strong> - Can complete debriefs and spot checks</li>
+            <li><strong>Admin</strong> - Can manage users and all features</li>
+            <li><strong>Owner</strong> - Full access (cannot be modified)</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

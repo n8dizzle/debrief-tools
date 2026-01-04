@@ -140,17 +140,25 @@
                         {% endif %}
                     </div>
 
-                    <!-- Col 4: Price & Stats (3 cols) -->
-                    <div class="col-span-3 text-right pl-2">
+                    <!-- Col 4: Price & Stats (2 cols) -->
+                    <div class="col-span-2 text-right pl-2">
                         <div class="text-lg font-semibold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
                         <div class="flex items-center justify-end gap-3 text-xs mt-0.5">
                             <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
                             <span class="text-gray-500">📷 {{ ticket.photo_count or 0 }}</span>
-                            <span class="text-gray-500">📋 {{ ticket.form_count or 0 }}</span>
                             <span class="text-gray-500">💰 {{ ticket.estimate_count }}</span>
                         </div>
+                    </div>
+
+                    <!-- Col 5: Reset Button (1 col) -->
+                    <div class="col-span-1 text-right" onclick="event.stopPropagation();">
+                        <button onclick="resetJobStatus({{ ticket.job_id }})"
+                                title="Return to pending queue"
+                                class="text-xs text-gray-400 hover:text-christmas-cream bg-dark-border hover:bg-dark-card-hover px-2 py-1 rounded transition">
+                            ↩ Reset
+                        </button>
                     </div>
                 </div>
             </div>
@@ -268,6 +276,23 @@
 <script>
     // Auto-refresh every 30 seconds
     setTimeout(() => location.reload(), 30000);
+
+    // Reset job status back to pending
+    async function resetJobStatus(jobId) {
+        try {
+            const response = await fetch(`/api/job/${jobId}/reset-status`, { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                location.reload();
+            } else {
+                alert(result.message || 'Could not reset job status');
+            }
+        } catch (error) {
+            console.error('Reset error:', error);
+            alert('Error resetting job status');
+        }
+    }
 
     // Sync jobs from ServiceTitan
     async function syncJobs() {
