@@ -65,6 +65,37 @@ DATABASE_URL=sqlite:///./debrief.db
 | GET | `/api/job/{job_id}` | Get single job details |
 | POST | `/api/job/{job_id}/debrief` | Submit debrief checklist |
 | GET | `/api/dashboard` | Completion stats |
+| POST | `/api/sync` | Pull completed jobs from ST API |
+| POST | `/api/re-enrich` | Re-fetch photo/form counts for existing tickets |
+
+### Sync Endpoint
+
+Pull completed jobs from ServiceTitan for the last N hours:
+
+```bash
+# From local machine
+curl -X POST "https://debrief.christmasair.com/api/sync?hours_back=24"
+
+# Via SSH (faster for production)
+ssh root@64.225.12.86 "curl -s -X POST 'http://localhost:8000/api/sync?hours_back=72'"
+```
+
+### Re-Enrich Endpoint
+
+Re-fetch photo and form counts for existing tickets. Useful after fixing API endpoints or to refresh data:
+
+```bash
+# Small batch from local machine
+curl -X POST "https://debrief.christmasair.com/api/re-enrich?limit=20&force=true"
+
+# Large batch via SSH (avoids timeout)
+ssh root@64.225.12.86 "curl -s -X POST 'http://localhost:8000/api/re-enrich?limit=200&force=true'"
+```
+
+Parameters:
+- `limit` - Max tickets to update (default: 50)
+- `status` - Filter by status: pending, in_progress, completed
+- `force` - Update all tickets even if values unchanged (default: false)
 
 ## Checklist Items
 
@@ -77,3 +108,28 @@ All items required (Pass / Fail / N/A):
 - Google reviews discussed
 - Replacement discussed (if aged equipment)
 - G3 contact needed
+
+## ServiceTitan API Notes
+
+Important quirks discovered while building this system:
+
+### Photos/Attachments
+- **Endpoint**: `forms/v2/tenant/{tenant}/jobs/{jobId}/attachments`
+- Photos are stored at the job level via the Forms API, not in the job object itself
+- Returns all tech photos including data plates, equipment shots, etc.
+
+### Form Submissions
+- **Endpoint**: `forms/v2/tenant/{tenant}/submissions`
+- **Bug**: The `jobId` query parameter does NOT filter results properly
+- **Workaround**: Fetch all submissions and filter client-side by checking the `owners` array:
+  ```python
+  # Each submission has owners: [{"type": "Job", "id": 123456}, ...]
+  job_submissions = [s for s in all_submissions
+                     if any(o.get("type") == "Job" and o.get("id") == job_id
+                            for o in s.get("owners", []))]
+  ```
+
+### Technician Assignments
+- Tech info is NOT on the job object directly
+- Must fetch via: `dispatch/v2/tenant/{tenant}/appointment-assignments?appointmentIds={id}`
+- Get appointment IDs first from: `jpm/v2/tenant/{tenant}/appointments?jobId={id}`
