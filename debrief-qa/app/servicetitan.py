@@ -369,8 +369,8 @@ class ServiceTitanClient:
         await self._http_client.aclose()
 
 
-# Job type categorization based on your provided list
-JOB_TYPE_CATEGORIES = {
+# Legacy job type categorization (old naming convention)
+LEGACY_JOB_TYPE_CATEGORIES = {
     # HVAC - Service
     "No Cool": ("Service", "HVAC"),
     "No Heat": ("Service", "HVAC"),
@@ -379,14 +379,14 @@ JOB_TYPE_CATEGORIES = {
     "Water Leak": ("Service", "HVAC"),
     "Duct Cleaning": ("Service", "HVAC"),
     "Inspection (includes heat and cool)": ("Service", "HVAC"),
-    
+
     # HVAC - Maintenance
     "Cooling Tune-up": ("Maintenance", "HVAC"),
     "Heating Tune-up": ("Maintenance", "HVAC"),
-    
+
     # HVAC - Sales
     "Estimate": ("Sales", "HVAC"),
-    
+
     # HVAC - Install
     "Install Full System Replacement": ("Install", "HVAC"),
     "Install Partial System Replacement": ("Install", "HVAC"),
@@ -394,17 +394,17 @@ JOB_TYPE_CATEGORIES = {
     "IAQ": ("Install", "HVAC"),
     "Install Other": ("Install", "HVAC"),
     "Insulation": ("Install", "HVAC"),
-    
+
     # Plumbing - Service
     "No Hot Water": ("Service", "Plumbing"),
     "Gas Leak": ("Service", "Plumbing"),
     "Clogged Drain": ("Service", "Plumbing"),
     "Repair or WIP": ("Service", "Plumbing"),
     "Inspection": ("Service", "Plumbing"),
-    
+
     # Plumbing - Maintenance
     "Annual Maintenance": ("Maintenance", "Plumbing"),
-    
+
     # Plumbing - Install
     "Install Sewer Line": ("Install", "Plumbing"),
     "Install Water Heater": ("Install", "Plumbing"),
@@ -418,19 +418,84 @@ JOB_TYPE_CATEGORIES = {
 def categorize_job_type(job_type_name: Optional[str]) -> tuple:
     """
     Get category and trade type for a job type name.
+
+    Supports two formats:
+    1. New format: "PREFIX - Description" (e.g., "SERVICE - T/U-Res-Mem", "PLUMBING - Recall")
+    2. Legacy format: Simple names (e.g., "No Cool", "Cooling Tune-up")
+
     Returns (category, trade_type) or ("Unknown", "Unknown") if not found.
     """
     if not job_type_name:
         return ("Unknown", "Unknown")
 
-    # Exact match
-    if job_type_name in JOB_TYPE_CATEGORIES:
-        return JOB_TYPE_CATEGORIES[job_type_name]
+    # Normalize for matching
+    name_upper = job_type_name.upper()
+    name_lower = job_type_name.lower()
 
-    # Fuzzy match - check if job type name contains a key
-    for key, value in JOB_TYPE_CATEGORIES.items():
-        if key.lower() in job_type_name.lower():
+    # ======================
+    # NEW FORMAT: PREFIX - Description
+    # ======================
+
+    # Determine trade first based on prefix
+    if name_upper.startswith("PLUMBING"):
+        trade = "Plumbing"
+        # Plumbing - Install
+        if any(kw in name_lower for kw in ["tank install", "tankless install", "filtration system", "install gas line"]):
+            return ("Install", trade)
+        # Plumbing - Maintenance
+        if "maintenance" in name_lower:
+            return ("Maintenance", trade)
+        # Plumbing - Sales
+        if "estimate" in name_lower:
+            return ("Sales", trade)
+        # Plumbing - Service (default for plumbing prefix)
+        return ("Service", trade)
+
+    # INSTALL prefix (HVAC)
+    if name_upper.startswith("INSTALL"):
+        return ("Install", "HVAC")
+
+    # SALES prefix (HVAC)
+    if name_upper.startswith("SALES"):
+        return ("Sales", "HVAC")
+
+    # SERVICE prefix (HVAC)
+    if name_upper.startswith("SERVICE"):
+        # Tune-ups are Maintenance
+        if "t/u" in name_lower or "tune" in name_lower:
+            return ("Maintenance", "HVAC")
+        # Everything else is Service
+        return ("Service", "HVAC")
+
+    # ======================
+    # LEGACY FORMAT: Simple names
+    # ======================
+
+    # Exact match on legacy names
+    if job_type_name in LEGACY_JOB_TYPE_CATEGORIES:
+        return LEGACY_JOB_TYPE_CATEGORIES[job_type_name]
+
+    # Fuzzy match - check if job type name contains a legacy key
+    for key, value in LEGACY_JOB_TYPE_CATEGORIES.items():
+        if key.lower() in name_lower:
             return value
+
+    # ======================
+    # FALLBACK: Keyword detection
+    # ======================
+
+    # Determine trade from keywords
+    if "plumb" in name_lower:
+        trade = "Plumbing"
+    else:
+        trade = "HVAC"
+
+    if "install" in name_lower:
+        return ("Install", trade)
+    if "estimate" in name_lower or "est" in name_lower:
+        return ("Sales", trade)
+    if "maintenance" in name_lower or "tune" in name_lower:
+        return ("Maintenance", trade)
 
     return ("Unknown", "Unknown")
 
