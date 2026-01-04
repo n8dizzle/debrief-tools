@@ -795,6 +795,7 @@ async def sync_completed_jobs(
 async def re_enrich_tickets(
     limit: int = 50,
     status: Optional[str] = None,
+    force: bool = False,
     db: Session = Depends(get_db)
 ):
     """
@@ -804,6 +805,7 @@ async def re_enrich_tickets(
     Args:
         limit: Max number of tickets to update (default 50)
         status: Only update tickets with this status (pending, in_progress, completed)
+        force: Update all tickets even if values unchanged (useful for testing)
     """
     from .servicetitan import get_st_client
 
@@ -825,6 +827,9 @@ async def re_enrich_tickets(
 
     for ticket in tickets:
         try:
+            old_photo_count = ticket.photo_count or 0
+            old_form_count = ticket.form_count or 0
+
             # Fetch current photo count
             attachments_response = await client.get_attachments_by_job(ticket.job_id)
             photo_count = len(attachments_response.get("data", []))
@@ -833,22 +838,24 @@ async def re_enrich_tickets(
             forms_response = await client.get_form_submissions_by_job(ticket.job_id)
             form_count = len(forms_response.get("data", []))
 
-            # Update if changed
-            changed = False
-            if ticket.photo_count != photo_count:
-                ticket.photo_count = photo_count
-                changed = True
-            if ticket.form_count != form_count:
-                ticket.form_count = form_count
-                changed = True
+            # Update if changed or force mode
+            changed = (
+                ticket.photo_count != photo_count or
+                ticket.form_count != form_count
+            )
 
-            if changed:
+            if changed or force:
+                ticket.photo_count = photo_count
+                ticket.form_count = form_count
                 db.commit()
                 updated.append({
                     "job_id": ticket.job_id,
                     "job_number": ticket.job_number,
-                    "photo_count": photo_count,
-                    "form_count": form_count
+                    "old_photo_count": old_photo_count,
+                    "new_photo_count": photo_count,
+                    "old_form_count": old_form_count,
+                    "new_form_count": form_count,
+                    "changed": changed
                 })
 
         except Exception as e:
