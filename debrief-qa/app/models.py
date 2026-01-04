@@ -39,6 +39,7 @@ class TicketSummary(BaseModel):
 
     # Quick stats for queue
     photo_count: int = 0
+    form_count: int = 0
     payment_collected: bool = False
     invoice_total: float = 0.0
     estimate_count: int = 0

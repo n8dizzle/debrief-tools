@@ -276,7 +276,10 @@ async def submit_debrief_form(
         
         replacement_discussed=form_data.get("replacement_discussed", "pending"),
         no_replacement_reason=form_data.get("no_replacement_reason"),
-        
+
+        equipment_added=form_data.get("equipment_added", "pending"),
+        equipment_added_notes=form_data.get("equipment_added_notes"),
+
         g3_contact_needed=form_data.get("g3_contact_needed") == "true",
         g3_notes=form_data.get("g3_notes"),
         
@@ -340,22 +343,22 @@ async def get_dashboard(db: Session = Depends(get_db)):
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=today_start.weekday())
     month_start = today_start.replace(day=1)
-    
+
     def get_stats(start_date: datetime, label: str) -> dict:
         total_jobs = db.query(TicketRaw).filter(
             TicketRaw.completed_at >= start_date
         ).count()
-        
+
         debriefed = db.query(TicketRaw).filter(
             and_(
                 TicketRaw.completed_at >= start_date,
                 TicketRaw.debrief_status == TicketStatus.COMPLETED
             )
         ).count()
-        
+
         pending = total_jobs - debriefed
         rate = (debriefed / total_jobs * 100) if total_jobs > 0 else 100
-        
+
         return {
             "date": label,
             "total_completed_jobs": total_jobs,
@@ -363,7 +366,63 @@ async def get_dashboard(db: Session = Depends(get_db)):
             "pending_debrief": pending,
             "completion_rate": round(rate, 1)
         }
-    
+
+    def get_trade_performance(start_date: datetime) -> dict:
+        """Calculate performance metrics by trade (HVAC vs Plumbing)."""
+        # Query all debriefed jobs with their sessions for the period
+        results = db.query(
+            TicketRaw.trade_type,
+            DebriefSession.photos_reviewed,
+            DebriefSession.payment_verified,
+            DebriefSession.estimates_verified,
+            DebriefSession.invoice_summary_score,
+            DebriefSession.equipment_added,
+        ).join(
+            DebriefSession, TicketRaw.job_id == DebriefSession.job_id
+        ).filter(
+            DebriefSession.completed_at >= start_date
+        ).all()
+
+        # Initialize trade data
+        trade_data = {
+            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0},
+            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0},
+        }
+
+        for row in results:
+            trade = row.trade_type or "Unknown"
+            if trade not in trade_data:
+                continue  # Skip unknown trades
+
+            trade_data[trade]["count"] += 1
+            if row.photos_reviewed == "pass":
+                trade_data[trade]["photos_pass"] += 1
+            if row.payment_verified == "pass":
+                trade_data[trade]["payment_pass"] += 1
+            if row.estimates_verified == "pass":
+                trade_data[trade]["estimates_pass"] += 1
+            if row.invoice_summary_score:
+                trade_data[trade]["invoice_scores"].append(row.invoice_summary_score)
+            if row.equipment_added == "pass":
+                trade_data[trade]["equipment_pass"] += 1
+
+        # Calculate percentages for each trade
+        trade_performance = {}
+        for trade, data in trade_data.items():
+            count = data["count"]
+            scores = data["invoice_scores"]
+
+            trade_performance[trade.lower()] = {
+                "total_debriefed": count,
+                "photos_pass_rate": round(data["photos_pass"] / count * 100) if count else 0,
+                "payment_pass_rate": round(data["payment_pass"] / count * 100) if count else 0,
+                "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
+                "avg_invoice_score": round(sum(scores) / len(scores), 1) if scores else 0,
+                "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
+            }
+
+        return trade_performance
+
     # Dispatcher stats
     dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
     dispatcher_stats = []
@@ -374,21 +433,21 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 DebriefSession.completed_at >= today_start
             )
         ).count()
-        
+
         week_count = db.query(DebriefSession).filter(
             and_(
                 DebriefSession.dispatcher_id == d.id,
                 DebriefSession.completed_at >= week_start
             )
         ).count()
-        
+
         month_count = db.query(DebriefSession).filter(
             and_(
                 DebriefSession.dispatcher_id == d.id,
                 DebriefSession.completed_at >= month_start
             )
         ).count()
-        
+
         dispatcher_stats.append({
             "dispatcher_id": d.id,
             "dispatcher_name": d.name,
@@ -397,18 +456,19 @@ async def get_dashboard(db: Session = Depends(get_db)):
             "debriefs_completed_this_week": week_count,
             "debriefs_completed_this_month": month_count,
         })
-    
-    # Pending jobs
-    pending_jobs = db.query(TicketRaw).filter(
+
+    # Pending jobs count (no longer sending full list)
+    pending_count = db.query(TicketRaw).filter(
         TicketRaw.debrief_status != TicketStatus.COMPLETED
-    ).order_by(TicketRaw.completed_at.desc()).limit(20).all()
-    
+    ).count()
+
     return {
         "today": get_stats(today_start, "Today"),
         "this_week": get_stats(week_start, "This Week"),
         "this_month": get_stats(month_start, "This Month"),
         "dispatchers": dispatcher_stats,
-        "pending_jobs": [TicketSummary.from_orm(t) for t in pending_jobs]
+        "pending_count": pending_count,
+        "trade_performance": get_trade_performance(month_start),
     }
 
 

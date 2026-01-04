@@ -81,29 +81,29 @@
         <div class="divide-y divide-dark-border">
             {% for ticket in in_progress_tickets %}
             <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
-                <div class="grid grid-cols-12 gap-4 items-center">
-                    <!-- Col 1: Job # + Date + Tags (3 cols) -->
-                    <div class="col-span-3">
-                        <div class="flex items-center gap-2 flex-wrap">
+                <div class="grid grid-cols-12 gap-2 items-center">
+                    <!-- Col 1: Job Info (4 cols) -->
+                    <div class="col-span-4">
+                        <div class="flex items-center gap-2">
                             <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-dark-border text-gray-400">{{ (ticket.business_unit_name or '').split()[0] or '?' }}</span>
                             <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}"
                                target="_blank"
                                onclick="event.stopPropagation();"
                                class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
                                 ST ↗
                             </a>
-                            {% if ticket.completed_at %}
-                            <span class="text-xs text-gray-500">{{ ticket.completed_at.strftime('%m/%d %I:%M%p') }}</span>
-                            {% endif %}
                         </div>
-                        <div class="flex items-center gap-1 mt-1 flex-wrap">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-green/20 text-christmas-green-light">{{ ticket.job_category or 'Unknown' }}</span>
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-dark-border text-gray-400">{{ ticket.trade_type or 'Unknown' }}</span>
+                        <div class="flex items-center gap-2 mt-1 flex-nowrap">
+                            {% if ticket.completed_at %}
+                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ ticket.completed_at.strftime('%m/%d %I:%M%p').lower() }}</span>
+                            {% endif %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-green/20 text-christmas-green-light whitespace-nowrap truncate max-w-[160px]" title="{{ ticket.job_type_name or 'Unknown' }}">{{ ticket.job_type_name or 'Unknown' }}</span>
                         </div>
                     </div>
 
                     <!-- Col 2: Customer + Tech (2 cols) -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 -ml-2">
                         <div class="text-sm text-christmas-cream truncate">{{ ticket.customer_name or 'Unknown' }}</div>
                         <div class="text-xs text-gray-500 truncate relative group/tech">
                             {% if ticket.all_techs and ticket.all_techs|length > 1 %}
@@ -120,35 +120,33 @@
                         </div>
                     </div>
 
-                    <!-- Col 3: Invoice Summary (5 cols) - hover triggers tooltip -->
-                    <div class="col-span-5 relative group" onclick="event.stopPropagation();">
+                    <!-- Col 3: Invoice Summary (3 cols) -->
+                    <div class="col-span-3 relative group -ml-2" onclick="event.stopPropagation();">
                         {% if ticket.invoice_summary %}
                         <div class="text-sm text-gray-400 truncate cursor-help">
-                            {{ ticket.invoice_summary[:80] }}{% if ticket.invoice_summary|length > 80 %}...{% endif %}
+                            {{ ticket.invoice_summary[:45] }}{% if ticket.invoice_summary|length > 45 %}...{% endif %}
                         </div>
-                        {% if ticket.invoice_summary|length > 80 %}
                         <div class="absolute left-0 top-full mt-2 p-3 bg-dark-bg border border-dark-border rounded-lg shadow-xl z-50 w-96 hidden group-hover:block">
                             <div class="text-sm text-christmas-cream whitespace-pre-wrap">{{ ticket.invoice_summary }}</div>
                             {% if ticket.invoice_author %}
                             <div class="text-xs text-gray-500 mt-2 pt-2 border-t border-dark-border">Written by: {{ ticket.invoice_author }}</div>
                             {% endif %}
                         </div>
-                        {% endif %}
                         {% else %}
                         <span class="text-gray-600 text-sm">--</span>
                         {% endif %}
                     </div>
 
-                    <!-- Col 4: Price & Stats (2 cols) -->
-                    <div class="col-span-2 text-right">
-                        <div class="text-lg font-semibold text-christmas-cream">${{ "%.2f"|format(ticket.invoice_total) }}</div>
-                        <div class="flex items-center justify-end gap-2 text-xs">
+                    <!-- Col 4: Price & Stats (3 cols) -->
+                    <div class="col-span-3 text-right pl-2">
+                        <div class="text-lg font-semibold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
+                        <div class="flex items-center justify-end gap-3 text-xs mt-0.5">
                             <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
-                            <span class="text-gray-500" title="Photos">📷{{ ticket.photo_count or 0 }}</span>
-                            <span class="text-gray-500" title="Forms completed">📝{{ ticket.form_count or 0 }}</span>
-                            <span class="text-gray-500" title="Estimates">💵{{ ticket.estimate_count }}</span>
+                            <span class="text-gray-500">📷 {{ ticket.photo_count or 0 }}</span>
+                            <span class="text-gray-500">📝 {{ ticket.form_count or 0 }}</span>
+                            <span class="text-gray-500">📋 {{ ticket.estimate_count }}</span>
                         </div>
                     </div>
                 </div>
@@ -177,29 +175,29 @@
         <div class="divide-y divide-dark-border">
             {% for ticket in pending_tickets %}
             <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
-                <div class="grid grid-cols-12 gap-4 items-center">
-                    <!-- Col 1: Job # + Date + Tags (3 cols) -->
-                    <div class="col-span-3">
-                        <div class="flex items-center gap-2 flex-wrap">
+                <div class="grid grid-cols-12 gap-2 items-center">
+                    <!-- Col 1: Job Info (4 cols) -->
+                    <div class="col-span-4">
+                        <div class="flex items-center gap-2">
                             <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-dark-border text-gray-400">{{ (ticket.business_unit_name or '').split()[0] or '?' }}</span>
                             <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}"
                                target="_blank"
                                onclick="event.stopPropagation();"
                                class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
                                 ST ↗
                             </a>
-                            {% if ticket.completed_at %}
-                            <span class="text-xs text-gray-500">{{ ticket.completed_at.strftime('%m/%d %I:%M%p') }}</span>
-                            {% endif %}
                         </div>
-                        <div class="flex items-center gap-1 mt-1 flex-wrap">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/20 text-christmas-gold">{{ ticket.job_type_name or 'Unknown' }}</span>
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-dark-border text-gray-400">{{ ticket.trade_type or 'Unknown' }}</span>
+                        <div class="flex items-center gap-2 mt-1 flex-nowrap">
+                            {% if ticket.completed_at %}
+                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ ticket.completed_at.strftime('%m/%d %I:%M%p').lower() }}</span>
+                            {% endif %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/20 text-christmas-gold whitespace-nowrap truncate max-w-[160px]" title="{{ ticket.job_type_name or 'Unknown' }}">{{ ticket.job_type_name or 'Unknown' }}</span>
                         </div>
                     </div>
 
                     <!-- Col 2: Customer + Tech (2 cols) -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 -ml-2">
                         <div class="text-sm text-christmas-cream truncate">{{ ticket.customer_name or 'Unknown' }}</div>
                         <div class="text-xs text-gray-500 truncate relative group/tech">
                             {% if ticket.all_techs and ticket.all_techs|length > 1 %}
@@ -216,35 +214,33 @@
                         </div>
                     </div>
 
-                    <!-- Col 3: Invoice Summary (5 cols) - hover triggers tooltip -->
-                    <div class="col-span-5 relative group" onclick="event.stopPropagation();">
+                    <!-- Col 3: Invoice Summary (3 cols) -->
+                    <div class="col-span-3 relative group -ml-2" onclick="event.stopPropagation();">
                         {% if ticket.invoice_summary %}
                         <div class="text-sm text-gray-400 truncate cursor-help">
-                            {{ ticket.invoice_summary[:80] }}{% if ticket.invoice_summary|length > 80 %}...{% endif %}
+                            {{ ticket.invoice_summary[:45] }}{% if ticket.invoice_summary|length > 45 %}...{% endif %}
                         </div>
-                        {% if ticket.invoice_summary|length > 80 %}
                         <div class="absolute left-0 top-full mt-2 p-3 bg-dark-bg border border-dark-border rounded-lg shadow-xl z-50 w-96 hidden group-hover:block">
                             <div class="text-sm text-christmas-cream whitespace-pre-wrap">{{ ticket.invoice_summary }}</div>
                             {% if ticket.invoice_author %}
                             <div class="text-xs text-gray-500 mt-2 pt-2 border-t border-dark-border">Written by: {{ ticket.invoice_author }}</div>
                             {% endif %}
                         </div>
-                        {% endif %}
                         {% else %}
                         <span class="text-gray-600 text-sm">--</span>
                         {% endif %}
                     </div>
 
-                    <!-- Col 4: Price & Stats (2 cols) -->
-                    <div class="col-span-2 text-right">
-                        <div class="text-lg font-semibold text-christmas-cream">${{ "%.2f"|format(ticket.invoice_total) }}</div>
-                        <div class="flex items-center justify-end gap-2 text-xs">
+                    <!-- Col 4: Price & Stats (3 cols) -->
+                    <div class="col-span-3 text-right pl-2">
+                        <div class="text-lg font-semibold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
+                        <div class="flex items-center justify-end gap-3 text-xs mt-0.5">
                             <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
-                            <span class="text-gray-500" title="Photos">📷{{ ticket.photo_count or 0 }}</span>
-                            <span class="text-gray-500" title="Forms completed">📝{{ ticket.form_count or 0 }}</span>
-                            <span class="text-gray-500" title="Estimates">💵{{ ticket.estimate_count }}</span>
+                            <span class="text-gray-500">📷 {{ ticket.photo_count or 0 }}</span>
+                            <span class="text-gray-500">📝 {{ ticket.form_count or 0 }}</span>
+                            <span class="text-gray-500">📋 {{ ticket.estimate_count }}</span>
                         </div>
                     </div>
                 </div>

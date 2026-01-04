@@ -34,9 +34,9 @@
                     </div>
                 </div>
                 <div class="text-right">
-                    <div class="text-2xl font-bold text-christmas-cream">${{ "%.2f"|format(ticket.invoice_total) }}</div>
+                    <div class="text-2xl font-bold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
                     <div class="text-sm {% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown font-semibold{% endif %}">
-                        {% if ticket.payment_collected %}✓ Payment Collected{% else %}✗ Payment Outstanding: ${{ "%.2f"|format(ticket.invoice_balance) }}{% endif %}
+                        {% if ticket.payment_collected %}✓ Payment Collected{% else %}✗ Payment Outstanding: ${{ "{:,.2f}".format(ticket.invoice_balance) }}{% endif %}
                     </div>
                 </div>
             </div>
@@ -163,7 +163,7 @@
                 <label class="block text-sm font-medium text-christmas-cream">
                     Payment Verified
                     <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
-                        ({{ "Collected" if ticket.payment_collected else "Not Collected - $%.2f balance"|format(ticket.invoice_balance) }})
+                        ({{ "Collected" if ticket.payment_collected else "Not Collected - ${:,.2f} balance".format(ticket.invoice_balance) }})
                     </span>
                 </label>
                 <div class="radio-group">
@@ -187,7 +187,7 @@
             <!-- 4. Estimates -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream">
-                    Estimates Offered/Discussed ({{ ticket.estimate_count }} created{% if ticket.estimates_total %}, ${{ "%.2f"|format(ticket.estimates_total) }} total{% endif %})
+                    Estimates Offered/Discussed ({{ ticket.estimate_count }} created{% if ticket.estimates_total %}, ${{ "{:,.2f}".format(ticket.estimates_total) }} total{% endif %})
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -282,7 +282,30 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- 8. G3 Contact -->
+            <!-- 8. Equipment Added to Location -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Equipment Added to ST Location?
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="equipment_added" value="pass" class="sr-only" required>
+                        <span>✓ Yes</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="equipment_added" value="fail" class="sr-only">
+                        <span>✗ No</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="equipment_added" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="equipment_added_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 9. G3 Contact -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream">G3 Contact Needed?</label>
                 <div class="flex items-center space-x-4">

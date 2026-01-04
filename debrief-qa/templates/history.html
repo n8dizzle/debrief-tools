@@ -33,15 +33,19 @@
         <!-- Other Filters -->
         <div class="flex flex-wrap gap-4 items-end pt-3 border-t border-dark-border">
             <div>
+                <label class="block text-xs text-gray-500 mb-1">Job #</label>
+                <input type="text" id="filter-job" oninput="applyClientFilters()" placeholder="Search job #..." class="px-3 py-2 rounded-lg text-sm w-[120px] bg-dark-bg border border-dark-border text-christmas-cream placeholder-gray-600">
+            </div>
+            <div>
                 <label class="block text-xs text-gray-500 mb-1">Technician</label>
                 <select id="filter-tech" onchange="loadHistory()" class="px-3 py-2 rounded-lg text-sm min-w-[180px]">
                     <option value="">All Technicians</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs text-gray-500 mb-1">Dispatcher</label>
+                <label class="block text-xs text-gray-500 mb-1">Checked By</label>
                 <select id="filter-dispatcher" onchange="loadHistory()" class="px-3 py-2 rounded-lg text-sm min-w-[150px]">
-                    <option value="">All Dispatchers</option>
+                    <option value="">All</option>
                 </select>
             </div>
             <div>
@@ -222,10 +226,14 @@ async function loadHistory() {
 }
 
 function applyClientFilters() {
+    const jobFilter = document.getElementById('filter-job').value.trim();
     const scoreFilter = document.getElementById('filter-score').value;
     const issuesFilter = document.getElementById('filter-issues').value;
 
     filteredData = allData.filter(job => {
+        // Job number filter
+        if (jobFilter && !String(job.job_number).includes(jobFilter)) return false;
+
         // Score filter
         if (scoreFilter === 'high' && job.composite_score < 80) return false;
         if (scoreFilter === 'medium' && (job.composite_score < 60 || job.composite_score >= 80)) return false;
@@ -273,7 +281,7 @@ function renderTable() {
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Photos</th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estimates</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dispatcher</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Checked By</th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Flags</th>
                     </tr>
                 </thead>
@@ -364,6 +372,7 @@ function nextPage() {
 }
 
 function clearFilters() {
+    document.getElementById('filter-job').value = '';
     document.getElementById('filter-tech').value = '';
     document.getElementById('filter-dispatcher').value = '';
     document.getElementById('filter-score').value = '';
@@ -372,7 +381,7 @@ function clearFilters() {
 }
 
 function exportCSV() {
-    const headers = ['Job #', 'Date', 'Customer', 'Technician', 'Invoice Summary', 'Score', 'Invoice', 'Photos', 'Payment', 'Estimates', 'Membership', 'Reviews', 'Dispatcher', 'Follow-up', 'Invoice Total'];
+    const headers = ['Job #', 'Date', 'Customer', 'Technician', 'Invoice Summary', 'Score', 'Invoice', 'Photos', 'Payment', 'Estimates', 'Membership', 'Reviews', 'Checked By', 'Follow-up', 'Invoice Total'];
     const rows = filteredData.map(job => [
         job.job_number,
         job.debriefed_at,

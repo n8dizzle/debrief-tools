@@ -184,7 +184,11 @@ class DebriefSession(Base):
     # Replacement Discussion (for aged equipment)
     replacement_discussed = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     no_replacement_reason = Column(Text)
-    
+
+    # Equipment Added to Location
+    equipment_added = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
+    equipment_added_notes = Column(Text)
+
     # G3 Contact
     g3_contact_needed = Column(Boolean, default=False)
     g3_notes = Column(Text)
