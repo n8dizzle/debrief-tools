@@ -68,6 +68,10 @@ class TicketRaw(Base):
     # Categorization (derived from job type)
     job_category = Column(String(50))  # Service, Maintenance, Sales, Install
     trade_type = Column(String(50))    # HVAC, Plumbing
+
+    # Opportunity tracking (for estimates/conversion)
+    is_opportunity = Column(Boolean, default=False)  # Job has a tag with isConversionOpportunity=true
+    tag_type_ids = Column(JSON)  # List of tag type IDs from ServiceTitan
     
     # Technician
     tech_id = Column(Integer)
