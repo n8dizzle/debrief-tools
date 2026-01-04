@@ -82,7 +82,7 @@
             {% for ticket in in_progress_tickets %}
             <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
                 <div class="grid grid-cols-12 gap-4 items-center">
-                    <!-- Col 1: Job # + Tags (3 cols) -->
+                    <!-- Col 1: Job # + Date + Tags (3 cols) -->
                     <div class="col-span-3">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
@@ -92,6 +92,9 @@
                                class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
                                 ST ↗
                             </a>
+                            {% if ticket.completed_at %}
+                            <span class="text-xs text-gray-500">{{ ticket.completed_at.strftime('%m/%d %I:%M%p') }}</span>
+                            {% endif %}
                         </div>
                         <div class="flex items-center gap-1 mt-1 flex-wrap">
                             <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-green/20 text-christmas-green-light">{{ ticket.job_category or 'Unknown' }}</span>
@@ -174,7 +177,7 @@
             {% for ticket in pending_tickets %}
             <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
                 <div class="grid grid-cols-12 gap-4 items-center">
-                    <!-- Col 1: Job # + Tags (3 cols) -->
+                    <!-- Col 1: Job # + Date + Tags (3 cols) -->
                     <div class="col-span-3">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
@@ -184,6 +187,9 @@
                                class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
                                 ST ↗
                             </a>
+                            {% if ticket.completed_at %}
+                            <span class="text-xs text-gray-500">{{ ticket.completed_at.strftime('%m/%d %I:%M%p') }}</span>
+                            {% endif %}
                         </div>
                         <div class="flex items-center gap-1 mt-1 flex-wrap">
                             <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/20 text-christmas-gold">{{ ticket.job_type_name or 'Unknown' }}</span>
