@@ -120,26 +120,28 @@ function renderTechnicianTable(period) {
                 <thead class="bg-dark-bg">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Technician</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jobs</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-green uppercase bg-christmas-green/10" title="Weighted average of all metrics">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Total number of jobs debriefed by this technician in the selected time period.">
+                            <span class="cursor-help">Jobs</span>
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-green uppercase bg-christmas-green/10" title="Overall performance score (0-100). Weighted average: Photos, Payment, Estimates are critical metrics; Invoice quality counts 2x.">
                             <span class="cursor-help">Score</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Average score 1-10">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Average invoice summary quality rating (1-10). Measures how well the tech documented the work performed and customer communication.">
                             <span class="cursor-help">Invoice</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="Critical: Photos Pass Rate">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs with proper before/after photos uploaded. Required for quality assurance and customer documentation.">
                             <span class="cursor-help">Photos</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="Critical: Payment Collected Rate">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs where payment was collected on-site. Directly impacts company cash flow.">
                             <span class="cursor-help">Payment</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="Critical: Estimates/Replacement Discussed">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs where estimates or replacement options were discussed with the customer. Key for upselling and future business.">
                             <span class="cursor-help">Estimates</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Membership Offered">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Percentage of jobs where membership/maintenance plans were offered to the customer. Important for recurring revenue.">
                             <span class="cursor-help">Membership</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Google Reviews Discussed">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Percentage of jobs where the tech asked the customer to leave a Google review. Helps build online reputation and SEO.">
                             <span class="cursor-help">Reviews</span>
                         </th>
                     </tr>

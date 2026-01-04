@@ -72,7 +72,11 @@ class TicketRaw(Base):
     # Technician
     tech_id = Column(Integer)
     tech_name = Column(String(100))
-    
+    all_techs = Column(JSON)  # List of all techs: [{"id": 123, "name": "John Doe"}, ...]
+
+    # Invoice author (who wrote the summary)
+    invoice_author = Column(String(200))
+
     # Customer
     customer_id = Column(Integer)
     customer_name = Column(String(200))
@@ -114,7 +118,7 @@ class TicketRaw(Base):
     raw_payload = Column(JSON)
     
     # Debrief status
-    debrief_status = Column(SQLEnum(TicketStatus), default=TicketStatus.PENDING)
+    debrief_status = Column(SQLEnum(TicketStatus, values_callable=lambda x: [e.value for e in x]), default=TicketStatus.PENDING)
     
     # Relationships
     debrief_session = relationship("DebriefSession", back_populates="ticket", uselist=False)
@@ -151,7 +155,7 @@ class DebriefSession(Base):
     
     # Checklist items - all required
     # Photos
-    photos_reviewed = Column(SQLEnum(CheckStatus), default=CheckStatus.PENDING)
+    photos_reviewed = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     photos_notes = Column(Text)
     
     # Invoice Summary (1-10 score)
@@ -159,23 +163,23 @@ class DebriefSession(Base):
     invoice_summary_notes = Column(Text)
     
     # Payment
-    payment_verified = Column(SQLEnum(CheckStatus), default=CheckStatus.PENDING)
+    payment_verified = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     no_payment_reason = Column(Text)  # If not collected, why?
     
     # Estimates
-    estimates_verified = Column(SQLEnum(CheckStatus), default=CheckStatus.PENDING)
+    estimates_verified = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     estimates_notes = Column(Text)
     
     # Membership
-    membership_verified = Column(SQLEnum(CheckStatus), default=CheckStatus.PENDING)
+    membership_verified = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     membership_notes = Column(Text)
     
     # Google Reviews
-    google_reviews_discussed = Column(SQLEnum(CheckStatus), default=CheckStatus.PENDING)
+    google_reviews_discussed = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     google_reviews_notes = Column(Text)
     
     # Replacement Discussion (for aged equipment)
-    replacement_discussed = Column(SQLEnum(CheckStatus), default=CheckStatus.PENDING)
+    replacement_discussed = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     no_replacement_reason = Column(Text)
     
     # G3 Contact

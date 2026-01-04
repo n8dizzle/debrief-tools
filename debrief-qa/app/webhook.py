@@ -129,6 +129,8 @@ async def process_webhook(payload: dict, db: Session) -> dict:
             trade_type=trade,
             tech_id=enriched.get("tech_id"),
             tech_name=enriched.get("tech_name"),
+            all_techs=enriched.get("all_techs"),
+            invoice_author=enriched.get("invoice_author"),
             customer_id=enriched.get("customer_id"),
             customer_name=enriched.get("customer_name"),
             is_new_customer=enriched.get("is_new_customer", False),
@@ -150,17 +152,17 @@ async def process_webhook(payload: dict, db: Session) -> dict:
             raw_payload=enriched.get("raw_payload"),
             debrief_status=TicketStatus.PENDING,
         )
-        
+
         db.add(ticket)
         log.processed = True
         db.commit()
-        
+
         return {
             "processed": True,
             "job_id": job_id,
             "message": f"Job {job_id} added to debrief queue"
         }
-        
+
     except Exception as e:
         log.error = str(e)
         db.commit()
@@ -198,14 +200,14 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
             "job_id": job_id,
             "message": f"Job {job_id} already in queue"
         }
-    
+
     # Enrich and add
     try:
         st_client = get_st_client()
         enriched = await st_client.enrich_job_data(job_id)
-        
+
         category, trade = categorize_job_type(enriched.get("job_type_name", ""))
-        
+
         ticket = TicketRaw(
             job_id=job_id,
             tenant_id=enriched.get("tenant_id"),
@@ -219,6 +221,8 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
             trade_type=trade,
             tech_id=enriched.get("tech_id"),
             tech_name=enriched.get("tech_name"),
+            all_techs=enriched.get("all_techs"),
+            invoice_author=enriched.get("invoice_author"),
             customer_id=enriched.get("customer_id"),
             customer_name=enriched.get("customer_name"),
             is_new_customer=enriched.get("is_new_customer", False),

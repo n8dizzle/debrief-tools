@@ -676,6 +676,7 @@ async def get_debrief_history(
             "job_type": ticket.job_type_name or "Unknown",
             "trade_type": ticket.trade_type or "Unknown",
             "invoice_total": float(ticket.invoice_total or 0),
+            "invoice_summary": ticket.invoice_summary,
             "completed_at": ticket.completed_at.isoformat() if ticket.completed_at else None,
             "debriefed_at": debrief.completed_at.isoformat() if debrief.completed_at else None,
             "dispatcher_name": dispatcher_name or "Unknown",
@@ -705,6 +706,89 @@ async def manually_add_job(job_id: int, db: Session = Depends(get_db)):
     """Manually add a job to the queue (for testing or catching missed webhooks)."""
     result = await manual_add_job(job_id, db)
     return result
+
+
+# ----- Sync / Polling Endpoint -----
+
+@app.post("/api/sync")
+async def sync_completed_jobs(
+    hours_back: int = 24,
+    db: Session = Depends(get_db)
+):
+    """
+    Poll ServiceTitan for recently completed jobs and add new ones to queue.
+    Use this instead of webhooks if you don't have webhook access.
+
+    Args:
+        hours_back: How many hours back to look for completed jobs (default 24)
+    """
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+
+    # Calculate date range
+    now = datetime.utcnow()
+    start_date = (now - timedelta(hours=hours_back)).strftime("%Y-%m-%d")
+
+    added = []
+    skipped = []
+    errors = []
+
+    try:
+        # Fetch completed jobs from ServiceTitan
+        page = 1
+        while True:
+            response = await client.get_completed_jobs(
+                completed_on_or_after=start_date,
+                page=page,
+                page_size=50
+            )
+
+            jobs = response.get("data", [])
+            if not jobs:
+                break
+
+            for job in jobs:
+                job_id = job.get("id")
+
+                # Check if already in database
+                existing = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
+                if existing:
+                    skipped.append(job_id)
+                    continue
+
+                # Add to queue
+                try:
+                    result = await manual_add_job(job_id, db)
+                    if result.get("status") == "added":
+                        added.append(job_id)
+                    else:
+                        skipped.append(job_id)
+                except Exception as e:
+                    errors.append({"job_id": job_id, "error": str(e)})
+
+            # Check if more pages
+            if not response.get("hasMore", False):
+                break
+            page += 1
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "added": added,
+            "skipped": skipped,
+            "errors": errors
+        }
+
+    return {
+        "status": "success",
+        "message": f"Sync complete. Added {len(added)} jobs, skipped {len(skipped)} existing.",
+        "added_count": len(added),
+        "skipped_count": len(skipped),
+        "added_job_ids": added,
+        "errors": errors
+    }
 
 
 # ----- Health Check -----

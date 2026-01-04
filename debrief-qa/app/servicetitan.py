@@ -145,7 +145,38 @@ class ServiceTitanClient:
     async def get_job_type(self, job_type_id: int) -> Dict[str, Any]:
         """Get job type details."""
         return await self._request("GET", f"jpm/v2/tenant/{self.tenant_id}/job-types/{job_type_id}")
-    
+
+    async def get_completed_jobs(
+        self,
+        completed_on_or_after: str,  # ISO date: "2025-01-01"
+        completed_before: str = None,
+        page: int = 1,
+        page_size: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Get jobs completed within a date range.
+
+        Args:
+            completed_on_or_after: Start date (inclusive) in ISO format
+            completed_before: End date (exclusive) in ISO format, defaults to now
+            page: Page number for pagination
+            page_size: Number of results per page (max 50)
+        """
+        params = {
+            "completedOnOrAfter": completed_on_or_after,
+            "jobStatus": "Completed",
+            "page": page,
+            "pageSize": page_size,
+        }
+        if completed_before:
+            params["completedBefore"] = completed_before
+
+        return await self._request(
+            "GET",
+            f"jpm/v2/tenant/{self.tenant_id}/jobs",
+            params=params
+        )
+
     async def enrich_job_data(self, job_id: int) -> Dict[str, Any]:
         """
         Pull all relevant data for a job into a single enriched object.
@@ -187,9 +218,9 @@ class ServiceTitanClient:
         # Get appointments and tech assignments
         appointments_response = await self.get_job_appointments(job_id)
         appointments = appointments_response.get("data", [])
-        primary_tech = None
         tech_name = "Unknown"
         tech_id = None
+        all_techs = []  # List of all technicians on the job
 
         if appointments:
             # Get tech from appointment-assignments endpoint
@@ -197,14 +228,36 @@ class ServiceTitanClient:
                 try:
                     assignments = await self.get_appointment_assignments(appt["id"])
                     assignment_data = assignments.get("data", [])
-                    if assignment_data:
-                        # Get first assigned tech
-                        first_assignment = assignment_data[0]
-                        tech_id = first_assignment.get("technicianId")
-                        tech_name = first_assignment.get("technicianName", "Unknown")
-                        break
+                    for assignment in assignment_data:
+                        tech_info = {
+                            "id": assignment.get("technicianId"),
+                            "name": assignment.get("technicianName", "Unknown")
+                        }
+                        # Avoid duplicates
+                        if tech_info not in all_techs:
+                            all_techs.append(tech_info)
+                        # Set primary tech as the first one found
+                        if tech_id is None:
+                            tech_id = assignment.get("technicianId")
+                            tech_name = assignment.get("technicianName", "Unknown")
                 except:
                     pass
+
+        # Get invoice author (who wrote the summary)
+        invoice_author = None
+        if primary_invoice:
+            employee_info = primary_invoice.get("employeeInfo", {})
+            if employee_info:
+                # Extract just the name part from email if needed
+                author_name = employee_info.get("name", "")
+                if "@" in author_name:
+                    # Convert email to readable name: "jordans@christmasair.com" -> "Jordan S."
+                    email_name = author_name.split("@")[0]
+                    invoice_author = email_name
+                else:
+                    invoice_author = author_name
+            elif primary_invoice.get("createdBy"):
+                invoice_author = primary_invoice.get("createdBy").split("@")[0]
         
         # Get attachments (photos)
         try:
@@ -242,6 +295,10 @@ class ServiceTitanClient:
             # Tech
             "tech_id": tech_id,
             "tech_name": tech_name,
+            "all_techs": all_techs,  # List of all techs: [{"id": 123, "name": "John Doe"}, ...]
+
+            # Invoice author (who wrote the summary)
+            "invoice_author": invoice_author,
             
             # Customer
             "customer_id": customer.get("id") if customer else None,
@@ -256,9 +313,9 @@ class ServiceTitanClient:
             "invoice_id": primary_invoice.get("id") if primary_invoice else None,
             "invoice_number": primary_invoice.get("invoiceNumber") if primary_invoice else None,
             "invoice_summary": primary_invoice.get("summary", "") if primary_invoice else "",
-            "invoice_total": primary_invoice.get("total", 0) if primary_invoice else 0,
-            "invoice_balance": primary_invoice.get("balance", 0) if primary_invoice else 0,
-            "payment_collected": (primary_invoice.get("balance", 0) == 0) if primary_invoice else False,
+            "invoice_total": float(primary_invoice.get("total", 0)) if primary_invoice else 0,
+            "invoice_balance": float(primary_invoice.get("balance", 0)) if primary_invoice else 0,
+            "payment_collected": (float(primary_invoice.get("balance", 0)) == 0) if primary_invoice else False,
             
             # Estimates
             "estimate_count": len(estimates),

@@ -49,8 +49,14 @@
                 <div class="font-medium text-christmas-cream">{{ ticket.customer_name or 'Unknown' }}</div>
             </div>
             <div>
-                <div class="text-gray-500">Technician</div>
-                <div class="font-medium text-christmas-cream">{{ ticket.tech_name or 'Unassigned' }}</div>
+                <div class="text-gray-500">Technician{% if ticket.all_techs and ticket.all_techs|length > 1 %}s{% endif %}</div>
+                <div class="font-medium text-christmas-cream">
+                    {% if ticket.all_techs and ticket.all_techs|length > 1 %}
+                        {% for tech in ticket.all_techs %}{{ tech.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}
+                        {{ ticket.tech_name or 'Unassigned' }}
+                    {% endif %}
+                </div>
             </div>
             <div>
                 <div class="text-gray-500">Location</div>
@@ -84,8 +90,11 @@
     <!-- Invoice Summary Display -->
     {% if ticket.invoice_summary %}
     <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
-        <div class="px-6 py-4 border-b border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
             <h2 class="text-lg font-semibold text-christmas-cream">Invoice Summary</h2>
+            {% if ticket.invoice_author %}
+            <span class="text-sm text-gray-500">Written by: <span class="text-christmas-cream">{{ ticket.invoice_author }}</span></span>
+            {% endif %}
         </div>
         <div class="px-6 py-4">
             <div class="bg-dark-bg rounded p-4 text-gray-300 whitespace-pre-wrap border border-dark-border">{{ ticket.invoice_summary }}</div>

@@ -42,6 +42,7 @@ class TicketSummary(BaseModel):
     payment_collected: bool = False
     invoice_total: float = 0.0
     estimate_count: int = 0
+    invoice_summary: Optional[str] = None
 
     class Config:
         from_attributes = True
