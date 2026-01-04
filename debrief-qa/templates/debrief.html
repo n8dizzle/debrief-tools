@@ -65,10 +65,14 @@
         </div>
 
         <!-- Quick Stats -->
-        <div class="px-6 py-4 bg-dark-bg rounded-b-lg grid grid-cols-3 gap-4 text-center border-t border-dark-border">
+        <div class="px-6 py-4 bg-dark-bg rounded-b-lg grid grid-cols-4 gap-4 text-center border-t border-dark-border">
             <div>
                 <div class="text-2xl font-bold text-christmas-green-light">{{ ticket.photo_count }}</div>
                 <div class="text-xs text-gray-500">Photos</div>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-christmas-green-light">{{ ticket.form_count or 0 }}</div>
+                <div class="text-xs text-gray-500">Forms</div>
             </div>
             <div>
                 <div class="text-2xl font-bold text-christmas-gold">{{ ticket.estimate_count }}</div>
@@ -94,6 +98,33 @@
         </div>
         <div class="px-6 py-4">
             <div class="bg-dark-bg rounded p-4 text-gray-300 whitespace-pre-wrap border border-dark-border">{{ ticket.invoice_summary }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Forms Completed -->
+    {% if form_submissions %}
+    <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Forms Completed ({{ form_submissions|length }})</h2>
+        </div>
+        <div class="px-6 py-4">
+            <div class="space-y-2">
+                {% for form in form_submissions %}
+                <div class="flex items-center justify-between bg-dark-bg rounded p-3 border border-dark-border">
+                    <div class="flex items-center gap-3">
+                        <span class="text-christmas-green-light">📝</span>
+                        <span class="text-christmas-cream font-medium">{{ form.formName }}</span>
+                        <span class="text-xs text-gray-500">{{ form.submittedOn[:10] if form.submittedOn else '' }}</span>
+                    </div>
+                    <a href="https://go.servicetitan.com/#/Form/Submission/{{ form.id }}"
+                       target="_blank"
+                       class="text-sm text-christmas-green-light hover:text-christmas-green hover:underline">
+                        View in ST ↗
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
     {% endif %}

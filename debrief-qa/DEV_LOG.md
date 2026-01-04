@@ -53,6 +53,61 @@ UPDATE tickets_raw SET payment_collected = 1 WHERE invoice_balance = 0.0 AND inv
 
 ---
 
+## 2026-01-04 - Session: Dashboard Redesign with Trade Performance
+
+### Changes Made
+
+**1. Database Schema Updates** (`app/database.py`)
+- Added `equipment_added` column (CheckStatus enum) - tracks if tech added equipment to ST location
+- Added `equipment_added_notes` column (Text) - notes for equipment added check
+
+**2. Supabase Migration Applied**
+```sql
+ALTER TABLE debrief_sessions
+ADD COLUMN IF NOT EXISTS equipment_added check_status DEFAULT 'pending',
+ADD COLUMN IF NOT EXISTS equipment_added_notes TEXT;
+```
+
+**3. Debrief Form Updates** (`templates/debrief.html`)
+- Added "Equipment Added to ST Location?" checklist item (#8)
+- Options: Yes (pass), No (fail), N/A
+- Includes optional notes field
+
+**4. API Updates** (`app/main.py`)
+- Updated form submission handler to save `equipment_added` and `equipment_added_notes`
+- Added `trade_performance` data to `/api/dashboard` endpoint
+- Removed `pending_jobs` list from dashboard API (replaced with `pending_count`)
+- New trade performance metrics calculated by trade type (HVAC vs Plumbing):
+  - `photos_pass_rate`
+  - `payment_pass_rate`
+  - `estimates_pass_rate`
+  - `avg_invoice_score`
+  - `equipment_added_rate`
+
+**5. Dashboard Redesign** (`templates/dashboard.html`)
+- Added new "Performance by Trade" section with 5 metric cards
+- Each card shows HVAC vs Plumbing side-by-side comparison
+- Visual progress bars with color coding (green for HVAC, blue for Plumbing)
+- Trophy icon shows winning trade for each metric
+- Cards: Photos, Payment, Estimates, Invoice Score, Equipment Added
+- Removed pending jobs list (users go to Queue page instead)
+- Kept dispatcher and technician performance tables below
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `app/database.py` | Added `equipment_added`, `equipment_added_notes` to DebriefSession |
+| `app/main.py` | Updated form handler, added trade_performance to dashboard API |
+| `templates/debrief.html` | Added Equipment Added checklist item |
+| `templates/dashboard.html` | Redesigned with 5 trade performance cards |
+
+### Notes
+- Trade performance metrics are calculated for "This Month" period
+- Cards show 0% until debriefs are completed and saved
+- The goal is to create friendly competition between HVAC and Plumbing teams
+
+---
+
 ## Session Notes Template
 
 When starting a new session, copy this template:

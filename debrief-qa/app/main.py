@@ -116,29 +116,42 @@ async def queue_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/debrief/{job_id}", response_class=HTMLResponse)
 async def debrief_page(job_id: int, request: Request, db: Session = Depends(get_db)):
     """Single job debrief form."""
+    from .servicetitan import get_st_client
+
     ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     # Mark as in progress if pending
     if ticket.debrief_status == TicketStatus.PENDING:
         ticket.debrief_status = TicketStatus.IN_PROGRESS
         db.commit()
-    
+
     # Get existing debrief if any
     existing_debrief = db.query(DebriefSession).filter(
         DebriefSession.job_id == job_id
     ).first()
-    
+
     # Get dispatchers for dropdown
     dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
-    
+
+    # Fetch form submissions for this job (fresh from API)
+    form_submissions = []
+    if ticket.form_count and ticket.form_count > 0:
+        try:
+            client = get_st_client()
+            forms_response = await client.get_form_submissions_by_job(job_id)
+            form_submissions = forms_response.get("data", [])
+        except Exception:
+            pass  # Forms will just be empty if fetch fails
+
     return templates.TemplateResponse("debrief.html", {
         "request": request,
         "title": f"Debrief - Job #{ticket.job_number}",
         "ticket": ticket,
         "debrief": existing_debrief,
         "dispatchers": dispatchers,
+        "form_submissions": form_submissions,
     })
 
 
