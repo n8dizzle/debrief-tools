@@ -647,8 +647,19 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
         return trade_performance
 
-    # Dispatcher stats
-    dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
+    # Dispatcher stats - only include dispatchers who have completed at least one debrief
+    # First, get dispatcher IDs who have any debrief sessions
+    dispatchers_with_data = db.query(DebriefSession.dispatcher_id).distinct().all()
+    dispatcher_ids_with_data = [d[0] for d in dispatchers_with_data]
+
+    # Only query active dispatchers who have done at least one debrief
+    dispatchers = db.query(Dispatcher).filter(
+        and_(
+            Dispatcher.is_active == True,
+            Dispatcher.id.in_(dispatcher_ids_with_data)
+        )
+    ).all()
+
     dispatcher_stats = []
     for d in dispatchers:
         today_count = db.query(DebriefSession).filter(
@@ -672,6 +683,11 @@ async def get_dashboard(db: Session = Depends(get_db)):
             )
         ).count()
 
+        # Get all-time count for sorting
+        total_count = db.query(DebriefSession).filter(
+            DebriefSession.dispatcher_id == d.id
+        ).count()
+
         dispatcher_stats.append({
             "dispatcher_id": d.id,
             "dispatcher_name": d.name,
@@ -679,7 +695,11 @@ async def get_dashboard(db: Session = Depends(get_db)):
             "debriefs_completed_today": today_count,
             "debriefs_completed_this_week": week_count,
             "debriefs_completed_this_month": month_count,
+            "debriefs_completed_total": total_count,
         })
+
+    # Sort by total debriefs completed (most active first)
+    dispatcher_stats.sort(key=lambda x: x["debriefs_completed_total"], reverse=True)
 
     # Pending jobs count (no longer sending full list)
     pending_count = db.query(TicketRaw).filter(
