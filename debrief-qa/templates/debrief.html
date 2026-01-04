@@ -59,10 +59,6 @@
                 </div>
             </div>
             <div>
-                <div class="text-gray-500">Location</div>
-                <div class="font-medium text-christmas-cream">{{ ticket.location_address or 'N/A' }}</div>
-            </div>
-            <div>
                 <div class="text-gray-500">Completed</div>
                 <div class="font-medium text-christmas-cream">{{ ticket.completed_at.strftime('%b %d, %I:%M %p') if ticket.completed_at else 'N/A' }}</div>
             </div>
