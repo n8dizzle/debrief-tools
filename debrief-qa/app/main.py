@@ -791,6 +791,81 @@ async def sync_completed_jobs(
     }
 
 
+@app.post("/api/re-enrich")
+async def re_enrich_tickets(
+    limit: int = 50,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Re-fetch photo and form counts for existing tickets.
+    Use this to update tickets after fixing the photo endpoint.
+
+    Args:
+        limit: Max number of tickets to update (default 50)
+        status: Only update tickets with this status (pending, in_progress, completed)
+    """
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+
+    # Query tickets to update
+    query = db.query(TicketRaw)
+    if status:
+        try:
+            status_enum = TicketStatus(status)
+            query = query.filter(TicketRaw.debrief_status == status_enum)
+        except ValueError:
+            pass
+
+    tickets = query.order_by(TicketRaw.pulled_at.desc()).limit(limit).all()
+
+    updated = []
+    errors = []
+
+    for ticket in tickets:
+        try:
+            # Fetch current photo count
+            attachments_response = await client.get_attachments_by_job(ticket.job_id)
+            photo_count = len(attachments_response.get("data", []))
+
+            # Fetch current form count
+            forms_response = await client.get_form_submissions_by_job(ticket.job_id)
+            form_count = len(forms_response.get("data", []))
+
+            # Update if changed
+            changed = False
+            if ticket.photo_count != photo_count:
+                ticket.photo_count = photo_count
+                changed = True
+            if ticket.form_count != form_count:
+                ticket.form_count = form_count
+                changed = True
+
+            if changed:
+                db.commit()
+                updated.append({
+                    "job_id": ticket.job_id,
+                    "job_number": ticket.job_number,
+                    "photo_count": photo_count,
+                    "form_count": form_count
+                })
+
+        except Exception as e:
+            errors.append({
+                "job_id": ticket.job_id,
+                "error": str(e)
+            })
+
+    return {
+        "status": "success",
+        "message": f"Re-enriched {len(updated)} tickets.",
+        "updated_count": len(updated),
+        "updated": updated,
+        "errors": errors
+    }
+
+
 # ----- Health Check -----
 
 @app.get("/health")
