@@ -497,7 +497,7 @@ class ServiceTitanClient:
         due_date: Optional[datetime] = None,
         assigned_to_id: Optional[int] = None,
         reported_by_id: Optional[int] = None,
-        priority: str = "Medium",
+        business_unit_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create a task in ServiceTitan Task Management.
@@ -510,7 +510,7 @@ class ServiceTitanClient:
             due_date: Optional due date (defaults to tomorrow)
             assigned_to_id: Employee ID to assign task to (required by ST)
             reported_by_id: Employee ID who reported/created the task
-            priority: Task priority - Low, Medium, High (default Medium)
+            business_unit_id: Business unit ID (will fetch from job if not provided)
 
         Returns:
             Created task data or error info
@@ -518,8 +518,15 @@ class ServiceTitanClient:
         # Task source: "Job" = 27838436
         TASK_SOURCE_JOB = 27838436
 
+        # Get job details for business unit if not provided
+        if not business_unit_id:
+            try:
+                job_data = await self.get_job(job_id)
+                business_unit_id = job_data.get("businessUnitId")
+            except:
+                pass
+
         # If no assignee provided, we need to get a default employee
-        # Try to get the first active employee as fallback
         if not assigned_to_id or not reported_by_id:
             try:
                 employees_response = await self.get_employees()
@@ -533,28 +540,39 @@ class ServiceTitanClient:
             except:
                 pass
 
-        # Still need these - if we couldn't get employees, fail gracefully
+        # Still need these - if we couldn't get required fields, fail gracefully
         if not assigned_to_id or not reported_by_id:
             return {
                 "success": False,
                 "error": "Could not determine assignee or reporter for task",
             }
 
+        if not business_unit_id:
+            return {
+                "success": False,
+                "error": "Could not determine business unit for task",
+            }
+
         # Default due date to tomorrow if not specified
         if due_date is None:
             due_date = datetime.utcnow() + timedelta(days=1)
+
+        now = datetime.utcnow()
 
         payload = {
             "jobId": job_id,
             "taskTypeId": task_type_id,
             "taskSourceId": TASK_SOURCE_JOB,
-            "name": title[:100],  # ST uses 'name' not 'title'
-            "body": description[:2000] if description else "Follow-up required",  # ST uses 'body' not 'memo'
+            "name": title[:100],
+            "body": description[:2000] if description else "Follow-up required from debrief",
             "dueDate": due_date.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "reportedDate": now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "isClosed": False,
-            "priority": priority,
+            "priority": 1,  # 0=Low, 1=Medium, 2=High
             "assignedToId": assigned_to_id,
             "reportedById": reported_by_id,
+            "businessUnitId": business_unit_id,
+            "employeeTaskTypeId": task_type_id,  # Same as task type
         }
 
         try:
