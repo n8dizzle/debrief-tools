@@ -119,11 +119,13 @@ class ServiceTitanClient:
         return await self._request("GET", f"crm/v2/tenant/{self.tenant_id}/locations/{location_id}")
     
     async def get_attachments_by_job(self, job_id: int) -> Dict[str, Any]:
-        """Get attachments (photos) for a job."""
-        # Note: This endpoint may vary - check your ST API docs
+        """Get attachments (photos) for a job.
+
+        Uses the Forms API endpoint, not Job Planning API.
+        """
         return await self._request(
             "GET",
-            f"jpm/v2/tenant/{self.tenant_id}/jobs/{job_id}/attachments"
+            f"forms/v2/tenant/{self.tenant_id}/jobs/{job_id}/attachments"
         )
     
     async def get_customer_memberships(self, customer_id: int) -> Dict[str, Any]:
