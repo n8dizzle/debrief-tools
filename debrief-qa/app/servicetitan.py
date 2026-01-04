@@ -177,6 +177,45 @@ class ServiceTitanClient:
         """Get job type details."""
         return await self._request("GET", f"jpm/v2/tenant/{self.tenant_id}/job-types/{job_type_id}")
 
+    async def get_all_tag_types(self) -> list:
+        """
+        Get all tag types. Caches result for the session.
+        Note: ServiceTitan doesn't have a GET /tag-types/{id} endpoint,
+        so we must fetch all and filter locally.
+        """
+        if not hasattr(self, '_tag_types_cache') or self._tag_types_cache is None:
+            result = await self._request(
+                "GET",
+                f"settings/v2/tenant/{self.tenant_id}/tag-types",
+                params={"pageSize": 200}
+            )
+            self._tag_types_cache = result.get("data", [])
+        return self._tag_types_cache
+
+    async def get_opportunity_tag_ids(self) -> set:
+        """
+        Get set of tag type IDs that have isConversionOpportunity=true.
+        Caches result for the session.
+        """
+        if not hasattr(self, '_opportunity_tag_ids') or self._opportunity_tag_ids is None:
+            all_tags = await self.get_all_tag_types()
+            self._opportunity_tag_ids = {
+                tag["id"] for tag in all_tags
+                if tag.get("isConversionOpportunity", False)
+            }
+        return self._opportunity_tag_ids
+
+    async def check_tags_for_opportunity(self, tag_type_ids: list) -> bool:
+        """
+        Check if any of the given tag type IDs have isConversionOpportunity=true.
+        Returns True if this job is considered an opportunity.
+        """
+        if not tag_type_ids:
+            return False
+
+        opportunity_ids = await self.get_opportunity_tag_ids()
+        return any(tag_id in opportunity_ids for tag_id in tag_type_ids)
+
     async def get_completed_jobs(
         self,
         completed_on_or_after: str,  # ISO date: "2025-01-01"
@@ -236,6 +275,10 @@ class ServiceTitanClient:
                 business_unit_name = bu_data.get("name")
             except:
                 pass
+
+        # Check if job is an opportunity (has tags with isConversionOpportunity=true)
+        tag_type_ids = job.get("tagTypeIds", [])
+        is_opportunity = await self.check_tags_for_opportunity(tag_type_ids)
         
         # Get invoices
         invoices_response = await self.get_invoices_by_job(job_id)
@@ -329,7 +372,11 @@ class ServiceTitanClient:
             "job_type_id": job.get("jobTypeId"),
             "job_type_name": job_type_name,
             "job_status": job.get("jobStatus"),
-            
+
+            # Opportunity tracking
+            "is_opportunity": is_opportunity,
+            "tag_type_ids": tag_type_ids,
+
             # Tech
             "tech_id": tech_id,
             "tech_name": tech_name,

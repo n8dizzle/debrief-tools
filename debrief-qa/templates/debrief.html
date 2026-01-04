@@ -31,6 +31,9 @@
                         {% if ticket.is_new_customer %}
                         <span class="px-2 py-1 text-sm rounded-full bg-christmas-green/20 text-christmas-green-light">New Customer</span>
                         {% endif %}
+                        {% if ticket.is_opportunity %}
+                        <span class="px-2 py-1 text-sm rounded-full bg-christmas-gold/20 text-christmas-gold font-semibold" title="This job has a conversion opportunity tag - estimates should be presented">🎯 Opportunity</span>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="text-right">
@@ -216,9 +219,12 @@
             </div>
 
             <!-- 4. Estimates -->
-            <div class="space-y-2">
+            <div class="space-y-2 {% if ticket.is_opportunity %}ring-2 ring-christmas-gold/50 rounded-lg p-3 -mx-3{% endif %}">
                 <label class="block text-sm font-medium text-christmas-cream">
                     Estimates Offered/Discussed ({{ ticket.estimate_count }} created{% if ticket.estimates_total %}, ${{ "{:,.2f}".format(ticket.estimates_total) }} total{% endif %})
+                    {% if ticket.is_opportunity %}
+                    <span class="ml-2 text-christmas-gold text-xs font-semibold">🎯 OPPORTUNITY JOB - Estimates Expected</span>
+                    {% endif %}
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">

@@ -108,6 +108,65 @@ ADD COLUMN IF NOT EXISTS equipment_added_notes TEXT;
 
 ---
 
+## 2026-01-04 - Session: Opportunity Job Tracking
+
+### Changes Made
+
+**1. Database Schema Updates** (`app/database.py`)
+- Added `is_opportunity` column (Boolean) - true if job has tags with `isConversionOpportunity=true`
+- Added `tag_type_ids` column (JSON) - stores list of ServiceTitan tag type IDs for the job
+
+**2. Supabase Migration Applied**
+```sql
+ALTER TABLE tickets_raw
+ADD COLUMN IF NOT EXISTS is_opportunity BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS tag_type_ids JSONB;
+```
+
+**3. ServiceTitan API Updates** (`app/servicetitan.py`)
+- Added `get_tag_type()` method - fetches tag type details including `isConversionOpportunity` flag
+- Added `check_tags_for_opportunity()` method - checks if any tag has `isConversionOpportunity=true`
+- Updated `enrich_job_data()` to check job tags and set `is_opportunity` flag
+
+**4. Webhook Updates** (`app/webhook.py`)
+- Both `process_webhook()` and `manual_add_job()` now store `is_opportunity` and `tag_type_ids`
+
+**5. UI Updates**
+
+*Queue Page* (`templates/queue.html`):
+- Shows 🎯 opportunity indicator badge next to job type for opportunity jobs
+- Tooltip: "Conversion Opportunity - Estimates Expected"
+
+*Debrief Page* (`templates/debrief.html`):
+- Shows "🎯 Opportunity" badge in job header if `is_opportunity=true`
+- Estimates section highlighted with gold ring for opportunity jobs
+- Label shows "🎯 OPPORTUNITY JOB - Estimates Expected" when applicable
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `app/database.py` | Added `is_opportunity`, `tag_type_ids` to TicketRaw |
+| `app/servicetitan.py` | Added tag type methods, opportunity detection in enrich_job_data |
+| `app/webhook.py` | Store new fields when creating tickets |
+| `templates/queue.html` | Show opportunity badge in job list |
+| `templates/debrief.html` | Show opportunity badge, highlight estimates section |
+
+### How Opportunity Detection Works
+ServiceTitan has "tag types" that can be marked as conversion opportunities (Settings > Tag Types).
+When a job has any tag with `isConversionOpportunity: true`, that job is flagged as an opportunity.
+
+**Business Logic:**
+- Opportunity jobs should have estimates presented
+- If `is_opportunity=true` and `estimate_count=0`, that's a missed opportunity
+- The Estimates section on the debrief form is highlighted for opportunity jobs
+
+### Notes
+- Only NEW jobs (via webhook or sync) will have `is_opportunity` populated
+- To backfill existing jobs, re-sync them from ServiceTitan
+- The opportunity flag helps dispatchers focus on jobs where estimates matter most
+
+---
+
 ## Session Notes Template
 
 When starting a new session, copy this template:

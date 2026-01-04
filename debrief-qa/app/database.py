@@ -3,9 +3,10 @@ Database models and connection management.
 
 Tables:
 - tickets_raw: Immutable snapshot of job data from ServiceTitan
-- dispatcher_checks: Individual checklist item verifications
-- debrief_sessions: Completed debrief records
 - dispatchers: Dispatcher accounts and roles
+- debrief_sessions: Completed debrief records
+- spot_checks: Manager spot check reviews of debrief sessions
+- webhook_logs: Log of received webhooks
 """
 
 import os
@@ -43,6 +44,19 @@ class TicketStatus(str, enum.Enum):
     PENDING = "pending"      # In queue, not started
     IN_PROGRESS = "in_progress"  # Dispatcher opened it
     COMPLETED = "completed"  # All checks done
+
+
+class DispatcherRole(str, enum.Enum):
+    DISPATCHER = "dispatcher"
+    MANAGER = "manager"
+    ADMIN = "admin"
+    OWNER = "owner"
+
+
+class SpotCheckStatus(str, enum.Enum):
+    PENDING = "pending"        # Selected for review, not started
+    IN_PROGRESS = "in_progress"  # Reviewer opened it
+    COMPLETED = "completed"    # Review submitted
     
 
 class TicketRaw(Base):
@@ -134,16 +148,18 @@ class TicketRaw(Base):
 class Dispatcher(Base):
     """Dispatcher accounts for tracking who verified what."""
     __tablename__ = "dispatchers"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     email = Column(String(200), unique=True)
+    role = Column(SQLEnum(DispatcherRole, values_callable=lambda x: [e.value for e in x]), default=DispatcherRole.DISPATCHER)
     is_primary = Column(Boolean, default=False)  # Primary dispatcher for bonus tracking
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     debrief_sessions = relationship("DebriefSession", back_populates="dispatcher")
+    spot_checks_performed = relationship("SpotCheck", back_populates="reviewer", foreign_keys="SpotCheck.reviewer_id")
 
 
 class DebriefSession(Base):
@@ -214,6 +230,61 @@ class DebriefSession(Base):
     # Relationships
     ticket = relationship("TicketRaw", back_populates="debrief_session")
     dispatcher = relationship("Dispatcher", back_populates="debrief_sessions")
+    spot_checks = relationship("SpotCheck", back_populates="debrief_session")
+
+
+class SpotCheck(Base):
+    """
+    Manager spot check of a completed debrief session.
+    Evaluates dispatcher's work quality and accuracy.
+    """
+    __tablename__ = "spot_checks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    debrief_session_id = Column(Integer, ForeignKey("debrief_sessions.id"), nullable=False)
+    reviewer_id = Column(Integer, ForeignKey("dispatchers.id"), nullable=True)  # Manager who reviewed
+
+    # Selection metadata
+    selected_at = Column(DateTime, default=datetime.utcnow)
+    selection_reason = Column(String(50))  # 'flagged', 'followup', 'random', 'manual'
+    selection_batch = Column(String(50))   # e.g., '2026-01-03' for daily batch tracking
+
+    # Review timestamps and status
+    status = Column(SQLEnum(SpotCheckStatus, values_callable=lambda x: [e.value for e in x]), default=SpotCheckStatus.PENDING)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Item-by-item verification (was dispatcher correct?)
+    photos_correct = Column(Boolean, nullable=True)
+    invoice_score_correct = Column(Boolean, nullable=True)
+    payment_correct = Column(Boolean, nullable=True)
+    estimates_correct = Column(Boolean, nullable=True)
+    membership_correct = Column(Boolean, nullable=True)
+    reviews_correct = Column(Boolean, nullable=True)
+    replacement_correct = Column(Boolean, nullable=True)
+    equipment_correct = Column(Boolean, nullable=True)
+
+    # Corrections (if dispatcher was wrong)
+    corrected_invoice_score = Column(Integer, nullable=True)  # Manager's corrected score (1-10)
+
+    # Item-specific notes
+    photos_notes = Column(Text, nullable=True)
+    invoice_notes = Column(Text, nullable=True)
+    payment_notes = Column(Text, nullable=True)
+    estimates_notes = Column(Text, nullable=True)
+    membership_notes = Column(Text, nullable=True)
+    reviews_notes = Column(Text, nullable=True)
+    replacement_notes = Column(Text, nullable=True)
+    equipment_notes = Column(Text, nullable=True)
+
+    # Overall assessment
+    overall_grade = Column(Integer, nullable=True)  # 1-10
+    feedback_notes = Column(Text, nullable=True)  # General feedback for dispatcher
+    coaching_needed = Column(Boolean, default=False)  # Flag for required coaching
+
+    # Relationships
+    debrief_session = relationship("DebriefSession", back_populates="spot_checks")
+    reviewer = relationship("Dispatcher", back_populates="spot_checks_performed", foreign_keys=[reviewer_id])
 
 
 class WebhookLog(Base):

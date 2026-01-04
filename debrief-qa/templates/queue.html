@@ -99,6 +99,9 @@
                             <span class="text-xs text-gray-500 whitespace-nowrap">{{ ticket.completed_at.strftime('%m/%d %I:%M%p').lower() }}</span>
                             {% endif %}
                             <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-green/20 text-christmas-green-light whitespace-nowrap truncate max-w-[160px]" title="{{ ticket.job_type_name or 'Unknown' }}">{{ ticket.job_type_name or 'Unknown' }}</span>
+                            {% if ticket.is_opportunity %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/30 text-christmas-gold font-semibold whitespace-nowrap" title="Conversion Opportunity - Estimates Expected">🎯</span>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -193,6 +196,9 @@
                             <span class="text-xs text-gray-500 whitespace-nowrap">{{ ticket.completed_at.strftime('%m/%d %I:%M%p').lower() }}</span>
                             {% endif %}
                             <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/20 text-christmas-gold whitespace-nowrap truncate max-w-[160px]" title="{{ ticket.job_type_name or 'Unknown' }}">{{ ticket.job_type_name or 'Unknown' }}</span>
+                            {% if ticket.is_opportunity %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/30 text-christmas-gold font-semibold whitespace-nowrap" title="Conversion Opportunity - Estimates Expected">🎯</span>
+                            {% endif %}
                         </div>
                     </div>
 

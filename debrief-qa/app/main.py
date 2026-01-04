@@ -872,8 +872,8 @@ async def re_enrich_tickets(
     db: Session = Depends(get_db)
 ):
     """
-    Re-fetch photo and form counts for existing tickets.
-    Use this to update tickets after fixing the photo endpoint.
+    Re-fetch photo/form counts for existing tickets (heavy API calls).
+    Use /api/update-opportunities for lighter opportunity-only updates.
 
     Args:
         limit: Max number of tickets to update (default 50)
@@ -942,6 +942,74 @@ async def re_enrich_tickets(
         "message": f"Re-enriched {len(updated)} tickets.",
         "updated_count": len(updated),
         "updated": updated,
+        "errors": errors
+    }
+
+
+@app.post("/api/update-opportunities")
+async def update_opportunities(
+    limit: int = 200,
+    db: Session = Depends(get_db)
+):
+    """
+    Lightweight endpoint to update is_opportunity field for existing tickets.
+    Only fetches job data (1 API call per ticket) - much faster than re-enrich.
+    """
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+
+    # Get tickets that don't have opportunity data yet
+    tickets = db.query(TicketRaw).filter(
+        TicketRaw.is_opportunity == None
+    ).order_by(TicketRaw.pulled_at.desc()).limit(limit).all()
+
+    # If all have is_opportunity set, get all tickets
+    if not tickets:
+        tickets = db.query(TicketRaw).order_by(
+            TicketRaw.pulled_at.desc()
+        ).limit(limit).all()
+
+    updated = []
+    errors = []
+
+    for ticket in tickets:
+        try:
+            old_is_opportunity = ticket.is_opportunity
+
+            # Fetch job to get tag IDs (1 API call)
+            job = await client.get_job(ticket.job_id)
+            tag_type_ids = job.get("tagTypeIds", [])
+            is_opportunity = await client.check_tags_for_opportunity(tag_type_ids)
+
+            # Update
+            ticket.is_opportunity = is_opportunity
+            ticket.tag_type_ids = tag_type_ids
+            db.commit()
+
+            updated.append({
+                "job_id": ticket.job_id,
+                "job_number": ticket.job_number,
+                "old_is_opportunity": old_is_opportunity,
+                "new_is_opportunity": is_opportunity,
+                "tag_count": len(tag_type_ids)
+            })
+
+        except Exception as e:
+            errors.append({
+                "job_id": ticket.job_id,
+                "error": str(e)
+            })
+
+    # Count results
+    new_opportunities = sum(1 for u in updated if u["new_is_opportunity"])
+
+    return {
+        "status": "success",
+        "message": f"Updated {len(updated)} tickets. {new_opportunities} are opportunities.",
+        "updated_count": len(updated),
+        "opportunity_count": new_opportunities,
+        "updated": updated[:20],  # Only show first 20 in response
         "errors": errors
     }
 
