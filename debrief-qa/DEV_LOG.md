@@ -167,6 +167,69 @@ When a job has any tag with `isConversionOpportunity: true`, that job is flagged
 
 ---
 
+## 2026-01-04 - Session: Queue Status Management & Auth
+
+### Changes Made
+
+**1. Job Status Behavior Fix**
+- Removed auto-status change when viewing a debrief page
+- Previously: Opening a job automatically changed it from "pending" to "in_progress"
+- Now: Status only changes when the debrief form is actually submitted
+
+**2. Reset Status Feature**
+- Added `POST /api/job/{job_id}/reset-status` endpoint to return jobs to pending
+- Added "↩ Reset" button on each In Progress job in the queue page
+- Button allows dispatchers to return accidentally opened jobs back to pending queue
+
+**3. Lightweight Opportunity Backfill Endpoint**
+- Added `POST /api/update-opportunities?limit=200` endpoint
+- Only fetches job data (1 API call per ticket) to update `is_opportunity` field
+- Much faster than `/api/re-enrich` which makes 3+ calls per ticket for photos/forms
+- Reverted `/api/re-enrich` to only handle photo/form counts (original behavior)
+
+**4. Google OAuth Authentication** (user-added)
+- Added Google OAuth login with `@christmasair.com` domain restriction
+- Added user management admin page (`/admin/users`)
+- Added role-based access control (dispatcher, manager, admin, owner)
+- All pages now require authentication
+
+**5. Spot Check System** (user-added)
+- Added `SpotCheck` model for manager reviews of dispatcher debriefs
+- Added spot check queue, form, and history pages
+- Selection criteria: flagged jobs, follow-ups, random sampling
+
+**6. Materials on Invoice Check** (user-added)
+- Added `materials_on_invoice` field to DebriefSession
+- Critical for gross margin tracking - asks if tech added all materials to invoice
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `app/main.py` | Removed auto-status change, added reset endpoint, added update-opportunities endpoint, added auth |
+| `app/auth.py` | New file - Google OAuth handlers |
+| `app/spot_check.py` | New file - Spot check selection logic |
+| `app/database.py` | Added SpotCheck model, DispatcherRole enum, materials_on_invoice field |
+| `templates/queue.html` | Added reset button for in_progress jobs, resetJobStatus() function |
+| `templates/login.html` | New file - Login page |
+| `templates/admin_users.html` | New file - User management |
+| `templates/spot_checks.html` | New file - Spot check queue |
+| `templates/spot_check_form.html` | New file - Spot check review form |
+
+### API Endpoints Added
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/job/{job_id}/reset-status` | Return job to pending status |
+| POST | `/api/update-opportunities` | Lightweight opportunity field backfill |
+| GET | `/login` | Login page |
+| GET | `/auth/google` | Initiate Google OAuth |
+| GET | `/auth/google/callback` | Handle OAuth callback |
+| GET | `/logout` | Clear session |
+| GET | `/admin/users` | User management (admin only) |
+| GET | `/spot-checks` | Spot check queue |
+| POST | `/api/spot-checks/select-daily` | Trigger daily spot check selection |
+
+---
+
 ## Session Notes Template
 
 When starting a new session, copy this template:
