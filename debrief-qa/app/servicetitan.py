@@ -119,14 +119,15 @@ class ServiceTitanClient:
         return await self._request("GET", f"crm/v2/tenant/{self.tenant_id}/locations/{location_id}")
     
     async def get_attachments_by_job(self, job_id: int) -> Dict[str, Any]:
-        """Get attachments (photos) for a job.
+        """Get attachments (photos/videos) for a job.
 
-        Note: This endpoint may not return tech photos - needs investigation.
-        Tech data plate photos may be stored differently in ST.
+        Uses the Forms API endpoint which returns all job attachments
+        including tech photos of data plates, equipment, etc.
         """
-        # TODO: Investigate where tech photos are actually stored
-        # For now, return empty to avoid errors
-        return {"data": []}
+        return await self._request(
+            "GET",
+            f"forms/v2/tenant/{self.tenant_id}/jobs/{job_id}/attachments"
+        )
 
     async def get_form_submissions_by_job(self, job_id: int) -> Dict[str, Any]:
         """Get form submissions for a job."""
@@ -269,7 +270,7 @@ class ServiceTitanClient:
             elif primary_invoice.get("createdBy"):
                 invoice_author = primary_invoice.get("createdBy").split("@")[0]
         
-        # Get attachments (photos) - currently disabled pending investigation
+        # Get attachments (photos/videos) from Forms API
         try:
             attachments_response = await self.get_attachments_by_job(job_id)
             attachments = attachments_response.get("data", [])
@@ -345,7 +346,7 @@ class ServiceTitanClient:
             # Forms
             "form_count": len(form_submissions),
 
-            # Photos (disabled pending investigation)
+            # Photos/attachments from Forms API
             "photo_count": len(attachments),
             
             # Timestamps

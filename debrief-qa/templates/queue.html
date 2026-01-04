@@ -146,6 +146,7 @@
                             <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
+                            <span class="text-gray-500" title="Photos">📷{{ ticket.photo_count or 0 }}</span>
                             <span class="text-gray-500" title="Forms completed">📝{{ ticket.form_count or 0 }}</span>
                             <span class="text-gray-500" title="Estimates">📋{{ ticket.estimate_count }}</span>
                         </div>
@@ -241,6 +242,7 @@
                             <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
+                            <span class="text-gray-500" title="Photos">📷{{ ticket.photo_count or 0 }}</span>
                             <span class="text-gray-500" title="Forms completed">📝{{ ticket.form_count or 0 }}</span>
                             <span class="text-gray-500" title="Estimates">📋{{ ticket.estimate_count }}</span>
                         </div>
