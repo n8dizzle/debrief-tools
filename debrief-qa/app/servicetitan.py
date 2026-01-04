@@ -559,20 +559,25 @@ class ServiceTitanClient:
 
         now = datetime.utcnow()
 
+        # Ensure description is not empty
+        task_body = description[:2000] if description else "Follow-up required from debrief"
+
         payload = {
             "jobId": job_id,
             "taskTypeId": task_type_id,
             "taskSourceId": TASK_SOURCE_JOB,
             "name": title[:100],
-            "body": description[:2000] if description else "Follow-up required from debrief",
+            "body": task_body,
+            "description": task_body,  # Some ST versions use description instead of body
             "dueDate": due_date.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "reportedDate": now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "isClosed": False,
-            "priority": 1,  # 0=Low, 1=Medium, 2=High
+            "priority": "Medium",  # Try string enum
             "assignedToId": assigned_to_id,
             "reportedById": reported_by_id,
             "businessUnitId": business_unit_id,
-            "employeeTaskTypeId": task_type_id,  # Same as task type
+            "employeeTaskTypeId": task_type_id,
+            "employeeTaskSourceId": TASK_SOURCE_JOB,  # Same as task source
         }
 
         try:
