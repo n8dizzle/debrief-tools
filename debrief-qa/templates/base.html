@@ -186,8 +186,6 @@
                         </div>
                     </div>
                     {% endif %}
-
-                    <span id="current-time" class="text-xs text-gray-500 min-w-[100px] text-right"></span>
                 </div>
             </div>
         </div>
@@ -205,15 +203,6 @@
         </div>
     </footer>
 
-    <script>
-        // Update current time
-        function updateTime() {
-            const now = new Date();
-            document.getElementById('current-time').textContent = now.toLocaleString();
-        }
-        updateTime();
-        setInterval(updateTime, 1000);
-    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
