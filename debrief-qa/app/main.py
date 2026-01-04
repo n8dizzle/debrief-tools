@@ -19,9 +19,10 @@ from sqlalchemy import func, and_
 from dotenv import load_dotenv
 
 from .database import (
-    get_db, init_db, 
+    get_db, init_db,
     TicketRaw, TicketStatus, CheckStatus,
-    Dispatcher, DebriefSession, WebhookLog
+    Dispatcher, DispatcherRole, DebriefSession, WebhookLog,
+    SpotCheck, SpotCheckStatus
 )
 from .models import (
     TicketSummary, TicketDetail, DebriefSubmission, DebriefResponse,
@@ -293,6 +294,9 @@ async def submit_debrief_form(
         equipment_added=form_data.get("equipment_added", "pending"),
         equipment_added_notes=form_data.get("equipment_added_notes"),
 
+        materials_on_invoice=form_data.get("materials_on_invoice", "pending"),
+        materials_on_invoice_notes=form_data.get("materials_on_invoice_notes"),
+
         g3_contact_needed=form_data.get("g3_contact_needed") == "true",
         g3_notes=form_data.get("g3_notes"),
         
@@ -390,6 +394,7 @@ async def get_dashboard(db: Session = Depends(get_db)):
             DebriefSession.estimates_verified,
             DebriefSession.invoice_summary_score,
             DebriefSession.equipment_added,
+            DebriefSession.materials_on_invoice,
         ).join(
             DebriefSession, TicketRaw.job_id == DebriefSession.job_id
         ).filter(
@@ -398,8 +403,8 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
         # Initialize trade data
         trade_data = {
-            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0},
-            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0},
+            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
+            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
         }
 
         for row in results:
@@ -418,6 +423,8 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 trade_data[trade]["invoice_scores"].append(row.invoice_summary_score)
             if row.equipment_added == "pass":
                 trade_data[trade]["equipment_pass"] += 1
+            if row.materials_on_invoice == "pass":
+                trade_data[trade]["materials_pass"] += 1
 
         # Calculate percentages for each trade
         trade_performance = {}
@@ -432,6 +439,7 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
                 "avg_invoice_score": round(sum(scores) / len(scores), 1) if scores else 0,
                 "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
+                "materials_on_invoice_rate": round(data["materials_pass"] / count * 100) if count else 0,
             }
 
         return trade_performance
@@ -1012,6 +1020,280 @@ async def update_opportunities(
         "updated": updated[:20],  # Only show first 20 in response
         "errors": errors
     }
+
+
+# ----- Spot Check System -----
+
+@app.get("/spot-checks", response_class=HTMLResponse)
+async def spot_checks_page(request: Request, db: Session = Depends(get_db)):
+    """Spot check queue page for managers."""
+    # Get pending spot checks
+    pending = db.query(SpotCheck).filter(
+        SpotCheck.status == SpotCheckStatus.PENDING
+    ).order_by(SpotCheck.selected_at.desc()).all()
+
+    # Get in-progress spot checks
+    in_progress = db.query(SpotCheck).filter(
+        SpotCheck.status == SpotCheckStatus.IN_PROGRESS
+    ).order_by(SpotCheck.started_at.desc()).all()
+
+    # Get today's completed spot checks
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    completed_today = db.query(SpotCheck).filter(
+        and_(
+            SpotCheck.status == SpotCheckStatus.COMPLETED,
+            SpotCheck.completed_at >= today_start
+        )
+    ).count()
+
+    # Get dispatcher accuracy stats
+    from .spot_check import get_all_dispatcher_accuracy_stats
+    dispatcher_stats = get_all_dispatcher_accuracy_stats(db)
+
+    # Get dispatchers for reviewer dropdown
+    dispatchers = db.query(Dispatcher).filter(
+        Dispatcher.is_active == True,
+        Dispatcher.role.in_([DispatcherRole.MANAGER, DispatcherRole.ADMIN, DispatcherRole.OWNER])
+    ).all()
+
+    return templates.TemplateResponse("spot_checks.html", {
+        "request": request,
+        "title": "Spot Checks",
+        "pending_spot_checks": pending,
+        "in_progress_spot_checks": in_progress,
+        "pending_count": len(pending),
+        "in_progress_count": len(in_progress),
+        "completed_today": completed_today,
+        "dispatcher_stats": dispatcher_stats,
+        "reviewers": dispatchers,
+    })
+
+
+@app.get("/spot-check/{spot_check_id}", response_class=HTMLResponse)
+async def spot_check_form_page(spot_check_id: int, request: Request, db: Session = Depends(get_db)):
+    """Spot check review form."""
+    spot_check = db.query(SpotCheck).filter(SpotCheck.id == spot_check_id).first()
+    if not spot_check:
+        raise HTTPException(status_code=404, detail="Spot check not found")
+
+    # Get the debrief session and ticket
+    debrief = spot_check.debrief_session
+    ticket = debrief.ticket
+    original_dispatcher = debrief.dispatcher
+
+    # Mark as in progress if pending
+    if spot_check.status == SpotCheckStatus.PENDING:
+        spot_check.status = SpotCheckStatus.IN_PROGRESS
+        spot_check.started_at = datetime.utcnow()
+        db.commit()
+
+    # Get reviewers (managers+)
+    reviewers = db.query(Dispatcher).filter(
+        Dispatcher.is_active == True,
+        Dispatcher.role.in_([DispatcherRole.MANAGER, DispatcherRole.ADMIN, DispatcherRole.OWNER])
+    ).all()
+
+    return templates.TemplateResponse("spot_check_form.html", {
+        "request": request,
+        "title": f"Spot Check - Job #{ticket.job_number}",
+        "spot_check": spot_check,
+        "debrief": debrief,
+        "ticket": ticket,
+        "original_dispatcher": original_dispatcher,
+        "reviewers": reviewers,
+    })
+
+
+@app.post("/api/spot-check/{spot_check_id}/submit")
+async def submit_spot_check(
+    spot_check_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Submit completed spot check review."""
+    form_data = await request.form()
+
+    spot_check = db.query(SpotCheck).filter(SpotCheck.id == spot_check_id).first()
+    if not spot_check:
+        raise HTTPException(status_code=404, detail="Spot check not found")
+
+    # Parse form data
+    reviewer_id = form_data.get("reviewer_id")
+    if reviewer_id:
+        spot_check.reviewer_id = int(reviewer_id)
+
+    # Item-by-item verification
+    spot_check.photos_correct = form_data.get("photos_correct") == "true"
+    spot_check.invoice_score_correct = form_data.get("invoice_score_correct") == "true"
+    spot_check.payment_correct = form_data.get("payment_correct") == "true"
+    spot_check.estimates_correct = form_data.get("estimates_correct") == "true"
+    spot_check.membership_correct = form_data.get("membership_correct") == "true"
+    spot_check.reviews_correct = form_data.get("reviews_correct") == "true"
+    spot_check.replacement_correct = form_data.get("replacement_correct") == "true"
+    spot_check.equipment_correct = form_data.get("equipment_correct") == "true"
+
+    # Corrected invoice score if provided
+    corrected_score = form_data.get("corrected_invoice_score")
+    if corrected_score:
+        spot_check.corrected_invoice_score = int(corrected_score)
+
+    # Item notes
+    spot_check.photos_notes = form_data.get("photos_notes")
+    spot_check.invoice_notes = form_data.get("invoice_notes")
+    spot_check.payment_notes = form_data.get("payment_notes")
+    spot_check.estimates_notes = form_data.get("estimates_notes")
+    spot_check.membership_notes = form_data.get("membership_notes")
+    spot_check.reviews_notes = form_data.get("reviews_notes")
+    spot_check.replacement_notes = form_data.get("replacement_notes")
+    spot_check.equipment_notes = form_data.get("equipment_notes")
+
+    # Overall assessment
+    overall_grade = form_data.get("overall_grade")
+    if overall_grade:
+        spot_check.overall_grade = int(overall_grade)
+    spot_check.feedback_notes = form_data.get("feedback_notes")
+    spot_check.coaching_needed = form_data.get("coaching_needed") == "true"
+
+    # Mark as completed
+    spot_check.status = SpotCheckStatus.COMPLETED
+    spot_check.completed_at = datetime.utcnow()
+
+    db.commit()
+
+    # Redirect back to queue
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/spot-checks", status_code=303)
+
+
+@app.get("/spot-checks/history", response_class=HTMLResponse)
+async def spot_check_history_page(request: Request, db: Session = Depends(get_db)):
+    """Spot check history page."""
+    # Get dispatchers for filters
+    dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
+
+    return templates.TemplateResponse("spot_check_history.html", {
+        "request": request,
+        "title": "Spot Check History",
+        "dispatchers": dispatchers,
+    })
+
+
+@app.get("/api/spot-checks/history")
+async def get_spot_check_history(
+    limit: int = 100,
+    offset: int = 0,
+    dispatcher_id: Optional[int] = None,
+    reviewer_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get spot check history with filters."""
+    query = db.query(SpotCheck).filter(
+        SpotCheck.status == SpotCheckStatus.COMPLETED
+    )
+
+    # Apply filters
+    if dispatcher_id:
+        query = query.join(DebriefSession).filter(
+            DebriefSession.dispatcher_id == dispatcher_id
+        )
+    if reviewer_id:
+        query = query.filter(SpotCheck.reviewer_id == reviewer_id)
+    if date_from:
+        try:
+            from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            query = query.filter(SpotCheck.completed_at >= from_date)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            to_date = to_date + timedelta(days=1)
+            query = query.filter(SpotCheck.completed_at < to_date)
+        except ValueError:
+            pass
+
+    total = query.count()
+    results = query.order_by(SpotCheck.completed_at.desc()).offset(offset).limit(limit).all()
+
+    history = []
+    for sc in results:
+        debrief = sc.debrief_session
+        ticket = debrief.ticket
+        dispatcher = debrief.dispatcher
+        reviewer = sc.reviewer
+
+        # Count incorrect items
+        incorrect_count = sum([
+            1 for correct in [
+                sc.photos_correct, sc.invoice_score_correct, sc.payment_correct,
+                sc.estimates_correct, sc.membership_correct, sc.reviews_correct,
+                sc.replacement_correct, sc.equipment_correct
+            ] if correct is False
+        ])
+
+        history.append({
+            "id": sc.id,
+            "job_id": ticket.job_id,
+            "job_number": ticket.job_number,
+            "customer_name": ticket.customer_name,
+            "dispatcher_name": dispatcher.name if dispatcher else "Unknown",
+            "dispatcher_id": dispatcher.id if dispatcher else None,
+            "reviewer_name": reviewer.name if reviewer else "Unknown",
+            "reviewer_id": reviewer.id if reviewer else None,
+            "overall_grade": sc.overall_grade,
+            "incorrect_count": incorrect_count,
+            "coaching_needed": sc.coaching_needed,
+            "selection_reason": sc.selection_reason,
+            "completed_at": sc.completed_at.isoformat() if sc.completed_at else None,
+        })
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "data": history
+    }
+
+
+@app.get("/api/spot-checks/dispatcher-stats")
+async def get_spot_check_dispatcher_stats(db: Session = Depends(get_db)):
+    """Get dispatcher accuracy stats for dashboard."""
+    from .spot_check import get_all_dispatcher_accuracy_stats
+    return get_all_dispatcher_accuracy_stats(db)
+
+
+@app.post("/api/spot-checks/select-daily")
+async def trigger_daily_spot_check_selection(
+    target_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Manually trigger daily spot check selection."""
+    from .spot_check import select_daily_spot_checks
+    from datetime import date as date_type
+
+    if target_date:
+        try:
+            parsed_date = date_type.fromisoformat(target_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    else:
+        parsed_date = None
+
+    result = await select_daily_spot_checks(db, target_date=parsed_date)
+    return result
+
+
+@app.post("/api/spot-checks/manual/{debrief_session_id}")
+async def create_manual_spot_check_endpoint(
+    debrief_session_id: int,
+    db: Session = Depends(get_db)
+):
+    """Manually add a specific debrief to spot check queue."""
+    from .spot_check import create_manual_spot_check
+    result = await create_manual_spot_check(db, debrief_session_id)
+    return result
 
 
 # ----- Health Check -----

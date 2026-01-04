@@ -209,6 +209,10 @@ class DebriefSession(Base):
     equipment_added = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     equipment_added_notes = Column(Text)
 
+    # Materials/Equipment on Invoice (for Gross Margin tracking)
+    materials_on_invoice = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
+    materials_on_invoice_notes = Column(Text)
+
     # G3 Contact
     g3_contact_needed = Column(Boolean, default=False)
     g3_notes = Column(Text)
@@ -263,6 +267,7 @@ class SpotCheck(Base):
     reviews_correct = Column(Boolean, nullable=True)
     replacement_correct = Column(Boolean, nullable=True)
     equipment_correct = Column(Boolean, nullable=True)
+    materials_correct = Column(Boolean, nullable=True)
 
     # Corrections (if dispatcher was wrong)
     corrected_invoice_score = Column(Integer, nullable=True)  # Manager's corrected score (1-10)
@@ -276,6 +281,7 @@ class SpotCheck(Base):
     reviews_notes = Column(Text, nullable=True)
     replacement_notes = Column(Text, nullable=True)
     equipment_notes = Column(Text, nullable=True)
+    materials_notes = Column(Text, nullable=True)
 
     # Overall assessment
     overall_grade = Column(Integer, nullable=True)  # 1-10

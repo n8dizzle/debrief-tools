@@ -342,7 +342,32 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- 9. G3 Contact -->
+            <!-- 9. Materials/Equipment on Invoice (for Gross Margin) -->
+            <div class="space-y-2 bg-christmas-gold/5 border border-christmas-gold/20 rounded-lg p-4 -mx-2">
+                <label class="block text-sm font-medium text-christmas-cream">
+                    Materials & Equipment on Invoice?
+                    <span class="text-christmas-gold text-xs ml-1">💰 Critical for Gross Margin</span>
+                </label>
+                <p class="text-xs text-gray-400 mb-2">Ask tech: "Did you add all materials and equipment used to the invoice?"</p>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="materials_on_invoice" value="pass" class="sr-only" required>
+                        <span>✓ Yes - All Added</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="materials_on_invoice" value="fail" class="sr-only">
+                        <span>✗ No - Missing Items</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="materials_on_invoice" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="materials_on_invoice_notes" placeholder="Tech response / missing items..."
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 10. G3 Contact -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream">G3 Contact Needed?</label>
                 <div class="flex items-center space-x-4">

@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <a href="/spot-checks" class="inline-flex items-center text-christmas-green-light hover:text-christmas-green mb-4">
+        &larr; Back to Spot Checks
+    </a>
+
+    <!-- Job Header -->
+    <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-2xl font-bold text-christmas-cream">Spot Check - Job #{{ ticket.job_number }}</h1>
+                        <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}" target="_blank" class="text-sm text-christmas-green-light hover:text-christmas-green hover:underline">
+                            View in ST &nearr;
+                        </a>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2 flex-wrap">
+                        <span class="px-2 py-1 text-sm rounded-full bg-christmas-green/20 text-christmas-green-light">{{ ticket.job_type_name or 'Unknown' }}</span>
+                        <span class="px-2 py-1 text-sm rounded-full bg-dark-border text-gray-400">{{ ticket.trade_type or 'Unknown' }}</span>
+                        {% if spot_check.selection_reason == 'flagged' %}
+                        <span class="px-2 py-1 text-sm rounded-full bg-christmas-gold/20 text-christmas-gold">Follow-up Flagged</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
+                    <div class="text-sm {% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
+                        {% if ticket.payment_collected %}Payment Collected{% else %}Unpaid{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Details -->
+        <div class="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm border-b border-dark-border">
+            <div>
+                <div class="text-gray-500">Customer</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.customer_name or 'Unknown' }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">Technician</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.tech_name or 'Unassigned' }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">Job Completed</div>
+                <div class="font-medium text-christmas-cream">{{ ticket.completed_at.strftime('%b %d, %I:%M %p') if ticket.completed_at else 'N/A' }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500">Debriefed</div>
+                <div class="font-medium text-christmas-cream">{{ debrief.completed_at.strftime('%b %d, %I:%M %p') if debrief.completed_at else 'N/A' }}</div>
+            </div>
+        </div>
+
+        <!-- Original Dispatcher Info -->
+        <div class="px-6 py-4 bg-dark-bg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-gray-500">Original Debrief by:</span>
+                    <span class="font-semibold text-christmas-cream ml-2">{{ original_dispatcher.name if original_dispatcher else 'Unknown' }}</span>
+                </div>
+                <div class="text-sm text-gray-500">
+                    Invoice Score: <span class="font-semibold text-christmas-cream">{{ debrief.invoice_summary_score or '--' }}/10</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Summary Display -->
+    {% if ticket.invoice_summary %}
+    <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Invoice Summary</h2>
+        </div>
+        <div class="px-6 py-4">
+            <div class="bg-dark-bg rounded p-4 text-gray-300 whitespace-pre-wrap border border-dark-border">{{ ticket.invoice_summary }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Original Debrief Responses -->
+    <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Original Debrief Responses</h2>
+            <p class="text-sm text-gray-500 mt-1">Review what the dispatcher marked</p>
+        </div>
+        <div class="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+                <div class="text-gray-500">Photos</div>
+                <div class="font-medium {% if debrief.photos_reviewed == 'pass' %}text-christmas-green-light{% elif debrief.photos_reviewed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.photos_reviewed|upper if debrief.photos_reviewed else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Payment</div>
+                <div class="font-medium {% if debrief.payment_verified == 'pass' %}text-christmas-green-light{% elif debrief.payment_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.payment_verified|upper if debrief.payment_verified else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Estimates</div>
+                <div class="font-medium {% if debrief.estimates_verified == 'pass' %}text-christmas-green-light{% elif debrief.estimates_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.estimates_verified|upper if debrief.estimates_verified else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Membership</div>
+                <div class="font-medium {% if debrief.membership_verified == 'pass' %}text-christmas-green-light{% elif debrief.membership_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.membership_verified|upper if debrief.membership_verified else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Google Reviews</div>
+                <div class="font-medium {% if debrief.google_reviews_discussed == 'pass' %}text-christmas-green-light{% elif debrief.google_reviews_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.google_reviews_discussed|upper if debrief.google_reviews_discussed else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Replacement</div>
+                <div class="font-medium {% if debrief.replacement_discussed == 'pass' %}text-christmas-green-light{% elif debrief.replacement_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.replacement_discussed|upper if debrief.replacement_discussed else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Equipment Added</div>
+                <div class="font-medium {% if debrief.equipment_added == 'pass' %}text-christmas-green-light{% elif debrief.equipment_added == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.equipment_added|upper if debrief.equipment_added else '--' }}
+                </div>
+            </div>
+            <div>
+                <div class="text-gray-500">Invoice Score</div>
+                <div class="font-medium text-christmas-cream">{{ debrief.invoice_summary_score or '--' }}/10</div>
+            </div>
+        </div>
+        {% if debrief.general_notes %}
+        <div class="px-6 py-4 border-t border-dark-border">
+            <div class="text-gray-500 text-sm mb-1">Dispatcher Notes:</div>
+            <div class="text-gray-300 text-sm">{{ debrief.general_notes }}</div>
+        </div>
+        {% endif %}
+        {% if debrief.followup_required %}
+        <div class="px-6 py-4 border-t border-dark-border bg-christmas-gold/10">
+            <div class="text-christmas-gold text-sm font-medium">Follow-up Required</div>
+            <div class="text-gray-300 text-sm mt-1">{{ debrief.followup_type }}: {{ debrief.followup_description }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Spot Check Form -->
+    <form action="/api/spot-check/{{ spot_check.id }}/submit" method="POST" class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Spot Check Verification</h2>
+            <p class="text-sm text-gray-500 mt-1">Mark each item as correct or incorrect</p>
+        </div>
+
+        <div class="px-6 py-4 space-y-6">
+            <!-- Reviewer Selection -->
+            <div>
+                <label class="block text-sm font-medium text-christmas-cream mb-2">Reviewer</label>
+                <select name="reviewer_id" required class="w-full md:w-1/2 rounded-md p-2 border">
+                    <option value="">Select reviewer...</option>
+                    {% for r in reviewers %}
+                    <option value="{{ r.id }}">{{ r.name }} ({{ r.role.value|title if r.role else 'Manager' }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <hr class="border-dark-border">
+
+            <!-- Item Verification -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Photos -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Photos Review
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.photos_reviewed|upper if debrief.photos_reviewed else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="photos_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="photos_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="photos_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Invoice Score -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Invoice Score
+                        <span class="text-gray-500 font-normal">(Dispatcher gave: {{ debrief.invoice_summary_score or '--' }}/10)</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="invoice_score_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="invoice_score_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="number" name="corrected_invoice_score" min="1" max="10" placeholder="Your score (if different)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Payment -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Payment Verification
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.payment_verified|upper if debrief.payment_verified else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="payment_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="payment_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="payment_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Estimates -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Estimates Verification
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.estimates_verified|upper if debrief.estimates_verified else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="estimates_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="estimates_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="estimates_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Membership -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Membership Verification
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.membership_verified|upper if debrief.membership_verified else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="membership_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="membership_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="membership_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Google Reviews -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Google Reviews
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.google_reviews_discussed|upper if debrief.google_reviews_discussed else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="reviews_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="reviews_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="reviews_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Replacement -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Replacement Discussion
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.replacement_discussed|upper if debrief.replacement_discussed else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="replacement_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="replacement_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="replacement_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Equipment -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-cream">
+                        Equipment Added
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.equipment_added|upper if debrief.equipment_added else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="equipment_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="equipment_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="equipment_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+            </div>
+
+            <hr class="border-dark-border">
+
+            <!-- Overall Assessment -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-christmas-cream mb-2">
+                        Overall Quality Grade (1-10)
+                    </label>
+                    <div class="flex items-center gap-4">
+                        <input type="range" name="overall_grade" min="1" max="10" value="7" required
+                            class="w-48 h-2 rounded-lg appearance-none cursor-pointer"
+                            oninput="document.getElementById('grade-display').textContent = this.value">
+                        <span id="grade-display" class="text-2xl font-bold text-christmas-green-light w-8">7</span>
+                        <span class="text-sm text-gray-500">/ 10</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-christmas-cream mb-2">Feedback Notes</label>
+                    <textarea name="feedback_notes" rows="3" placeholder="Feedback for the dispatcher..."
+                        class="w-full rounded-md p-2 border text-sm"></textarea>
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-2 text-christmas-cream">
+                        <input type="checkbox" name="coaching_needed" value="true" class="rounded">
+                        <span>Coaching Needed</span>
+                    </label>
+                    <p class="text-xs text-gray-500 ml-6">Flag this dispatcher for additional training</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="px-6 py-4 bg-dark-bg border-t border-dark-border rounded-b-lg">
+            <button type="submit" class="w-full md:w-auto px-6 py-3 bg-christmas-green text-white font-semibold rounded-lg hover:bg-christmas-green/80 transition">
+                Submit Spot Check
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

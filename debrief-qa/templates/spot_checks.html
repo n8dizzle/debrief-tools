@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-christmas-cream">Spot Checks</h1>
+            <p class="text-sm text-gray-500 mt-1">Review dispatcher debrief quality</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/spot-checks/history" class="px-4 py-2 text-sm text-gray-400 hover:text-christmas-cream transition">
+                View History
+            </a>
+            <button onclick="selectDaily()" class="px-4 py-2 bg-christmas-green/20 text-christmas-cream rounded-lg border border-christmas-green/50 hover:bg-christmas-green/30 transition text-sm">
+                Select Today's Spot Checks
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Pending</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-gold">{{ pending_count }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">In Progress</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light">{{ in_progress_count }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Completed Today</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light">{{ completed_today }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Total Reviewed</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-cream">
+                {% set total_reviewed = dispatcher_stats|selectattr('sample_size')|map(attribute='sample_size')|sum %}
+                {{ total_reviewed }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Dispatcher Accuracy Leaderboard -->
+    {% if dispatcher_stats %}
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Dispatcher Accuracy</h2>
+        </div>
+        <div class="p-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {% for stat in dispatcher_stats %}
+                {% if stat.sample_size > 0 %}
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-sm font-medium text-christmas-cream truncate">{{ stat.dispatcher_name }}</div>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        {% if stat.overall_accuracy is not none %}
+                        <span class="text-xl font-bold {% if stat.overall_accuracy >= 90 %}text-christmas-green-light{% elif stat.overall_accuracy >= 70 %}text-christmas-gold{% else %}text-christmas-brown{% endif %}">
+                            {{ stat.overall_accuracy }}%
+                        </span>
+                        {% else %}
+                        <span class="text-xl font-bold text-gray-500">--</span>
+                        {% endif %}
+                        <span class="text-xs text-gray-500">({{ stat.sample_size }} checked)</span>
+                    </div>
+                    {% if stat.avg_grade is not none %}
+                    <div class="text-xs text-gray-500 mt-1">Avg Grade: {{ stat.avg_grade }}/10</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% if not dispatcher_stats|selectattr('sample_size', 'gt', 0)|list %}
+            <div class="text-center text-gray-500 py-4">
+                No spot checks completed yet. Complete some reviews to see accuracy stats.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- In Progress Section -->
+    {% if in_progress_spot_checks %}
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-green-light">In Progress</h2>
+        </div>
+        <div class="divide-y divide-dark-border">
+            {% for sc in in_progress_spot_checks %}
+            {% set debrief = sc.debrief_session %}
+            {% set ticket = debrief.ticket %}
+            <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/spot-check/{{ sc.id }}'">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-dark-border text-gray-400">{{ (ticket.business_unit_name or '').split()[0] or '?' }}</span>
+                            {% if sc.selection_reason == 'flagged' %}
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-christmas-gold/20 text-christmas-gold">Flagged</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-sm text-gray-500 mt-1">
+                            {{ ticket.customer_name }} - Checked by: {{ debrief.dispatcher.name if debrief.dispatcher else 'Unknown' }}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-400">Started {{ sc.started_at.strftime('%I:%M %p') if sc.started_at else 'N/A' }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pending Queue -->
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-gold">Pending Review ({{ pending_count }})</h2>
+        </div>
+
+        {% if pending_spot_checks %}
+        <div class="divide-y divide-dark-border">
+            {% for sc in pending_spot_checks %}
+            {% set debrief = sc.debrief_session %}
+            {% set ticket = debrief.ticket %}
+            <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/spot-check/{{ sc.id }}'">
+                <div class="grid grid-cols-12 gap-4 items-center">
+                    <!-- Job Info -->
+                    <div class="col-span-4">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-christmas-cream">Job #{{ ticket.job_number }}</span>
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-dark-border text-gray-400">{{ (ticket.business_unit_name or '').split()[0] or '?' }}</span>
+                            {% if sc.selection_reason == 'flagged' %}
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-christmas-gold/20 text-christmas-gold">Flagged</span>
+                            {% elif sc.selection_reason == 'manual' %}
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-christmas-green/20 text-christmas-green-light">Manual</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Selected: {{ sc.selected_at.strftime('%m/%d %I:%M%p').lower() if sc.selected_at else 'N/A' }}
+                        </div>
+                    </div>
+
+                    <!-- Customer + Original Dispatcher -->
+                    <div class="col-span-3">
+                        <div class="text-sm text-christmas-cream truncate">{{ ticket.customer_name or 'Unknown' }}</div>
+                        <div class="text-xs text-gray-500">Checked by: {{ debrief.dispatcher.name if debrief.dispatcher else 'Unknown' }}</div>
+                    </div>
+
+                    <!-- Debrief Date -->
+                    <div class="col-span-2">
+                        <div class="text-sm text-gray-400">{{ debrief.completed_at.strftime('%m/%d %I:%M%p').lower() if debrief.completed_at else 'N/A' }}</div>
+                        <div class="text-xs text-gray-500">Debriefed</div>
+                    </div>
+
+                    <!-- Invoice Total -->
+                    <div class="col-span-2 text-right">
+                        <div class="text-lg font-semibold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
+                    </div>
+
+                    <!-- Action -->
+                    <div class="col-span-1 text-right">
+                        <span class="text-christmas-green-light text-sm">Review &rarr;</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">
+            <div class="text-4xl mb-4">&#10003;</div>
+            <div class="text-lg text-christmas-cream">No pending spot checks</div>
+            <div class="text-sm mt-2">Click "Select Today's Spot Checks" to generate new reviews, or add manual spot checks from the debrief page.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function selectDaily() {
+    if (!confirm('Select 10% of yesterday\'s debriefs for spot check review?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/spot-checks/select-daily', { method: 'POST' });
+        const result = await response.json();
+
+        if (result.selected_count > 0) {
+            alert(`Selected ${result.selected_count} debriefs for review (${result.flagged_count} flagged, ${result.random_count} random)`);
+            location.reload();
+        } else {
+            alert(result.message || 'No debriefs to select');
+        }
+    } catch (error) {
+        console.error('Selection failed:', error);
+        alert('Failed to select spot checks');
+    }
+}
+</script>
+{% endblock %}
