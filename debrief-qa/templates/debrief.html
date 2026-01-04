@@ -117,12 +117,13 @@
                         <span class="text-christmas-cream font-medium">{{ form.formName }}</span>
                         <span class="text-xs text-gray-500">{{ form.submittedOn[:10] if form.submittedOn else '' }}</span>
                     </div>
-                    <span class="text-xs text-gray-500">ID: {{ form.id }}</span>
+                    <a href="https://go.servicetitan.com/#/new/forms20/AssignedTo/Job/{{ ticket.job_id }}/Form/{{ form.formId }}/Submission/{{ form.id }}/View"
+                       target="_blank"
+                       class="text-sm text-christmas-green-light hover:text-christmas-green hover:underline">
+                        View in ST ↗
+                    </a>
                 </div>
                 {% endfor %}
-            </div>
-            <div class="mt-3 text-xs text-gray-500">
-                View forms in the <a href="https://go.servicetitan.com/#/Job/Index/{{ ticket.job_id }}" target="_blank" class="text-christmas-green-light hover:underline">Job page in ST ↗</a>
             </div>
         </div>
     </div>
