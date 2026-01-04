@@ -566,18 +566,17 @@ class ServiceTitanClient:
             "jobId": job_id,
             "taskTypeId": task_type_id,
             "taskSourceId": TASK_SOURCE_JOB,
+            "employeeTaskTypeId": task_type_id,
+            "employeeTaskSourceId": TASK_SOURCE_JOB,
             "name": title[:100],
             "body": task_body,
-            "description": task_body,  # Some ST versions use description instead of body
             "dueDate": due_date.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "reportedDate": now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "isClosed": False,
-            "priority": "Medium",  # Try string enum
+            "priority": "Low",  # Low, Medium, High - using Low as default
             "assignedToId": assigned_to_id,
             "reportedById": reported_by_id,
             "businessUnitId": business_unit_id,
-            "employeeTaskTypeId": task_type_id,
-            "employeeTaskSourceId": TASK_SOURCE_JOB,  # Same as task source
         }
 
         try:
