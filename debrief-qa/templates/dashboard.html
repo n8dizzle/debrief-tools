@@ -70,6 +70,25 @@
         </div>
     </div>
 
+    <!-- Dispatcher Accuracy (Spot Checks) -->
+    <div id="accuracy-container" class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+            <div>
+                <h2 class="text-lg font-semibold text-christmas-cream">Dispatcher Accuracy</h2>
+                <p class="text-sm text-gray-500 mt-1">Based on spot check reviews</p>
+            </div>
+            <a href="/spot-checks" class="px-3 py-1.5 text-sm text-christmas-gold hover:text-christmas-cream transition">
+                View Spot Checks →
+            </a>
+        </div>
+        <div class="p-6">
+            <div class="animate-pulse space-y-4">
+                <div class="h-4 bg-dark-border rounded w-3/4"></div>
+                <div class="h-4 bg-dark-border rounded w-1/2"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Technician Performance -->
     <div id="technician-container" class="bg-dark-card rounded-lg border border-dark-border">
         <div class="px-6 py-4 border-b border-dark-border">
@@ -418,14 +437,150 @@ async function setupDispatchers() {
     }
 }
 
+async function loadDispatcherAccuracy() {
+    try {
+        const response = await fetch('/api/spot-checks/dispatcher-stats');
+        const stats = await response.json();
+
+        if (!stats || stats.length === 0) {
+            document.getElementById('accuracy-container').innerHTML = `
+                <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-christmas-cream">Dispatcher Accuracy</h2>
+                        <p class="text-sm text-gray-500 mt-1">Based on spot check reviews</p>
+                    </div>
+                    <a href="/spot-checks" class="px-3 py-1.5 text-sm text-christmas-gold hover:text-christmas-cream transition">
+                        View Spot Checks →
+                    </a>
+                </div>
+                <div class="p-6 text-center text-gray-500">
+                    No spot check data available yet. Complete spot checks to see dispatcher accuracy.
+                </div>
+            `;
+            return;
+        }
+
+        // Filter to only show dispatchers with spot check data
+        const withData = stats.filter(s => s.sample_size > 0);
+
+        if (withData.length === 0) {
+            document.getElementById('accuracy-container').innerHTML = `
+                <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-christmas-cream">Dispatcher Accuracy</h2>
+                        <p class="text-sm text-gray-500 mt-1">Based on spot check reviews</p>
+                    </div>
+                    <a href="/spot-checks" class="px-3 py-1.5 text-sm text-christmas-gold hover:text-christmas-cream transition">
+                        View Spot Checks →
+                    </a>
+                </div>
+                <div class="p-6 text-center text-gray-500">
+                    No completed spot checks yet. Complete reviews to see accuracy data.
+                </div>
+            `;
+            return;
+        }
+
+        document.getElementById('accuracy-container').innerHTML = `
+            <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-semibold text-christmas-cream">Dispatcher Accuracy</h2>
+                    <p class="text-sm text-gray-500 mt-1">Based on spot check reviews</p>
+                </div>
+                <a href="/spot-checks" class="px-3 py-1.5 text-sm text-christmas-gold hover:text-christmas-cream transition">
+                    View Spot Checks →
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-dark-border">
+                    <thead class="bg-dark-bg">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dispatcher</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Checked</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-christmas-green uppercase bg-christmas-green/10">Accuracy</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Avg Grade</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Photos</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Invoice</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estimates</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Coaching</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-dark-card divide-y divide-dark-border">
+                        ${withData.map(d => `
+                            <tr class="hover:bg-dark-card-hover">
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span class="font-medium text-christmas-cream">${d.dispatcher_name}</span>
+                                    ${d.is_primary ? '<span class="ml-2 px-1.5 py-0.5 text-xs bg-christmas-green/20 text-christmas-green-light rounded">Primary</span>' : ''}
+                                </td>
+                                <td class="px-4 py-3 text-center text-gray-400">${d.sample_size}</td>
+                                <td class="px-4 py-3 text-center bg-christmas-green/10">
+                                    <span class="${d.overall_accuracy >= 90 ? 'text-christmas-green-light' : d.overall_accuracy >= 70 ? 'text-christmas-gold' : 'text-christmas-brown'} font-bold text-lg">
+                                        ${d.overall_accuracy !== null ? d.overall_accuracy + '%' : '--'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="${d.avg_grade >= 8 ? 'text-christmas-green-light' : d.avg_grade >= 6 ? 'text-christmas-gold' : 'text-christmas-brown'} font-medium">
+                                        ${d.avg_grade !== null ? d.avg_grade.toFixed(1) : '--'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="${d.photos_accuracy >= 90 ? 'text-christmas-green-light' : d.photos_accuracy >= 70 ? 'text-christmas-gold' : 'text-christmas-brown'}">
+                                        ${d.photos_accuracy !== null ? d.photos_accuracy + '%' : '--'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="${d.invoice_score_accuracy >= 90 ? 'text-christmas-green-light' : d.invoice_score_accuracy >= 70 ? 'text-christmas-gold' : 'text-christmas-brown'}">
+                                        ${d.invoice_score_accuracy !== null ? d.invoice_score_accuracy + '%' : '--'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="${d.payment_accuracy >= 90 ? 'text-christmas-green-light' : d.payment_accuracy >= 70 ? 'text-christmas-gold' : 'text-christmas-brown'}">
+                                        ${d.payment_accuracy !== null ? d.payment_accuracy + '%' : '--'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="${d.estimates_accuracy >= 90 ? 'text-christmas-green-light' : d.estimates_accuracy >= 70 ? 'text-christmas-gold' : 'text-christmas-brown'}">
+                                        ${d.estimates_accuracy !== null ? d.estimates_accuracy + '%' : '--'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    ${d.coaching_needed_count > 0 ?
+                                        `<span class="px-2 py-1 text-xs rounded bg-christmas-gold/20 text-christmas-gold">${d.coaching_needed_count}</span>` :
+                                        '<span class="text-gray-500">0</span>'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-4 py-3 bg-dark-bg text-xs text-gray-500 border-t border-dark-border">
+                Accuracy = Weighted average of correct items. Green (90%+), Yellow (70-89%), Red (&lt;70%)
+            </div>
+        `;
+    } catch (error) {
+        console.error('Failed to load dispatcher accuracy:', error);
+        document.getElementById('accuracy-container').innerHTML = `
+            <div class="px-6 py-4 border-b border-dark-border">
+                <h2 class="text-lg font-semibold text-christmas-cream">Dispatcher Accuracy</h2>
+            </div>
+            <div class="p-6 text-center text-christmas-brown">
+                Failed to load accuracy data.
+            </div>
+        `;
+    }
+}
+
 // Load on page load
 loadDashboard();
 loadTechnicianStats();
+loadDispatcherAccuracy();
 
 // Refresh every 60 seconds
 setInterval(() => {
     loadDashboard();
     loadTechnicianStats();
+    loadDispatcherAccuracy();
 }, 60000);
 </script>
 {% endblock %}

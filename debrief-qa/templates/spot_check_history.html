@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-christmas-cream">Spot Check History</h1>
+            <p class="text-sm text-gray-500 mt-1">Completed dispatcher reviews</p>
+        </div>
+        <a href="/spot-checks" class="px-4 py-2 bg-christmas-green/20 text-christmas-cream rounded-lg border border-christmas-green/50 hover:bg-christmas-green/30 transition text-sm">
+            &larr; Back to Queue
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <!-- Date Range -->
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Start Date</label>
+                <input type="date" id="filter-start-date"
+                       class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-christmas-cream text-sm focus:outline-none focus:border-christmas-green/50">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">End Date</label>
+                <input type="date" id="filter-end-date"
+                       class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-christmas-cream text-sm focus:outline-none focus:border-christmas-green/50">
+            </div>
+
+            <!-- Dispatcher Filter (who was reviewed) -->
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Dispatcher Reviewed</label>
+                <select id="filter-dispatcher"
+                        class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-christmas-cream text-sm focus:outline-none focus:border-christmas-green/50">
+                    <option value="">All Dispatchers</option>
+                    {% for d in dispatchers %}
+                    <option value="{{ d.name }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Reviewer Filter (who did the review) -->
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Reviewed By</label>
+                <select id="filter-reviewer"
+                        class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-christmas-cream text-sm focus:outline-none focus:border-christmas-green/50">
+                    <option value="">All Reviewers</option>
+                    {% for r in reviewers %}
+                    <option value="{{ r.name }}">{{ r.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Job Number Search -->
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Job Number</label>
+                <input type="text" id="filter-job" placeholder="Search job #..."
+                       class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-christmas-cream text-sm focus:outline-none focus:border-christmas-green/50">
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+            <button onclick="clearFilters()" class="px-3 py-1.5 text-sm text-gray-400 hover:text-christmas-cream transition">
+                Clear
+            </button>
+            <button onclick="applyFilters()" class="px-4 py-1.5 bg-christmas-green text-white rounded-lg text-sm hover:bg-christmas-green-light transition">
+                Apply Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Total Reviews</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-cream" id="stat-total">{{ spot_checks|length }}</div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Avg Grade</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light" id="stat-avg-grade">
+                {% set grades = spot_checks|selectattr('overall_grade')|map(attribute='overall_grade')|list %}
+                {% if grades %}{{ (grades|sum / grades|length)|round(1) }}{% else %}--{% endif %}
+            </div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Coaching Needed</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-gold" id="stat-coaching">
+                {{ spot_checks|selectattr('coaching_needed')|list|length }}
+            </div>
+        </div>
+        <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+            <div class="text-sm font-medium text-gray-500">Perfect Scores</div>
+            <div class="mt-1 text-2xl font-bold text-christmas-green-light" id="stat-perfect">
+                {{ spot_checks|selectattr('overall_grade', 'equalto', 10)|list|length }}
+            </div>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="bg-dark-card rounded-lg border border-dark-border overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-dark-card-hover">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job #</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispatcher</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reviewer</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Items Wrong</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Coaching</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-dark-border" id="history-tbody">
+                {% for sc in spot_checks %}
+                {% set debrief = sc.debrief_session %}
+                {% set ticket = debrief.ticket %}
+                <tr class="hover:bg-dark-card-hover transition history-row cursor-pointer"
+                    data-date="{{ sc.completed_at.strftime('%Y-%m-%d') if sc.completed_at else '' }}"
+                    data-dispatcher="{{ debrief.dispatcher.name if debrief.dispatcher else '' }}"
+                    data-reviewer="{{ sc.reviewer.name if sc.reviewer else '' }}"
+                    data-job="{{ ticket.job_number }}"
+                    onclick="window.location='/spot-check/{{ sc.id }}'">
+                    <td class="px-4 py-3 text-sm text-gray-400">
+                        {{ sc.completed_at.strftime('%m/%d/%y %I:%M%p').lower() if sc.completed_at else 'N/A' }}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-christmas-cream">{{ ticket.job_number }}</span>
+                            <span class="px-1.5 py-0.5 text-xs rounded bg-dark-border text-gray-400">
+                                {{ (ticket.business_unit_name or '').split()[0] or '?' }}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-christmas-cream">
+                        {{ debrief.dispatcher.name if debrief.dispatcher else 'Unknown' }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-400">
+                        {{ sc.reviewer.name if sc.reviewer else 'Unknown' }}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if sc.overall_grade is not none %}
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold
+                            {% if sc.overall_grade >= 9 %}bg-christmas-green/20 text-christmas-green-light
+                            {% elif sc.overall_grade >= 7 %}bg-christmas-gold/20 text-christmas-gold
+                            {% else %}bg-christmas-brown/20 text-christmas-brown{% endif %}">
+                            {{ sc.overall_grade }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-500">--</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% set wrong_count = [
+                            sc.photos_correct == false,
+                            sc.invoice_score_correct == false,
+                            sc.payment_correct == false,
+                            sc.estimates_correct == false,
+                            sc.membership_correct == false,
+                            sc.reviews_correct == false,
+                            sc.replacement_correct == false,
+                            sc.equipment_correct == false
+                        ]|select|list|length %}
+                        {% if wrong_count > 0 %}
+                        <span class="text-christmas-gold font-medium">{{ wrong_count }}</span>
+                        {% else %}
+                        <span class="text-christmas-green-light">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if sc.coaching_needed %}
+                        <span class="px-2 py-1 text-xs rounded bg-christmas-gold/20 text-christmas-gold">Yes</span>
+                        {% else %}
+                        <span class="text-gray-500">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="text-christmas-green-light text-sm">View &rarr;</span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-500">
+                        No completed spot checks yet
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+    const startDate = document.getElementById('filter-start-date').value;
+    const endDate = document.getElementById('filter-end-date').value;
+    const dispatcher = document.getElementById('filter-dispatcher').value.toLowerCase();
+    const reviewer = document.getElementById('filter-reviewer').value.toLowerCase();
+    const jobSearch = document.getElementById('filter-job').value.toLowerCase();
+
+    const rows = document.querySelectorAll('.history-row');
+    let visibleCount = 0;
+    let totalGrade = 0;
+    let gradeCount = 0;
+    let coachingCount = 0;
+    let perfectCount = 0;
+
+    rows.forEach(row => {
+        const rowDate = row.dataset.date;
+        const rowDispatcher = row.dataset.dispatcher.toLowerCase();
+        const rowReviewer = row.dataset.reviewer.toLowerCase();
+        const rowJob = row.dataset.job.toLowerCase();
+
+        let show = true;
+
+        // Date range filter
+        if (startDate && rowDate < startDate) show = false;
+        if (endDate && rowDate > endDate) show = false;
+
+        // Dispatcher filter
+        if (dispatcher && rowDispatcher !== dispatcher) show = false;
+
+        // Reviewer filter
+        if (reviewer && rowReviewer !== reviewer) show = false;
+
+        // Job search
+        if (jobSearch && !rowJob.includes(jobSearch)) show = false;
+
+        row.style.display = show ? '' : 'none';
+
+        if (show) {
+            visibleCount++;
+            // Update stats based on visible rows
+            const gradeEl = row.querySelector('td:nth-child(5) span');
+            if (gradeEl && gradeEl.textContent !== '--') {
+                const grade = parseInt(gradeEl.textContent);
+                totalGrade += grade;
+                gradeCount++;
+                if (grade === 10) perfectCount++;
+            }
+            const coachingEl = row.querySelector('td:nth-child(7) span');
+            if (coachingEl && coachingEl.textContent === 'Yes') {
+                coachingCount++;
+            }
+        }
+    });
+
+    // Update stats
+    document.getElementById('stat-total').textContent = visibleCount;
+    document.getElementById('stat-avg-grade').textContent = gradeCount > 0 ? (totalGrade / gradeCount).toFixed(1) : '--';
+    document.getElementById('stat-coaching').textContent = coachingCount;
+    document.getElementById('stat-perfect').textContent = perfectCount;
+}
+
+function clearFilters() {
+    document.getElementById('filter-start-date').value = '';
+    document.getElementById('filter-end-date').value = '';
+    document.getElementById('filter-dispatcher').value = '';
+    document.getElementById('filter-reviewer').value = '';
+    document.getElementById('filter-job').value = '';
+    applyFilters();
+}
+
+// Auto-apply on filter change
+document.querySelectorAll('#filter-start-date, #filter-end-date, #filter-dispatcher, #filter-reviewer').forEach(el => {
+    el.addEventListener('change', applyFilters);
+});
+
+document.getElementById('filter-job').addEventListener('input', applyFilters);
+</script>
+{% endblock %}

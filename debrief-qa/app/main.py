@@ -748,6 +748,11 @@ async def get_debrief_history(
             (reviews_pass * 100 * 1)
         ) / 10
 
+        # Check if a spot check exists for this debrief
+        has_spot_check = db.query(SpotCheck).filter(
+            SpotCheck.debrief_session_id == debrief.id
+        ).first() is not None
+
         history.append({
             "job_id": ticket.job_id,
             "job_number": ticket.job_number,
@@ -770,6 +775,8 @@ async def get_debrief_history(
             "reviews": debrief.google_reviews_discussed,
             "followup_required": debrief.followup_required,
             "has_notes": bool(debrief.general_notes),
+            "debrief_session_id": debrief.id,
+            "has_spot_check": has_spot_check,
         })
 
     return {
