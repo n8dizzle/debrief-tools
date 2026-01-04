@@ -148,7 +148,7 @@
                             </span>
                             <span class="text-gray-500" title="Photos">📷{{ ticket.photo_count or 0 }}</span>
                             <span class="text-gray-500" title="Forms completed">📝{{ ticket.form_count or 0 }}</span>
-                            <span class="text-gray-500" title="Estimates">📋{{ ticket.estimate_count }}</span>
+                            <span class="text-gray-500" title="Estimates">💵{{ ticket.estimate_count }}</span>
                         </div>
                     </div>
                 </div>
@@ -163,11 +163,11 @@
         <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
             <h2 class="text-lg font-semibold text-christmas-gold">Pending Debrief ({{ pending_count }})</h2>
             <div class="flex items-center gap-3">
-                <button id="sync-btn" onclick="syncJobs()" class="text-sm text-christmas-cream bg-christmas-green/20 hover:bg-christmas-green/30 px-3 py-1 rounded-lg border border-christmas-green/50 transition flex items-center gap-2">
+                <button id="sync-btn" onclick="syncJobs()" title="Pull new completed jobs from ServiceTitan API" class="text-sm text-christmas-cream bg-christmas-green/20 hover:bg-christmas-green/30 px-3 py-1 rounded-lg border border-christmas-green/50 transition flex items-center gap-2">
                     <span id="sync-icon">⟳</span>
                     <span id="sync-text">Sync from ST</span>
                 </button>
-                <button onclick="location.reload()" class="text-sm text-christmas-green-light hover:text-christmas-green">
+                <button onclick="location.reload()" title="Reload page with current data" class="text-sm text-christmas-green-light hover:text-christmas-green">
                     ↻ Refresh
                 </button>
             </div>
@@ -244,7 +244,7 @@
                             </span>
                             <span class="text-gray-500" title="Photos">📷{{ ticket.photo_count or 0 }}</span>
                             <span class="text-gray-500" title="Forms completed">📝{{ ticket.form_count or 0 }}</span>
-                            <span class="text-gray-500" title="Estimates">📋{{ ticket.estimate_count }}</span>
+                            <span class="text-gray-500" title="Estimates">💵{{ ticket.estimate_count }}</span>
                         </div>
                     </div>
                 </div>
