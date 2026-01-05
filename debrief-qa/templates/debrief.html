@@ -311,8 +311,17 @@
 
             <!-- 1. Photos -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Photos Reviewed ({{ ticket.photo_count }} photos attached)
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Photos</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Before/after photos uploaded showing the work performed and equipment<br>
+                            <span class="text-christmas-brown">Fail:</span> No photos, blurry photos, or missing key shots (before/after)<br>
+                            <span class="text-gray-500">N/A:</span> Phone consultation, remote diagnostic, or admin-only visit
+                        </div>
+                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -334,8 +343,17 @@
 
             <!-- 2. Invoice Summary Score -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Invoice Summary Quality (1-10)
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Score Invoice Summary</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">8-10:</span> Clear diagnosis, detailed work description, recommendations for future, professional tone<br>
+                            <span class="text-christmas-gold">5-7:</span> Basic info present but missing details or recommendations<br>
+                            <span class="text-christmas-brown">1-4:</span> Vague, incomplete, or just "completed service"
+                        </div>
+                    </div>
                 </label>
                 <div class="flex items-center space-x-4">
                     <input type="range" name="invoice_summary_score" min="1" max="10" value="5"
@@ -350,11 +368,20 @@
 
             <!-- 3. Payment -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Payment Verified
                     <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                         ({{ "Collected" if ticket.payment_collected else "Not Collected - ${:,.2f} balance".format(ticket.invoice_balance) }})
                     </span>
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Payment</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Paid in full OR financing approved with proper notes in ServiceTitan<br>
+                            <span class="text-christmas-brown">Fail:</span> Unpaid balance with no documented reason or payment plan<br>
+                            <span class="text-gray-500">N/A:</span> Warranty work, no-charge diagnostic, or pre-approved commercial billing
+                        </div>
+                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -376,11 +403,20 @@
 
             <!-- 4. Estimates -->
             <div class="space-y-2 {% if ticket.is_opportunity %}ring-2 ring-christmas-gold/50 rounded-lg p-3 -mx-3{% endif %}">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Estimates Offered/Discussed ({{ ticket.estimate_count }} created{% if ticket.estimates_total %}, ${{ "{:,.2f}".format(ticket.estimates_total) }} total{% endif %})
                     {% if ticket.is_opportunity %}
                     <span class="ml-2 text-christmas-gold text-xs font-semibold">🎯 OPPORTUNITY JOB - Estimates Expected</span>
                     {% endif %}
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Estimates</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Estimate created for additional repairs, replacements, or upgrades<br>
+                            <span class="text-christmas-brown">Fail:</span> Opportunity job (🎯) with no estimates presented to customer<br>
+                            <span class="text-gray-500">N/A:</span> Simple maintenance, tune-up, or no reasonable upsell opportunity
+                        </div>
+                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -402,11 +438,20 @@
 
             <!-- 5. Membership -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Membership Offered
                     <span class="{% if ticket.membership_sold %}text-christmas-green-light{% else %}text-gray-500{% endif %}">
                         ({{ "Sold: " + (ticket.membership_type or "Unknown") if ticket.membership_sold else "Not Sold" }})
                     </span>
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Membership</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Maintenance plan was offered and explained to customer<br>
+                            <span class="text-christmas-brown">Fail:</span> Not offered when customer was eligible<br>
+                            <span class="text-gray-500">N/A:</span> Customer already has active membership or commercial account
+                        </div>
+                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -428,7 +473,18 @@
 
             <!-- 6. Google Reviews -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">Google Reviews Discussed</label>
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
+                    Google Reviews Discussed
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Google Reviews</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Tech asked customer to leave a Google review<br>
+                            <span class="text-christmas-brown">Fail:</span> Not mentioned to a satisfied customer<br>
+                            <span class="text-gray-500">N/A:</span> Customer was unhappy, complaint situation, or not appropriate to ask
+                        </div>
+                    </div>
+                </label>
                 <div class="radio-group">
                     <label class="pass-option">
                         <input type="radio" name="google_reviews_discussed" value="pass" class="sr-only" required>
@@ -449,13 +505,22 @@
 
             <!-- 7. Replacement Discussion -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Replacement Discussed (if aged equipment)
                     {% if ticket.equipment_age_years %}
                     <span class="{% if ticket.equipment_age_years >= 12 %}text-christmas-gold{% else %}text-gray-500{% endif %}">
                         (Equipment age: {{ ticket.equipment_age_years }} years)
                     </span>
                     {% endif %}
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Replacement Discussion</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Replacement options discussed for equipment 12+ years old<br>
+                            <span class="text-christmas-brown">Fail:</span> Old equipment but no replacement conversation<br>
+                            <span class="text-gray-500">N/A:</span> Newer equipment, or replacement not relevant to visit type
+                        </div>
+                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -477,8 +542,17 @@
 
             <!-- 8. Equipment Added to Location -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Equipment Added to ST Location?
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Equipment Added</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Equipment serviced/installed was added to customer's ST location record<br>
+                            <span class="text-christmas-brown">Fail:</span> Equipment not added or updated in ServiceTitan<br>
+                            <span class="text-gray-500">N/A:</span> No equipment involved (drain cleaning, etc.) or equipment already on file
+                        </div>
+                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
@@ -500,9 +574,18 @@
 
             <!-- 9. Materials/Equipment on Invoice (for Gross Margin) -->
             <div class="space-y-2 bg-christmas-gold/5 border border-christmas-gold/20 rounded-lg p-4 -mx-2">
-                <label class="block text-sm font-medium text-christmas-cream">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Materials & Equipment on Invoice?
                     <span class="text-christmas-gold text-xs ml-1">💰 Critical for Gross Margin</span>
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Materials on Invoice</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> All parts, materials, and equipment used are itemized on invoice<br>
+                            <span class="text-christmas-brown">Fail:</span> Missing items - tech used materials not charged to customer<br>
+                            <span class="text-gray-500">N/A:</span> Diagnostic only, no materials used
+                        </div>
+                    </div>
                 </label>
                 <p class="text-xs text-gray-400 mb-2">Ask tech: "Did you add all materials and equipment used to the invoice?"</p>
                 <div class="radio-group">

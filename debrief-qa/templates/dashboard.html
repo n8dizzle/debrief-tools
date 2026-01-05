@@ -110,34 +110,83 @@
     <!-- Score Formula -->
     <div class="bg-dark-card rounded-lg border border-dark-border p-6">
         <h2 class="text-lg font-semibold text-christmas-cream mb-4">Composite Score Breakdown</h2>
+        <p class="text-sm text-gray-500 mb-4">Hover over each item to see the grading criteria</p>
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30 cursor-help group relative">
                 <div class="text-2xl font-bold text-christmas-brown">20%</div>
                 <div class="text-sm text-gray-400 mt-1">Photos</div>
                 <div class="text-xs text-christmas-gold mt-1">Critical</div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-64 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <div class="font-semibold text-christmas-cream mb-1">Photos Reviewed</div>
+                    <div class="text-gray-400">
+                        <span class="text-christmas-green-light">Pass:</span> Before/after photos uploaded showing work performed<br>
+                        <span class="text-christmas-brown">Fail:</span> No photos or missing key documentation<br>
+                        <span class="text-gray-500">N/A:</span> Remote diagnostic or phone consultation only
+                    </div>
+                </div>
             </div>
-            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30 cursor-help group relative">
                 <div class="text-2xl font-bold text-christmas-brown">20%</div>
                 <div class="text-sm text-gray-400 mt-1">Payment</div>
                 <div class="text-xs text-christmas-gold mt-1">Critical</div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-64 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <div class="font-semibold text-christmas-cream mb-1">Payment Verified</div>
+                    <div class="text-gray-400">
+                        <span class="text-christmas-green-light">Pass:</span> Paid in full OR financing set up with proper notes in ST<br>
+                        <span class="text-christmas-brown">Fail:</span> Unpaid without valid reason documented<br>
+                        <span class="text-gray-500">N/A:</span> Warranty work, no-charge visit, or pre-approved billing
+                    </div>
+                </div>
             </div>
-            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30 cursor-help group relative">
                 <div class="text-2xl font-bold text-christmas-brown">20%</div>
                 <div class="text-sm text-gray-400 mt-1">Estimates</div>
                 <div class="text-xs text-christmas-gold mt-1">Critical</div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-64 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <div class="font-semibold text-christmas-cream mb-1">Estimates Offered</div>
+                    <div class="text-gray-400">
+                        <span class="text-christmas-green-light">Pass:</span> Estimate created for repairs, replacements, or add-ons<br>
+                        <span class="text-christmas-brown">Fail:</span> Opportunity job with no estimates presented<br>
+                        <span class="text-gray-500">N/A:</span> Simple maintenance, warranty, or no upsell opportunity
+                    </div>
+                </div>
             </div>
-            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30 cursor-help group relative">
                 <div class="text-2xl font-bold text-christmas-brown">20%</div>
                 <div class="text-sm text-gray-400 mt-1">Invoice</div>
                 <div class="text-xs text-christmas-gold mt-1">Critical</div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-64 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <div class="font-semibold text-christmas-cream mb-1">Invoice Summary (1-10)</div>
+                    <div class="text-gray-400">
+                        <span class="text-christmas-green-light">8-10:</span> Clear, complete summary with diagnosis, work done, and recommendations<br>
+                        <span class="text-christmas-gold">5-7:</span> Adequate but missing some details<br>
+                        <span class="text-christmas-brown">1-4:</span> Incomplete, vague, or unprofessional
+                    </div>
+                </div>
             </div>
-            <div class="text-center p-3 rounded-lg bg-dark-bg border border-dark-border">
+            <div class="text-center p-3 rounded-lg bg-dark-bg border border-dark-border cursor-help group relative">
                 <div class="text-2xl font-bold text-gray-400">10%</div>
                 <div class="text-sm text-gray-400 mt-1">Membership</div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-64 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <div class="font-semibold text-christmas-cream mb-1">Membership Offered</div>
+                    <div class="text-gray-400">
+                        <span class="text-christmas-green-light">Pass:</span> Maintenance plan offered and discussed with customer<br>
+                        <span class="text-christmas-brown">Fail:</span> Not offered when customer was eligible<br>
+                        <span class="text-gray-500">N/A:</span> Customer already has active membership
+                    </div>
+                </div>
             </div>
-            <div class="text-center p-3 rounded-lg bg-dark-bg border border-dark-border">
+            <div class="text-center p-3 rounded-lg bg-dark-bg border border-dark-border cursor-help group relative">
                 <div class="text-2xl font-bold text-gray-400">10%</div>
                 <div class="text-sm text-gray-400 mt-1">Reviews</div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-64 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <div class="font-semibold text-christmas-cream mb-1">Google Reviews Discussed</div>
+                    <div class="text-gray-400">
+                        <span class="text-christmas-green-light">Pass:</span> Tech asked customer to leave a Google review<br>
+                        <span class="text-christmas-brown">Fail:</span> Not mentioned to satisfied customer<br>
+                        <span class="text-gray-500">N/A:</span> Customer was unhappy or situation not appropriate
+                    </div>
+                </div>
             </div>
         </div>
         <p class="text-xs text-gray-500 mt-4 text-center">
