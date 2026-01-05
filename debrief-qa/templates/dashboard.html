@@ -106,6 +106,44 @@
             </div>
         </div>
     </div>
+
+    <!-- Score Formula -->
+    <div class="bg-dark-card rounded-lg border border-dark-border p-6">
+        <h2 class="text-lg font-semibold text-christmas-cream mb-4">Composite Score Breakdown</h2>
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+                <div class="text-2xl font-bold text-christmas-brown">20%</div>
+                <div class="text-sm text-gray-400 mt-1">Photos</div>
+                <div class="text-xs text-christmas-gold mt-1">Critical</div>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+                <div class="text-2xl font-bold text-christmas-brown">20%</div>
+                <div class="text-sm text-gray-400 mt-1">Payment</div>
+                <div class="text-xs text-christmas-gold mt-1">Critical</div>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+                <div class="text-2xl font-bold text-christmas-brown">20%</div>
+                <div class="text-sm text-gray-400 mt-1">Estimates</div>
+                <div class="text-xs text-christmas-gold mt-1">Critical</div>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-christmas-brown/10 border border-christmas-brown/30">
+                <div class="text-2xl font-bold text-christmas-brown">20%</div>
+                <div class="text-sm text-gray-400 mt-1">Invoice</div>
+                <div class="text-xs text-christmas-gold mt-1">Critical</div>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-dark-bg border border-dark-border">
+                <div class="text-2xl font-bold text-gray-400">10%</div>
+                <div class="text-sm text-gray-400 mt-1">Membership</div>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-dark-bg border border-dark-border">
+                <div class="text-2xl font-bold text-gray-400">10%</div>
+                <div class="text-sm text-gray-400 mt-1">Reviews</div>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-4 text-center">
+            Score = (Photos × 20%) + (Payment × 20%) + (Estimates × 20%) + (Invoice × 20%) + (Membership × 10%) + (Reviews × 10%)
+        </p>
+    </div>
 </div>
 {% endblock %}
 
