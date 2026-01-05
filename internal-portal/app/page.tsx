@@ -1,128 +1,12 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import ToolCard from "@/components/ToolCard";
-
-// Configure your tools here
-const tools = [
-  {
-    name: "That's a Wrap",
-    description: "Job ticket review and grading",
-    url: "https://debrief.christmasair.com",
-    icon: "clipboard-check",
-    category: "Operations",
-  },
-  {
-    name: "Way to Sleigh!",
-    description: "2026 Actuals - Marketing reports and KPIs",
-    url: "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID",
-    icon: "chart-bar",
-    category: "Reporting",
-  },
-  {
-    name: "Craft",
-    description: "AI CSR and coaching for Call Center and Field",
-    url: "https://app.craftflow.co/login",
-    icon: "phone",
-    category: "Training",
-  },
-  {
-    name: "Attendance Tracker",
-    description: "Employee time and attendance",
-    url: "#",
-    icon: "clock",
-    category: "HR",
-  },
-];
-
-const resources = [
-  {
-    name: "Employee Handbook",
-    description: "Policies, procedures, and company guidelines",
-    url: "#",
-    icon: "book",
-    category: "HR",
-  },
-  {
-    name: "Knowledge Base",
-    description: "Technical docs, troubleshooting, and FAQs",
-    url: "#",
-    icon: "lightbulb",
-    category: "Documentation",
-  },
-  {
-    name: "SOPs & Procedures",
-    description: "Standard operating procedures and guides",
-    url: "#",
-    icon: "document-text",
-    category: "Documentation",
-  },
-  {
-    name: "Training Materials",
-    description: "Onboarding and ongoing training resources",
-    url: "#",
-    icon: "academic-cap",
-    category: "Documentation",
-  },
-];
-
-const marketing = [
-  {
-    name: "Brand Logos",
-    description: "Official logos in various formats",
-    url: "#",
-    icon: "photo",
-    category: "Marketing",
-  },
-  {
-    name: "Brand Guidelines",
-    description: "Colors, fonts, and usage standards",
-    url: "#",
-    icon: "color-swatch",
-    category: "Marketing",
-  },
-  {
-    name: "Current Ads",
-    description: "Active marketing campaigns and creatives",
-    url: "#",
-    icon: "speakerphone",
-    category: "Marketing",
-  },
-];
-
-const quickLinks = [
-  {
-    name: "ServiceTitan",
-    url: "https://go.servicetitan.com",
-    icon: "home",
-  },
-  {
-    name: "Slack",
-    url: "https://christmasairc-k119428.slack.com",
-    icon: "chat",
-  },
-  {
-    name: "Gmail",
-    url: "https://mail.google.com",
-    icon: "mail",
-  },
-  {
-    name: "Bill.com",
-    url: "https://app.bill.com",
-    icon: "currency",
-  },
-  {
-    name: "Gusto",
-    url: "https://app.gusto.com",
-    icon: "users",
-  },
-  {
-    name: "Google Drive",
-    url: "https://drive.google.com",
-    icon: "folder",
-  },
-];
+import { usePermissions } from "@/hooks/usePermissions";
+import { Tool } from "@/lib/supabase";
 
 // Icon component for quick links
 function QuickLinkIcon({ name }: { name: string }) {
@@ -163,6 +47,86 @@ function QuickLinkIcon({ name }: { name: string }) {
 
 export default function Home() {
   const { data: session } = useSession();
+  const { canAccessAdmin, isLoading: permLoading } = usePermissions();
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTools() {
+      if (session?.user) {
+        try {
+          const res = await fetch("/api/tools");
+          if (res.ok) {
+            const data = await res.json();
+            setTools(data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch tools:", error);
+        }
+        setLoading(false);
+      }
+    }
+    fetchTools();
+  }, [session]);
+
+  // Log tool usage when clicked
+  const handleToolClick = async (toolId: string) => {
+    try {
+      await fetch(`/api/tools/${toolId}/usage`, { method: "POST" });
+    } catch (error) {
+      console.error("Failed to log usage:", error);
+    }
+  };
+
+  // Group tools by section
+  const toolsBySection = tools.reduce((acc: Record<string, Tool[]>, tool) => {
+    if (!acc[tool.section]) acc[tool.section] = [];
+    acc[tool.section].push(tool);
+    return acc;
+  }, {});
+
+  // Section configs for icons and order
+  const sectionConfig: Record<string, { icon: JSX.Element; order: number; color?: string }> = {
+    "Tools": {
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+      order: 1,
+    },
+    "Resources": {
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      ),
+      order: 2,
+    },
+    "Marketing": {
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+        </svg>
+      ),
+      order: 3,
+      color: "var(--christmas-gold)",
+    },
+    "Quick Links": {
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+      order: 4,
+    },
+  };
+
+  // Sort sections by order
+  const sortedSections = Object.entries(toolsBySection).sort(([a], [b]) => {
+    return (sectionConfig[a]?.order || 99) - (sectionConfig[b]?.order || 99);
+  });
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
@@ -202,6 +166,18 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               {session?.user && (
                 <>
+                  {canAccessAdmin && (
+                    <Link
+                      href="/admin"
+                      className="text-sm px-3 py-1.5 rounded-md transition-colors"
+                      style={{
+                        color: 'var(--christmas-gold)',
+                        background: 'transparent'
+                      }}
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <span
                     className="text-sm hidden sm:block"
                     style={{ color: 'var(--text-secondary)' }}
@@ -251,132 +227,77 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Tools Section */}
-        <section className="mb-12">
-          <div className="flex items-center mb-6">
-            <div
-              className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
-              style={{ background: 'var(--christmas-green)' }}
-            >
-              <svg className="w-4 h-4" style={{ color: 'var(--christmas-cream)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <h3
-              className="text-xl font-semibold"
-              style={{ color: 'var(--christmas-cream)' }}
-            >
-              Tools
-            </h3>
+        {loading ? (
+          <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
+            Loading tools...
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {tools.map((tool) => (
-              <ToolCard key={tool.name} {...tool} />
-            ))}
-          </div>
-        </section>
+        ) : (
+          sortedSections.map(([section, sectionTools]) => (
+            <section key={section} className="mb-12">
+              <div className="flex items-center mb-6">
+                <div
+                  className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
+                  style={{ background: sectionConfig[section]?.color || 'var(--christmas-green)' }}
+                >
+                  <span style={{ color: section === "Marketing" ? 'var(--dark-bg)' : 'var(--christmas-cream)' }}>
+                    {sectionConfig[section]?.icon}
+                  </span>
+                </div>
+                <h3
+                  className="text-xl font-semibold"
+                  style={{ color: 'var(--christmas-cream)' }}
+                >
+                  {section}
+                </h3>
+              </div>
 
-        {/* Resources Section */}
-        <section className="mb-12">
-          <div className="flex items-center mb-6">
-            <div
-              className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
-              style={{ background: 'var(--christmas-green)' }}
-            >
-              <svg className="w-4 h-4" style={{ color: 'var(--christmas-cream)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <h3
-              className="text-xl font-semibold"
-              style={{ color: 'var(--christmas-cream)' }}
-            >
-              Resources
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {resources.map((resource) => (
-              <ToolCard key={resource.name} {...resource} />
-            ))}
-          </div>
-        </section>
-
-        {/* Marketing Section */}
-        <section className="mb-12">
-          <div className="flex items-center mb-6">
-            <div
-              className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
-              style={{ background: 'var(--christmas-gold)' }}
-            >
-              <svg className="w-4 h-4" style={{ color: 'var(--dark-bg)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-              </svg>
-            </div>
-            <h3
-              className="text-xl font-semibold"
-              style={{ color: 'var(--christmas-cream)' }}
-            >
-              Marketing
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {marketing.map((item) => (
-              <ToolCard key={item.name} {...item} />
-            ))}
-          </div>
-        </section>
-
-        {/* Quick Links */}
-        <section>
-          <div className="flex items-center mb-6">
-            <div
-              className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
-              style={{ background: 'var(--christmas-green)' }}
-            >
-              <svg className="w-4 h-4" style={{ color: 'var(--christmas-cream)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h3
-              className="text-xl font-semibold"
-              style={{ color: 'var(--christmas-cream)' }}
-            >
-              Quick Links
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {quickLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2.5 rounded-lg transition-all duration-200"
-                style={{
-                  background: 'var(--bg-card)',
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-secondary)'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-card-hover)';
-                  e.currentTarget.style.color = 'var(--christmas-green-light)';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-card)';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <span className="mr-2">
-                  <QuickLinkIcon name={link.icon} />
-                </span>
-                <span className="font-medium">{link.name}</span>
-              </a>
-            ))}
-          </div>
-        </section>
+              {section === "Quick Links" ? (
+                <div className="flex flex-wrap gap-3">
+                  {sectionTools.map((tool) => (
+                    <a
+                      key={tool.id}
+                      href={tool.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => handleToolClick(tool.id)}
+                      className="inline-flex items-center px-4 py-2.5 rounded-lg transition-all duration-200"
+                      style={{
+                        background: 'var(--bg-card)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-secondary)'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = 'var(--bg-card-hover)';
+                        e.currentTarget.style.color = 'var(--christmas-green-light)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = 'var(--bg-card)';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <span className="mr-2">
+                        <QuickLinkIcon name={tool.icon} />
+                      </span>
+                      <span className="font-medium">{tool.name}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className={`grid grid-cols-1 md:grid-cols-2 ${section === "Marketing" ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4`}>
+                  {sectionTools.map((tool) => (
+                    <ToolCard
+                      key={tool.id}
+                      {...tool}
+                      onClick={() => handleToolClick(tool.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))
+        )}
       </main>
 
       {/* Footer */}

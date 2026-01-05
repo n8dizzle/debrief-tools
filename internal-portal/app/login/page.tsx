@@ -85,10 +85,14 @@ export default function LoginPage() {
             >
               <p
                 className="text-sm"
-                style={{ color: 'var(--christmas-brown-light)' }}
+                style={{ color: '#c97878' }}
               >
                 {error === "AccessDenied"
-                  ? "Access denied. Please use your @christmasair.com email."
+                  ? "Access denied. Please use your company email."
+                  : error === "NotRegistered"
+                  ? "Your account hasn't been set up yet. Contact your manager to request access."
+                  : error === "AccountInactive"
+                  ? "Your account has been deactivated. Contact your manager for help."
                   : "An error occurred. Please try again."
                 }
               </p>

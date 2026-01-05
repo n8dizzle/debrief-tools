@@ -1,10 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { getServerSupabase } from "@/lib/supabase";
 
 // Allowed email domains - add your company domain(s)
-const ALLOWED_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || "christmasac.com").split(",");
+const ALLOWED_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || "christmasair.com").split(",");
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -12,28 +13,89 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Check if user's email domain is allowed
+    async signIn({ user }) {
       const email = user.email || "";
       const domain = email.split("@")[1];
-      
-      if (ALLOWED_DOMAINS.includes(domain)) {
-        return true;
+
+      // Check domain first
+      if (!ALLOWED_DOMAINS.includes(domain)) {
+        console.log(`Rejected sign-in attempt from non-allowed domain: ${email}`);
+        return false;
       }
-      
-      // Reject sign-in for non-allowed domains
-      console.log(`Rejected sign-in attempt from: ${email}`);
-      return false;
+
+      // Check if user exists in our portal_users table
+      const supabase = getServerSupabase();
+      const { data: existingUser, error } = await supabase
+        .from("portal_users")
+        .select("id, is_active")
+        .eq("email", email)
+        .single();
+
+      if (error || !existingUser) {
+        console.log(`User not registered in portal: ${email}`);
+        return "/login?error=NotRegistered";
+      }
+
+      if (!existingUser.is_active) {
+        console.log(`Inactive user attempted login: ${email}`);
+        return "/login?error=AccountInactive";
+      }
+
+      // Update last login
+      await supabase
+        .from("portal_users")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("email", email);
+
+      return true;
     },
+
+    async jwt({ token, user, trigger }) {
+      // On sign in or when session is updated, fetch user profile
+      if (user?.email || trigger === "update") {
+        const email = user?.email || token.email;
+        if (email) {
+          const supabase = getServerSupabase();
+          const { data: userProfile } = await supabase
+            .from("portal_users")
+            .select(`
+              id,
+              role,
+              department_id,
+              is_active,
+              portal_departments(id, name, slug)
+            `)
+            .eq("email", email)
+            .single();
+
+          if (userProfile) {
+            token.userId = userProfile.id;
+            token.role = userProfile.role;
+            token.departmentId = userProfile.department_id;
+            token.department = userProfile.portal_departments as any;
+            token.isActive = userProfile.is_active;
+          }
+        }
+      }
+      return token;
+    },
+
     async session({ session, token }) {
-      // Add user info to session
+      if (session.user) {
+        session.user.id = token.userId as string;
+        session.user.role = (token.role as "employee" | "manager" | "owner") || "employee";
+        session.user.departmentId = token.departmentId as string | null;
+        session.user.department = token.department as any;
+        session.user.isActive = token.isActive as boolean;
+      }
       return session;
     },
   },
   pages: {
     signIn: "/login",
-    error: "/login", // Redirect errors to login page
+    error: "/login",
   },
-});
+};
 
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

@@ -1,9 +1,10 @@
 interface ToolCardProps {
   name: string;
-  description: string;
+  description: string | null;
   url: string;
   icon: string;
-  category: string;
+  category: string | null;
+  onClick?: () => void;
 }
 
 // Icon component for tool cards
@@ -86,14 +87,21 @@ function ToolIcon({ name }: { name: string }) {
   );
 }
 
-export default function ToolCard({ name, description, url, icon, category }: ToolCardProps) {
+export default function ToolCard({ name, description, url, icon, category, onClick }: ToolCardProps) {
   const isDisabled = url === "#";
+
+  const handleClick = () => {
+    if (!isDisabled && onClick) {
+      onClick();
+    }
+  };
 
   return (
     <a
       href={isDisabled ? undefined : url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleClick}
       className={`
         block p-5 rounded-xl transition-all duration-200 group
         ${isDisabled ? "cursor-not-allowed" : "cursor-pointer"}
