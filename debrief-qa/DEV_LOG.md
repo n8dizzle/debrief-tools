@@ -56,6 +56,33 @@ ADD COLUMN IF NOT EXISTS st_task_created_at TIMESTAMP;
 - Task creation is non-blocking - if it fails, the debrief still saves
 - Tasks appear in ServiceTitan's Task Management with full job linkage
 - Task source is set to "Job" for proper categorization
+- Priority defaults to "Low" (ST API requires specific enum values)
+
+### Testing Completed
+- ✅ ST Task Management API access verified
+- ✅ Task creation tested - Task #617 created on job XMAS-100035800
+- ✅ Slack notification tested - message sent to #debrief-followups
+- ✅ Both integrations working end-to-end
+
+### Required ST Task Payload Fields
+```json
+{
+  "jobId": 74012999,
+  "taskTypeId": 27930468,
+  "taskSourceId": 27838436,
+  "employeeTaskTypeId": 27930468,
+  "employeeTaskSourceId": 27838436,
+  "name": "Task title",
+  "body": "Task description",
+  "dueDate": "2026-01-05T00:00:00.000Z",
+  "reportedDate": "2026-01-04T00:00:00.000Z",
+  "isClosed": false,
+  "priority": "Low",
+  "assignedToId": 21,
+  "reportedById": 21,
+  "businessUnitId": 612
+}
+```
 
 ---
 
