@@ -54,6 +54,22 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
+# Timezone conversion filter for templates (UTC to Central Time)
+from zoneinfo import ZoneInfo
+
+def to_central(dt):
+    """Convert UTC datetime to Central Time."""
+    if dt is None:
+        return None
+    # Assume dt is naive UTC, make it aware then convert
+    utc = ZoneInfo("UTC")
+    central = ZoneInfo("America/Chicago")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=utc)
+    return dt.astimezone(central)
+
+templates.env.filters["central"] = to_central
+
 
 # ----- Startup -----
 

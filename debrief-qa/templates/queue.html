@@ -96,7 +96,7 @@
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-nowrap">
                             {% if ticket.completed_at %}
-                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ ticket.completed_at.strftime('%m/%d %I:%M%p').lower() }}</span>
+                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ (ticket.completed_at|central).strftime('%m/%d %I:%M%p').lower() }}</span>
                             {% endif %}
                             <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-green/20 text-christmas-green-light whitespace-nowrap truncate max-w-[160px]" title="{{ ticket.job_type_name or 'Unknown' }}">{{ ticket.job_type_name or 'Unknown' }}</span>
                             {% if ticket.is_opportunity %}
@@ -201,7 +201,7 @@
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-nowrap">
                             {% if ticket.completed_at %}
-                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ ticket.completed_at.strftime('%m/%d %I:%M%p').lower() }}</span>
+                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ (ticket.completed_at|central).strftime('%m/%d %I:%M%p').lower() }}</span>
                             {% endif %}
                             <span class="px-2 py-0.5 text-xs rounded-full bg-christmas-gold/20 text-christmas-gold whitespace-nowrap truncate max-w-[160px]" title="{{ ticket.job_type_name or 'Unknown' }}">{{ ticket.job_type_name or 'Unknown' }}</span>
                             {% if ticket.is_opportunity %}

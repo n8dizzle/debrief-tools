@@ -123,7 +123,7 @@
                     data-job="{{ ticket.job_number }}"
                     onclick="window.location='/spot-check/{{ sc.id }}'">
                     <td class="px-4 py-3 text-sm text-gray-400">
-                        {{ sc.completed_at.strftime('%m/%d/%y %I:%M%p').lower() if sc.completed_at else 'N/A' }}
+                        {{ (sc.completed_at|central).strftime('%m/%d/%y %I:%M%p').lower() if sc.completed_at else 'N/A' }}
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-2">

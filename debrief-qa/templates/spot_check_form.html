@@ -47,11 +47,11 @@
             </div>
             <div>
                 <div class="text-gray-500">Job Completed</div>
-                <div class="font-medium text-christmas-cream">{{ ticket.completed_at.strftime('%b %d, %I:%M %p') if ticket.completed_at else 'N/A' }}</div>
+                <div class="font-medium text-christmas-cream">{{ (ticket.completed_at|central).strftime('%b %d, %I:%M %p') if ticket.completed_at else 'N/A' }}</div>
             </div>
             <div>
                 <div class="text-gray-500">Debriefed</div>
-                <div class="font-medium text-christmas-cream">{{ debrief.completed_at.strftime('%b %d, %I:%M %p') if debrief.completed_at else 'N/A' }}</div>
+                <div class="font-medium text-christmas-cream">{{ (debrief.completed_at|central).strftime('%b %d, %I:%M %p') if debrief.completed_at else 'N/A' }}</div>
             </div>
         </div>
 

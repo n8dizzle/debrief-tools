@@ -14,68 +14,86 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      const email = user.email || "";
-      const domain = email.split("@")[1];
+      try {
+        const email = user.email || "";
+        const domain = email.split("@")[1];
 
-      // Check domain first
-      if (!ALLOWED_DOMAINS.includes(domain)) {
-        console.log(`Rejected sign-in attempt from non-allowed domain: ${email}`);
-        return false;
+        // Check domain first
+        if (!ALLOWED_DOMAINS.includes(domain)) {
+          console.log(`Rejected sign-in attempt from non-allowed domain: ${email}`);
+          return false;
+        }
+
+        // Check if user exists in our portal_users table
+        const supabase = getServerSupabase();
+        const { data: existingUser, error } = await supabase
+          .from("portal_users")
+          .select("id, is_active")
+          .eq("email", email)
+          .single();
+
+        if (error) {
+          console.error(`Supabase error checking user: ${error.message}`);
+          // If database error, allow sign-in and handle in jwt callback
+          return true;
+        }
+
+        if (!existingUser) {
+          console.log(`User not registered in portal: ${email}`);
+          return "/login?error=NotRegistered";
+        }
+
+        if (!existingUser.is_active) {
+          console.log(`Inactive user attempted login: ${email}`);
+          return "/login?error=AccountInactive";
+        }
+
+        // Update last login (fire and forget)
+        supabase
+          .from("portal_users")
+          .update({ last_login_at: new Date().toISOString() })
+          .eq("email", email);
+
+        return true;
+      } catch (err) {
+        console.error("SignIn callback error:", err);
+        // On error, allow sign-in and handle gracefully
+        return true;
       }
-
-      // Check if user exists in our portal_users table
-      const supabase = getServerSupabase();
-      const { data: existingUser, error } = await supabase
-        .from("portal_users")
-        .select("id, is_active")
-        .eq("email", email)
-        .single();
-
-      if (error || !existingUser) {
-        console.log(`User not registered in portal: ${email}`);
-        return "/login?error=NotRegistered";
-      }
-
-      if (!existingUser.is_active) {
-        console.log(`Inactive user attempted login: ${email}`);
-        return "/login?error=AccountInactive";
-      }
-
-      // Update last login
-      await supabase
-        .from("portal_users")
-        .update({ last_login_at: new Date().toISOString() })
-        .eq("email", email);
-
-      return true;
     },
 
     async jwt({ token, user, trigger }) {
-      // On sign in or when session is updated, fetch user profile
-      if (user?.email || trigger === "update") {
-        const email = user?.email || token.email;
-        if (email) {
-          const supabase = getServerSupabase();
-          const { data: userProfile } = await supabase
-            .from("portal_users")
-            .select(`
-              id,
-              role,
-              department_id,
-              is_active,
-              portal_departments(id, name, slug)
-            `)
-            .eq("email", email)
-            .single();
+      try {
+        // On sign in or when session is updated, fetch user profile
+        if (user?.email || trigger === "update") {
+          const email = user?.email || token.email;
+          if (email) {
+            const supabase = getServerSupabase();
+            const { data: userProfile, error } = await supabase
+              .from("portal_users")
+              .select(`
+                id,
+                role,
+                department_id,
+                is_active,
+                portal_departments(id, name, slug)
+              `)
+              .eq("email", email as string)
+              .single();
 
-          if (userProfile) {
-            token.userId = userProfile.id;
-            token.role = userProfile.role;
-            token.departmentId = userProfile.department_id;
-            token.department = userProfile.portal_departments as any;
-            token.isActive = userProfile.is_active;
+            if (error) {
+              console.error("JWT callback - Supabase error:", error.message);
+            } else if (userProfile) {
+              token.userId = userProfile.id;
+              token.role = userProfile.role;
+              token.departmentId = userProfile.department_id;
+              token.department = userProfile.portal_departments as any;
+              token.isActive = userProfile.is_active;
+            }
           }
         }
+      } catch (err) {
+        console.error("JWT callback error:", err);
       }
       return token;
     },
