@@ -33,6 +33,14 @@
         <!-- Other Filters -->
         <div class="flex flex-wrap gap-4 items-end pt-3 border-t border-dark-border">
             <div>
+                <label class="block text-xs text-gray-500 mb-1">Trade</label>
+                <select id="filter-trade" onchange="applyClientFilters()" class="px-3 py-2 rounded-lg text-sm min-w-[100px]">
+                    <option value="">All</option>
+                    <option value="HVAC">HVAC</option>
+                    <option value="Plumbing">Plumbing</option>
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs text-gray-500 mb-1">Job #</label>
                 <input type="text" id="filter-job" oninput="applyClientFilters()" placeholder="Search job #..." class="px-3 py-2 rounded-lg text-sm w-[120px] bg-dark-bg border border-dark-border text-christmas-cream placeholder-gray-600">
             </div>
@@ -226,11 +234,15 @@ async function loadHistory() {
 }
 
 function applyClientFilters() {
+    const tradeFilter = document.getElementById('filter-trade').value;
     const jobFilter = document.getElementById('filter-job').value.trim();
     const scoreFilter = document.getElementById('filter-score').value;
     const issuesFilter = document.getElementById('filter-issues').value;
 
     filteredData = allData.filter(job => {
+        // Trade filter
+        if (tradeFilter && job.trade_type !== tradeFilter) return false;
+
         // Job number filter
         if (jobFilter && !String(job.job_number).includes(jobFilter)) return false;
 
@@ -379,6 +391,7 @@ function nextPage() {
 }
 
 function clearFilters() {
+    document.getElementById('filter-trade').value = '';
     document.getElementById('filter-job').value = '';
     document.getElementById('filter-tech').value = '';
     document.getElementById('filter-dispatcher').value = '';

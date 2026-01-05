@@ -170,7 +170,15 @@
     <!-- Pending Queue -->
     <div class="bg-dark-card rounded-lg border border-dark-border">
         <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
-            <h2 class="text-lg font-semibold text-christmas-gold">Pending Debrief ({{ pending_count }})</h2>
+            <div class="flex items-center gap-4">
+                <h2 class="text-lg font-semibold text-christmas-gold">Pending Debrief (<span id="visible-count">{{ pending_count }}</span>)</h2>
+                <!-- Trade Filter -->
+                <div class="flex items-center gap-1 text-sm">
+                    <button onclick="filterByTrade('all')" data-filter="all" class="trade-filter px-2.5 py-1 rounded text-christmas-cream bg-christmas-green/30 border border-christmas-green/50">All</button>
+                    <button onclick="filterByTrade('HVAC')" data-filter="HVAC" class="trade-filter px-2.5 py-1 rounded text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover border border-transparent">HVAC</button>
+                    <button onclick="filterByTrade('Plumbing')" data-filter="Plumbing" class="trade-filter px-2.5 py-1 rounded text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover border border-transparent">Plumbing</button>
+                </div>
+            </div>
             <div class="flex items-center gap-3">
                 <button id="sync-btn" onclick="syncJobs()" title="Pull new completed jobs from ServiceTitan API" class="text-sm text-christmas-cream bg-christmas-green/20 hover:bg-christmas-green/30 px-3 py-1 rounded-lg border border-christmas-green/50 transition flex items-center gap-2">
                     <span id="sync-icon">⟳</span>
@@ -183,9 +191,9 @@
         </div>
 
         {% if pending_tickets %}
-        <div class="divide-y divide-dark-border">
+        <div id="pending-list" class="divide-y divide-dark-border">
             {% for ticket in pending_tickets %}
-            <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/debrief/{{ ticket.job_id }}'">
+            <div class="ticket-row px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" data-trade="{{ ticket.trade_type or 'Unknown' }}" onclick="window.location='/debrief/{{ ticket.job_id }}'">
                 <div class="grid grid-cols-12 gap-2 items-center">
                     <!-- Col 1: Job Info (4 cols) -->
                     <div class="col-span-4">
@@ -276,6 +284,47 @@
 <script>
     // Auto-refresh every 30 seconds
     setTimeout(() => location.reload(), 30000);
+
+    // Trade filter
+    let currentFilter = localStorage.getItem('queueTradeFilter') || 'all';
+
+    function filterByTrade(trade) {
+        currentFilter = trade;
+        localStorage.setItem('queueTradeFilter', trade);
+
+        // Update button styles
+        document.querySelectorAll('.trade-filter').forEach(btn => {
+            if (btn.dataset.filter === trade) {
+                btn.classList.add('text-christmas-cream', 'bg-christmas-green/30', 'border-christmas-green/50');
+                btn.classList.remove('text-gray-400', 'border-transparent');
+            } else {
+                btn.classList.remove('text-christmas-cream', 'bg-christmas-green/30', 'border-christmas-green/50');
+                btn.classList.add('text-gray-400', 'border-transparent');
+            }
+        });
+
+        // Filter tickets
+        let visibleCount = 0;
+        document.querySelectorAll('.ticket-row').forEach(row => {
+            const rowTrade = row.dataset.trade;
+            if (trade === 'all' || rowTrade === trade) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Update count
+        document.getElementById('visible-count').textContent = visibleCount;
+    }
+
+    // Apply saved filter on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        if (currentFilter !== 'all') {
+            filterByTrade(currentFilter);
+        }
+    });
 
     // Reset job status back to pending
     async function resetJobStatus(jobId) {

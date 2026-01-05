@@ -115,16 +115,24 @@
 
     <!-- Pending Queue -->
     <div class="bg-dark-card rounded-lg border border-dark-border">
-        <div class="px-6 py-4 border-b border-dark-border">
-            <h2 class="text-lg font-semibold text-christmas-gold">Pending Review ({{ pending_count }})</h2>
+        <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <h2 class="text-lg font-semibold text-christmas-gold">Pending Review (<span id="visible-count">{{ pending_count }}</span>)</h2>
+                <!-- Trade Filter -->
+                <div class="flex items-center gap-1 text-sm">
+                    <button onclick="filterByTrade('all')" data-filter="all" class="trade-filter px-2.5 py-1 rounded text-christmas-cream bg-christmas-green/30 border border-christmas-green/50">All</button>
+                    <button onclick="filterByTrade('HVAC')" data-filter="HVAC" class="trade-filter px-2.5 py-1 rounded text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover border border-transparent">HVAC</button>
+                    <button onclick="filterByTrade('Plumbing')" data-filter="Plumbing" class="trade-filter px-2.5 py-1 rounded text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover border border-transparent">Plumbing</button>
+                </div>
+            </div>
         </div>
 
         {% if pending_spot_checks %}
-        <div class="divide-y divide-dark-border">
+        <div id="pending-list" class="divide-y divide-dark-border">
             {% for sc in pending_spot_checks %}
             {% set debrief = sc.debrief_session %}
             {% set ticket = debrief.ticket %}
-            <div class="px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" onclick="window.location='/spot-check/{{ sc.id }}'">
+            <div class="spot-check-row px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" data-trade="{{ ticket.trade_type or 'Unknown' }}" onclick="window.location='/spot-check/{{ sc.id }}'">
                 <div class="grid grid-cols-12 gap-4 items-center">
                     <!-- Job Info -->
                     <div class="col-span-4">
@@ -180,6 +188,35 @@
 
 {% block scripts %}
 <script>
+// Trade filter
+function filterByTrade(trade) {
+    // Update button styles
+    document.querySelectorAll('.trade-filter').forEach(btn => {
+        if (btn.dataset.filter === trade) {
+            btn.classList.add('text-christmas-cream', 'bg-christmas-green/30', 'border-christmas-green/50');
+            btn.classList.remove('text-gray-400', 'border-transparent');
+        } else {
+            btn.classList.remove('text-christmas-cream', 'bg-christmas-green/30', 'border-christmas-green/50');
+            btn.classList.add('text-gray-400', 'border-transparent');
+        }
+    });
+
+    // Filter rows
+    let visibleCount = 0;
+    document.querySelectorAll('.spot-check-row').forEach(row => {
+        const rowTrade = row.dataset.trade;
+        if (trade === 'all' || rowTrade === trade) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Update count
+    document.getElementById('visible-count').textContent = visibleCount;
+}
+
 async function selectDaily() {
     if (!confirm('Select 10% of yesterday\'s debriefs for spot check review?')) {
         return;
