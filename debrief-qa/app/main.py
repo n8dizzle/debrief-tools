@@ -1042,13 +1042,40 @@ async def get_debrief_history(
             "dispatcher_name": dispatcher_name or "Unknown",
             "composite_score": round(composite, 1),
             "invoice_score": invoice_score,
+            # Status fields
             "photos": debrief.photos_reviewed,
             "payment": debrief.payment_verified,
             "estimates": debrief.estimates_verified,
             "membership": debrief.membership_verified,
             "reviews": debrief.google_reviews_discussed,
+            "replacement": debrief.replacement_discussed,
+            "equipment_added": debrief.equipment_added,
+            "materials_on_invoice": debrief.materials_on_invoice,
+            # All notes fields
+            "photos_notes": debrief.photos_notes,
+            "invoice_summary_notes": debrief.invoice_summary_notes,
+            "no_payment_reason": debrief.no_payment_reason,
+            "estimates_notes": debrief.estimates_notes,
+            "membership_notes": debrief.membership_notes,
+            "google_reviews_notes": debrief.google_reviews_notes,
+            "no_replacement_reason": debrief.no_replacement_reason,
+            "equipment_added_notes": debrief.equipment_added_notes,
+            "materials_on_invoice_notes": debrief.materials_on_invoice_notes,
+            "general_notes": debrief.general_notes,
+            # G3 contact
+            "g3_contact_needed": debrief.g3_contact_needed,
+            "g3_notes": debrief.g3_notes,
+            # Follow-up details
             "followup_required": debrief.followup_required,
-            "has_notes": bool(debrief.general_notes),
+            "followup_type": debrief.followup_type,
+            "followup_description": debrief.followup_description,
+            "followup_assigned_to": debrief.followup_assigned_to,
+            "followup_completed": debrief.followup_completed,
+            # Meta
+            "has_notes": bool(debrief.general_notes or debrief.photos_notes or debrief.invoice_summary_notes or
+                             debrief.no_payment_reason or debrief.estimates_notes or debrief.membership_notes or
+                             debrief.google_reviews_notes or debrief.no_replacement_reason or debrief.g3_notes or
+                             debrief.equipment_added_notes or debrief.materials_on_invoice_notes),
             "debrief_session_id": debrief.id,
             "has_spot_check": has_spot_check,
         })

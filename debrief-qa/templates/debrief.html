@@ -146,11 +146,153 @@
     </div>
     {% endif %}
 
-    <!-- Debrief Form -->
-    <form action="/api/job/{{ ticket.job_id }}/debrief/form" method="POST" class="bg-dark-card rounded-lg border border-dark-border">
+    <!-- Completed Debrief Review (if already debriefed) -->
+    {% if debrief %}
+    <div class="bg-dark-card rounded-lg border border-christmas-green/50 mb-6">
+        <div class="px-6 py-4 border-b border-dark-border bg-christmas-green/10">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-semibold text-christmas-cream">✓ Debrief Completed</h2>
+                    <p class="text-sm text-gray-400 mt-1">
+                        By {{ debrief.dispatcher.name if debrief.dispatcher else 'Unknown' }} on
+                        {{ debrief.completed_at.strftime('%b %d, %Y at %I:%M %p') if debrief.completed_at else 'N/A' }}
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-500">Invoice Score</div>
+                    <div class="text-2xl font-bold text-christmas-green-light">{{ debrief.invoice_summary_score or 5 }}/10</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 space-y-4">
+            <!-- Checklist Results Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Photos</div>
+                    <div class="{% if debrief.photos_reviewed == 'pass' %}text-christmas-green-light{% elif debrief.photos_reviewed == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.photos_reviewed|upper if debrief.photos_reviewed else 'N/A' }}
+                    </div>
+                    {% if debrief.photos_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.photos_notes }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Payment</div>
+                    <div class="{% if debrief.payment_verified == 'pass' %}text-christmas-green-light{% elif debrief.payment_verified == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.payment_verified|upper if debrief.payment_verified else 'N/A' }}
+                    </div>
+                    {% if debrief.no_payment_reason %}<div class="text-xs text-gray-400 mt-1">{{ debrief.no_payment_reason }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Estimates</div>
+                    <div class="{% if debrief.estimates_verified == 'pass' %}text-christmas-green-light{% elif debrief.estimates_verified == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.estimates_verified|upper if debrief.estimates_verified else 'N/A' }}
+                    </div>
+                    {% if debrief.estimates_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.estimates_notes }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Membership</div>
+                    <div class="{% if debrief.membership_verified == 'pass' %}text-christmas-green-light{% elif debrief.membership_verified == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.membership_verified|upper if debrief.membership_verified else 'N/A' }}
+                    </div>
+                    {% if debrief.membership_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.membership_notes }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Google Reviews</div>
+                    <div class="{% if debrief.google_reviews_discussed == 'pass' %}text-christmas-green-light{% elif debrief.google_reviews_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.google_reviews_discussed|upper if debrief.google_reviews_discussed else 'N/A' }}
+                    </div>
+                    {% if debrief.google_reviews_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.google_reviews_notes }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Replacement</div>
+                    <div class="{% if debrief.replacement_discussed == 'pass' %}text-christmas-green-light{% elif debrief.replacement_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.replacement_discussed|upper if debrief.replacement_discussed else 'N/A' }}
+                    </div>
+                    {% if debrief.no_replacement_reason %}<div class="text-xs text-gray-400 mt-1">{{ debrief.no_replacement_reason }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Equipment Added</div>
+                    <div class="{% if debrief.equipment_added == 'pass' %}text-christmas-green-light{% elif debrief.equipment_added == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.equipment_added|upper if debrief.equipment_added else 'N/A' }}
+                    </div>
+                    {% if debrief.equipment_added_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.equipment_added_notes }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-christmas-gold/30">
+                    <div class="text-xs text-christmas-gold mb-1">Materials on Invoice 💰</div>
+                    <div class="{% if debrief.materials_on_invoice == 'pass' %}text-christmas-green-light{% elif debrief.materials_on_invoice == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.materials_on_invoice|upper if debrief.materials_on_invoice else 'N/A' }}
+                    </div>
+                    {% if debrief.materials_on_invoice_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.materials_on_invoice_notes }}</div>{% endif %}
+                </div>
+            </div>
+
+            <!-- Invoice Summary Notes -->
+            {% if debrief.invoice_summary_notes %}
+            <div class="bg-dark-bg rounded-lg p-4 border border-dark-border">
+                <div class="text-xs text-gray-500 mb-2">Invoice Summary Notes</div>
+                <div class="text-sm text-christmas-cream">{{ debrief.invoice_summary_notes }}</div>
+            </div>
+            {% endif %}
+
+            <!-- G3 Contact -->
+            {% if debrief.g3_contact_needed %}
+            <div class="bg-christmas-gold/10 rounded-lg p-4 border border-christmas-gold/30">
+                <div class="text-xs text-christmas-gold mb-2">⚠️ G3 Contact Needed</div>
+                <div class="text-sm text-christmas-cream">{{ debrief.g3_notes or 'No details provided' }}</div>
+            </div>
+            {% endif %}
+
+            <!-- General Notes -->
+            {% if debrief.general_notes %}
+            <div class="bg-dark-bg rounded-lg p-4 border border-dark-border">
+                <div class="text-xs text-gray-500 mb-2">General Notes / Coaching Reminders</div>
+                <div class="text-sm text-christmas-cream whitespace-pre-wrap">{{ debrief.general_notes }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Follow-up Section -->
+            {% if debrief.followup_required %}
+            <div class="bg-christmas-gold/10 rounded-lg p-4 border border-christmas-gold/30">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-christmas-gold font-semibold">⚠️ Follow-up Required</span>
+                    {% if debrief.followup_completed %}
+                    <span class="px-2 py-0.5 text-xs bg-christmas-green/20 text-christmas-green-light rounded">Completed</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-xs bg-christmas-gold/20 text-christmas-gold rounded">Pending</span>
+                    {% endif %}
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <div class="text-xs text-gray-500">Type</div>
+                        <div class="text-christmas-cream">{{ debrief.followup_type|replace('_', ' ')|title if debrief.followup_type else 'Not specified' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500">Assigned To</div>
+                        <div class="text-christmas-cream">{{ debrief.followup_assigned_to or 'Unassigned' }}</div>
+                    </div>
+                </div>
+                {% if debrief.followup_description %}
+                <div class="mt-3">
+                    <div class="text-xs text-gray-500 mb-1">Description</div>
+                    <div class="text-sm text-christmas-cream">{{ debrief.followup_description }}</div>
+                </div>
+                {% endif %}
+                {% if debrief.st_task_id %}
+                <div class="mt-3 text-xs text-gray-500">
+                    ServiceTitan Task #{{ debrief.st_task_id }} created
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Debrief Form (for new debriefs or re-debriefing) -->
+    <form action="/api/job/{{ ticket.job_id }}/debrief/form" method="POST" class="bg-dark-card rounded-lg border border-dark-border {% if debrief %}opacity-60 hover:opacity-100 transition{% endif %}">
         <div class="px-6 py-4 border-b border-dark-border">
-            <h2 class="text-lg font-semibold text-christmas-cream">Debrief Checklist</h2>
-            <p class="text-sm text-gray-500 mt-1">Complete all items before submitting.</p>
+            <h2 class="text-lg font-semibold text-christmas-cream">{% if debrief %}Re-Debrief / Update{% else %}Debrief Checklist{% endif %}</h2>
+            <p class="text-sm text-gray-500 mt-1">{% if debrief %}Submit again to update this debrief.{% else %}Complete all items before submitting.{% endif %}</p>
         </div>
 
         <div class="px-6 py-4 space-y-6">
