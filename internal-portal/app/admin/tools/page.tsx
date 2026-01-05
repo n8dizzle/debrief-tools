@@ -35,7 +35,7 @@ export default function ToolsPage() {
     return true;
   });
 
-  const sections = [...new Set(tools.map((t) => t.section))];
+  const sections = Array.from(new Set(tools.map((t) => t.section)));
 
   const handleToggleActive = async (tool: Tool) => {
     try {
