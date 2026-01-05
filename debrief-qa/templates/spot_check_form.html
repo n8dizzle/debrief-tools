@@ -85,66 +85,118 @@
     <div class="bg-dark-card rounded-lg border border-dark-border mb-6">
         <div class="px-6 py-4 border-b border-dark-border">
             <h2 class="text-lg font-semibold text-christmas-cream">Original Debrief Responses</h2>
-            <p class="text-sm text-gray-500 mt-1">Review what the dispatcher marked</p>
+            <p class="text-sm text-gray-500 mt-1">Review what the dispatcher marked and their notes</p>
         </div>
         <div class="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-                <div class="text-gray-500">Photos</div>
-                <div class="font-medium {% if debrief.photos_reviewed == 'pass' %}text-christmas-green-light{% elif debrief.photos_reviewed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Photos</div>
+                <div class="font-semibold {% if debrief.photos_reviewed == 'pass' %}text-christmas-green-light{% elif debrief.photos_reviewed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.photos_reviewed|upper if debrief.photos_reviewed else '--' }}
                 </div>
+                {% if debrief.photos_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.photos_notes }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Payment</div>
-                <div class="font-medium {% if debrief.payment_verified == 'pass' %}text-christmas-green-light{% elif debrief.payment_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Payment</div>
+                <div class="font-semibold {% if debrief.payment_verified == 'pass' %}text-christmas-green-light{% elif debrief.payment_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.payment_verified|upper if debrief.payment_verified else '--' }}
                 </div>
+                {% if debrief.no_payment_reason %}<div class="text-xs text-gray-400 mt-1">{{ debrief.no_payment_reason }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Estimates</div>
-                <div class="font-medium {% if debrief.estimates_verified == 'pass' %}text-christmas-green-light{% elif debrief.estimates_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Estimates</div>
+                <div class="font-semibold {% if debrief.estimates_verified == 'pass' %}text-christmas-green-light{% elif debrief.estimates_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.estimates_verified|upper if debrief.estimates_verified else '--' }}
                 </div>
+                {% if debrief.estimates_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.estimates_notes }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Membership</div>
-                <div class="font-medium {% if debrief.membership_verified == 'pass' %}text-christmas-green-light{% elif debrief.membership_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Membership</div>
+                <div class="font-semibold {% if debrief.membership_verified == 'pass' %}text-christmas-green-light{% elif debrief.membership_verified == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.membership_verified|upper if debrief.membership_verified else '--' }}
                 </div>
+                {% if debrief.membership_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.membership_notes }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Google Reviews</div>
-                <div class="font-medium {% if debrief.google_reviews_discussed == 'pass' %}text-christmas-green-light{% elif debrief.google_reviews_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Google Reviews</div>
+                <div class="font-semibold {% if debrief.google_reviews_discussed == 'pass' %}text-christmas-green-light{% elif debrief.google_reviews_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.google_reviews_discussed|upper if debrief.google_reviews_discussed else '--' }}
                 </div>
+                {% if debrief.google_reviews_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.google_reviews_notes }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Replacement</div>
-                <div class="font-medium {% if debrief.replacement_discussed == 'pass' %}text-christmas-green-light{% elif debrief.replacement_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Replacement</div>
+                <div class="font-semibold {% if debrief.replacement_discussed == 'pass' %}text-christmas-green-light{% elif debrief.replacement_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.replacement_discussed|upper if debrief.replacement_discussed else '--' }}
                 </div>
+                {% if debrief.no_replacement_reason %}<div class="text-xs text-gray-400 mt-1">{{ debrief.no_replacement_reason }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Equipment Added</div>
-                <div class="font-medium {% if debrief.equipment_added == 'pass' %}text-christmas-green-light{% elif debrief.equipment_added == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+            <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                <div class="text-gray-500 text-xs mb-1">Equipment Added</div>
+                <div class="font-semibold {% if debrief.equipment_added == 'pass' %}text-christmas-green-light{% elif debrief.equipment_added == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
                     {{ debrief.equipment_added|upper if debrief.equipment_added else '--' }}
                 </div>
+                {% if debrief.equipment_added_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.equipment_added_notes }}</div>{% endif %}
             </div>
-            <div>
-                <div class="text-gray-500">Invoice Score</div>
-                <div class="font-medium text-christmas-cream">{{ debrief.invoice_summary_score or '--' }}/10</div>
+            <div class="bg-dark-bg rounded-lg p-3 border border-christmas-gold/30">
+                <div class="text-christmas-gold text-xs mb-1">Materials on Invoice</div>
+                <div class="font-semibold {% if debrief.materials_on_invoice == 'pass' %}text-christmas-green-light{% elif debrief.materials_on_invoice == 'fail' %}text-christmas-brown{% else %}text-gray-400{% endif %}">
+                    {{ debrief.materials_on_invoice|upper if debrief.materials_on_invoice else '--' }}
+                </div>
+                {% if debrief.materials_on_invoice_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.materials_on_invoice_notes }}</div>{% endif %}
             </div>
         </div>
-        {% if debrief.general_notes %}
+
+        <!-- Invoice Summary Notes -->
+        {% if debrief.invoice_summary_notes %}
         <div class="px-6 py-4 border-t border-dark-border">
-            <div class="text-gray-500 text-sm mb-1">Dispatcher Notes:</div>
-            <div class="text-gray-300 text-sm">{{ debrief.general_notes }}</div>
+            <div class="text-gray-500 text-sm mb-1">Invoice Summary Notes:</div>
+            <div class="text-gray-300 text-sm">{{ debrief.invoice_summary_notes }}</div>
         </div>
         {% endif %}
+
+        <!-- G3 Contact -->
+        {% if debrief.g3_contact_needed %}
+        <div class="px-6 py-4 border-t border-dark-border bg-christmas-gold/10">
+            <div class="text-christmas-gold text-sm font-medium">G3 Contact Needed</div>
+            <div class="text-gray-300 text-sm mt-1">{{ debrief.g3_notes or 'No details provided' }}</div>
+        </div>
+        {% endif %}
+
+        <!-- General Notes -->
+        {% if debrief.general_notes %}
+        <div class="px-6 py-4 border-t border-dark-border">
+            <div class="text-gray-500 text-sm mb-1">General Notes / Coaching Reminders:</div>
+            <div class="text-gray-300 text-sm whitespace-pre-wrap">{{ debrief.general_notes }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Follow-up -->
         {% if debrief.followup_required %}
         <div class="px-6 py-4 border-t border-dark-border bg-christmas-gold/10">
-            <div class="text-christmas-gold text-sm font-medium">Follow-up Required</div>
-            <div class="text-gray-300 text-sm mt-1">{{ debrief.followup_type }}: {{ debrief.followup_description }}</div>
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-christmas-gold text-sm font-medium">Follow-up Required</span>
+                {% if debrief.followup_completed %}
+                <span class="px-2 py-0.5 text-xs bg-christmas-green/20 text-christmas-green-light rounded">Completed</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-xs bg-christmas-gold/20 text-christmas-gold rounded">Pending</span>
+                {% endif %}
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-gray-500">Type:</span>
+                    <span class="text-gray-300 ml-1">{{ debrief.followup_type|replace('_', ' ')|title if debrief.followup_type else '--' }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Assigned:</span>
+                    <span class="text-gray-300 ml-1">{{ debrief.followup_assigned_to or 'Unassigned' }}</span>
+                </div>
+            </div>
+            {% if debrief.followup_description %}
+            <div class="mt-2 text-sm text-gray-300">{{ debrief.followup_description }}</div>
+            {% endif %}
+            {% if debrief.st_task_id %}
+            <div class="mt-2 text-xs text-gray-500">ST Task #{{ debrief.st_task_id }}</div>
+            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -322,6 +374,25 @@
                         </label>
                     </div>
                     <input type="text" name="equipment_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
+                </div>
+
+                <!-- Materials on Invoice -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-christmas-gold">
+                        Materials on Invoice 💰
+                        <span class="text-gray-500 font-normal">(Dispatcher marked: {{ debrief.materials_on_invoice|upper if debrief.materials_on_invoice else '--' }})</span>
+                    </label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="materials_correct" value="true" class="text-christmas-green" required>
+                            <span class="text-christmas-green-light">Correct</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-gray-300">
+                            <input type="radio" name="materials_correct" value="false" class="text-christmas-brown">
+                            <span class="text-christmas-brown">Incorrect</span>
+                        </label>
+                    </div>
+                    <input type="text" name="materials_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
                 </div>
             </div>
 
