@@ -29,10 +29,11 @@ export async function GET(
 
     if (error) throw error;
 
-    // Transform to include departments array
+    // Transform to include departments array and permissions
     const transformedTool = {
       ...tool,
       departments: tool.portal_tool_permissions?.map((p: any) => p.portal_departments) || [],
+      permissions: tool.portal_tool_permissions?.map((p: any) => ({ department_id: p.department_id })) || [],
     };
 
     return NextResponse.json(transformedTool);
@@ -58,7 +59,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, description, url, icon, section, category, is_active, display_order, departmentIds } = body;
+    const { name, description, url, icon, section, category, is_active, display_order, department_ids } = body;
 
     const supabase = getServerSupabase();
 
@@ -69,7 +70,7 @@ export async function PATCH(
     if (url !== undefined) updateData.url = url;
     if (icon !== undefined) updateData.icon = icon;
     if (section !== undefined) updateData.section = section;
-    if (category !== undefined) updateData.category = category;
+    if (category !== undefined) updateData.category = category || null;
     if (is_active !== undefined) updateData.is_active = is_active;
     if (display_order !== undefined) updateData.display_order = display_order;
 
@@ -82,8 +83,8 @@ export async function PATCH(
 
     if (toolError) throw toolError;
 
-    // Update permissions if departmentIds provided
-    if (departmentIds !== undefined) {
+    // Update permissions if department_ids provided
+    if (department_ids !== undefined) {
       // Delete existing permissions
       await supabase
         .from("portal_tool_permissions")
@@ -91,8 +92,8 @@ export async function PATCH(
         .eq("tool_id", params.id);
 
       // Insert new permissions
-      if (departmentIds.length > 0) {
-        const permissions = departmentIds.map((deptId: string) => ({
+      if (department_ids.length > 0) {
+        const permissions = department_ids.map((deptId: string) => ({
           tool_id: params.id,
           department_id: deptId,
         }));

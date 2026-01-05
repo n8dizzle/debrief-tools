@@ -1,12 +1,14 @@
-// TEMPORARILY DISABLED FOR PREVIEW
-// import { withAuth } from "next-auth/middleware";
+import { withAuth } from "next-auth/middleware";
 
-// export default withAuth({
-//   pages: {
-//     signIn: "/login",
-//   },
-// });
+export default withAuth({
+  pages: {
+    signIn: "/login",
+  },
+});
 
 export const config = {
-  matcher: [],  // Empty = no routes protected
+  matcher: [
+    // Protect all routes except login, api/auth, and static files
+    "/((?!login|api/auth|_next/static|_next/image|favicon.ico|logo.png).*)",
+  ],
 };

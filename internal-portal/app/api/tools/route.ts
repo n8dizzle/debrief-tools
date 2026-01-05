@@ -13,8 +13,35 @@ export async function GET(request: NextRequest) {
 
     const supabase = getServerSupabase();
     const { role, departmentId } = session.user;
+    const { searchParams } = new URL(request.url);
+    const isAdminView = searchParams.get("admin") === "true";
 
-    // Owners see all tools
+    // Admin view - owners see ALL tools (including inactive)
+    if (isAdminView && role === "owner") {
+      const { data: tools, error } = await supabase
+        .from("portal_tools")
+        .select(`
+          *,
+          portal_tool_permissions(
+            department_id,
+            portal_departments(id, name, slug)
+          )
+        `)
+        .order("section")
+        .order("display_order");
+
+      if (error) throw error;
+
+      // Transform to include departments array
+      const transformedTools = tools.map((tool: any) => ({
+        ...tool,
+        departments: tool.portal_tool_permissions?.map((p: any) => p.portal_departments) || [],
+      }));
+
+      return NextResponse.json(transformedTools);
+    }
+
+    // Owners see all active tools
     if (role === "owner") {
       const { data: tools, error } = await supabase
         .from("portal_tools")
@@ -78,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, url, icon, section, category, departmentIds } = body;
+    const { name, description, url, icon, section, category, department_ids } = body;
 
     if (!name || !url || !section) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -91,20 +118,20 @@ export async function POST(request: NextRequest) {
       .from("portal_tools")
       .insert({
         name,
-        description,
+        description: description || null,
         url,
         icon: icon || "link",
         section,
-        category,
+        category: category || null,
       })
       .select()
       .single();
 
     if (toolError) throw toolError;
 
-    // Create permissions if departmentIds provided
-    if (departmentIds?.length > 0) {
-      const permissions = departmentIds.map((deptId: string) => ({
+    // Create permissions if department_ids provided
+    if (department_ids?.length > 0) {
+      const permissions = department_ids.map((deptId: string) => ({
         tool_id: tool.id,
         department_id: deptId,
       }));
