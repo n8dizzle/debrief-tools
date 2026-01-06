@@ -159,8 +159,15 @@
                     </p>
                 </div>
                 <div class="text-right">
-                    <div class="text-sm text-gray-500">Invoice Score</div>
-                    <div class="text-2xl font-bold text-christmas-green-light">{{ debrief.invoice_summary_score or 5 }}/10</div>
+                    <div class="text-sm text-gray-500">Composite Score</div>
+                    {% set photos_pass = 1 if debrief.photos_reviewed == 'pass' else 0 %}
+                    {% set payment_pass = 1 if debrief.payment_verified == 'pass' else 0 %}
+                    {% set estimates_pass = 1 if debrief.estimates_verified == 'pass' else 0 %}
+                    {% set membership_pass = 1 if debrief.membership_verified == 'pass' else 0 %}
+                    {% set reviews_pass = 1 if debrief.google_reviews_discussed == 'pass' else 0 %}
+                    {% set invoice_pct = (debrief.invoice_summary_score or 5) * 10 %}
+                    {% set composite = ((photos_pass * 100 * 2) + (payment_pass * 100 * 2) + (estimates_pass * 100 * 2) + (invoice_pct * 2) + (membership_pass * 100 * 1) + (reviews_pass * 100 * 1)) / 10 %}
+                    <div class="text-2xl font-bold {% if composite >= 70 %}text-christmas-green-light{% elif composite >= 50 %}text-yellow-400{% else %}text-christmas-brown{% endif %}">{{ composite|round(1) }}%</div>
                 </div>
             </div>
         </div>
@@ -174,6 +181,13 @@
                         {{ debrief.photos_reviewed|upper if debrief.photos_reviewed else 'N/A' }}
                     </div>
                     {% if debrief.photos_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.photos_notes }}</div>{% endif %}
+                </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Invoice Summary</div>
+                    <div class="{% if debrief.invoice_summary_score and debrief.invoice_summary_score >= 7 %}text-christmas-green-light{% elif debrief.invoice_summary_score and debrief.invoice_summary_score < 7 %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold text-lg">
+                        {% if debrief.invoice_summary_score %}{{ debrief.invoice_summary_score }}/10{% else %}N/A{% endif %}
+                    </div>
+                    {% if debrief.invoice_summary_score and debrief.invoice_summary_score < 7 %}<div class="text-xs text-christmas-brown mt-1">Below standard</div>{% endif %}
                 </div>
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Payment</div>
