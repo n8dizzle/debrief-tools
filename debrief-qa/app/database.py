@@ -220,6 +220,10 @@ class DebriefSession(Base):
     materials_on_invoice = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     materials_on_invoice_notes = Column(Text)
 
+    # Happy Call
+    happy_call = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
+    happy_call_notes = Column(Text)
+
     # G3 Contact
     g3_contact_needed = Column(Boolean, default=False)
     g3_notes = Column(Text)

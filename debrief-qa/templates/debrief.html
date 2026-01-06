@@ -224,6 +224,13 @@
                     </div>
                     {% if debrief.materials_on_invoice_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.materials_on_invoice_notes }}</div>{% endif %}
                 </div>
+                <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                    <div class="text-xs text-gray-500 mb-1">Happy Call</div>
+                    <div class="{% if debrief.happy_call == 'pass' %}text-christmas-green-light{% elif debrief.happy_call == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
+                        {{ debrief.happy_call|upper if debrief.happy_call else 'N/A' }}
+                    </div>
+                    {% if debrief.happy_call_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.happy_call_notes }}</div>{% endif %}
+                </div>
             </div>
 
             <!-- Invoice Summary Notes -->
@@ -606,7 +613,39 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- 10. G3 Contact -->
+            <!-- 10. Happy Call -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
+                    Happy Call Completed
+                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
+                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Happy Call</div>
+                        <div class="text-gray-400 font-normal">
+                            <span class="text-christmas-green-light">Pass:</span> Happy call completed, customer confirmed satisfaction<br>
+                            <span class="text-christmas-brown">Fail:</span> Happy call attempted but customer had concerns or complaints<br>
+                            <span class="text-gray-500">N/A:</span> Unable to reach customer, voicemail left, or not applicable
+                        </div>
+                    </div>
+                </label>
+                <div class="radio-group">
+                    <label class="pass-option">
+                        <input type="radio" name="happy_call" value="pass" class="sr-only" required>
+                        <span>✓ Yes</span>
+                    </label>
+                    <label class="fail-option">
+                        <input type="radio" name="happy_call" value="fail" class="sr-only">
+                        <span>✗ No</span>
+                    </label>
+                    <label class="na-option">
+                        <input type="radio" name="happy_call" value="na" class="sr-only">
+                        <span>N/A</span>
+                    </label>
+                </div>
+                <input type="text" name="happy_call_notes" placeholder="Notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
+            </div>
+
+            <!-- 11. G3 Contact -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream">G3 Contact Needed?</label>
                 <div class="flex items-center space-x-4">

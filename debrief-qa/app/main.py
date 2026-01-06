@@ -522,6 +522,9 @@ async def submit_debrief_form(
         materials_on_invoice=form_data.get("materials_on_invoice", "pending"),
         materials_on_invoice_notes=form_data.get("materials_on_invoice_notes"),
 
+        happy_call=form_data.get("happy_call", "pending"),
+        happy_call_notes=form_data.get("happy_call_notes"),
+
         g3_contact_needed=form_data.get("g3_contact_needed") == "true",
         g3_notes=form_data.get("g3_notes"),
         
