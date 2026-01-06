@@ -101,7 +101,26 @@ class ServiceTitanClient:
             f"accounting/v2/tenant/{self.tenant_id}/invoices",
             params={"jobId": job_id}
         )
-    
+
+    async def get_payments_by_invoice(self, invoice_id: int) -> Dict[str, Any]:
+        """Get all payments applied to an invoice."""
+        return await self._request(
+            "GET",
+            f"accounting/v2/tenant/{self.tenant_id}/payments",
+            params={"invoiceId": invoice_id}
+        )
+
+    async def get_payment_types(self) -> Dict[str, Any]:
+        """Get all payment types (Check, Credit Card, Online Payment, etc.)."""
+        if not hasattr(self, '_payment_types_cache') or self._payment_types_cache is None:
+            result = await self._request(
+                "GET",
+                f"accounting/v2/tenant/{self.tenant_id}/payment-types",
+                params={"pageSize": 100}
+            )
+            self._payment_types_cache = {pt["id"]: pt["name"] for pt in result.get("data", [])}
+        return self._payment_types_cache
+
     async def get_estimates_by_job(self, job_id: int) -> Dict[str, Any]:
         """Get estimates for a job."""
         return await self._request(
@@ -284,7 +303,45 @@ class ServiceTitanClient:
         invoices_response = await self.get_invoices_by_job(job_id)
         invoices = invoices_response.get("data", [])
         primary_invoice = invoices[0] if invoices else None
-        
+
+        # Get payments for the invoice to determine actual payment status
+        payments = []
+        payment_methods = []
+        total_payments = 0.0
+        if primary_invoice:
+            try:
+                payments_response = await self.get_payments_by_invoice(primary_invoice.get("id"))
+                payments = payments_response.get("data", [])
+
+                # Get payment types to resolve names
+                payment_types = await self.get_payment_types()
+
+                for payment in payments:
+                    amount = float(payment.get("total", 0))
+                    if amount > 0:  # Only count positive payments (not refunds)
+                        total_payments += amount
+                        # Get payment type name
+                        type_id = payment.get("typeId")
+                        type_name = payment_types.get(type_id, payment.get("type", "Unknown"))
+                        if type_name and type_name not in payment_methods:
+                            payment_methods.append(type_name)
+            except:
+                pass
+
+        # Determine payment status - consider paid if we have payments OR balance is 0
+        invoice_total = float(primary_invoice.get("total", 0)) if primary_invoice else 0
+        invoice_balance = float(primary_invoice.get("balance", 0)) if primary_invoice else 0
+        # Payment is collected if: balance is 0, OR we have payments >= 90% of total (to handle small rounding)
+        payment_collected = False
+        if primary_invoice:
+            if invoice_balance == 0:
+                payment_collected = True
+            elif total_payments > 0 and total_payments >= (invoice_total * 0.9):
+                payment_collected = True
+
+        # Format payment method string
+        payment_method = ", ".join(payment_methods) if payment_methods else None
+
         # Get estimates
         estimates_response = await self.get_estimates_by_job(job_id)
         estimates = estimates_response.get("data", [])
@@ -398,10 +455,12 @@ class ServiceTitanClient:
             "invoice_id": primary_invoice.get("id") if primary_invoice else None,
             "invoice_number": primary_invoice.get("invoiceNumber") if primary_invoice else None,
             "invoice_summary": primary_invoice.get("summary", "") if primary_invoice else "",
-            "invoice_total": float(primary_invoice.get("total", 0)) if primary_invoice else 0,
-            "invoice_balance": float(primary_invoice.get("balance", 0)) if primary_invoice else 0,
-            "payment_collected": (float(primary_invoice.get("balance", 0)) == 0) if primary_invoice else False,
-            
+            "invoice_total": invoice_total,
+            "invoice_balance": invoice_balance,
+            "payment_collected": payment_collected,
+            "payment_method": payment_method,
+            "total_payments": total_payments,
+
             # Estimates
             "estimate_count": len(estimates),
             "estimates_total": sum(e.get("total", 0) for e in estimates),

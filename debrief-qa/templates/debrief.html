@@ -53,7 +53,7 @@
                 <div class="text-right">
                     <div class="text-2xl font-bold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
                     <div class="text-sm {% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown font-semibold{% endif %}">
-                        {% if ticket.payment_collected %}✓ Payment Collected{% else %}✗ Payment Outstanding: ${{ "{:,.2f}".format(ticket.invoice_balance) }}{% endif %}
+                        {% if ticket.payment_collected %}✓ Payment Collected{% if ticket.payment_method %} ({{ ticket.payment_method }}){% endif %}{% else %}✗ Payment Outstanding: ${{ "{:,.2f}".format(ticket.invoice_balance) }}{% endif %}
                     </div>
                 </div>
             </div>
@@ -378,7 +378,7 @@
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Payment Verified
                     <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
-                        ({{ "Collected" if ticket.payment_collected else "Not Collected - ${:,.2f} balance".format(ticket.invoice_balance) }})
+                        ({% if ticket.payment_collected %}Collected{% if ticket.payment_method %} via {{ ticket.payment_method }}{% endif %}{% else %}Not Collected - ${{ "{:,.2f}".format(ticket.invoice_balance) }} balance{% endif %})
                     </span>
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">

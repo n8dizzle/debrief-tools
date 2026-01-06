@@ -111,7 +111,8 @@ class TicketRaw(Base):
     invoice_total = Column(Float, default=0)
     invoice_balance = Column(Float, default=0)
     payment_collected = Column(Boolean, default=False)
-    
+    payment_method = Column(String(200))  # e.g., "Credit Card", "Check", "Online Payment"
+
     # Estimates
     estimate_count = Column(Integer, default=0)
     estimates_total = Column(Float, default=0)

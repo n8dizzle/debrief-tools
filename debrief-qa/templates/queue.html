@@ -144,7 +144,7 @@
                     <div class="col-span-2 text-right pl-2">
                         <div class="text-lg font-semibold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
                         <div class="flex items-center justify-end gap-3 text-xs mt-0.5">
-                            <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
+                            <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}" {% if ticket.payment_method %}title="{{ ticket.payment_method }}"{% endif %}>
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
                             <span class="text-gray-500">📷 {{ ticket.photo_count or 0 }}</span>
@@ -257,7 +257,7 @@
                     <div class="col-span-3 text-right pl-2">
                         <div class="text-lg font-semibold text-christmas-cream">${{ "{:,.2f}".format(ticket.invoice_total) }}</div>
                         <div class="flex items-center justify-end gap-3 text-xs mt-0.5">
-                            <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
+                            <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}" {% if ticket.payment_method %}title="{{ ticket.payment_method }}"{% endif %}>
                                 {% if ticket.payment_collected %}✓ Paid{% else %}✗ Unpaid{% endif %}
                             </span>
                             <span class="text-gray-500">📷 {{ ticket.photo_count or 0 }}</span>
