@@ -103,12 +103,32 @@ class ServiceTitanClient:
         )
 
     async def get_payments_by_invoice(self, invoice_id: int) -> Dict[str, Any]:
-        """Get all payments applied to an invoice."""
-        return await self._request(
+        """Get all payments applied to an invoice.
+
+        Note: The ServiceTitan API's invoiceId filter doesn't work reliably,
+        so we fetch recent payments and filter client-side by the appliedTo array.
+        """
+        # Fetch recent payments (last 100) and filter client-side
+        # The API's invoiceId param doesn't work correctly
+        result = await self._request(
             "GET",
             f"accounting/v2/tenant/{self.tenant_id}/payments",
-            params={"invoiceId": invoice_id}
+            params={"pageSize": 100}
         )
+
+        all_payments = result.get("data", [])
+
+        # Filter by checking if payment's appliedTo array contains this invoice
+        matching_payments = []
+        for payment in all_payments:
+            applied_to_list = payment.get("appliedTo", [])
+            for applied in applied_to_list:
+                # appliedTo field in each item is the invoice ID
+                if applied.get("appliedTo") == invoice_id:
+                    matching_payments.append(payment)
+                    break
+
+        return {"data": matching_payments}
 
     async def get_payment_types(self) -> Dict[str, Any]:
         """Get all payment types (Check, Credit Card, Online Payment, etc.)."""
