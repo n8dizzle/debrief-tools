@@ -10,6 +10,7 @@ interface KPIRowProps {
   date: string;
   canEditNotes?: boolean;
   onNoteChange?: (kpiId: string, note: string) => void;
+  isLast?: boolean;
 }
 
 export default function KPIRow({
@@ -17,13 +18,14 @@ export default function KPIRow({
   date,
   canEditNotes = true,
   onNoteChange,
+  isLast = false,
 }: KPIRowProps) {
   const formattedTarget = formatKPIValue(kpi.target, kpi.format, kpi.unit);
   const formattedActual = formatKPIValue(kpi.actual, kpi.format, kpi.unit);
 
   return (
     <tr
-      className="border-b transition-colors"
+      className={`transition-colors ${!isLast ? 'border-b' : ''}`}
       style={{
         borderColor: 'var(--border-subtle)',
         backgroundColor: statusBackgrounds[kpi.status],

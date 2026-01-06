@@ -13,15 +13,16 @@ const overviewLinks = [
 ];
 
 const departmentLinks = [
-  { href: '/dash/christmas', label: 'Christmas (Overall)', slug: 'christmas' },
-  { href: '/dash/hvac', label: 'HVAC Overall', slug: 'hvac' },
-  { href: '/dash/hvac-service', label: 'HVAC Service', slug: 'hvac-service' },
-  { href: '/dash/hvac-install', label: 'HVAC Install', slug: 'hvac-install' },
+  { href: '/dash/christmas-overall', label: 'Christmas (Overall)', slug: 'christmas-overall' },
+  { href: '/dash/hvac-overall', label: 'HVAC Overall', slug: 'hvac-overall' },
+  { href: '/dash/hvac-install', label: 'HVAC Install', slug: 'hvac-install', indent: true },
+  { href: '/dash/hvac-service', label: 'HVAC Service', slug: 'hvac-service', indent: true },
+  { href: '/dash/hvac-maintenance', label: 'HVAC Maintenance', slug: 'hvac-maintenance', indent: true },
   { href: '/dash/plumbing', label: 'Plumbing', slug: 'plumbing' },
   { href: '/dash/call-center', label: 'Call Center', slug: 'call-center' },
   { href: '/dash/marketing', label: 'Marketing', slug: 'marketing' },
-  { href: '/dash/warehouse', label: 'Warehouse', slug: 'warehouse' },
   { href: '/dash/finance', label: 'Finance', slug: 'finance' },
+  { href: '/dash/warehouse', label: 'Warehouse', slug: 'warehouse' },
 ];
 
 function NavIcon({ type }: { type: string }) {
@@ -142,22 +143,24 @@ export default function DashSidebar() {
           >
             Departments
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {departmentLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
+                className={`flex items-center gap-2 py-1.5 rounded-lg transition-colors ${
+                  'indent' in link && link.indent ? 'pl-6 pr-3' : 'px-3'
+                }`}
                 style={{
                   backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
                   color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
                 }}
               >
                 <div
-                  className="w-2 h-2 rounded-full"
+                  className={`rounded-full ${'indent' in link && link.indent ? 'w-1.5 h-1.5' : 'w-2 h-2'}`}
                   style={{ backgroundColor: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-muted)' }}
                 />
-                <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
+                <span className={`${'indent' in link && link.indent ? 'text-xs' : 'text-sm'} ${isActive(link.href) ? 'font-medium' : ''}`}>
                   {link.label}
                 </span>
               </Link>

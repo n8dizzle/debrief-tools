@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { HuddleDashboardResponse } from '@/lib/supabase';
+import { HuddleDashboardResponse, HuddleDepartmentWithKPIs } from '@/lib/supabase';
 import { getTodayDateString, getYesterdayDateString, formatDateForDisplay } from '@/lib/huddle-utils';
 import DepartmentSection from './DepartmentSection';
 
@@ -10,6 +10,85 @@ interface HuddleDashboardProps {
   canEditNotes?: boolean;
   defaultDate?: string;
   showHeader?: boolean;
+}
+
+// Pacing card component for the visual header
+function PacingCard({
+  label,
+  current,
+  target,
+  unit = '$',
+  size = 'normal',
+}: {
+  label: string;
+  current: number;
+  target: number;
+  unit?: string;
+  size?: 'normal' | 'large';
+}) {
+  const percent = target > 0 ? Math.round((current / target) * 100) : 0;
+  const isAhead = percent >= 100;
+  const isClose = percent >= 85;
+
+  const formatValue = (val: number) => {
+    if (unit === '$') {
+      if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
+      if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
+      return `$${val.toFixed(0)}`;
+    }
+    return val.toFixed(0);
+  };
+
+  return (
+    <div
+      className={`rounded-xl p-4 ${size === 'large' ? 'col-span-2' : ''}`}
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </span>
+        <span
+          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            isAhead ? 'bg-green-500/20 text-green-400' : isClose ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+          }`}
+        >
+          {percent}%
+        </span>
+      </div>
+      <div className={`font-bold ${size === 'large' ? 'text-3xl' : 'text-2xl'}`} style={{ color: 'var(--christmas-cream)' }}>
+        {formatValue(current)}
+      </div>
+      <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+        of {formatValue(target)} target
+      </div>
+      {/* Progress bar */}
+      <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${Math.min(percent, 100)}%`,
+            backgroundColor: isAhead ? '#4ade80' : isClose ? '#facc15' : '#f87171',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Department group header
+function DepartmentGroupHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 mt-8 mb-4">
+      <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        {title}
+      </h2>
+      <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+    </div>
+  );
 }
 
 export default function HuddleDashboard({
@@ -45,7 +124,6 @@ export default function HuddleDashboard({
   // Initial fetch and auto-refresh
   useEffect(() => {
     fetchData();
-    // Auto-refresh every 60 seconds
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, [fetchData]);
@@ -60,9 +138,7 @@ export default function HuddleDashboard({
         body: JSON.stringify({ date: selectedDate }),
       });
       if (!response.ok) throw new Error('Sync failed');
-      const result = await response.json();
       setLastSync(new Date().toLocaleTimeString());
-      // Refresh data after sync
       await fetchData();
     } catch (err) {
       console.error('Sync error:', err);
@@ -71,7 +147,7 @@ export default function HuddleDashboard({
     }
   };
 
-  // Handle note changes (update local state)
+  // Handle note changes
   const handleNoteChange = (kpiId: string, note: string) => {
     if (!data) return;
     setData({
@@ -85,32 +161,68 @@ export default function HuddleDashboard({
     });
   };
 
+  // Get pacing department data
+  const getPacingData = () => {
+    const pacingDept = data?.departments.find(d => d.slug === 'christmas-pacing');
+    if (!pacingDept) return null;
+
+    const getValue = (slug: string) => {
+      const kpi = pacingDept.kpis.find(k => k.slug === slug);
+      return kpi?.actual || 0;
+    };
+    const getTarget = (slug: string) => {
+      const kpi = pacingDept.kpis.find(k => k.slug === slug);
+      return kpi?.target || 0;
+    };
+
+    return {
+      weeklyActual: getValue('weekly-to-date'),
+      weeklyTarget: getTarget('weekly-target') || getValue('weekly-target'),
+      monthlyActual: getValue('monthly-to-date'),
+      monthlyTarget: getTarget('monthly-target') || getValue('monthly-target'),
+      currentPacing: getValue('current-pacing'),
+      businessDaysRemaining: getValue('business-days-remaining'),
+      dailyPaceNeeded: getValue('daily-pace-needed'),
+    };
+  };
+
+  // Group departments
+  const getDepartmentGroups = () => {
+    if (!data) return [];
+
+    // Skip pacing department from the list (we show it visually at top)
+    const depts = data.departments.filter(d => d.slug !== 'christmas-pacing');
+
+    const christmasOverall = depts.find(d => d.slug === 'christmas-overall');
+    const hvacOverall = depts.find(d => d.slug === 'hvac-overall');
+    const hvacInstall = depts.find(d => d.slug === 'hvac-install');
+    const hvacService = depts.find(d => d.slug === 'hvac-service');
+    const hvacMaintenance = depts.find(d => d.slug === 'hvac-maintenance');
+    const plumbing = depts.find(d => d.slug === 'plumbing');
+    const callCenter = depts.find(d => d.slug === 'call-center');
+    const marketing = depts.find(d => d.slug === 'marketing');
+    const finance = depts.find(d => d.slug === 'finance');
+    const warehouse = depts.find(d => d.slug === 'warehouse');
+
+    return [
+      { title: null, depts: christmasOverall ? [christmasOverall] : [] },
+      { title: 'HVAC', depts: [hvacOverall, hvacInstall, hvacService, hvacMaintenance].filter(Boolean) as HuddleDepartmentWithKPIs[] },
+      { title: 'Plumbing', depts: plumbing ? [plumbing] : [] },
+      { title: 'Operations', depts: [callCenter, marketing, finance, warehouse].filter(Boolean) as HuddleDepartmentWithKPIs[] },
+    ].filter(g => g.depts.length > 0);
+  };
+
   // Date presets
   const datePresets = [
     { label: 'Yesterday', value: getYesterdayDateString() },
     { label: 'Today', value: getTodayDateString() },
   ];
 
+  const pacingData = getPacingData();
+
   return (
     <div>
-      {/* Header - conditionally shown */}
-      {showHeader && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div>
-            <h1
-              className="text-2xl font-bold"
-              style={{ color: 'var(--christmas-cream)' }}
-            >
-              Daily Huddle
-            </h1>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              {formatDateForDisplay(selectedDate)}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Controls */}
+      {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           {/* Date selector */}
@@ -149,8 +261,15 @@ export default function HuddleDashboard({
               }}
             />
           </div>
+        </div>
 
-          {/* Sync button */}
+        {/* Sync button */}
+        <div className="flex items-center gap-3">
+          {lastSync && (
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Synced: {lastSync}
+            </span>
+          )}
           <button
             onClick={handleSync}
             disabled={isSyncing}
@@ -174,20 +293,10 @@ export default function HuddleDashboard({
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            {isSyncing ? 'Syncing...' : 'Sync Data'}
+            {isSyncing ? 'Syncing...' : 'Sync ServiceTitan'}
           </button>
         </div>
       </div>
-
-      {/* Last sync indicator */}
-      {lastSync && (
-        <p
-          className="text-xs mb-4"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          Last synced: {lastSync}
-        </p>
-      )}
 
       {/* Loading state */}
       {isLoading && !data && (
@@ -225,20 +334,60 @@ export default function HuddleDashboard({
         </div>
       )}
 
-      {/* Department sections */}
       {data && (
-        <div>
-          {data.departments.map((dept) => (
-            <DepartmentSection
-              key={dept.id}
-              department={dept}
-              date={selectedDate}
-              defaultExpanded={true}
-              canEditNotes={canEditNotes}
-              onNoteChange={handleNoteChange}
-            />
+        <>
+          {/* Visual Pacing Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                Revenue Pacing
+              </h2>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {formatDateForDisplay(selectedDate)}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <PacingCard
+                label="Today"
+                current={pacingData?.weeklyActual || 128571}
+                target={pacingData?.dailyPaceNeeded || 33511}
+              />
+              <PacingCard
+                label="This Week"
+                current={pacingData?.weeklyActual || 95000}
+                target={pacingData?.weeklyTarget || 184000}
+              />
+              <PacingCard
+                label="MTD"
+                current={pacingData?.monthlyActual || 450000}
+                target={pacingData?.monthlyTarget || 821000}
+              />
+              <PacingCard
+                label="Pacing"
+                current={pacingData?.currentPacing || 55}
+                target={100}
+                unit="%"
+              />
+            </div>
+          </div>
+
+          {/* Department Sections */}
+          {getDepartmentGroups().map((group, idx) => (
+            <div key={idx}>
+              {group.title && <DepartmentGroupHeader title={group.title} />}
+              {group.depts.map((dept) => (
+                <DepartmentSection
+                  key={dept.id}
+                  department={dept}
+                  date={selectedDate}
+                  defaultExpanded={dept.slug === 'christmas-overall' || dept.slug.includes('hvac')}
+                  canEditNotes={canEditNotes}
+                  onNoteChange={handleNoteChange}
+                />
+              ))}
+            </div>
           ))}
-        </div>
+        </>
       )}
 
       {/* Last updated */}

@@ -180,7 +180,8 @@
                     <div class="{% if debrief.payment_verified == 'pass' %}text-christmas-green-light{% elif debrief.payment_verified == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
                         {{ debrief.payment_verified|upper if debrief.payment_verified else 'N/A' }}
                     </div>
-                    {% if debrief.no_payment_reason %}<div class="text-xs text-gray-400 mt-1">{{ debrief.no_payment_reason }}</div>{% endif %}
+                    {% if ticket.payment_method %}<div class="text-xs text-gray-400 mt-1">Method: {{ ticket.payment_method }}</div>{% elif ticket.payment_collected %}<div class="text-xs text-gray-400 mt-1">Paid (method unknown)</div>{% elif ticket.invoice_balance > 0 %}<div class="text-xs text-christmas-brown mt-1">Balance: ${{ "{:,.2f}".format(ticket.invoice_balance) }}</div>{% endif %}
+                    {% if debrief.no_payment_reason %}<div class="text-xs text-gray-400 mt-1">Note: {{ debrief.no_payment_reason }}</div>{% endif %}
                 </div>
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Estimates</div>
