@@ -102,24 +102,33 @@ class ServiceTitanClient:
             params={"jobId": job_id}
         )
 
-    async def get_payments_by_invoice(self, invoice_id: int, days_back: int = 90) -> Dict[str, Any]:
+    async def get_payments_by_invoice(self, invoice_id: int, customer_id: int = None) -> Dict[str, Any]:
         """Get all payments applied to an invoice.
 
         Note: The ServiceTitan API's invoiceId filter doesn't work reliably,
-        so we fetch recent payments and filter client-side by the appliedTo array.
+        so we filter by customer (if provided) and then filter client-side
+        by the appliedTo array.
 
         Args:
             invoice_id: The invoice ID to find payments for
-            days_back: How many days of payments to search (default 30)
+            customer_id: Optional customer ID to narrow the search (recommended)
         """
-        # Use modifiedOnOrAfter to get recent payments, then filter client-side
-        from datetime import datetime, timedelta, timezone
-        recent_date = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        params = {"pageSize": 100}
+
+        # If we have a customer ID, filter by that (much more efficient)
+        if customer_id:
+            params["customerId"] = customer_id
+        else:
+            # Fallback to recent payments if no customer ID
+            from datetime import datetime, timedelta, timezone
+            recent_date = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
+            params["modifiedOnOrAfter"] = recent_date
+            params["pageSize"] = 500
 
         result = await self._request(
             "GET",
             f"accounting/v2/tenant/{self.tenant_id}/payments",
-            params={"modifiedOnOrAfter": recent_date, "pageSize": 500}
+            params=params
         )
 
         all_payments = result.get("data", [])
@@ -336,7 +345,11 @@ class ServiceTitanClient:
         total_payments = 0.0
         if primary_invoice:
             try:
-                payments_response = await self.get_payments_by_invoice(primary_invoice.get("id"))
+                # Pass customer_id for efficient filtering
+                payments_response = await self.get_payments_by_invoice(
+                    primary_invoice.get("id"),
+                    job.get("customerId")
+                )
                 payments = payments_response.get("data", [])
 
                 # Get payment types to resolve names

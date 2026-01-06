@@ -1463,8 +1463,8 @@ async def re_enrich_payments(
             if not ticket.invoice_id:
                 continue
 
-            # Fetch payments for this invoice
-            payments_response = await client.get_payments_by_invoice(ticket.invoice_id)
+            # Fetch payments for this invoice (use customer_id for efficient filtering)
+            payments_response = await client.get_payments_by_invoice(ticket.invoice_id, ticket.customer_id)
             payments = payments_response.get("data", [])
 
             # Get payment types to resolve names
