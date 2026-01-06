@@ -102,18 +102,24 @@ class ServiceTitanClient:
             params={"jobId": job_id}
         )
 
-    async def get_payments_by_invoice(self, invoice_id: int) -> Dict[str, Any]:
+    async def get_payments_by_invoice(self, invoice_id: int, days_back: int = 30) -> Dict[str, Any]:
         """Get all payments applied to an invoice.
 
         Note: The ServiceTitan API's invoiceId filter doesn't work reliably,
         so we fetch recent payments and filter client-side by the appliedTo array.
+
+        Args:
+            invoice_id: The invoice ID to find payments for
+            days_back: How many days of payments to search (default 30)
         """
-        # Fetch recent payments (last 100) and filter client-side
-        # The API's invoiceId param doesn't work correctly
+        # Use modifiedOnOrAfter to get recent payments, then filter client-side
+        from datetime import datetime, timedelta, timezone
+        recent_date = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y-%m-%d")
+
         result = await self._request(
             "GET",
             f"accounting/v2/tenant/{self.tenant_id}/payments",
-            params={"pageSize": 100}
+            params={"modifiedOnOrAfter": recent_date, "pageSize": 500}
         )
 
         all_payments = result.get("data", [])
