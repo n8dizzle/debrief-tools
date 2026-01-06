@@ -1418,6 +1418,123 @@ async def update_opportunities(
     }
 
 
+@app.post("/api/re-enrich-payments")
+async def re_enrich_payments(
+    limit: int = 100,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Re-fetch payment data for existing tickets from ServiceTitan.
+    Updates payment_collected and payment_method fields.
+
+    Args:
+        limit: Max number of tickets to update (default 100)
+        status: Only update tickets with this status (pending, in_progress, completed)
+    """
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+
+    # Query tickets to update - prioritize those without payment_method
+    query = db.query(TicketRaw)
+    if status:
+        try:
+            status_enum = TicketStatus(status)
+            query = query.filter(TicketRaw.debrief_status == status_enum)
+        except ValueError:
+            pass
+
+    # Order by: tickets without payment_method first, then by pulled_at
+    tickets = query.order_by(
+        TicketRaw.payment_method.is_(None).desc(),
+        TicketRaw.pulled_at.desc()
+    ).limit(limit).all()
+
+    updated = []
+    errors = []
+
+    for ticket in tickets:
+        try:
+            old_payment_collected = ticket.payment_collected
+            old_payment_method = ticket.payment_method
+
+            # Skip if no invoice
+            if not ticket.invoice_id:
+                continue
+
+            # Fetch payments for this invoice
+            payments_response = await client.get_payments_by_invoice(ticket.invoice_id)
+            payments = payments_response.get("data", [])
+
+            # Get payment types to resolve names
+            payment_types = await client.get_payment_types()
+
+            # Process payments
+            payment_methods = []
+            total_payments = 0.0
+
+            for payment in payments:
+                amount = float(payment.get("total", 0))
+                if amount > 0:
+                    total_payments += amount
+                    type_id = payment.get("typeId")
+                    type_name = payment_types.get(type_id, payment.get("type", "Unknown"))
+                    if type_name and type_name not in payment_methods:
+                        payment_methods.append(type_name)
+
+            # Determine if payment collected
+            # Payment is collected if: balance is 0, OR we have payments >= 90% of total
+            invoice_total = float(ticket.invoice_total or 0)
+            invoice_balance = float(ticket.invoice_balance or 0)
+
+            payment_collected = False
+            if invoice_balance == 0:
+                payment_collected = True
+            elif total_payments > 0 and invoice_total > 0 and total_payments >= (invoice_total * 0.9):
+                payment_collected = True
+
+            payment_method = ", ".join(payment_methods) if payment_methods else None
+
+            # Update ticket
+            ticket.payment_collected = payment_collected
+            ticket.payment_method = payment_method
+            db.commit()
+
+            updated.append({
+                "job_id": ticket.job_id,
+                "job_number": ticket.job_number,
+                "invoice_id": ticket.invoice_id,
+                "old_payment_collected": old_payment_collected,
+                "new_payment_collected": payment_collected,
+                "old_payment_method": old_payment_method,
+                "new_payment_method": payment_method,
+                "payments_found": len(payments),
+                "total_payments": total_payments,
+            })
+
+        except Exception as e:
+            errors.append({
+                "job_id": ticket.job_id,
+                "error": str(e)
+            })
+
+    # Count changes
+    changed_count = sum(
+        1 for u in updated
+        if u["old_payment_collected"] != u["new_payment_collected"] or u["old_payment_method"] != u["new_payment_method"]
+    )
+
+    return {
+        "status": "success",
+        "message": f"Re-enriched {len(updated)} tickets. {changed_count} had payment data changes.",
+        "updated_count": len(updated),
+        "changed_count": changed_count,
+        "updated": updated[:30],  # Show first 30 in response
+        "errors": errors
+    }
+
+
 # ----- Spot Check System -----
 
 @app.get("/spot-checks", response_class=HTMLResponse)
