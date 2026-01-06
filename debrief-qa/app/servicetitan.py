@@ -102,7 +102,7 @@ class ServiceTitanClient:
             params={"jobId": job_id}
         )
 
-    async def get_payments_by_invoice(self, invoice_id: int, days_back: int = 30) -> Dict[str, Any]:
+    async def get_payments_by_invoice(self, invoice_id: int, days_back: int = 90) -> Dict[str, Any]:
         """Get all payments applied to an invoice.
 
         Note: The ServiceTitan API's invoiceId filter doesn't work reliably,
