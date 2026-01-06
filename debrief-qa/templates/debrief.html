@@ -180,7 +180,17 @@
                     <div class="{% if debrief.payment_verified == 'pass' %}text-christmas-green-light{% elif debrief.payment_verified == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
                         {{ debrief.payment_verified|upper if debrief.payment_verified else 'N/A' }}
                     </div>
-                    {% if ticket.payment_method %}<div class="text-xs text-gray-400 mt-1">Method: {{ ticket.payment_method }}</div>{% elif ticket.payment_collected %}<div class="text-xs text-gray-400 mt-1">Paid (method unknown)</div>{% elif ticket.invoice_balance > 0 %}<div class="text-xs text-christmas-brown mt-1">Balance: ${{ "{:,.2f}".format(ticket.invoice_balance) }}</div>{% endif %}
+                    {% if ticket.payment_method == 'Check' %}
+                    <div class="text-xs text-yellow-400 mt-1">⚠️ Check (not deposited)</div>
+                    {% elif ticket.payment_method == 'Mobile Check Capture' %}
+                    <div class="text-xs text-green-400 mt-1">✓ Check (mobile deposit)</div>
+                    {% elif ticket.payment_method %}
+                    <div class="text-xs text-gray-400 mt-1">Method: {{ ticket.payment_method }}</div>
+                    {% elif ticket.payment_collected %}
+                    <div class="text-xs text-gray-400 mt-1">Paid (method unknown)</div>
+                    {% elif ticket.invoice_balance > 0 %}
+                    <div class="text-xs text-christmas-brown mt-1">Balance: ${{ "{:,.2f}".format(ticket.invoice_balance) }}</div>
+                    {% endif %}
                     {% if debrief.no_payment_reason %}<div class="text-xs text-gray-400 mt-1">Note: {{ debrief.no_payment_reason }}</div>{% endif %}
                 </div>
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
@@ -391,9 +401,18 @@
                         </div>
                     </div>
                 </label>
+                {% if ticket.payment_method == 'Check' %}
+                <div class="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-2 text-xs text-yellow-200">
+                    ⚠️ <strong>Check collected but NOT deposited</strong> - Needs to be dropped off at the shop for deposit
+                </div>
+                {% elif ticket.payment_method == 'Mobile Check Capture' %}
+                <div class="bg-green-900/30 border border-green-600/50 rounded-lg p-2 text-xs text-green-200">
+                    ✓ Check deposited via mobile
+                </div>
+                {% endif %}
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="payment_verified" value="pass" class="sr-only" required>
+                        <input type="radio" name="payment_verified" value="pass" class="sr-only" required {% if ticket.payment_collected and ticket.payment_method %}checked{% endif %}>
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
