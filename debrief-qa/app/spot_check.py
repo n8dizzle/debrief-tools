@@ -10,6 +10,7 @@ Handles:
 import random
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
+from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
@@ -39,12 +40,21 @@ async def select_daily_spot_checks(
     Returns:
         Dict with selection stats
     """
-    if target_date is None:
-        target_date = date.today() - timedelta(days=1)
+    # Use Central Time for determining "today" and date boundaries
+    central = ZoneInfo("America/Chicago")
+    utc = ZoneInfo("UTC")
 
-    # Get date range for the target date
-    day_start = datetime.combine(target_date, datetime.min.time())
-    day_end = datetime.combine(target_date, datetime.max.time())
+    if target_date is None:
+        # "Yesterday" in Central Time
+        today_central = datetime.now(central).date()
+        target_date = today_central - timedelta(days=1)
+
+    # Get date range for the target date in Central Time, then convert to UTC
+    day_start_central = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=central)
+    day_end_central = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=central)
+    # Convert to naive UTC for database comparison
+    day_start = day_start_central.astimezone(utc).replace(tzinfo=None)
+    day_end = day_end_central.astimezone(utc).replace(tzinfo=None)
     batch_id = target_date.isoformat()
 
     # Get all debriefs completed on target date
@@ -162,11 +172,13 @@ async def create_manual_spot_check(
             "spot_check_id": existing.id
         }
 
-    # Create spot check
+    # Create spot check (use Central Time for batch date)
+    central = ZoneInfo("America/Chicago")
+    today_central = datetime.now(central).date()
     spot_check = SpotCheck(
         debrief_session_id=debrief_session_id,
         selection_reason='manual',
-        selection_batch=date.today().isoformat(),
+        selection_batch=today_central.isoformat(),
         status=SpotCheckStatus.PENDING,
         selected_at=datetime.utcnow()
     )

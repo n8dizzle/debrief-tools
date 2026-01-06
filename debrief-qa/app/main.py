@@ -293,7 +293,13 @@ async def queue_page(
         TicketRaw.debrief_status == TicketStatus.IN_PROGRESS
     ).order_by(TicketRaw.completed_at.desc()).all()
 
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Calculate "today" in Central Time, then convert to UTC for database comparison
+    # This ensures "Jobs Today" matches what users see in the queue (Central Time dates)
+    central = ZoneInfo("America/Chicago")
+    now_central = datetime.now(central)
+    today_start_central = now_central.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Convert to naive UTC for database comparison (DB stores naive UTC datetimes)
+    today_start = today_start_central.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
     # Jobs completed in ServiceTitan today (based on job completion time)
     jobs_completed_today = db.query(TicketRaw).filter(
@@ -622,9 +628,20 @@ View debrief: {base_url}/debrief/{job_id}"""
 @app.get("/api/dashboard")
 async def get_dashboard(db: Session = Depends(get_db)):
     """Get dashboard statistics."""
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start = today_start - timedelta(days=today_start.weekday())
-    month_start = today_start.replace(day=1)
+    # Calculate date boundaries in Central Time, then convert to UTC for database comparison
+    central = ZoneInfo("America/Chicago")
+    now_central = datetime.now(central)
+    today_start_central = now_central.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Week starts on Monday in Central Time
+    week_start_central = today_start_central - timedelta(days=today_start_central.weekday())
+    month_start_central = today_start_central.replace(day=1)
+
+    # Convert to naive UTC for database comparison
+    utc = ZoneInfo("UTC")
+    today_start = today_start_central.astimezone(utc).replace(tzinfo=None)
+    week_start = week_start_central.astimezone(utc).replace(tzinfo=None)
+    month_start = month_start_central.astimezone(utc).replace(tzinfo=None)
 
     def get_stats(start_date: datetime, label: str) -> dict:
         total_jobs = db.query(TicketRaw).filter(
@@ -833,9 +850,17 @@ async def setup_dispatchers(db: Session = Depends(get_db)):
 @app.get("/api/technician-stats")
 async def get_technician_stats(db: Session = Depends(get_db)):
     """Get technician performance statistics."""
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start = today_start - timedelta(days=today_start.weekday())
-    month_start = today_start.replace(day=1)
+    # Calculate date boundaries in Central Time, then convert to UTC for database comparison
+    central = ZoneInfo("America/Chicago")
+    now_central = datetime.now(central)
+    today_start_central = now_central.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start_central = today_start_central - timedelta(days=today_start_central.weekday())
+    month_start_central = today_start_central.replace(day=1)
+
+    utc = ZoneInfo("UTC")
+    today_start = today_start_central.astimezone(utc).replace(tzinfo=None)
+    week_start = week_start_central.astimezone(utc).replace(tzinfo=None)
+    month_start = month_start_central.astimezone(utc).replace(tzinfo=None)
 
     def get_tech_stats(start_date: datetime):
         """Get stats for all technicians from a start date."""
@@ -1409,8 +1434,11 @@ async def spot_checks_page(
         SpotCheck.status == SpotCheckStatus.IN_PROGRESS
     ).order_by(SpotCheck.started_at.desc()).all()
 
-    # Get today's completed spot checks
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Get today's completed spot checks (using Central Time for "today")
+    central = ZoneInfo("America/Chicago")
+    now_central = datetime.now(central)
+    today_start_central = now_central.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = today_start_central.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
     completed_today = db.query(SpotCheck).filter(
         and_(
             SpotCheck.status == SpotCheckStatus.COMPLETED,
