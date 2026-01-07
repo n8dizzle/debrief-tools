@@ -187,10 +187,24 @@ export interface HuddleDepartmentWithKPIs extends HuddleDepartment {
   kpis: HuddleKPIWithData[];
 }
 
+export interface HuddlePacingData {
+  todayRevenue: number;
+  dailyTarget: number;
+  wtdRevenue: number;
+  weeklyTarget: number;
+  mtdRevenue: number;
+  monthlyTarget: number;
+  pacingPercent: number;
+  businessDaysRemaining: number;
+  businessDaysElapsed: number;
+  businessDaysInMonth: number;
+}
+
 export interface HuddleDashboardResponse {
   date: string;
   departments: HuddleDepartmentWithKPIs[];
   last_updated: string;
+  pacing?: HuddlePacingData;
 }
 
 export interface HuddleHistoricalData {

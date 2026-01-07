@@ -27,8 +27,9 @@ interface STJob {
 
 interface STInvoice {
   id: number;
-  invoiceNumber: string;
-  jobId: number;
+  invoiceNumber?: string;
+  referenceNumber?: string;
+  job?: { id: number; number?: string } | null;
   total: number;
   balance: number;
   summary?: string;
@@ -229,7 +230,7 @@ export class ServiceTitanClient {
   async getDailyRevenue(date: string, businessUnitId?: number): Promise<number> {
     const nextDay = this.getNextDay(date);
     const jobs = await this.getCompletedJobs(date, nextDay, businessUnitId);
-    return jobs.reduce((sum, job) => sum + (job.total || 0), 0);
+    return jobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
   }
 
   /**
@@ -238,7 +239,45 @@ export class ServiceTitanClient {
   async getDailySales(date: string): Promise<number> {
     const nextDay = this.getNextDay(date);
     const invoices = await this.getInvoices(date, nextDay);
-    return invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    return invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  }
+
+  /**
+   * Get non-job revenue (invoices not tied to jobs)
+   * These are typically membership sales, equipment sales, etc.
+   */
+  async getNonJobRevenue(date: string): Promise<number> {
+    const nextDay = this.getNextDay(date);
+    const invoices = await this.getInvoices(date, nextDay);
+    // Non-job invoices have job as null or undefined
+    const nonJobInvoices = invoices.filter((inv) => !inv.job);
+    return nonJobInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  }
+
+  /**
+   * Get total revenue (completed job revenue + non-job revenue)
+   */
+  async getTotalRevenue(date: string, businessUnitId?: number): Promise<{
+    jobRevenue: number;
+    nonJobRevenue: number;
+    totalRevenue: number;
+  }> {
+    const nextDay = this.getNextDay(date);
+
+    // Get completed job revenue
+    const jobs = await this.getCompletedJobs(date, nextDay, businessUnitId);
+    const jobRevenue = jobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
+
+    // Get non-job invoice revenue (invoices with job = null)
+    const invoices = await this.getInvoices(date, nextDay);
+    const nonJobInvoices = invoices.filter((inv) => !inv.job);
+    const nonJobRevenue = nonJobInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+
+    return {
+      jobRevenue,
+      nonJobRevenue,
+      totalRevenue: jobRevenue + nonJobRevenue,
+    };
   }
 
   /**
@@ -309,10 +348,10 @@ export class ServiceTitanClient {
     }
 
     // Filter out zero-dollar jobs for average ticket calculation
-    const paidJobs = jobs.filter((j) => (j.total || 0) > 0);
+    const paidJobs = jobs.filter((j) => (Number(j.total) || 0) > 0);
     if (paidJobs.length === 0) return 0;
 
-    const total = paidJobs.reduce((sum, j) => sum + (j.total || 0), 0);
+    const total = paidJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
     return total / paidJobs.length;
   }
 
@@ -338,7 +377,7 @@ export class ServiceTitanClient {
 
     if (jobs.length === 0) return 0;
 
-    const zeroJobs = jobs.filter((j) => (j.total || 0) === 0);
+    const zeroJobs = jobs.filter((j) => (Number(j.total) || 0) === 0);
     return (zeroJobs.length / jobs.length) * 100;
   }
 
@@ -364,7 +403,7 @@ export class ServiceTitanClient {
       return typeName.includes('INSTALL');
     });
 
-    const revenue = installCompleted.reduce((sum, j) => sum + (j.total || 0), 0);
+    const revenue = installCompleted.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
 
     return {
       scheduled: installScheduled.length,
@@ -397,8 +436,8 @@ export class ServiceTitanClient {
     const plumbingInvoices = invoices.filter((inv) => plumbingJobIds.has(inv.jobId));
 
     return {
-      sales: plumbingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0),
-      revenue: plumbingJobs.reduce((sum, j) => sum + (j.total || 0), 0),
+      sales: plumbingInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0),
+      revenue: plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
       jobsRan: plumbingJobs.length,
     };
   }

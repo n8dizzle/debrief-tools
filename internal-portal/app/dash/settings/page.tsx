@@ -30,6 +30,27 @@ const sheetMappings = {
   },
 };
 
+// Daily Revenue Targets from spreadsheet
+const dailyRevenueTargets = [
+  { name: 'HVAC Install', values: ['$24,199', '$19,509', '$26,377', '$35,766', '$54,841', '$60,355', '$59,461', '$62,552', '$34,988', '$28,905', '$27,335', '$23,919', '$38,321'] },
+  { name: 'HVAC Service', values: ['$5,297', '$4,270', '$5,774', '$7,829', '$12,004', '$13,211', '$13,015', '$13,692', '$7,659', '$6,327', '$5,983', '$5,236', '$8,388'] },
+  { name: 'HVAC Maint.', values: ['$1,324', '$1,068', '$1,443', '$1,957', '$3,001', '$3,303', '$3,254', '$3,423', '$1,915', '$1,582', '$1,496', '$1,309', '$2,097'] },
+  { name: 'Plumbing', values: ['$5,548', '$7,111', '$6,519', '$6,519', '$6,953', '$6,519', '$7,605', '$7,767', '$7,936', '$8,514', '$9,933', '$8,692', '$7,450'] },
+  { name: 'TOTAL', values: ['$36,368', '$31,958', '$40,113', '$52,071', '$76,800', '$83,388', '$83,335', '$87,435', '$52,498', '$45,328', '$44,748', '$39,155', '$56,256'], isTotal: true },
+];
+
+// Weekly Revenue Targets (Daily × 5 business days)
+const weeklyRevenueTargets = [
+  { name: 'HVAC Install', values: ['$120,995', '$97,545', '$131,885', '$178,830', '$274,205', '$301,775', '$297,305', '$312,760', '$174,940', '$144,525', '$136,675', '$119,595', '$191,605'] },
+  { name: 'HVAC Service', values: ['$26,485', '$21,350', '$28,870', '$39,145', '$60,020', '$66,055', '$65,075', '$68,460', '$38,295', '$31,635', '$29,915', '$26,180', '$41,940'] },
+  { name: 'HVAC Maint.', values: ['$6,620', '$5,340', '$7,215', '$9,785', '$15,005', '$16,515', '$16,270', '$17,115', '$9,575', '$7,910', '$7,480', '$6,545', '$10,485'] },
+  { name: 'Plumbing', values: ['$27,740', '$35,555', '$32,595', '$32,595', '$34,765', '$32,595', '$38,025', '$38,835', '$39,680', '$42,570', '$49,665', '$43,460', '$37,250'] },
+  { name: 'TOTAL', values: ['$181,840', '$159,790', '$200,565', '$260,355', '$384,000', '$416,940', '$416,675', '$437,175', '$262,490', '$226,640', '$223,740', '$195,775', '$281,280'], isTotal: true },
+];
+
+// Business days per month
+const businessDaysPerMonth = [22, 20, 22, 22, 21, 22, 22, 21, 21, 22, 20, 22];
+
 const kpiDefinitions = [
   // Christmas Overall
   { name: 'Jobs Scheduled', department: 'Christmas', source: 'ServiceTitan', targetType: 'daily', target: '45' },
@@ -143,6 +164,29 @@ export default function SettingsPage() {
     }
   };
 
+  const handleFixTargets = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      const response = await fetch('/api/dash/targets/fix', { method: 'POST' });
+      const data = await response.json();
+
+      if (data.success) {
+        setLastSync(new Date().toLocaleString());
+        const janChristmas = data.january?.find((j: { department: string }) => j.department === 'christmas');
+        setSyncResult({
+          message: `Fixed ${data.totalRecords} targets. January daily: $${janChristmas?.daily?.toLocaleString() || 'N/A'}`
+        });
+      } else {
+        setSyncResult({ error: data.errors?.join(', ') || 'Fix failed' });
+      }
+    } catch (err) {
+      setSyncResult({ error: 'Failed to fix targets' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const tabs = [
     { id: 'targets', label: 'Revenue Targets' },
     { id: 'kpis', label: 'KPI Definitions' },
@@ -166,6 +210,21 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleFixTargets}
+            disabled={isSyncing}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: '#ef4444',
+              color: 'white',
+              opacity: isSyncing ? 0.7 : 1,
+            }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Fix Targets
+          </button>
           <button
             onClick={handleSeed}
             disabled={isSyncing}
@@ -378,6 +437,138 @@ export default function SettingsPage() {
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               ✏️ To update targets, edit the Google Sheet directly. Changes sync automatically.
             </p>
+          </div>
+        </div>
+
+        {/* Daily Revenue Targets */}
+        <div
+          className="rounded-xl overflow-hidden mt-6"
+          style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+        >
+          <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Daily Revenue Targets
+            </h3>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              Source: Google Sheet (2026 Targets & Actuals) • Range: B16:N20
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ backgroundColor: 'var(--bg-card)' }}>
+                  <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Department</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jan</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Feb</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Mar</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Apr</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>May</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jun</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jul</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Aug</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Sep</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Oct</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Nov</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Dec</th>
+                  <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--christmas-gold)' }}>Daily Avg</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyRevenueTargets.map((row, idx) => (
+                  <tr
+                    key={row.name}
+                    style={{
+                      borderBottom: idx < dailyRevenueTargets.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                      backgroundColor: row.isTotal ? 'var(--bg-card)' : 'transparent',
+                    }}
+                  >
+                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                      {row.name}
+                    </td>
+                    {row.values.map((val, i) => (
+                      <td
+                        key={i}
+                        className="text-right px-3 py-3"
+                        style={{ color: i === 12 ? 'var(--christmas-gold)' : 'var(--text-secondary)' }}
+                      >
+                        {val}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span>📅 Business Days:</span>
+              {businessDaysPerMonth.map((days, i) => (
+                <span key={i} className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-card)' }}>
+                  {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}: {days}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly Revenue Targets */}
+        <div
+          className="rounded-xl overflow-hidden mt-6"
+          style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+        >
+          <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Weekly Revenue Targets
+            </h3>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              Calculated: Daily Target × 5 Business Days
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ backgroundColor: 'var(--bg-card)' }}>
+                  <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Department</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jan</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Feb</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Mar</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Apr</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>May</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jun</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jul</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Aug</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Sep</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Oct</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Nov</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Dec</th>
+                  <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--christmas-gold)' }}>Weekly Avg</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeklyRevenueTargets.map((row, idx) => (
+                  <tr
+                    key={row.name}
+                    style={{
+                      borderBottom: idx < weeklyRevenueTargets.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                      backgroundColor: row.isTotal ? 'var(--bg-card)' : 'transparent',
+                    }}
+                  >
+                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                      {row.name}
+                    </td>
+                    {row.values.map((val, i) => (
+                      <td
+                        key={i}
+                        className="text-right px-3 py-3"
+                        style={{ color: i === 12 ? 'var(--christmas-gold)' : 'var(--text-secondary)' }}
+                      >
+                        {val}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

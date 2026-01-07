@@ -161,29 +161,10 @@ export default function HuddleDashboard({
     });
   };
 
-  // Get pacing department data
+  // Get pacing data from API response
   const getPacingData = () => {
-    const pacingDept = data?.departments.find(d => d.slug === 'christmas-pacing');
-    if (!pacingDept) return null;
-
-    const getValue = (slug: string) => {
-      const kpi = pacingDept.kpis.find(k => k.slug === slug);
-      return kpi?.actual || 0;
-    };
-    const getTarget = (slug: string) => {
-      const kpi = pacingDept.kpis.find(k => k.slug === slug);
-      return kpi?.target || 0;
-    };
-
-    return {
-      weeklyActual: getValue('weekly-to-date'),
-      weeklyTarget: getTarget('weekly-target') || getValue('weekly-target'),
-      monthlyActual: getValue('monthly-to-date'),
-      monthlyTarget: getTarget('monthly-target') || getValue('monthly-target'),
-      currentPacing: getValue('current-pacing'),
-      businessDaysRemaining: getValue('business-days-remaining'),
-      dailyPaceNeeded: getValue('daily-pace-needed'),
-    };
+    if (!data?.pacing) return null;
+    return data.pacing;
   };
 
   // Group departments
@@ -349,22 +330,22 @@ export default function HuddleDashboard({
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <PacingCard
                 label="Today"
-                current={pacingData?.weeklyActual || 128571}
-                target={pacingData?.dailyPaceNeeded || 33511}
+                current={pacingData?.todayRevenue || 0}
+                target={pacingData?.dailyTarget || 0}
               />
               <PacingCard
                 label="This Week"
-                current={pacingData?.weeklyActual || 95000}
-                target={pacingData?.weeklyTarget || 184000}
+                current={pacingData?.wtdRevenue || 0}
+                target={pacingData?.weeklyTarget || 0}
               />
               <PacingCard
                 label="MTD"
-                current={pacingData?.monthlyActual || 450000}
-                target={pacingData?.monthlyTarget || 821000}
+                current={pacingData?.mtdRevenue || 0}
+                target={pacingData?.monthlyTarget || 0}
               />
               <PacingCard
                 label="Pacing"
-                current={pacingData?.currentPacing || 55}
+                current={pacingData?.pacingPercent || 0}
                 target={100}
                 unit="%"
               />

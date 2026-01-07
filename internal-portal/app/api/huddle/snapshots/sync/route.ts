@@ -95,6 +95,13 @@ export async function POST(request: NextRequest) {
           case 'revenue-completed':
             actualValue = await stClient.getDailyRevenue(date);
             break;
+          case 'non-job-revenue':
+            actualValue = await stClient.getNonJobRevenue(date);
+            break;
+          case 'total-revenue':
+            const totalRev = await stClient.getTotalRevenue(date);
+            actualValue = totalRev.totalRevenue;
+            break;
 
           // HVAC Service
           case 'service-jobs-completed':
