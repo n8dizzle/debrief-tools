@@ -15,6 +15,11 @@ interface LocationStats {
   period_change_percent: number | null;
 }
 
+interface DailyCount {
+  date: string;
+  count: number;
+}
+
 interface ReviewStats {
   total_reviews: number;
   average_rating: number;
@@ -22,6 +27,7 @@ interface ReviewStats {
   reviews_this_month: number;
   reviews_today: number;
   reviews_this_week: number;
+  reviews_this_period: number;
   year_goal: number;
   year_progress_percent: number;
   expected_progress_percent: number;
@@ -29,6 +35,9 @@ interface ReviewStats {
   pacing_difference_percent: number;
   locations: LocationStats[];
   rating_distribution: Record<number, number>;
+  daily_counts: DailyCount[];
+  period_start: string;
+  period_end: string;
 }
 
 /**
@@ -123,6 +132,41 @@ export async function GET(request: NextRequest) {
     ratingDistribution[r.star_rating] = (ratingDistribution[r.star_rating] || 0) + 1;
   });
 
+  // Calculate daily counts for the selected period
+  const periodStartDate = periodStart ? new Date(periodStart) : startOfMonth;
+  const periodEndDate = periodEnd ? new Date(periodEnd) : now;
+
+  // Build daily counts map
+  const dailyCountsMap: Record<string, number> = {};
+
+  // Initialize all days in period with 0
+  const currentDate = new Date(periodStartDate);
+  while (currentDate <= periodEndDate) {
+    const dateKey = currentDate.toISOString().split('T')[0];
+    dailyCountsMap[dateKey] = 0;
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Count reviews per day within the period
+  yearReviews?.forEach(r => {
+    const reviewDate = new Date(r.create_time);
+    if (reviewDate >= periodStartDate && reviewDate <= periodEndDate) {
+      const dateKey = reviewDate.toISOString().split('T')[0];
+      dailyCountsMap[dateKey] = (dailyCountsMap[dateKey] || 0) + 1;
+    }
+  });
+
+  // Convert to sorted array
+  const dailyCounts: DailyCount[] = Object.entries(dailyCountsMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, count]) => ({ date, count }));
+
+  // Count total reviews in period
+  const reviewsThisPeriod = yearReviews?.filter(r => {
+    const reviewDate = new Date(r.create_time);
+    return reviewDate >= periodStartDate && reviewDate <= periodEndDate;
+  }).length || 0;
+
   // Calculate average rating for the year
   const avgRating = yearReviews && yearReviews.length > 0
     ? yearReviews.reduce((sum, r) => sum + r.star_rating, 0) / yearReviews.length
@@ -191,6 +235,7 @@ export async function GET(request: NextRequest) {
     reviews_this_month: reviewsThisMonth,
     reviews_today: reviewsToday,
     reviews_this_week: reviewsThisWeek,
+    reviews_this_period: reviewsThisPeriod,
     year_goal: yearGoal,
     year_progress_percent: Math.round(yearProgressPercent * 10) / 10,
     expected_progress_percent: Math.round(expectedProgressPercent * 10) / 10,
@@ -198,6 +243,9 @@ export async function GET(request: NextRequest) {
     pacing_difference_percent: Math.round(pacingDifference * 10) / 10,
     locations: locationStats,
     rating_distribution: ratingDistribution,
+    daily_counts: dailyCounts,
+    period_start: periodStartDate.toISOString(),
+    period_end: periodEndDate.toISOString(),
   };
 
   return NextResponse.json(stats);

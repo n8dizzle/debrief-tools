@@ -428,10 +428,14 @@ export default function ReviewsPage() {
           periodEnd: periodDates.end.toISOString(),
         });
 
-        const response = await fetch(`/api/reviews/stats?${params}`);
+        const response = await fetch(`/api/reviews/stats?${params}`, {
+          credentials: 'include',
+        });
         if (response.ok) {
           const data = await response.json();
           setStats(data);
+        } else {
+          console.error('Stats API error:', response.status, await response.text());
         }
       } catch (error) {
         console.error('Failed to fetch stats:', error);
@@ -466,7 +470,9 @@ export default function ReviewsPage() {
           params.set('hasTeamMention', 'true');
         }
 
-        const response = await fetch(`/api/reviews?${params}`);
+        const response = await fetch(`/api/reviews?${params}`, {
+          credentials: 'include',
+        });
         if (response.ok) {
           const data = await response.json();
           setReviews(data.reviews || []);
