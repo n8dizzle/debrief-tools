@@ -1,37 +1,79 @@
+/**
+ * Check if required KPIs exist in database
+ * Run: node --env-file=.env.local scripts/check-kpis.mjs
+ */
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  'https://dgnsvheokdubqmdlanua.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnbnN2aGVva2R1YnFtZGxhbnVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1MTExMDksImV4cCI6MjA4MzA4NzEwOX0.voa1LinO_Pk2UAH6-WURh1oZlCUvpbJzjS-430aCyTo'
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 async function main() {
-  // Get departments
-  const { data: depts } = await supabase
+  // Get all departments to find the right one
+  const { data: allDepts } = await supabase
     .from('huddle_departments')
-    .select('*')
-    .order('display_order');
+    .select('id, slug, name');
 
-  console.log('\n=== DEPARTMENTS ===');
-  depts?.forEach(d => console.log(`${d.display_order}. ${d.name} (${d.slug})`));
+  console.log('All departments:', allDepts?.map(d => `${d.slug} (${d.name})`).join(', '));
 
-  // Get KPIs with department info
+  // Find Christmas Overall department (where revenue KPIs live)
+  const christmasDept = allDepts?.find(d => d.slug === 'christmas-overall');
+  console.log('Christmas Overall department:', christmasDept);
+  
+  // Check existing KPIs
   const { data: kpis } = await supabase
     .from('huddle_kpis')
-    .select('*, huddle_departments(name, slug)')
-    .order('department_id')
-    .order('display_order');
+    .select('id, slug, name, data_source')
+    .in('slug', ['revenue-completed', 'non-job-revenue', 'total-revenue']);
+  
+  console.log('\nExisting revenue KPIs:');
+  kpis?.forEach(k => console.log(`  ${k.slug}: ${k.name} (${k.data_source})`));
+  
+  const existingSlugs = new Set(kpis?.map(k => k.slug) || []);
+  
+  // Add missing KPIs
+  const missingKPIs = [];
+  
+  if (!existingSlugs.has('non-job-revenue') && christmasDept) {
+    missingKPIs.push({
+      slug: 'non-job-revenue',
+      name: 'Non-Job Revenue',
+      department_id: christmasDept.id,
+      data_source: 'servicetitan',
+      higher_is_better: true,
+      is_active: true,
+      display_order: 5,
+    });
+  }
 
-  console.log('\n=== KPIs ===');
-  let lastDept = '';
-  kpis?.forEach(k => {
-    const deptName = k.huddle_departments?.name || 'Unknown';
-    if (deptName !== lastDept) {
-      console.log(`\n--- ${deptName} ---`);
-      lastDept = deptName;
+  if (!existingSlugs.has('total-revenue') && christmasDept) {
+    missingKPIs.push({
+      slug: 'total-revenue',
+      name: 'Total Revenue',
+      department_id: christmasDept.id,
+      data_source: 'servicetitan',
+      higher_is_better: true,
+      is_active: true,
+      display_order: 6,
+    });
+  }
+  
+  if (missingKPIs.length > 0) {
+    console.log('\nAdding missing KPIs...');
+    const { data: inserted, error } = await supabase
+      .from('huddle_kpis')
+      .insert(missingKPIs)
+      .select();
+    
+    if (error) {
+      console.error('Error adding KPIs:', error);
+    } else {
+      console.log('Added KPIs:', inserted?.map(k => k.slug).join(', '));
     }
-    console.log(`  ${k.slug} | ${k.name} | source: ${k.data_source}`);
-  });
+  } else {
+    console.log('\nAll revenue KPIs exist!');
+  }
 }
 
 main().catch(console.error);

@@ -4,20 +4,38 @@ import { useState, useEffect } from 'react';
 import SummaryCard from '@/components/dash/SummaryCard';
 import PacingSection from '@/components/dash/PacingSection';
 
-// Mock data - will be replaced with API calls
-const mockPacingData = {
-  today: { current: 129000, target: 34000 },
-  week: { current: 95000, target: 184000 },
-  month: { current: 450000, target: 821000 },
-  year: { current: 450000, target: 15100000 },
-};
+interface PacingData {
+  todayRevenue: number;
+  dailyTarget: number;
+  wtdRevenue: number;
+  weeklyTarget: number;
+  mtdRevenue: number;
+  monthlyTarget: number;
+  pacingPercent: number;
+  businessDaysRemaining: number;
+  businessDaysElapsed: number;
+  businessDaysInMonth: number;
+}
 
+interface DashboardData {
+  date: string;
+  pacing?: PacingData;
+  departments?: Array<{
+    name: string;
+    kpis: Array<{
+      slug: string;
+      actual: number | null;
+    }>;
+  }>;
+}
+
+// Placeholder department data - TODO: Connect to real API
 const mockDepartments = [
-  { name: 'HVAC Service', today: 45200, mtd: 320000, target: 305000, pacing: 105 },
-  { name: 'HVAC Install', today: 55000, mtd: 280000, target: 304000, pacing: 92 },
-  { name: 'Plumbing', today: 14200, mtd: 85000, target: 109000, pacing: 78 },
-  { name: 'Call Center', today: 215, mtd: 4500, target: 4800, pacing: 94 },
-  { name: 'Marketing', today: 52, mtd: 1100, target: 1000, pacing: 110 },
+  { name: 'HVAC Service', today: 0, mtd: 0, target: 0, pacing: 0 },
+  { name: 'HVAC Install', today: 0, mtd: 0, target: 0, pacing: 0 },
+  { name: 'Plumbing', today: 0, mtd: 0, target: 0, pacing: 0 },
+  { name: 'Call Center', today: 0, mtd: 0, target: 0, pacing: 0 },
+  { name: 'Marketing', today: 0, mtd: 0, target: 0, pacing: 0 },
 ];
 
 function formatCurrency(value: number): string {
@@ -49,6 +67,8 @@ function StatusDot({ pacing }: { pacing: number }) {
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('');
+  const [dashData, setDashData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const now = new Date();
@@ -59,14 +79,33 @@ export default function DashboardPage() {
       day: 'numeric',
     };
     setCurrentDate(now.toLocaleDateString('en-US', options));
+
+    // Fetch real data from API
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/huddle');
+        if (res.ok) {
+          const data = await res.json();
+          setDashData(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
   }, []);
 
-  // Calculate totals
-  const todayRevenue = mockPacingData.today.current;
-  const monthlyProgress = Math.round(
-    (mockPacingData.month.current / mockPacingData.month.target) * 100
-  );
-  const weekRevenue = mockPacingData.week.current;
+  // Use real data from API, with fallback defaults
+  const pacing = dashData?.pacing;
+  const todayRevenue = pacing?.todayRevenue || 0;
+  const dailyTarget = pacing?.dailyTarget || 36368;
+  const weekRevenue = pacing?.wtdRevenue || 0;
+  const weeklyTarget = pacing?.weeklyTarget || 181840;
+  const mtdRevenue = pacing?.mtdRevenue || 0;
+  const monthlyTarget = pacing?.monthlyTarget || 800096;
+  const monthlyProgress = pacing?.pacingPercent || 0;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -116,31 +155,36 @@ export default function DashboardPage() {
         <SummaryCard
           icon="dollar"
           label="Today's Revenue"
-          value={formatCurrency(todayRevenue)}
-          subValue={`of ${formatCurrency(mockPacingData.today.target)}`}
-          trend={{ direction: 'up', value: '+12%' }}
+          value={loading ? '...' : formatCurrency(todayRevenue)}
+          subValue={`of ${formatCurrency(dailyTarget)}`}
+          trend={todayRevenue > dailyTarget ? { direction: 'up', value: `+${Math.round(((todayRevenue / dailyTarget) - 1) * 100)}%` } : undefined}
           accentColor="green"
         />
         <SummaryCard
           icon="percent"
           label="Monthly Progress"
-          value={`${monthlyProgress}%`}
-          subValue={`of ${formatCurrency(mockPacingData.month.target)}`}
+          value={loading ? '...' : `${monthlyProgress}%`}
+          subValue={`of ${formatCurrency(monthlyTarget)}`}
           accentColor="gold"
         />
         <SummaryCard
           icon="trend"
           label="This Week"
-          value={formatCurrency(weekRevenue)}
-          subValue={`of ${formatCurrency(mockPacingData.week.target)}`}
-          trend={{ direction: 'up', value: '+8%' }}
+          value={loading ? '...' : formatCurrency(weekRevenue)}
+          subValue={`of ${formatCurrency(weeklyTarget)}`}
+          trend={weekRevenue > weeklyTarget * 0.5 ? { direction: 'up', value: `${Math.round((weekRevenue / weeklyTarget) * 100)}%` } : undefined}
           accentColor="blue"
         />
       </div>
 
       {/* Goal Pacing Section */}
       <div className="mb-8">
-        <PacingSection data={mockPacingData} />
+        <PacingSection data={{
+          today: { current: todayRevenue, target: dailyTarget },
+          week: { current: weekRevenue, target: weeklyTarget },
+          month: { current: mtdRevenue, target: monthlyTarget },
+          year: { current: mtdRevenue, target: 15100000 }, // Annual target
+        }} />
       </div>
 
       {/* Department Summary */}

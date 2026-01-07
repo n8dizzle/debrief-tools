@@ -120,24 +120,64 @@ async function main() {
   });
   console.log(`📋 Jobs Scheduled: ${scheduled.data?.length || 0}`);
 
-  // Calculate non-job revenue (invoices where job is null)
-  const nonJobInvoices = invoices.data?.filter(inv => !inv.job) || [];
-  const jobInvoices = invoices.data?.filter(inv => inv.job) || [];
-  const nonJobRevenue = nonJobInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  // Calculate non-job revenue (invoices NOT for completed jobs)
+  const completedJobIds = new Set(jobs.data?.map(j => j.id) || []);
+  const completedJobInvoices = invoices.data?.filter(inv => inv.job && completedJobIds.has(inv.job.id)) || [];
+  const nonCompletedJobInvoices = invoices.data?.filter(inv => inv.job && !completedJobIds.has(inv.job.id)) || [];
+  const completedJobInvoiceRevenue = completedJobInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  const nonJobRevenue = invoiceTotalSum - completedJobInvoiceRevenue;
 
   console.log('\n=== INVOICE BREAKDOWN ===');
-  console.log(`Job-linked invoices: ${jobInvoices.length}`);
-  console.log(`Non-job invoices: ${nonJobInvoices.length}`);
+  console.log(`Total invoices: ${invoices.data?.length || 0}`);
+  console.log(`Invoices for COMPLETED jobs: ${completedJobInvoices.length} ($${completedJobInvoiceRevenue.toFixed(2)})`);
+  console.log(`Invoices for NON-COMPLETED jobs: ${nonCompletedJobInvoices.length} ($${nonJobRevenue.toFixed(2)})`);
 
-  if (nonJobInvoices.length > 0) {
-    console.log('\nNon-job invoice samples:');
-    nonJobInvoices.slice(0, 5).forEach((inv) => {
-      console.log(`  ${inv.referenceNumber || 'N/A'}: $${(Number(inv.total) || 0).toFixed(2)} - ${inv.summary?.slice(0, 40) || 'No summary'}...`);
+  // Debug: show what the job field looks like
+  console.log('\nSample invoice job field values:');
+  invoices.data?.slice(0, 8).forEach((inv, i) => {
+    console.log(`  Invoice ${i+1}: job=${JSON.stringify(inv.job)}, total=$${Number(inv.total).toFixed(2)}`);
+  });
+
+  if (nonCompletedJobInvoices.length > 0) {
+    console.log('\nNon-completed job invoice samples:');
+    nonCompletedJobInvoices.slice(0, 5).forEach((inv) => {
+      console.log(`  Job #${inv.job?.number} (${inv.job?.type}): $${(Number(inv.total) || 0).toFixed(2)}`);
     });
   }
   console.log(`\n💰 Non-Job Revenue: $${nonJobRevenue.toFixed(2)}`);
 
+  // Check payments endpoint - might be source of non-job revenue
+  console.log('\n=== PAYMENTS ===');
+  const payments = await request(token, `accounting/v2/tenant/${tenantId}/payments`, {
+    createdOnOrAfter: `${dateStr}T00:00:00Z`,
+    createdBefore: `${nextDayStr}T00:00:00Z`,
+    pageSize: '200',
+  });
+
+  console.log(`Total payments: ${payments.data?.length || 0}`);
+  let paymentTotalSum = 0;
+  let nonJobPayments = [];
+  payments.data?.forEach((pmt, i) => {
+    const total = Number(pmt.total) || 0;
+    paymentTotalSum += total;
+    // Check if payment is not linked to a job
+    if (!pmt.job && !pmt.jobId) {
+      nonJobPayments.push(pmt);
+    }
+    if (i < 5) {
+      console.log(`  Payment ${i+1}: $${total.toFixed(2)}, job=${JSON.stringify(pmt.job || pmt.jobId)}, type=${pmt.type || pmt.paymentType}`);
+    }
+  });
+  console.log(`Payment total: $${paymentTotalSum.toFixed(2)}`);
+  console.log(`Non-job payments: ${nonJobPayments.length}`);
+
+  // Calculate total revenue (completed jobs + non-job revenue)
   const totalRevenue = jobTotalSum + nonJobRevenue;
+
+  console.log(`\n📊 Total Revenue Calculation:`);
+  console.log(`  Completed Job Revenue: $${jobTotalSum.toFixed(2)}`);
+  console.log(`  Non-Job Revenue: $${nonJobRevenue.toFixed(2)}`);
+  console.log(`  TOTAL REVENUE: $${totalRevenue.toFixed(2)}`);
 
   console.log('\n=== SUMMARY ===');
   console.log(`Date: ${dateStr}`);

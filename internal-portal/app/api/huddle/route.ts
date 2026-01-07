@@ -228,8 +228,8 @@ export async function GET(request: NextRequest) {
     // Sum revenue, preferring total-revenue if available, otherwise sum job + non-job
     const mtdByDate = new Map<string, number>();
     mtdSnapshots?.forEach((s) => {
-      const snap = s as { actual_value: number; huddle_kpis: { slug: string }; snapshot_date?: string };
-      const snapDate = (s as { snapshot_date?: string }).snapshot_date || '';
+      const snap = s as unknown as { actual_value: number; huddle_kpis: { slug: string }; snapshot_date?: string };
+      const snapDate = snap.snapshot_date || '';
       const slug = snap.huddle_kpis?.slug;
       const value = Number(snap.actual_value) || 0;
 
@@ -259,8 +259,8 @@ export async function GET(request: NextRequest) {
     // Sum WTD revenue same way
     const wtdByDate = new Map<string, number>();
     wtdSnapshots?.forEach((s) => {
-      const snap = s as { actual_value: number; huddle_kpis: { slug: string }; snapshot_date?: string };
-      const snapDate = (s as { snapshot_date?: string }).snapshot_date || '';
+      const snap = s as unknown as { actual_value: number; huddle_kpis: { slug: string }; snapshot_date?: string };
+      const snapDate = snap.snapshot_date || '';
       const slug = snap.huddle_kpis?.slug;
       const value = Number(snap.actual_value) || 0;
 

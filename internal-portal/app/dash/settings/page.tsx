@@ -369,6 +369,7 @@ export default function SettingsPage() {
 
       {/* Revenue Targets Tab */}
       {activeTab === 'targets' && (
+        <>
         <div
           className="rounded-xl overflow-hidden"
           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
@@ -571,6 +572,7 @@ export default function SettingsPage() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* KPI Definitions Tab */}

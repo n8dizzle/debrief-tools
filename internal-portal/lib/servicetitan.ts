@@ -243,19 +243,35 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get non-job revenue (invoices not tied to jobs)
-   * These are typically membership sales, equipment sales, etc.
+   * Get non-job revenue - revenue from invoices NOT tied to completed jobs
+   * This captures additional revenue like memberships, estimates converted to sales, etc.
+   * Calculated as: (invoices created today) - (invoices for jobs completed today)
    */
   async getNonJobRevenue(date: string): Promise<number> {
     const nextDay = this.getNextDay(date);
+
+    // Get all invoices created on date
     const invoices = await this.getInvoices(date, nextDay);
-    // Non-job invoices have job as null or undefined
-    const nonJobInvoices = invoices.filter((inv) => !inv.job);
-    return nonJobInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+    const invoiceTotal = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+
+    // Get completed jobs and their IDs
+    const completedJobs = await this.getCompletedJobs(date, nextDay);
+    const completedJobIds = new Set(completedJobs.map((j) => j.id));
+
+    // Sum invoices for completed jobs only
+    const completedJobInvoiceTotal = invoices
+      .filter((inv) => inv.job && completedJobIds.has(inv.job.id))
+      .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+
+    // Non-job revenue = invoice total minus invoices for completed jobs
+    return Math.max(0, invoiceTotal - completedJobInvoiceTotal);
   }
 
   /**
-   * Get total revenue (completed job revenue + non-job revenue)
+   * Get total revenue breakdown
+   * - jobRevenue: sum of completed job totals
+   * - nonJobRevenue: invoice revenue not tied to completed jobs
+   * - totalRevenue: jobRevenue + nonJobRevenue
    */
   async getTotalRevenue(date: string, businessUnitId?: number): Promise<{
     jobRevenue: number;
@@ -264,14 +280,22 @@ export class ServiceTitanClient {
   }> {
     const nextDay = this.getNextDay(date);
 
-    // Get completed job revenue
+    // Get completed jobs
     const jobs = await this.getCompletedJobs(date, nextDay, businessUnitId);
     const jobRevenue = jobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
+    const completedJobIds = new Set(jobs.map((j) => j.id));
 
-    // Get non-job invoice revenue (invoices with job = null)
+    // Get all invoices created on date
     const invoices = await this.getInvoices(date, nextDay);
-    const nonJobInvoices = invoices.filter((inv) => !inv.job);
-    const nonJobRevenue = nonJobInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+    const invoiceTotal = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+
+    // Sum invoices for completed jobs
+    const completedJobInvoiceTotal = invoices
+      .filter((inv) => inv.job && completedJobIds.has(inv.job.id))
+      .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+
+    // Non-job revenue = extra invoice revenue not from completed jobs
+    const nonJobRevenue = Math.max(0, invoiceTotal - completedJobInvoiceTotal);
 
     return {
       jobRevenue,
@@ -433,7 +457,7 @@ export class ServiceTitanClient {
     const invoices = await this.getInvoices(date, nextDay);
     // Filter invoices that belong to plumbing jobs
     const plumbingJobIds = new Set(plumbingJobs.map((j) => j.id));
-    const plumbingInvoices = invoices.filter((inv) => plumbingJobIds.has(inv.jobId));
+    const plumbingInvoices = invoices.filter((inv) => inv.job && plumbingJobIds.has(inv.job.id));
 
     return {
       sales: plumbingInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0),

@@ -180,6 +180,15 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
+                <!-- Search Bar -->
+                <div class="relative">
+                    <input type="text" id="queue-search" placeholder="Search job #, customer, tech..."
+                           class="w-64 px-3 py-1.5 pl-8 text-sm bg-dark-bg border border-dark-border rounded-lg text-christmas-cream placeholder-gray-500 focus:outline-none focus:border-christmas-green/50"
+                           oninput="filterQueue()">
+                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+                    <button onclick="document.getElementById('queue-search').value=''; filterQueue();"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-christmas-cream text-xs hidden" id="clear-search">✕</button>
+                </div>
                 <button id="sync-btn" onclick="syncJobs()" title="Pull new completed jobs from ServiceTitan API" class="text-sm text-christmas-cream bg-christmas-green/20 hover:bg-christmas-green/30 px-3 py-1 rounded-lg border border-christmas-green/50 transition flex items-center gap-2">
                     <span id="sync-icon">⟳</span>
                     <span id="sync-text">Sync from ST</span>
@@ -193,7 +202,7 @@
         {% if pending_tickets %}
         <div id="pending-list" class="divide-y divide-dark-border">
             {% for ticket in pending_tickets %}
-            <div class="ticket-row px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" data-trade="{{ ticket.trade_type or 'Unknown' }}" onclick="window.location='/debrief/{{ ticket.job_id }}'">
+            <div class="ticket-row px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" data-trade="{{ ticket.trade_type or 'Unknown' }}" data-search="{{ ticket.job_number }} {{ ticket.customer_name or '' }} {{ ticket.tech_name or '' }}" onclick="window.location='/debrief/{{ ticket.job_id }}'">
                 <div class="grid grid-cols-12 gap-2 items-center">
                     <!-- Col 1: Job Info (4 cols) -->
                     <div class="col-span-4">
@@ -303,11 +312,41 @@
             }
         });
 
-        // Filter tickets
+        // Apply combined filters
+        applyFilters();
+    }
+
+    // Search filter
+    let currentSearch = '';
+
+    function filterQueue() {
+        const searchInput = document.getElementById('queue-search');
+        const clearBtn = document.getElementById('clear-search');
+        currentSearch = searchInput.value.toLowerCase().trim();
+
+        // Show/hide clear button
+        if (currentSearch) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+
+        applyFilters();
+    }
+
+    function applyFilters() {
         let visibleCount = 0;
         document.querySelectorAll('.ticket-row').forEach(row => {
             const rowTrade = row.dataset.trade;
-            if (trade === 'all' || rowTrade === trade) {
+            const rowSearch = (row.dataset.search || '').toLowerCase();
+
+            // Check trade filter
+            const matchesTrade = (currentFilter === 'all' || rowTrade === currentFilter);
+
+            // Check search filter
+            const matchesSearch = !currentSearch || rowSearch.includes(currentSearch);
+
+            if (matchesTrade && matchesSearch) {
                 row.style.display = '';
                 visibleCount++;
             } else {
