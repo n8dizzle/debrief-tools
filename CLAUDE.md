@@ -7,6 +7,24 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Not yet deployed
 
+## Recent Updates (Jan 6, 2025)
+
+### That's a Wrap (debrief-qa) - Deployed
+- **Search bar** on queue page - filter by job #, customer name, or technician
+- **Financing context banners** - Synchrony, WellsFargo, Wisetack, Ally, Buydown with verification reminders
+- **Composite score** displayed in top right of debrief view
+- **Invoice score** added to grid, highlights red if below 7
+- **Auto-select Pass** for verified payments
+- **Check deposit status** - shows mobile deposit vs needs drop-off
+- **Payment method** visible in completed debrief view
+- Payment lookup improvements (customer ID filter, 90-day lookback, client-side filtering)
+
+### Internal Portal (internal-portal) - Not Deployed Yet
+- **Reviews dashboard** - Added recharts for data visualization
+- **API auth fix** - Added `credentials: 'include'` to fetch calls
+- **Stats API** - Extended types for daily counts and period tracking
+- Better error logging on API failures
+
 ## Current Deployment Status
 
 See `DEPLOYMENT_STATUS.md` for full details.
