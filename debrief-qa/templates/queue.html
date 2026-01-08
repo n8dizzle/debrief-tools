@@ -178,6 +178,16 @@
                     <button onclick="filterByTrade('HVAC')" data-filter="HVAC" class="trade-filter px-2.5 py-1 rounded text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover border border-transparent">HVAC</button>
                     <button onclick="filterByTrade('Plumbing')" data-filter="Plumbing" class="trade-filter px-2.5 py-1 rounded text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover border border-transparent">Plumbing</button>
                 </div>
+                <!-- Sort Options -->
+                <div class="flex items-center gap-2 text-sm border-l border-dark-border pl-4 ml-2">
+                    <span class="text-gray-500">Sort:</span>
+                    <select id="queue-sort" onchange="sortQueue(this.value)" class="bg-dark-bg border border-dark-border rounded px-2 py-1 text-christmas-cream text-sm focus:outline-none focus:border-christmas-green/50">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="unpaid">Unpaid First</option>
+                        <option value="highest">Highest Value</option>
+                    </select>
+                </div>
             </div>
             <div class="flex items-center gap-3">
                 <!-- Search Bar -->
@@ -202,7 +212,7 @@
         {% if pending_tickets %}
         <div id="pending-list" class="divide-y divide-dark-border">
             {% for ticket in pending_tickets %}
-            <div class="ticket-row px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" data-trade="{{ ticket.trade_type or 'Unknown' }}" data-search="{{ ticket.job_number }} {{ ticket.customer_name or '' }} {{ ticket.tech_name or '' }}" onclick="window.location='/debrief/{{ ticket.job_id }}'">
+            <div class="ticket-row px-6 py-3 hover:bg-dark-card-hover transition cursor-pointer" data-trade="{{ ticket.trade_type or 'Unknown' }}" data-search="{{ ticket.job_number }} {{ ticket.customer_name or '' }} {{ ticket.tech_name or '' }}" data-date="{{ ticket.completed_at.isoformat() if ticket.completed_at else '' }}" data-paid="{{ 'true' if ticket.payment_collected else 'false' }}" data-amount="{{ ticket.invoice_total or 0 }}" onclick="window.location='/debrief/{{ ticket.job_id }}'">
                 <div class="grid grid-cols-12 gap-2 items-center">
                     <!-- Col 1: Job Info (4 cols) -->
                     <div class="col-span-4">
@@ -358,10 +368,54 @@
         document.getElementById('visible-count').textContent = visibleCount;
     }
 
-    // Apply saved filter on page load
+    // Sort queue
+    let currentSort = localStorage.getItem('queueSort') || 'newest';
+
+    function sortQueue(sortBy) {
+        currentSort = sortBy;
+        localStorage.setItem('queueSort', sortBy);
+
+        const list = document.getElementById('pending-list');
+        if (!list) return;
+
+        const rows = Array.from(list.querySelectorAll('.ticket-row'));
+
+        rows.sort((a, b) => {
+            switch (sortBy) {
+                case 'oldest':
+                    return (a.dataset.date || '').localeCompare(b.dataset.date || '');
+                case 'newest':
+                    return (b.dataset.date || '').localeCompare(a.dataset.date || '');
+                case 'unpaid':
+                    // Unpaid first (false < true when sorted ascending, so we flip)
+                    const aPaid = a.dataset.paid === 'true';
+                    const bPaid = b.dataset.paid === 'true';
+                    if (aPaid !== bPaid) return aPaid ? 1 : -1;
+                    // Then by date (newest first for same payment status)
+                    return (b.dataset.date || '').localeCompare(a.dataset.date || '');
+                case 'highest':
+                    return parseFloat(b.dataset.amount || 0) - parseFloat(a.dataset.amount || 0);
+                default:
+                    return 0;
+            }
+        });
+
+        // Re-append in sorted order
+        rows.forEach(row => list.appendChild(row));
+
+        // Re-apply filters after sort
+        applyFilters();
+    }
+
+    // Apply saved filter and sort on page load
     document.addEventListener('DOMContentLoaded', () => {
         if (currentFilter !== 'all') {
             filterByTrade(currentFilter);
+        }
+        // Apply saved sort
+        if (currentSort !== 'newest') {
+            document.getElementById('queue-sort').value = currentSort;
+            sortQueue(currentSort);
         }
     });
 

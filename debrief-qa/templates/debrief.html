@@ -379,12 +379,14 @@
                     </div>
                 </label>
                 <div class="flex items-center space-x-4">
-                    <input type="range" name="invoice_summary_score" min="1" max="10" value="5"
-                        class="w-48 h-2 rounded-lg appearance-none cursor-pointer"
-                        oninput="document.getElementById('score-display').textContent = this.value">
-                    <span id="score-display" class="text-2xl font-bold text-christmas-green-light w-8">5</span>
+                    <input type="range" name="invoice_summary_score" id="invoice-score-slider" min="1" max="10"
+                        class="w-48 h-2 rounded-lg appearance-none cursor-pointer opacity-50"
+                        oninput="setInvoiceScore(this.value)">
+                    <span id="score-display" class="text-2xl font-bold text-gray-500 w-8">-</span>
                     <span class="text-sm text-gray-500">/ 10</span>
+                    <span id="score-required" class="text-xs text-christmas-brown ml-2">← Select a score</span>
                 </div>
+                <input type="hidden" name="invoice_summary_score_set" id="invoice-score-set" value="false">
                 <input type="text" name="invoice_summary_notes" placeholder="Notes (optional)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
@@ -880,6 +882,74 @@
 </div>
 
 <script>
+// Track if form has unsaved changes
+let formDirty = false;
+let formSubmitting = false;
+
+// Mark form as dirty when any input changes
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    if (form) {
+        // Listen for all input changes
+        form.addEventListener('change', function() {
+            formDirty = true;
+        });
+        form.addEventListener('input', function() {
+            formDirty = true;
+        });
+
+        // Clear dirty flag on submit
+        form.addEventListener('submit', function(e) {
+            // Check if invoice score was set
+            const scoreSet = document.getElementById('invoice-score-set');
+            if (scoreSet && scoreSet.value === 'false') {
+                e.preventDefault();
+                alert('Please select an Invoice Summary Quality score before submitting.');
+                document.getElementById('invoice-score-slider').focus();
+                return false;
+            }
+            formSubmitting = true;
+            formDirty = false;
+        });
+    }
+});
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    if (formDirty && !formSubmitting) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+});
+
+// Handle "Back to Queue" link click
+document.querySelectorAll('a[href="/queue"]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+        if (formDirty && !formSubmitting) {
+            if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+
+// Invoice score function - requires explicit selection
+function setInvoiceScore(value) {
+    const display = document.getElementById('score-display');
+    const slider = document.getElementById('invoice-score-slider');
+    const required = document.getElementById('score-required');
+    const scoreSet = document.getElementById('invoice-score-set');
+
+    display.textContent = value;
+    display.classList.remove('text-gray-500');
+    display.classList.add('text-christmas-green-light');
+    slider.classList.remove('opacity-50');
+    required.classList.add('hidden');
+    scoreSet.value = 'true';
+    formDirty = true;
+}
+
 function toggleFollowup(show) {
     const details = document.getElementById('followup-details');
     if (show) {
