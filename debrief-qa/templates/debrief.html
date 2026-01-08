@@ -437,6 +437,34 @@
                         </div>
                     </div>
 
+                    <!-- Payment info -->
+                    {% if ticket.membership_price or ticket.membership_last_payment_date %}
+                    <div class="mt-2 grid grid-cols-2 gap-2 text-center">
+                        {% if ticket.membership_price %}
+                        <div class="bg-dark-bg/50 rounded-lg p-2 border border-dark-border">
+                            <div class="text-sm font-bold text-gray-200">
+                                ${{ "%.2f"|format(ticket.membership_price) }}
+                                {% if ticket.membership_billing_frequency %}
+                                <span class="text-xs text-gray-500">/{{ ticket.membership_billing_frequency|lower }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-500">Membership Price</div>
+                        </div>
+                        {% endif %}
+                        {% if ticket.membership_last_payment_date %}
+                        <div class="bg-dark-bg/50 rounded-lg p-2 border border-dark-border">
+                            <div class="text-sm font-bold text-gray-200">
+                                {{ ticket.membership_last_payment_date.strftime('%b %d, %Y') if ticket.membership_last_payment_date else 'N/A' }}
+                                {% if ticket.membership_last_payment_amount %}
+                                <span class="text-xs text-gray-500">(${{ "%.2f"|format(ticket.membership_last_payment_amount) }})</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-500">Last Payment</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     <!-- Data warning if applicable -->
                     {% if ticket.membership_data_warning %}
                     <div class="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/50 rounded text-xs text-yellow-200">

@@ -497,6 +497,10 @@ class ServiceTitanClient:
         membership_sold = False
         membership_type = None
         membership_expires = None
+        membership_price = None
+        membership_billing_frequency = None
+        membership_last_payment_date = None
+        membership_last_payment_amount = None
         completed_date = job.get("completedOn")
         membership_visit_type = determine_visit_type(job_type_name, completed_date)
         membership_visits_included = 0
@@ -666,6 +670,10 @@ class ServiceTitanClient:
             "membership_sold": membership_sold,
             "membership_type": membership_type,
             "membership_expires": membership_expires,
+            "membership_price": membership_price,
+            "membership_billing_frequency": membership_billing_frequency,
+            "membership_last_payment_date": membership_last_payment_date,
+            "membership_last_payment_amount": membership_last_payment_amount,
 
             # Membership Visit Context
             "membership_visit_type": membership_visit_type,
@@ -902,34 +910,32 @@ def determine_visit_type(job_type_name: Optional[str], completed_date: Optional[
     if any(kw in name for kw in ["cool", "cooling", "ac", "a/c", "air condition"]):
         return "hvac_cool"
 
-    # Plumbing inspection
+    # Plumbing maintenance
     if "plumb" in name:
         return "plumbing"
 
-    # Generic HVAC tune-up - use season to determine type
-    # "T/U-Res-Mem", "SERVICE - T/U-Res-Mem", etc.
-    if "res" in name or "mem" in name or "service" in name.split("-")[0]:
-        # Try to determine by season from completed date
-        if completed_date:
-            try:
-                # Parse ISO date like "2025-01-07T15:00:00Z"
-                month = int(completed_date[5:7])
-                # Nov-Mar = heating season, Apr-Oct = cooling season
-                if month in (11, 12, 1, 2, 3):
-                    return "hvac_heat"
-                else:
-                    return "hvac_cool"
-            except:
-                pass
-        # Default to current season if no date
-        from datetime import datetime
-        month = datetime.now().month
-        if month in (11, 12, 1, 2, 3):
-            return "hvac_heat"
-        else:
-            return "hvac_cool"
-
-    return "unknown"
+    # Generic HVAC tune-up/maintenance - use season to determine heat vs cool
+    # Covers: "Maintenance", "Maintenance Commercial", "T/U-Res-Mem", etc.
+    # If it's a maintenance job without explicit heat/cool/plumb, it's HVAC
+    # Try to determine by season from completed date
+    if completed_date:
+        try:
+            # Parse ISO date like "2025-01-07T15:00:00Z"
+            month = int(completed_date[5:7])
+            # Nov-Mar = heating season, Apr-Oct = cooling season
+            if month in (11, 12, 1, 2, 3):
+                return "hvac_heat"
+            else:
+                return "hvac_cool"
+        except:
+            pass
+    # Default to current season if no date
+    from datetime import datetime
+    month = datetime.now().month
+    if month in (11, 12, 1, 2, 3):
+        return "hvac_heat"
+    else:
+        return "hvac_cool"
 
 
 # Legacy job type categorization (old naming convention)
