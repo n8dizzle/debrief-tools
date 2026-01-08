@@ -218,7 +218,57 @@ class ServiceTitanClient:
             f"memberships/v2/tenant/{self.tenant_id}/memberships",
             params={"customerId": customer_id, "active": "true"}
         )
-    
+
+    async def get_membership_invoices(self, membership_id: int, limit: int = 10) -> Dict[str, Any]:
+        """Get invoices/payments for a specific membership."""
+        return await self._request(
+            "GET",
+            f"memberships/v2/tenant/{self.tenant_id}/membership-invoices",
+            params={
+                "membershipId": membership_id,
+                "pageSize": limit,
+                "status": "Paid"  # Only get paid invoices
+            }
+        )
+
+    async def get_location_recurring_services(self, location_id: int) -> Dict[str, Any]:
+        """Get recurring services for a location (what's included in membership)."""
+        return await self._request(
+            "GET",
+            f"memberships/v2/tenant/{self.tenant_id}/recurring-services",
+            params={"locationId": location_id, "active": "true"}
+        )
+
+    async def get_recurring_service_events(self, location_id: int, year: int = None) -> Dict[str, Any]:
+        """Get recurring service events (scheduled/completed tune-ups) for a location."""
+        if year is None:
+            year = datetime.utcnow().year
+
+        return await self._request(
+            "GET",
+            f"memberships/v2/tenant/{self.tenant_id}/recurring-service-events",
+            params={
+                "locationId": location_id,
+                "startsOnOrAfter": f"{year}-01-01",
+                "startsOnOrBefore": f"{year}-12-31"
+            }
+        )
+
+    async def get_customer_jobs_history(self, customer_id: int, months_back: int = 12) -> Dict[str, Any]:
+        """Get completed jobs for a customer in the last N months (for cross-referencing tune-ups)."""
+        from_date = (datetime.utcnow() - timedelta(days=months_back * 30)).strftime("%Y-%m-%d")
+
+        return await self._request(
+            "GET",
+            f"jpm/v2/tenant/{self.tenant_id}/jobs",
+            params={
+                "customerId": customer_id,
+                "completedOnOrAfter": from_date,
+                "jobStatus": "Completed",
+                "pageSize": 100
+            }
+        )
+
     async def get_technician(self, tech_id: int) -> Dict[str, Any]:
         """Get technician details."""
         return await self._request("GET", f"settings/v2/tenant/{self.tenant_id}/technicians/{tech_id}")
@@ -443,18 +493,126 @@ class ServiceTitanClient:
         except:
             form_submissions = []
 
-        # Check for membership sold on this job
+        # Check for membership and calculate visit context
         membership_sold = False
         membership_type = None
+        membership_expires = None
+        completed_date = job.get("completedOn")
+        membership_visit_type = determine_visit_type(job_type_name, completed_date)
+        membership_visits_included = 0
+        membership_visits_used = 0
+        membership_visit_number = 0
+        membership_visit_covered = True
+        membership_data_warning = None
+
         if customer:
             try:
                 memberships_response = await self.get_customer_memberships(customer["id"])
                 memberships = memberships_response.get("data", [])
-                # Check if any membership was created around job completion time
-                # This is a simplification - you might need more precise logic
                 membership_sold = len(memberships) > 0
+
                 if memberships:
-                    membership_type = memberships[0].get("membershipTypeName")
+                    # Find first active (non-expired) membership, or fall back to first one
+                    primary_membership = None
+                    for m in memberships:
+                        if m.get("status") == "Active":
+                            primary_membership = m
+                            break
+                    if not primary_membership:
+                        primary_membership = memberships[0]
+
+                    # Get membership type name (API returns membershipTypeId, not name)
+                    membership_type_id = primary_membership.get("membershipTypeId")
+                    if membership_type_id:
+                        try:
+                            # Fetch membership type details
+                            mt_response = await self._request(
+                                "GET",
+                                f"memberships/v2/tenant/{self.tenant_id}/membership-types/{membership_type_id}"
+                            )
+                            membership_type = mt_response.get("name")
+                        except:
+                            membership_type = f"Membership #{membership_type_id}"
+                    membership_expires = primary_membership.get("to")  # End date
+
+                    # Get membership pricing info from the membership object
+                    membership_price = primary_membership.get("price") or primary_membership.get("soldPrice")
+                    membership_billing_frequency = primary_membership.get("billingFrequency")
+
+                    # Get last payment from membership invoices
+                    membership_last_payment_date = None
+                    membership_last_payment_amount = None
+                    membership_id = primary_membership.get("id")
+                    if membership_id:
+                        try:
+                            invoices_response = await self.get_membership_invoices(membership_id, limit=1)
+                            invoices = invoices_response.get("data", [])
+                            if invoices:
+                                last_invoice = invoices[0]
+                                membership_last_payment_date = last_invoice.get("paidOn") or last_invoice.get("createdOn")
+                                membership_last_payment_amount = last_invoice.get("total") or last_invoice.get("amount")
+                        except:
+                            pass
+
+                    # Only calculate visit context if this is a tune-up job
+                    if membership_visit_type != "unknown" and location:
+                        location_id = location.get("id")
+                        customer_id = customer.get("id")
+
+                        # Get recurring service events from ST
+                        recurring_events_count = 0
+                        try:
+                            events_response = await self.get_recurring_service_events(location_id)
+                            events = events_response.get("data", [])
+                            # Count completed events of this type
+                            for event in events:
+                                event_status = event.get("status", "")
+                                if event_status == "Done" or event_status == "Completed":
+                                    # Try to match event type to our visit type
+                                    event_name = event.get("name", "").lower()
+                                    if membership_visit_type == "hvac_heat" and any(kw in event_name for kw in ["heat", "furnace"]):
+                                        recurring_events_count += 1
+                                    elif membership_visit_type == "hvac_cool" and any(kw in event_name for kw in ["cool", "ac", "a/c"]):
+                                        recurring_events_count += 1
+                                    elif membership_visit_type == "plumbing" and "plumb" in event_name:
+                                        recurring_events_count += 1
+                        except:
+                            pass
+
+                        # Cross-reference with actual job history
+                        job_history_count = 0
+                        try:
+                            jobs_response = await self.get_customer_jobs_history(customer_id, months_back=12)
+                            past_jobs = jobs_response.get("data", [])
+                            for past_job in past_jobs:
+                                # Don't count the current job
+                                if past_job.get("id") == job_id:
+                                    continue
+                                past_job_type = determine_visit_type(past_job.get("jobTypeName", ""))
+                                if past_job_type == membership_visit_type:
+                                    job_history_count += 1
+                        except:
+                            pass
+
+                        # Use higher count as source of truth
+                        if job_history_count > recurring_events_count:
+                            membership_visits_used = job_history_count
+                            if recurring_events_count > 0:
+                                membership_data_warning = f"ST shows {recurring_events_count} recurring events but found {job_history_count} tune-up jobs in history"
+                        else:
+                            membership_visits_used = recurring_events_count
+
+                        # Determine visits included based on visit type
+                        # Default: 2 HVAC visits (1 heat, 1 cool), 1 plumbing
+                        if membership_visit_type in ("hvac_heat", "hvac_cool"):
+                            membership_visits_included = 1  # 1 of each type per year
+                        elif membership_visit_type == "plumbing":
+                            membership_visits_included = 1
+
+                        # This visit is the next one
+                        membership_visit_number = membership_visits_used + 1
+                        membership_visit_covered = membership_visit_number <= membership_visits_included
+
             except:
                 pass
         
@@ -507,6 +665,15 @@ class ServiceTitanClient:
             # Membership
             "membership_sold": membership_sold,
             "membership_type": membership_type,
+            "membership_expires": membership_expires,
+
+            # Membership Visit Context
+            "membership_visit_type": membership_visit_type,
+            "membership_visits_included": membership_visits_included,
+            "membership_visits_used": membership_visits_used,
+            "membership_visit_number": membership_visit_number,
+            "membership_visit_covered": membership_visit_covered,
+            "membership_data_warning": membership_data_warning,
 
             # Forms
             "form_count": len(form_submissions),
@@ -702,6 +869,67 @@ class ServiceTitanClient:
     async def close(self):
         """Close HTTP client."""
         await self._http_client.aclose()
+
+
+def determine_visit_type(job_type_name: Optional[str], completed_date: Optional[str] = None) -> str:
+    """
+    Detect if this is a heat tune-up, cool tune-up, or plumbing maintenance.
+
+    For generic HVAC tune-ups (like "T/U-Res-Mem"), uses season to determine type:
+    - Nov-Mar: heat tune-up
+    - Apr-Oct: cool tune-up
+
+    Note: "inspection" is NOT a tune-up - those are for home sales or plumbing diagnostics.
+
+    Returns: "hvac_heat", "hvac_cool", "plumbing", or "unknown"
+    """
+    if not job_type_name:
+        return "unknown"
+
+    name = job_type_name.lower()
+
+    # Must be a maintenance/tune-up type job (NOT inspection - that's different)
+    is_tuneup = any(kw in name for kw in ["tune", "t/u", "maint"])
+
+    if not is_tuneup:
+        return "unknown"
+
+    # Heat tune-up - explicit
+    if any(kw in name for kw in ["heat", "heating", "furnace"]):
+        return "hvac_heat"
+
+    # Cool tune-up - explicit
+    if any(kw in name for kw in ["cool", "cooling", "ac", "a/c", "air condition"]):
+        return "hvac_cool"
+
+    # Plumbing inspection
+    if "plumb" in name:
+        return "plumbing"
+
+    # Generic HVAC tune-up - use season to determine type
+    # "T/U-Res-Mem", "SERVICE - T/U-Res-Mem", etc.
+    if "res" in name or "mem" in name or "service" in name.split("-")[0]:
+        # Try to determine by season from completed date
+        if completed_date:
+            try:
+                # Parse ISO date like "2025-01-07T15:00:00Z"
+                month = int(completed_date[5:7])
+                # Nov-Mar = heating season, Apr-Oct = cooling season
+                if month in (11, 12, 1, 2, 3):
+                    return "hvac_heat"
+                else:
+                    return "hvac_cool"
+            except:
+                pass
+        # Default to current season if no date
+        from datetime import datetime
+        month = datetime.now().month
+        if month in (11, 12, 1, 2, 3):
+            return "hvac_heat"
+        else:
+            return "hvac_cool"
+
+    return "unknown"
 
 
 # Legacy job type categorization (old naming convention)

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get('endDate');
   const rating = searchParams.get('rating');
   const hasTeamMention = searchParams.get('hasTeamMention');
+  const search = searchParams.get('search');
   const limit = parseInt(searchParams.get('limit') || '50');
   const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -53,6 +54,12 @@ export async function GET(request: NextRequest) {
   if (hasTeamMention === 'true') {
     query = query.not('team_members_mentioned', 'is', null)
       .filter('team_members_mentioned', 'neq', '{}');
+  }
+
+  // Search in comment and reviewer_name
+  if (search && search.trim()) {
+    const searchTerm = search.trim();
+    query = query.or(`comment.ilike.%${searchTerm}%,reviewer_name.ilike.%${searchTerm}%`);
   }
 
   const { data, error, count } = await query;

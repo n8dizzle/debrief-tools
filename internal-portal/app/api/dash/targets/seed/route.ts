@@ -16,6 +16,13 @@ const REVENUE_TARGETS_2026 = {
   'TOTAL': [855000, 703000, 963000, 1250000, 1730000, 2000000, 2000000, 2050000, 1210000, 1110000, 940000, 940000],
 };
 
+// 2026 Review targets from the Google Sheet
+// [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec]
+const REVIEW_TARGETS_2026 = {
+  monthly: [68, 56, 76, 99, 137, 159, 159, 163, 96, 88, 75, 75], // 1,250 annual
+  daily: [3, 3, 3, 4, 6, 7, 7, 7, 4, 4, 3, 4],
+};
+
 // Business days per month for 2026 (accounting for 0.5 Saturdays and holidays)
 const BUSINESS_DAYS_2026 = [22, 19, 22, 22, 21, 22, 23, 21, 21, 23, 19, 23];
 
@@ -40,6 +47,8 @@ export async function POST(request: NextRequest) {
     const year = body.year || 2026;
     let recordsSynced = 0;
     const errors: string[] = [];
+
+    console.log('Starting seed for year:', year);
 
     // Seed revenue targets
     for (const [department, targets] of Object.entries(REVENUE_TARGETS_2026)) {
@@ -94,6 +103,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Note: Review targets are hardcoded in /api/reviews/stats/route.ts
+    // because dash_monthly_targets has a check constraint allowing only 'revenue' type
+
+    // Update the review_goals table with the annual total (for backward compatibility)
+    const annualReviewGoal = REVIEW_TARGETS_2026.monthly.reduce((sum, val) => sum + val, 0);
+
+    // Delete existing and insert new
+    await supabase
+      .from('review_goals')
+      .delete()
+      .eq('year', year)
+      .eq('goal_type', 'total');
+
+    const { error: goalError } = await supabase
+      .from('review_goals')
+      .insert({
+        year,
+        goal_type: 'total',
+        target_count: annualReviewGoal,
+      });
+
+    if (goalError) {
+      errors.push(`Annual review goal: ${goalError.message}`);
+      console.error('Annual review goal error:', goalError);
+    } else {
+      recordsSynced++;
+    }
+
     // Seed holidays
     for (const holiday of HOLIDAYS_2026) {
       const { error } = await supabase
@@ -133,8 +170,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Seed error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : '';
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message, stack },
       { status: 500 }
     );
   }

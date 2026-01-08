@@ -332,19 +332,6 @@
         </div>
 
         <div class="px-6 py-4 space-y-6">
-            <!-- Dispatcher Selection -->
-            <div>
-                <label class="block text-sm font-medium text-christmas-cream mb-2">Dispatcher</label>
-                <select name="dispatcher_id" required class="w-full md:w-1/2 rounded-md p-2 border">
-                    <option value="">Select dispatcher...</option>
-                    {% for d in dispatchers %}
-                    <option value="{{ d.id }}">{{ d.name }}{% if d.is_primary %} (Primary){% endif %}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <hr class="border-dark-border">
-
             <!-- 1. Photos -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
@@ -401,6 +388,82 @@
                 <input type="text" name="invoice_summary_notes" placeholder="Notes (optional)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
+
+            <!-- Membership Visit Context Banner (for tune-up jobs) -->
+            {% if ticket.membership_sold and ticket.membership_visit_type and ticket.membership_visit_type != 'unknown' %}
+            <div class="rounded-lg border mb-2 {% if ticket.membership_visit_covered %}bg-green-900/20 border-green-600/50{% else %}bg-yellow-900/20 border-yellow-600/50{% endif %}">
+                <div class="px-4 py-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-sm font-semibold {% if ticket.membership_visit_covered %}text-green-200{% else %}text-yellow-200{% endif %} flex items-center gap-2">
+                                {% if ticket.membership_visit_covered %}
+                                <span>✓</span> Membership Visit - FREE
+                                {% else %}
+                                <span>⚠️</span> Membership Visit - PAYMENT NEEDED
+                                {% endif %}
+                            </h3>
+                            <p class="text-xs text-gray-400 mt-1">
+                                {{ ticket.membership_type or "Active Membership" }}
+                                {% if ticket.membership_expires %}
+                                · Expires {{ ticket.membership_expires.strftime('%b %d, %Y') }}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-bold {% if ticket.membership_visit_covered %}text-green-200{% else %}text-yellow-200{% endif %}">
+                                Visit {{ ticket.membership_visit_number }} of {{ ticket.membership_visits_included }}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                {{ ticket.membership_visit_type|replace('_', ' ')|title }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visit breakdown -->
+                    <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-dark-bg/50 rounded-lg p-2 border border-dark-border">
+                            <div class="text-lg font-bold text-gray-200">{{ ticket.membership_visits_used }}</div>
+                            <div class="text-xs text-gray-500">Used</div>
+                        </div>
+                        <div class="bg-dark-bg/50 rounded-lg p-2 border border-dark-border">
+                            <div class="text-lg font-bold text-gray-200">{{ ticket.membership_visits_included - ticket.membership_visits_used }}</div>
+                            <div class="text-xs text-gray-500">Remaining</div>
+                        </div>
+                        <div class="bg-dark-bg/50 rounded-lg p-2 border border-dark-border">
+                            <div class="text-lg font-bold {% if ticket.membership_visit_covered %}text-green-200{% else %}text-yellow-200{% endif %}">
+                                {% if ticket.membership_visit_covered %}$0{% else %}$${% endif %}
+                            </div>
+                            <div class="text-xs text-gray-500">This Visit</div>
+                        </div>
+                    </div>
+
+                    <!-- Data warning if applicable -->
+                    {% if ticket.membership_data_warning %}
+                    <div class="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/50 rounded text-xs text-yellow-200">
+                        ⚠️ <strong>Data Note:</strong> {{ ticket.membership_data_warning }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Payment guidance -->
+                    {% if not ticket.membership_visit_covered %}
+                    <div class="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/50 rounded text-xs text-yellow-200">
+                        Customer has used all {{ ticket.membership_visits_included }} included {{ ticket.membership_visit_type|replace('_', ' ') }} visits.
+                        <strong>This visit requires payment OR membership renewal.</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% elif ticket.job_category == 'Maintenance' and not ticket.membership_sold %}
+            <div class="rounded-lg border border-gray-700 bg-gray-800/30 mb-2">
+                <div class="px-4 py-2 flex items-center gap-2">
+                    <span class="text-gray-500">💡</span>
+                    <div>
+                        <div class="text-xs text-gray-400">No Active Membership</div>
+                        <div class="text-xs text-gray-500">Maintenance visit - good opportunity to offer membership!</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- 3. Payment -->
             <div class="space-y-2">

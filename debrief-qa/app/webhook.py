@@ -149,6 +149,13 @@ async def process_webhook(payload: dict, db: Session) -> dict:
             estimates_total=enriched.get("estimates_total", 0),
             membership_sold=enriched.get("membership_sold", False),
             membership_type=enriched.get("membership_type"),
+            membership_expires=_parse_datetime(enriched.get("membership_expires")),
+            membership_visit_type=enriched.get("membership_visit_type"),
+            membership_visits_included=enriched.get("membership_visits_included", 0),
+            membership_visits_used=enriched.get("membership_visits_used", 0),
+            membership_visit_number=enriched.get("membership_visit_number", 0),
+            membership_visit_covered=enriched.get("membership_visit_covered", True),
+            membership_data_warning=enriched.get("membership_data_warning"),
             photo_count=enriched.get("photo_count", 0),
             form_count=enriched.get("form_count", 0),
             completed_at=_parse_datetime(enriched.get("completed_at")),
@@ -245,6 +252,13 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
             estimates_total=enriched.get("estimates_total", 0),
             membership_sold=enriched.get("membership_sold", False),
             membership_type=enriched.get("membership_type"),
+            membership_expires=_parse_datetime(enriched.get("membership_expires")),
+            membership_visit_type=enriched.get("membership_visit_type"),
+            membership_visits_included=enriched.get("membership_visits_included", 0),
+            membership_visits_used=enriched.get("membership_visits_used", 0),
+            membership_visit_number=enriched.get("membership_visit_number", 0),
+            membership_visit_covered=enriched.get("membership_visit_covered", True),
+            membership_data_warning=enriched.get("membership_data_warning"),
             photo_count=enriched.get("photo_count", 0),
             form_count=enriched.get("form_count", 0),
             completed_at=_parse_datetime(enriched.get("completed_at")),
@@ -252,10 +266,10 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
             raw_payload=enriched.get("raw_payload"),
             debrief_status=TicketStatus.PENDING,
         )
-        
+
         db.add(ticket)
         db.commit()
-        
+
         return {
             "processed": True,
             "job_id": job_id,

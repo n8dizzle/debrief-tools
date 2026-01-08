@@ -51,6 +51,13 @@ const weeklyRevenueTargets = [
 // Business days per month
 const businessDaysPerMonth = [22, 20, 22, 22, 21, 22, 22, 21, 21, 22, 20, 22];
 
+// Review Targets from spreadsheet
+const reviewTargets = {
+  monthly: [68, 56, 76, 99, 137, 159, 159, 163, 96, 88, 75, 75],
+  daily: [3, 3, 3, 4, 6, 7, 7, 7, 4, 4, 3, 4],
+  annual: 1250,
+};
+
 const kpiDefinitions = [
   // Christmas Overall
   { name: 'Jobs Scheduled', department: 'Christmas', source: 'ServiceTitan', targetType: 'daily', target: '45' },
@@ -150,14 +157,17 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/dash/targets/seed', { method: 'POST' });
       const data = await response.json();
+      console.log('Seed response:', data);
 
       if (data.success) {
         setLastSync(new Date().toLocaleString());
-        setSyncResult({ message: data.message });
+        const errorsMsg = data.errors?.length > 0 ? ` (${data.errors.length} errors: ${data.errors.slice(0, 3).join(', ')})` : '';
+        setSyncResult({ message: data.message + errorsMsg });
       } else {
-        setSyncResult({ error: data.error || 'Seed failed' });
+        setSyncResult({ error: `${data.error || 'Seed failed'}${data.errors?.length ? `: ${data.errors.slice(0,3).join(', ')}` : ''}` });
       }
     } catch (err) {
+      console.error('Seed error:', err);
       setSyncResult({ error: 'Failed to seed data' });
     } finally {
       setIsSyncing(false);
@@ -570,6 +580,76 @@ export default function SettingsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Review Targets */}
+        <div
+          className="rounded-xl overflow-hidden mt-6"
+          style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+        >
+          <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Review Targets
+            </h3>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              Google Reviews goal pacing • Annual Target: {reviewTargets.annual.toLocaleString()} reviews
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ backgroundColor: 'var(--bg-card)' }}>
+                  <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Metric</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jan</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Feb</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Mar</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Apr</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>May</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jun</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Jul</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Aug</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Sep</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Oct</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Nov</th>
+                  <th className="text-right px-3 py-3 font-semibold" style={{ color: 'var(--text-muted)' }}>Dec</th>
+                  <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--christmas-gold)' }}>Annual</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    Monthly Target
+                  </td>
+                  {reviewTargets.monthly.map((val, i) => (
+                    <td key={i} className="text-right px-3 py-3" style={{ color: 'var(--text-secondary)' }}>
+                      {val}
+                    </td>
+                  ))}
+                  <td className="text-right px-4 py-3 font-medium" style={{ color: 'var(--christmas-gold)' }}>
+                    {reviewTargets.annual}
+                  </td>
+                </tr>
+                <tr style={{ backgroundColor: 'var(--bg-card)' }}>
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    Daily Target
+                  </td>
+                  {reviewTargets.daily.map((val, i) => (
+                    <td key={i} className="text-right px-3 py-3" style={{ color: 'var(--text-secondary)' }}>
+                      {val}
+                    </td>
+                  ))}
+                  <td className="text-right px-4 py-3 font-medium" style={{ color: 'var(--christmas-gold)' }}>
+                    {Math.round(reviewTargets.annual / 365 * 10) / 10}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              ⭐ Used for monthly/annual pacing on the Reviews dashboard. Based on 10% of jobs resulting in a review.
+            </p>
           </div>
         </div>
         </>

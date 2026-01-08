@@ -120,7 +120,22 @@ class TicketRaw(Base):
     # Membership
     membership_sold = Column(Boolean, default=False)
     membership_type = Column(String(100))
-    
+    membership_expires = Column(DateTime, nullable=True)
+
+    # Membership Visit Context (for tune-up jobs)
+    membership_visit_type = Column(String(50))  # hvac_heat, hvac_cool, plumbing, unknown
+    membership_visits_included = Column(Integer, default=0)  # How many visits included (1 per type)
+    membership_visits_used = Column(Integer, default=0)  # How many already completed
+    membership_visit_number = Column(Integer, default=0)  # Which visit is this (1, 2, etc.)
+    membership_visit_covered = Column(Boolean, default=True)  # Is this visit FREE?
+    membership_data_warning = Column(Text, nullable=True)  # Data quality warning if ST vs job history mismatch
+
+    # Membership Payment Info
+    membership_price = Column(Float, nullable=True)  # Monthly/annual price
+    membership_billing_frequency = Column(String(50), nullable=True)  # Monthly, Annually, etc.
+    membership_last_payment_date = Column(DateTime, nullable=True)
+    membership_last_payment_amount = Column(Float, nullable=True)
+
     # Photos/Attachments
     photo_count = Column(Integer, default=0)
 

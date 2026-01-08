@@ -110,8 +110,8 @@ class TicketDetail(BaseModel):
 
 class DebriefSubmission(BaseModel):
     """Dispatcher submits completed debrief."""
-    dispatcher_id: int
-    
+    dispatcher_id: Optional[int] = None  # Now derived from logged-in user
+
     # All checklist items
     photos_reviewed: CheckStatus
     photos_notes: Optional[str] = None
