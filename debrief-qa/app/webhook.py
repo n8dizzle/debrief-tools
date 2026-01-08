@@ -150,6 +150,10 @@ async def process_webhook(payload: dict, db: Session) -> dict:
             membership_sold=enriched.get("membership_sold", False),
             membership_type=enriched.get("membership_type"),
             membership_expires=_parse_datetime(enriched.get("membership_expires")),
+            membership_price=enriched.get("membership_price"),
+            membership_billing_frequency=enriched.get("membership_billing_frequency"),
+            membership_last_payment_date=_parse_datetime(enriched.get("membership_last_payment_date")),
+            membership_last_payment_amount=enriched.get("membership_last_payment_amount"),
             membership_visit_type=enriched.get("membership_visit_type"),
             membership_visits_included=enriched.get("membership_visits_included", 0),
             membership_visits_used=enriched.get("membership_visits_used", 0),
@@ -253,6 +257,10 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
             membership_sold=enriched.get("membership_sold", False),
             membership_type=enriched.get("membership_type"),
             membership_expires=_parse_datetime(enriched.get("membership_expires")),
+            membership_price=enriched.get("membership_price"),
+            membership_billing_frequency=enriched.get("membership_billing_frequency"),
+            membership_last_payment_date=_parse_datetime(enriched.get("membership_last_payment_date")),
+            membership_last_payment_amount=enriched.get("membership_last_payment_amount"),
             membership_visit_type=enriched.get("membership_visit_type"),
             membership_visits_included=enriched.get("membership_visits_included", 0),
             membership_visits_used=enriched.get("membership_visits_used", 0),
@@ -275,7 +283,7 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
             "job_id": job_id,
             "message": f"Job {job_id} manually added to debrief queue"
         }
-        
+
     except Exception as e:
         return {
             "processed": False,
