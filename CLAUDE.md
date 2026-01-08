@@ -7,7 +7,12 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Not yet deployed
 
-## Recent Updates (Jan 6, 2025)
+## Recent Updates (Jan 7, 2025)
+
+### That's a Wrap (debrief-qa) - Deployed
+- **Happy Call column** on dispatcher dashboard - shows count of happy calls completed (marked Pass) with ratio vs total debriefs
+
+## Previous Updates (Jan 6, 2025)
 
 ### That's a Wrap (debrief-qa) - Deployed
 - **Search bar** on queue page - filter by job #, customer name, or technician
