@@ -539,22 +539,53 @@ class ServiceTitanClient:
                             membership_type = f"Membership #{membership_type_id}"
                     membership_expires = primary_membership.get("to")  # End date
 
-                    # Get membership pricing info from the membership object
-                    membership_price = primary_membership.get("price") or primary_membership.get("soldPrice")
+                    # Get billing frequency from membership
                     membership_billing_frequency = primary_membership.get("billingFrequency")
 
-                    # Get last payment from membership invoices
-                    membership_last_payment_date = None
-                    membership_last_payment_amount = None
-                    membership_id = primary_membership.get("id")
-                    if membership_id:
+                    # Get price from membership type's durationBilling array
+                    if membership_type_id:
                         try:
-                            invoices_response = await self.get_membership_invoices(membership_id, limit=1)
-                            invoices = invoices_response.get("data", [])
-                            if invoices:
-                                last_invoice = invoices[0]
-                                membership_last_payment_date = last_invoice.get("paidOn") or last_invoice.get("createdOn")
-                                membership_last_payment_amount = last_invoice.get("total") or last_invoice.get("amount")
+                            mt_response = await self._request(
+                                "GET",
+                                f"memberships/v2/tenant/{self.tenant_id}/membership-types/{membership_type_id}"
+                            )
+                            duration_billing = mt_response.get("durationBilling", [])
+                            # Find the matching billing frequency price
+                            for billing in duration_billing:
+                                if billing.get("billingFrequency") == membership_billing_frequency:
+                                    membership_price = billing.get("billingPrice") or billing.get("salePrice")
+                                    break
+                            # Fallback to first price if no match
+                            if not membership_price and duration_billing:
+                                membership_price = duration_billing[0].get("billingPrice") or duration_billing[0].get("salePrice")
+                        except:
+                            pass
+
+                    # Get last payment from customer payment history
+                    # Look for payments matching the membership price
+                    customer_id = customer.get("id")
+                    if customer_id:
+                        try:
+                            payments_response = await self._request(
+                                "GET",
+                                f"accounting/v2/tenant/{self.tenant_id}/payments",
+                                params={"customerId": customer_id, "pageSize": 20}
+                            )
+                            payments = payments_response.get("data", [])
+                            # Find most recent payment (they come sorted by date desc)
+                            # Prefer payments matching membership price
+                            for payment in payments:
+                                payment_total = float(payment.get("total", 0))
+                                payment_date = payment.get("date")
+                                # Check if this payment matches membership price (within $1 tolerance)
+                                if membership_price and abs(payment_total - membership_price) < 1.0:
+                                    membership_last_payment_date = payment_date
+                                    membership_last_payment_amount = payment_total
+                                    break
+                            # If no membership price match, just use most recent payment as context
+                            if not membership_last_payment_date and payments:
+                                membership_last_payment_date = payments[0].get("date")
+                                membership_last_payment_amount = float(payments[0].get("total", 0))
                         except:
                             pass
 
