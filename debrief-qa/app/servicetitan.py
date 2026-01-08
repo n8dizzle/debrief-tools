@@ -593,22 +593,22 @@ class ServiceTitanClient:
                     if membership_visit_type != "unknown" and location:
                         location_id = location.get("id")
                         customer_id = customer.get("id")
+                        is_hvac = membership_visit_type in ("hvac_heat", "hvac_cool")
 
                         # Get recurring service events from ST
                         recurring_events_count = 0
                         try:
                             events_response = await self.get_recurring_service_events(location_id)
                             events = events_response.get("data", [])
-                            # Count completed events of this type
+                            # Count completed events
                             for event in events:
                                 event_status = event.get("status", "")
                                 if event_status == "Done" or event_status == "Completed":
-                                    # Try to match event type to our visit type
                                     event_name = event.get("name", "").lower()
-                                    if membership_visit_type == "hvac_heat" and any(kw in event_name for kw in ["heat", "furnace"]):
-                                        recurring_events_count += 1
-                                    elif membership_visit_type == "hvac_cool" and any(kw in event_name for kw in ["cool", "ac", "a/c"]):
-                                        recurring_events_count += 1
+                                    # For HVAC, count BOTH heat and cool visits together
+                                    if is_hvac:
+                                        if any(kw in event_name for kw in ["heat", "furnace", "cool", "ac", "a/c", "tune", "maint"]):
+                                            recurring_events_count += 1
                                     elif membership_visit_type == "plumbing" and "plumb" in event_name:
                                         recurring_events_count += 1
                         except:
@@ -624,7 +624,10 @@ class ServiceTitanClient:
                                 if past_job.get("id") == job_id:
                                     continue
                                 past_job_type = determine_visit_type(past_job.get("jobTypeName", ""))
-                                if past_job_type == membership_visit_type:
+                                # For HVAC, count both heat AND cool visits together
+                                if is_hvac and past_job_type in ("hvac_heat", "hvac_cool"):
+                                    job_history_count += 1
+                                elif past_job_type == membership_visit_type:
                                     job_history_count += 1
                         except:
                             pass
@@ -638,9 +641,9 @@ class ServiceTitanClient:
                             membership_visits_used = recurring_events_count
 
                         # Determine visits included based on visit type
-                        # Default: 2 HVAC visits (1 heat, 1 cool), 1 plumbing
-                        if membership_visit_type in ("hvac_heat", "hvac_cool"):
-                            membership_visits_included = 1  # 1 of each type per year
+                        # Annual plan: 2 HVAC visits (heat + cool combined), 1 plumbing
+                        if is_hvac:
+                            membership_visits_included = 2  # 2 total HVAC visits per year
                         elif membership_visit_type == "plumbing":
                             membership_visits_included = 1
 
