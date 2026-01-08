@@ -351,9 +351,6 @@ async def debrief_page(
             SpotCheck.debrief_session_id == existing_debrief.id
         ).first()
 
-    # Get dispatchers for dropdown
-    dispatchers = db.query(Dispatcher).filter(Dispatcher.is_active == True).all()
-
     # Fetch form submissions for this job (fresh from API)
     form_submissions = []
     if ticket.form_count and ticket.form_count > 0:
@@ -371,7 +368,6 @@ async def debrief_page(
         "ticket": ticket,
         "debrief": existing_debrief,
         "spot_check": existing_spot_check,
-        "dispatchers": dispatchers,
         "form_submissions": form_submissions,
     })
 
@@ -422,32 +418,32 @@ async def get_job(job_id: int, db: Session = Depends(get_db)):
 async def submit_debrief(
     job_id: int,
     debrief: DebriefSubmission,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
 ):
     """Submit completed debrief checklist."""
     ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Check dispatcher exists
-    dispatcher = db.query(Dispatcher).filter(Dispatcher.id == debrief.dispatcher_id).first()
-    if not dispatcher:
-        raise HTTPException(status_code=400, detail="Invalid dispatcher ID")
-    
+
+    # Use the logged-in user as the dispatcher
+    dispatcher_id = current_user.id
+
     # Create or update debrief session
     existing = db.query(DebriefSession).filter(DebriefSession.job_id == job_id).first()
-    
+
     if existing:
         # Update existing
-        for key, value in debrief.dict().items():
+        for key, value in debrief.dict(exclude={"dispatcher_id"}).items():
             setattr(existing, key, value)
+        existing.dispatcher_id = dispatcher_id
         existing.completed_at = datetime.utcnow()
         session = existing
     else:
         # Create new
         session = DebriefSession(
             job_id=job_id,
-            dispatcher_id=debrief.dispatcher_id,
+            dispatcher_id=dispatcher_id,
             started_at=datetime.utcnow(),
             completed_at=datetime.utcnow(),
             **debrief.dict(exclude={"dispatcher_id"})
@@ -470,20 +466,18 @@ async def submit_debrief(
 async def submit_debrief_form(
     job_id: int,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_auth)
 ):
     """Submit debrief via HTML form (non-JSON)."""
     form_data = await request.form()
-    
+
     ticket = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Parse form data
-    dispatcher_id = int(form_data.get("dispatcher_id", 0))
-    dispatcher = db.query(Dispatcher).filter(Dispatcher.id == dispatcher_id).first()
-    if not dispatcher:
-        raise HTTPException(status_code=400, detail="Please select a dispatcher")
+
+    # Use the logged-in user as the dispatcher
+    dispatcher_id = current_user.id
     
     # Check if follow-up is required
     followup_required = form_data.get("followup_required") == "true"
@@ -770,6 +764,31 @@ async def get_dashboard(db: Session = Depends(get_db)):
             DebriefSession.dispatcher_id == d.id
         ).count()
 
+        # Get happy call counts (where happy_call = 'pass')
+        happy_call_today = db.query(DebriefSession).filter(
+            and_(
+                DebriefSession.dispatcher_id == d.id,
+                DebriefSession.completed_at >= today_start,
+                DebriefSession.happy_call == CheckStatus.PASS
+            )
+        ).count()
+
+        happy_call_week = db.query(DebriefSession).filter(
+            and_(
+                DebriefSession.dispatcher_id == d.id,
+                DebriefSession.completed_at >= week_start,
+                DebriefSession.happy_call == CheckStatus.PASS
+            )
+        ).count()
+
+        happy_call_month = db.query(DebriefSession).filter(
+            and_(
+                DebriefSession.dispatcher_id == d.id,
+                DebriefSession.completed_at >= month_start,
+                DebriefSession.happy_call == CheckStatus.PASS
+            )
+        ).count()
+
         dispatcher_stats.append({
             "dispatcher_id": d.id,
             "dispatcher_name": d.name,
@@ -778,6 +797,9 @@ async def get_dashboard(db: Session = Depends(get_db)):
             "debriefs_completed_this_week": week_count,
             "debriefs_completed_this_month": month_count,
             "debriefs_completed_total": total_count,
+            "happy_calls_today": happy_call_today,
+            "happy_calls_this_week": happy_call_week,
+            "happy_calls_this_month": happy_call_month,
         })
 
     # Sort by total debriefs completed (most active first)

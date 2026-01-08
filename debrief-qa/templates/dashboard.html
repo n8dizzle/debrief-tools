@@ -482,6 +482,7 @@ async function loadDashboard() {
                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Today</th>
                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">This Week</th>
                                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">This Month</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-christmas-green uppercase bg-christmas-green/10" title="Happy calls completed (marked as Pass)">Happy Calls</th>
                             </tr>
                         </thead>
                         <tbody class="bg-dark-card divide-y divide-dark-border">
@@ -496,6 +497,10 @@ async function loadDashboard() {
                                     <td class="px-6 py-4 text-center text-christmas-cream">${d.debriefs_completed_today}</td>
                                     <td class="px-6 py-4 text-center text-christmas-cream">${d.debriefs_completed_this_week}</td>
                                     <td class="px-6 py-4 text-center text-christmas-cream">${d.debriefs_completed_this_month}</td>
+                                    <td class="px-6 py-4 text-center bg-christmas-green/10">
+                                        <span class="text-christmas-green-light font-semibold">${d.happy_calls_this_month || 0}</span>
+                                        <span class="text-xs text-gray-500 ml-1">/ ${d.debriefs_completed_this_month}</span>
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
