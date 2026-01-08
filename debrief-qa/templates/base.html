@@ -154,10 +154,10 @@
                     </a>
                     <span class="h-6 w-px bg-dark-border"></span>
                     <div class="flex items-center gap-1">
-                        <a href="/dashboard" class="px-2.5 py-1 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">Dashboard</a>
-                        <a href="/queue" class="px-2.5 py-1 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">Queue</a>
-                        <a href="/history" class="px-2.5 py-1 rounded-md text-sm text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover transition">History</a>
-                        <a href="/spot-checks" class="px-2.5 py-1 rounded-md text-sm text-christmas-gold hover:text-christmas-cream hover:bg-dark-card-hover transition">Spot Checks</a>
+                        <a href="/dashboard" class="px-2.5 py-1 rounded-md text-sm transition {% if active_page == 'dashboard' %}bg-christmas-green text-white{% else %}text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover{% endif %}">Dashboard</a>
+                        <a href="/queue" class="px-2.5 py-1 rounded-md text-sm transition {% if active_page == 'queue' %}bg-christmas-green text-white{% else %}text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover{% endif %}">Queue</a>
+                        <a href="/history" class="px-2.5 py-1 rounded-md text-sm transition {% if active_page == 'history' %}bg-christmas-green text-white{% else %}text-gray-400 hover:text-christmas-cream hover:bg-dark-card-hover{% endif %}">History</a>
+                        <a href="/spot-checks" class="px-2.5 py-1 rounded-md text-sm transition {% if active_page == 'spot_checks' %}bg-christmas-gold text-dark-bg{% else %}text-christmas-gold hover:text-christmas-cream hover:bg-dark-card-hover{% endif %}">Spot Checks</a>
                     </div>
                 </div>
 

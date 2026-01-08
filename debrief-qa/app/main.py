@@ -152,6 +152,8 @@ async def admin_users_page(
     return templates.TemplateResponse("admin_users.html", {
         "request": request,
         "current_user": current_user,
+        "title": "Admin - Users",
+        "active_page": "admin",
         "users": users,
         "error": error,
         "success": success
@@ -315,6 +317,7 @@ async def queue_page(
         "request": request,
         "current_user": current_user,
         "title": "Debrief Queue",
+        "active_page": "queue",
         "pending_tickets": pending,
         "in_progress_tickets": in_progress,
         "pending_count": len(pending),
@@ -365,6 +368,7 @@ async def debrief_page(
         "request": request,
         "current_user": current_user,
         "title": f"Debrief - Job #{ticket.job_number}",
+        "active_page": "queue",
         "ticket": ticket,
         "debrief": existing_debrief,
         "spot_check": existing_spot_check,
@@ -382,6 +386,7 @@ async def dashboard_page(
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "current_user": current_user,
+        "active_page": "dashboard",
         "title": "Dashboard"
     })
 
@@ -1014,6 +1019,7 @@ async def history_page(
     return templates.TemplateResponse("history.html", {
         "request": request,
         "current_user": current_user,
+        "active_page": "history",
         "title": "Job History"
     })
 
@@ -1602,6 +1608,7 @@ async def spot_checks_page(
         "request": request,
         "current_user": current_user,
         "title": "Spot Checks",
+        "active_page": "spot_checks",
         "pending_spot_checks": pending,
         "in_progress_spot_checks": in_progress,
         "pending_count": len(pending),
@@ -1645,6 +1652,7 @@ async def spot_check_form_page(
         "request": request,
         "current_user": current_user,
         "title": f"Spot Check - Job #{ticket.job_number}",
+        "active_page": "spot_checks",
         "spot_check": spot_check,
         "debrief": debrief,
         "ticket": ticket,
@@ -1728,6 +1736,7 @@ async def spot_check_history_page(
         "request": request,
         "current_user": current_user,
         "title": "Spot Check History",
+        "active_page": "spot_checks",
         "dispatchers": dispatchers,
     })
 
