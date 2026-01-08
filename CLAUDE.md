@@ -7,7 +7,24 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Not yet deployed
 
-## Recent Updates (Jan 7, 2025)
+## Recent Updates (Jan 8, 2025)
+
+### That's a Wrap (debrief-qa) - Deployed
+- **Membership Visit Tracking** - Shows visit count (e.g., "Visit 1 of 2") for tune-up jobs
+  - HVAC: 2 visits total (heat + cool counted together)
+  - Plumbing: 1 visit
+  - Shows if visit is FREE or PAYMENT NEEDED
+  - Displays visit type context (Hvac Heat, Hvac Cool, Plumbing)
+- **Membership Payment Info** - Shows in membership banner:
+  - Price + billing frequency (e.g., $150.00/annual)
+  - Last payment date + amount (e.g., Jun 21, 2024 - $150.00)
+- **Tune-up Detection** - `Maintenance` and `Maintenance Commercial` job types detected using season:
+  - Nov-Mar = heating tune-up
+  - Apr-Oct = cooling tune-up
+  - Explicit keywords (heat/cool) override season
+  - "Inspection" excluded (not a tune-up)
+
+## Previous Updates (Jan 7, 2025)
 
 ### That's a Wrap (debrief-qa) - Deployed
 - **Happy Call column** on dispatcher dashboard - shows count of happy calls completed (marked Pass) with ratio vs total debriefs
