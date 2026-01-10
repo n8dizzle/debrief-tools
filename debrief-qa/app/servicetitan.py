@@ -495,6 +495,7 @@ class ServiceTitanClient:
 
         # Check for membership and calculate visit context
         membership_sold = False
+        membership_id = None
         membership_type = None
         membership_expires = None
         membership_price = None
@@ -524,6 +525,9 @@ class ServiceTitanClient:
                             break
                     if not primary_membership:
                         primary_membership = memberships[0]
+
+                    # Capture membership ID for linking to ST
+                    membership_id = primary_membership.get("id")
 
                     # Get membership type name (API returns membershipTypeId, not name)
                     membership_type_id = primary_membership.get("membershipTypeId")
@@ -702,6 +706,7 @@ class ServiceTitanClient:
             
             # Membership
             "membership_sold": membership_sold,
+            "membership_id": membership_id,
             "membership_type": membership_type,
             "membership_expires": membership_expires,
             "membership_price": membership_price,

@@ -409,6 +409,13 @@
                                 {% if ticket.membership_expires %}
                                 · Expires {{ ticket.membership_expires.strftime('%b %d, %Y') }}
                                 {% endif %}
+                                {% if ticket.membership_id %}
+                                · <a href="https://go.servicetitan.com/#/Membership/Index/{{ ticket.membership_id }}"
+                                     target="_blank"
+                                     class="text-christmas-green-light hover:text-christmas-green hover:underline">
+                                    View in ST ↗
+                                </a>
+                                {% endif %}
                             </p>
                         </div>
                         <div class="text-right">

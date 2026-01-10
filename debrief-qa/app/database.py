@@ -119,6 +119,7 @@ class TicketRaw(Base):
     
     # Membership
     membership_sold = Column(Boolean, default=False)
+    membership_id = Column(Integer, nullable=True)  # ST membership ID for linking
     membership_type = Column(String(100))
     membership_expires = Column(DateTime, nullable=True)
 
