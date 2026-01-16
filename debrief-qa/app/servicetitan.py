@@ -276,7 +276,15 @@ class ServiceTitanClient:
     async def get_business_unit(self, bu_id: int) -> Dict[str, Any]:
         """Get business unit details."""
         return await self._request("GET", f"settings/v2/tenant/{self.tenant_id}/business-units/{bu_id}")
-    
+
+    async def get_all_business_units(self) -> Dict[str, Any]:
+        """Get all business units for the tenant."""
+        return await self._request(
+            "GET",
+            f"settings/v2/tenant/{self.tenant_id}/business-units",
+            params={"pageSize": 100}
+        )
+
     async def get_job_type(self, job_type_id: int) -> Dict[str, Any]:
         """Get job type details."""
         return await self._request("GET", f"jpm/v2/tenant/{self.tenant_id}/job-types/{job_type_id}")

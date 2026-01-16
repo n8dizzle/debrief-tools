@@ -12,8 +12,8 @@ Tables:
 import os
 from datetime import datetime
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Text, Boolean, 
-    DateTime, Float, ForeignKey, JSON, Enum as SQLEnum
+    create_engine, Column, Integer, String, Text, Boolean,
+    DateTime, Float, ForeignKey, JSON, Enum as SQLEnum, UniqueConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -184,6 +184,7 @@ class Dispatcher(Base):
     debrief_sessions = relationship("DebriefSession", back_populates="dispatcher")
     spot_checks_performed = relationship("SpotCheck", back_populates="reviewer", foreign_keys="SpotCheck.reviewer_id")
     invited_by = relationship("Dispatcher", remote_side=[id], foreign_keys=[invited_by_id])
+    business_unit_assignments = relationship("DispatcherBusinessUnit", back_populates="dispatcher")
 
 
 class DebriefSession(Base):
@@ -328,7 +329,7 @@ class SpotCheck(Base):
 class WebhookLog(Base):
     """Log of received webhooks for debugging and replay."""
     __tablename__ = "webhook_logs"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     received_at = Column(DateTime, default=datetime.utcnow)
     event_type = Column(String(100))
@@ -338,10 +339,93 @@ class WebhookLog(Base):
     error = Column(Text)
 
 
+class BusinessUnit(Base):
+    """
+    Business units from ServiceTitan.
+    Controls which BUs to sync jobs from (app-wide setting).
+    """
+    __tablename__ = "business_units"
+
+    id = Column(Integer, primary_key=True)  # ServiceTitan business_unit_id
+    name = Column(String(100), nullable=False)
+    is_enabled = Column(Boolean, default=True)  # Pull during sync?
+    discovered_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship to dispatcher assignments
+    dispatcher_assignments = relationship("DispatcherBusinessUnit", back_populates="business_unit")
+
+
+class DispatcherBusinessUnit(Base):
+    """
+    Many-to-many linking users to their assigned business units.
+    If a user has no assignments, they see ALL business units.
+    """
+    __tablename__ = "dispatcher_business_units"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dispatcher_id = Column(Integer, ForeignKey("dispatchers.id"), nullable=False)
+    business_unit_id = Column(Integer, ForeignKey("business_units.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('dispatcher_id', 'business_unit_id', name='uq_dispatcher_business_unit'),)
+
+    # Relationships
+    dispatcher = relationship("Dispatcher", back_populates="business_unit_assignments")
+    business_unit = relationship("BusinessUnit", back_populates="dispatcher_assignments")
+
+
 def init_db():
     """Create all tables."""
     Base.metadata.create_all(bind=engine)
     print("Database initialized successfully.")
+
+
+def seed_business_units_from_tickets():
+    """
+    Seed business_units table from existing TicketRaw data.
+    Call this once after deploying the BU settings feature.
+    Only seeds if business_units table is empty.
+    """
+    db = SessionLocal()
+    try:
+        # Check if already seeded
+        existing_count = db.query(BusinessUnit).count()
+        if existing_count > 0:
+            print(f"Business units already seeded ({existing_count} found). Skipping.")
+            return {"seeded": 0, "message": "Already seeded"}
+
+        # Get distinct business units from tickets
+        distinct_bus = db.query(
+            TicketRaw.business_unit_id,
+            TicketRaw.business_unit_name
+        ).distinct().filter(
+            TicketRaw.business_unit_id.isnot(None)
+        ).all()
+
+        seeded = 0
+        for bu_id, bu_name in distinct_bus:
+            if bu_id:
+                bu = BusinessUnit(
+                    id=bu_id,
+                    name=bu_name or f"Business Unit {bu_id}",
+                    is_enabled=True,  # All enabled by default
+                    discovered_at=datetime.utcnow(),
+                    last_seen_at=datetime.utcnow()
+                )
+                db.add(bu)
+                seeded += 1
+
+        db.commit()
+        print(f"Seeded {seeded} business units from existing tickets.")
+        return {"seeded": seeded, "message": f"Seeded {seeded} business units"}
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error seeding business units: {e}")
+        return {"seeded": 0, "error": str(e)}
+    finally:
+        db.close()
 
 
 def get_db():

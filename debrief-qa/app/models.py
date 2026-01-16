@@ -204,6 +204,43 @@ class DispatcherResponse(BaseModel):
     email: str
     is_primary: bool
     is_active: bool
-    
+
+    class Config:
+        from_attributes = True
+
+
+# ----- Business Unit Schemas -----
+
+class BusinessUnitResponse(BaseModel):
+    """Business unit info for admin settings."""
+    id: int
+    name: str
+    is_enabled: bool
+    discovered_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BusinessUnitToggle(BaseModel):
+    """Toggle a business unit's enabled status."""
+    is_enabled: bool
+
+
+class DispatcherBusinessUnitsUpdate(BaseModel):
+    """Update a user's assigned business units."""
+    business_unit_ids: List[int]  # Empty list = user sees all BUs
+
+
+class DispatcherWithBusinessUnits(BaseModel):
+    """Dispatcher with their assigned business units."""
+    id: int
+    name: str
+    email: str
+    role: str
+    is_active: bool
+    assigned_business_unit_ids: List[int]  # Empty = sees all
+
     class Config:
         from_attributes = True

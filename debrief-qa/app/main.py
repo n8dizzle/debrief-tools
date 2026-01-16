@@ -21,10 +21,11 @@ from sqlalchemy import func, and_
 from dotenv import load_dotenv
 
 from .database import (
-    get_db, init_db,
+    get_db, init_db, seed_business_units_from_tickets,
     TicketRaw, TicketStatus, CheckStatus,
     Dispatcher, DispatcherRole, DebriefSession, WebhookLog,
-    SpotCheck, SpotCheckStatus
+    SpotCheck, SpotCheckStatus,
+    BusinessUnit, DispatcherBusinessUnit
 )
 from .models import (
     TicketSummary, TicketDetail, DebriefSubmission, DebriefResponse,
@@ -77,6 +78,8 @@ templates.env.filters["central"] = to_central
 async def startup_event():
     """Initialize database on startup."""
     init_db()
+    # Seed business units from existing ticket data (one-time migration)
+    seed_business_units_from_tickets()
 
 
 # ----- Authentication Routes -----
@@ -252,6 +255,188 @@ async def change_user_role(
     return RedirectResponse(url=f"/admin/users?success={user.name} is now {role}", status_code=302)
 
 
+# ----- Admin Settings (Business Units) -----
+
+@app.get("/admin/settings", response_class=HTMLResponse)
+async def admin_settings_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER)),
+    error: str = None,
+    success: str = None
+):
+    """Business unit settings page for admins."""
+    business_units = db.query(BusinessUnit).order_by(BusinessUnit.name).all()
+    users = db.query(Dispatcher).filter(Dispatcher.is_active == True).order_by(
+        Dispatcher.role.desc(),
+        Dispatcher.name
+    ).all()
+
+    return templates.TemplateResponse("admin_settings.html", {
+        "request": request,
+        "current_user": current_user,
+        "title": "Admin - Settings",
+        "active_page": "admin",
+        "business_units": business_units,
+        "users": users,
+        "error": error,
+        "success": success
+    })
+
+
+@app.get("/api/admin/business-units")
+async def list_business_units(
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER))
+):
+    """List all business units."""
+    bus = db.query(BusinessUnit).order_by(BusinessUnit.name).all()
+    return [
+        {
+            "id": bu.id,
+            "name": bu.name,
+            "is_enabled": bu.is_enabled,
+            "discovered_at": bu.discovered_at.isoformat() if bu.discovered_at else None,
+            "last_seen_at": bu.last_seen_at.isoformat() if bu.last_seen_at else None,
+        }
+        for bu in bus
+    ]
+
+
+@app.post("/api/admin/business-units/{bu_id}/toggle")
+async def toggle_business_unit(
+    bu_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER))
+):
+    """Toggle a business unit's enabled status."""
+    bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
+    if not bu:
+        raise HTTPException(status_code=404, detail="Business unit not found")
+
+    bu.is_enabled = not bu.is_enabled
+    db.commit()
+
+    status = "enabled" if bu.is_enabled else "disabled"
+    return RedirectResponse(url=f"/admin/settings?success={bu.name} {status}", status_code=303)
+
+
+@app.post("/api/admin/business-units/refresh")
+async def refresh_business_units(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER))
+):
+    """Refresh business units from ServiceTitan API."""
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+
+    try:
+        response = await client.get_all_business_units()
+        st_bus = response.get("data", [])
+
+        added = 0
+        updated = 0
+
+        for st_bu in st_bus:
+            bu_id = st_bu.get("id")
+            bu_name = st_bu.get("name", f"Business Unit {bu_id}")
+
+            existing = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
+            if existing:
+                existing.name = bu_name
+                existing.last_seen_at = datetime.utcnow()
+                updated += 1
+            else:
+                new_bu = BusinessUnit(
+                    id=bu_id,
+                    name=bu_name,
+                    is_enabled=True,  # New BUs enabled by default
+                    discovered_at=datetime.utcnow(),
+                    last_seen_at=datetime.utcnow()
+                )
+                db.add(new_bu)
+                added += 1
+
+        db.commit()
+
+        return RedirectResponse(
+            url=f"/admin/settings?success=Refreshed: {added} added, {updated} updated",
+            status_code=303
+        )
+
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/admin/settings?error=Failed to refresh: {str(e)[:100]}",
+            status_code=303
+        )
+
+
+@app.get("/api/admin/dispatchers/{user_id}/business-units")
+async def get_dispatcher_business_units(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER))
+):
+    """Get a user's assigned business units."""
+    user = db.query(Dispatcher).filter(Dispatcher.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    assignments = db.query(DispatcherBusinessUnit).filter(
+        DispatcherBusinessUnit.dispatcher_id == user_id
+    ).all()
+
+    return {
+        "user_id": user_id,
+        "user_name": user.name,
+        "business_unit_ids": [a.business_unit_id for a in assignments]
+    }
+
+
+@app.post("/api/admin/dispatchers/{user_id}/business-units")
+async def update_dispatcher_business_units(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Dispatcher = Depends(require_roles(DispatcherRole.ADMIN, DispatcherRole.OWNER))
+):
+    """Update a user's assigned business units."""
+    user = db.query(Dispatcher).filter(Dispatcher.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get form data - checkboxes come as multiple values with same name
+    form_data = await request.form()
+    bu_ids = form_data.getlist("business_unit_ids")
+    bu_ids = [int(id) for id in bu_ids if id]
+
+    # Delete existing assignments
+    db.query(DispatcherBusinessUnit).filter(
+        DispatcherBusinessUnit.dispatcher_id == user_id
+    ).delete()
+
+    # Add new assignments
+    for bu_id in bu_ids:
+        assignment = DispatcherBusinessUnit(
+            dispatcher_id=user_id,
+            business_unit_id=bu_id
+        )
+        db.add(assignment)
+
+    db.commit()
+
+    count = len(bu_ids)
+    if count == 0:
+        msg = f"{user.name} now sees all business units"
+    else:
+        msg = f"{user.name} assigned to {count} business unit{'s' if count != 1 else ''}"
+
+    return RedirectResponse(url=f"/admin/settings?success={msg}", status_code=303)
+
+
 # ----- Webhook Endpoint -----
 
 @app.post("/webhook/servicetitan")
@@ -287,13 +472,24 @@ async def queue_page(
     current_user: Dispatcher = Depends(require_auth)
 ):
     """Dispatcher queue view."""
-    pending = db.query(TicketRaw).filter(
-        TicketRaw.debrief_status == TicketStatus.PENDING
-    ).order_by(TicketRaw.completed_at.desc()).all()
+    # Get user's assigned business unit IDs (empty = sees all)
+    user_bu_ids = [a.business_unit_id for a in current_user.business_unit_assignments]
 
-    in_progress = db.query(TicketRaw).filter(
+    # Build base queries
+    pending_query = db.query(TicketRaw).filter(
+        TicketRaw.debrief_status == TicketStatus.PENDING
+    )
+    in_progress_query = db.query(TicketRaw).filter(
         TicketRaw.debrief_status == TicketStatus.IN_PROGRESS
-    ).order_by(TicketRaw.completed_at.desc()).all()
+    )
+
+    # Apply BU filter if user has specific assignments
+    if user_bu_ids:
+        pending_query = pending_query.filter(TicketRaw.business_unit_id.in_(user_bu_ids))
+        in_progress_query = in_progress_query.filter(TicketRaw.business_unit_id.in_(user_bu_ids))
+
+    pending = pending_query.order_by(TicketRaw.completed_at.desc()).all()
+    in_progress = in_progress_query.order_by(TicketRaw.completed_at.desc()).all()
 
     # Calculate "today" in Central Time, then convert to UTC for database comparison
     # This ensures "Jobs Today" matches what users see in the queue (Central Time dates)
@@ -1221,8 +1417,13 @@ async def sync_completed_jobs(
     now = datetime.utcnow()
     start_date = (now - timedelta(hours=hours_back)).strftime("%Y-%m-%d")
 
+    # Get enabled business unit IDs for filtering
+    enabled_bus = db.query(BusinessUnit).filter(BusinessUnit.is_enabled == True).all()
+    enabled_bu_ids = {bu.id for bu in enabled_bus}
+
     added = []
     skipped = []
+    skipped_disabled_bu = []
     errors = []
 
     try:
@@ -1241,6 +1442,12 @@ async def sync_completed_jobs(
 
             for job in jobs:
                 job_id = job.get("id")
+                job_bu_id = job.get("businessUnitId")
+
+                # Skip jobs from disabled business units (if we have BU config)
+                if enabled_bu_ids and job_bu_id and job_bu_id not in enabled_bu_ids:
+                    skipped_disabled_bu.append(job_id)
+                    continue
 
                 # Check if already in database
                 existing = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
@@ -1269,14 +1476,16 @@ async def sync_completed_jobs(
             "message": str(e),
             "added": added,
             "skipped": skipped,
+            "skipped_disabled_bu": skipped_disabled_bu,
             "errors": errors
         }
 
     return {
         "status": "success",
-        "message": f"Sync complete. Added {len(added)} jobs, skipped {len(skipped)} existing.",
+        "message": f"Sync complete. Added {len(added)} jobs, skipped {len(skipped)} existing, {len(skipped_disabled_bu)} from disabled BUs.",
         "added_count": len(added),
         "skipped_count": len(skipped),
+        "skipped_disabled_bu_count": len(skipped_disabled_bu),
         "added_job_ids": added,
         "errors": errors
     }

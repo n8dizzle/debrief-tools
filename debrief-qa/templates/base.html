@@ -164,9 +164,13 @@
                 <!-- Right: User + Time -->
                 <div class="flex items-center gap-4">
                     {% if current_user %}
-                    <!-- Admin link (only for Admin/Owner) -->
+                    <!-- Admin links (only for Admin/Owner) -->
                     {% if current_user.role.value in ['admin', 'owner'] %}
-                    <a href="/admin/users" class="text-xs text-purple-400 hover:text-purple-300">Admin</a>
+                    <div class="flex items-center gap-2">
+                        <a href="/admin/users" class="text-xs text-purple-400 hover:text-purple-300">Users</a>
+                        <span class="text-gray-600">|</span>
+                        <a href="/admin/settings" class="text-xs text-purple-400 hover:text-purple-300">Settings</a>
+                    </div>
                     {% endif %}
 
                     <!-- User dropdown -->

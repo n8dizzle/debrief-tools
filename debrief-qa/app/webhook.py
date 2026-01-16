@@ -14,10 +14,32 @@ from typing import Optional
 from fastapi import Request, HTTPException
 from sqlalchemy.orm import Session
 
-from .database import TicketRaw, WebhookLog, TicketStatus
+from .database import TicketRaw, WebhookLog, TicketStatus, BusinessUnit
 from .servicetitan import get_st_client, categorize_job_type
 
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+
+
+def is_business_unit_enabled(db: Session, bu_id: int) -> bool:
+    """
+    Check if a business unit is enabled for syncing.
+    Returns True if:
+    - No business units configured yet (backward compatible)
+    - The specific BU is enabled
+    """
+    # Check if any business units are configured
+    bu_count = db.query(BusinessUnit).count()
+    if bu_count == 0:
+        # No BU config yet - allow all (backward compatible)
+        return True
+
+    # Check if this specific BU is enabled
+    bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
+    if not bu:
+        # BU not in our list - could be new, allow it and it will be discovered
+        return True
+
+    return bu.is_enabled
 
 
 async def verify_webhook_signature(request: Request) -> bool:
@@ -95,7 +117,18 @@ async def process_webhook(payload: dict, db: Session) -> dict:
             "job_id": job_id,
             "message": f"Job {job_id} status is {job_status}, not completed"
         }
-    
+
+    # Check if business unit is enabled
+    job_bu_id = job_data.get("businessUnitId")
+    if job_bu_id and not is_business_unit_enabled(db, job_bu_id):
+        log.processed = True
+        db.commit()
+        return {
+            "processed": False,
+            "job_id": job_id,
+            "message": f"Job {job_id} business unit {job_bu_id} is disabled"
+        }
+
     # Check if we already have this job
     existing = db.query(TicketRaw).filter(TicketRaw.job_id == job_id).first()
     if existing:
@@ -221,6 +254,15 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
     try:
         st_client = get_st_client()
         enriched = await st_client.enrich_job_data(job_id)
+
+        # Check if business unit is enabled
+        job_bu_id = enriched.get("business_unit_id")
+        if job_bu_id and not is_business_unit_enabled(db, job_bu_id):
+            return {
+                "processed": False,
+                "job_id": job_id,
+                "message": f"Job {job_id} business unit {job_bu_id} is disabled"
+            }
 
         category, trade = categorize_job_type(enriched.get("job_type_name", ""))
 

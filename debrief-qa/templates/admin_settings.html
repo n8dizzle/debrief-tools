@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-christmas-cream">Business Unit Settings</h1>
+            <p class="text-sm text-gray-500 mt-1">Control which business units are synced and which users can see them.</p>
+        </div>
+        <a href="/admin/users" class="text-sm text-gray-400 hover:text-christmas-cream">
+            &larr; Back to User Management
+        </a>
+    </div>
+
+    {% if error %}
+    <div class="bg-christmas-brown/20 border border-christmas-brown/30 rounded-lg p-4">
+        <p class="text-sm text-christmas-brown">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="bg-christmas-green/20 border border-christmas-green/30 rounded-lg p-4">
+        <p class="text-sm text-christmas-green-light">{{ success }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Business Units to Sync -->
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
+            <div>
+                <h2 class="text-lg font-semibold text-christmas-cream">Business Units to Sync</h2>
+                <p class="text-xs text-gray-500 mt-1">Toggle which business units should have jobs pulled during sync. Disabled BUs are skipped.</p>
+            </div>
+            <form action="/api/admin/business-units/refresh" method="POST" class="inline">
+                <button type="submit"
+                        class="bg-christmas-green hover:bg-christmas-green-dark text-christmas-cream text-sm font-medium py-2 px-4 rounded-lg transition flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh from ServiceTitan
+                </button>
+            </form>
+        </div>
+        <div class="divide-y divide-dark-border">
+            {% if business_units %}
+            {% for bu in business_units %}
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <!-- Status indicator -->
+                    <div class="w-2 h-2 rounded-full {% if bu.is_enabled %}bg-christmas-green-light{% else %}bg-gray-500{% endif %}"></div>
+
+                    <div>
+                        <div class="font-medium text-christmas-cream">{{ bu.name }}</div>
+                        <div class="text-xs text-gray-500">
+                            ID: {{ bu.id }}
+                            {% if bu.last_seen_at %}
+                            | Last seen: {{ bu.last_seen_at|central|default('Never', true) }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- Job count badge -->
+                    {% if bu.job_count is defined %}
+                    <span class="text-xs text-gray-500">{{ bu.job_count }} jobs</span>
+                    {% endif %}
+
+                    <!-- Toggle button -->
+                    <form action="/api/admin/business-units/{{ bu.id }}/toggle" method="POST" class="inline">
+                        <button type="submit"
+                                class="text-sm px-3 py-1.5 rounded-lg transition
+                                    {% if bu.is_enabled %}bg-christmas-brown/20 text-christmas-brown hover:bg-christmas-brown/30
+                                    {% else %}bg-christmas-green/20 text-christmas-green-light hover:bg-christmas-green/30{% endif %}">
+                            {% if bu.is_enabled %}Disable{% else %}Enable{% endif %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <p>No business units found. Click "Refresh from ServiceTitan" to discover them.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Section 2: User Business Unit Assignments -->
+    <div class="bg-dark-card rounded-lg border border-dark-border">
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">User Business Unit Assignments</h2>
+            <p class="text-xs text-gray-500 mt-1">Assign specific business units to each user. Users with no assignments see ALL business units.</p>
+        </div>
+        <div class="divide-y divide-dark-border">
+            {% for user in users %}
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <!-- Status indicator -->
+                        <div class="w-2 h-2 rounded-full {% if user.is_active %}bg-christmas-green-light{% else %}bg-gray-500{% endif %}"></div>
+
+                        <div>
+                            <span class="font-medium text-christmas-cream">{{ user.name }}</span>
+                            <span class="ml-2 px-2 py-0.5 text-xs rounded-full
+                                {% if user.role.value == 'owner' %}bg-christmas-gold/20 text-christmas-gold
+                                {% elif user.role.value == 'admin' %}bg-purple-500/20 text-purple-400
+                                {% elif user.role.value == 'manager' %}bg-blue-500/20 text-blue-400
+                                {% else %}bg-dark-border text-gray-400{% endif %}">
+                                {{ user.role.value|title }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-gray-500">
+                        {% set assigned_count = user.business_unit_assignments|length %}
+                        {% if assigned_count == 0 %}
+                        <span class="text-christmas-gold">Sees all BUs</span>
+                        {% else %}
+                        <span>{{ assigned_count }} BU{% if assigned_count != 1 %}s{% endif %} assigned</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- BU Assignment Form -->
+                <form action="/api/admin/dispatchers/{{ user.id }}/business-units" method="POST" class="flex flex-wrap gap-2 items-center">
+                    {% set assigned_ids = user.business_unit_assignments|map(attribute='business_unit_id')|list %}
+                    <div class="flex flex-wrap gap-2">
+                        {% for bu in business_units %}
+                        {% if bu.is_enabled %}
+                        <label class="flex items-center gap-1.5 px-2 py-1 rounded-md border cursor-pointer transition
+                            {% if bu.id in assigned_ids %}border-christmas-green bg-christmas-green/10 text-christmas-green-light
+                            {% else %}border-dark-border bg-dark-bg text-gray-400 hover:border-gray-500{% endif %}">
+                            <input type="checkbox"
+                                   name="business_unit_ids"
+                                   value="{{ bu.id }}"
+                                   {% if bu.id in assigned_ids %}checked{% endif %}
+                                   class="hidden">
+                            <span class="text-sm">{{ bu.name }}</span>
+                        </label>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    <button type="submit"
+                            class="ml-auto text-xs bg-christmas-green/20 text-christmas-green-light hover:bg-christmas-green/30 px-3 py-1.5 rounded-lg transition">
+                        Save
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Help Text -->
+    <div class="text-sm text-gray-500 space-y-2">
+        <p><strong>How it works:</strong></p>
+        <ul class="list-disc list-inside ml-2 space-y-1">
+            <li><strong>Business Units to Sync</strong> - Jobs from disabled BUs will not be pulled during sync (app-wide)</li>
+            <li><strong>User Assignments</strong> - Controls which BUs appear in each user's queue view</li>
+            <li><strong>No assignments</strong> - User sees ALL enabled business units (backward compatible)</li>
+            <li>New business units from ServiceTitan are <strong>enabled by default</strong></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Visual feedback for checkbox labels
+document.querySelectorAll('input[type="checkbox"][name="business_unit_ids"]').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const label = this.closest('label');
+        if (this.checked) {
+            label.classList.remove('border-dark-border', 'bg-dark-bg', 'text-gray-400');
+            label.classList.add('border-christmas-green', 'bg-christmas-green/10', 'text-christmas-green-light');
+        } else {
+            label.classList.add('border-dark-border', 'bg-dark-bg', 'text-gray-400');
+            label.classList.remove('border-christmas-green', 'bg-christmas-green/10', 'text-christmas-green-light');
+        }
+    });
+});
+</script>
+{% endblock %}
