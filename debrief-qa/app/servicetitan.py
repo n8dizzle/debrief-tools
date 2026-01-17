@@ -171,6 +171,18 @@ class ServiceTitanClient:
     async def get_location(self, location_id: int) -> Dict[str, Any]:
         """Get location details."""
         return await self._request("GET", f"crm/v2/tenant/{self.tenant_id}/locations/{location_id}")
+
+    async def get_installed_equipment(self, location_id: int) -> Dict[str, Any]:
+        """Get installed equipment for a location."""
+        return await self._request(
+            "GET",
+            f"equipmentsystems/v2/tenant/{self.tenant_id}/installed-equipment",
+            params={"locationId": location_id, "pageSize": 100}
+        )
+
+    async def get_invoice_with_items(self, invoice_id: int) -> Dict[str, Any]:
+        """Get invoice details including line items."""
+        return await self._request("GET", f"accounting/v2/tenant/{self.tenant_id}/invoices/{invoice_id}")
     
     async def get_attachments_by_job(self, job_id: int) -> Dict[str, Any]:
         """Get attachments (photos/videos) for a job.
@@ -501,6 +513,57 @@ class ServiceTitanClient:
         except:
             form_submissions = []
 
+        # Get installed equipment for the location
+        installed_equipment = []
+        installed_equipment_count = 0
+        if location:
+            try:
+                equipment_response = await self.get_installed_equipment(location.get("id"))
+                equipment_data = equipment_response.get("data", [])
+                # Format equipment data for display
+                for eq in equipment_data:
+                    installed_equipment.append({
+                        "id": eq.get("id"),
+                        "name": eq.get("name") or eq.get("equipmentType") or "Unknown Equipment",
+                        "serialNumber": eq.get("serialNumber"),
+                        "installedOn": eq.get("installedOn"),
+                        "manufacturer": eq.get("manufacturer"),
+                        "model": eq.get("model"),
+                    })
+                installed_equipment_count = len(installed_equipment)
+            except:
+                pass
+
+        # Get invoice line items
+        invoice_items = []
+        invoice_materials_count = 0
+        invoice_equipment_count = 0
+        invoice_services_count = 0
+        if primary_invoice:
+            try:
+                # Items should be included in the invoice response
+                items = primary_invoice.get("items", [])
+                for item in items:
+                    item_type = item.get("type", "").lower()
+                    invoice_items.append({
+                        "id": item.get("id"),
+                        "skuId": item.get("skuId"),
+                        "skuName": item.get("skuName") or item.get("description") or "Unknown Item",
+                        "type": item.get("type"),  # Material, Equipment, Service, etc.
+                        "quantity": item.get("quantity", 1),
+                        "unitPrice": item.get("unitPrice", 0),
+                        "totalPrice": item.get("totalPrice") or item.get("total", 0),
+                    })
+                    # Count by type
+                    if "material" in item_type:
+                        invoice_materials_count += 1
+                    elif "equipment" in item_type:
+                        invoice_equipment_count += 1
+                    elif "service" in item_type or "labor" in item_type:
+                        invoice_services_count += 1
+            except:
+                pass
+
         # Check for membership and calculate visit context
         membership_sold = False
         membership_id = None
@@ -735,11 +798,21 @@ class ServiceTitanClient:
 
             # Photos/attachments from Forms API
             "photo_count": len(attachments),
-            
+
+            # Installed Equipment at Location
+            "installed_equipment": installed_equipment,
+            "installed_equipment_count": installed_equipment_count,
+
+            # Invoice Line Items
+            "invoice_items": invoice_items,
+            "invoice_materials_count": invoice_materials_count,
+            "invoice_equipment_count": invoice_equipment_count,
+            "invoice_services_count": invoice_services_count,
+
             # Timestamps
             "completed_at": job.get("completedOn"),
             "created_at": job.get("createdOn"),
-            
+
             # Raw payload for future use
             "raw_payload": {
                 "job": job,
@@ -749,6 +822,8 @@ class ServiceTitanClient:
                 "location": location,
                 "attachments": attachments,
                 "form_submissions": form_submissions,
+                "installed_equipment": installed_equipment,
+                "invoice_items": invoice_items,
             }
         }
     

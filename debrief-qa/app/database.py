@@ -143,6 +143,16 @@ class TicketRaw(Base):
     # Forms completed
     form_count = Column(Integer, default=0)
 
+    # Installed Equipment at Location
+    installed_equipment = Column(JSON)  # List of equipment on location record
+    installed_equipment_count = Column(Integer, default=0)
+
+    # Invoice Line Items
+    invoice_items = Column(JSON)  # List of line items on invoice
+    invoice_materials_count = Column(Integer, default=0)
+    invoice_equipment_count = Column(Integer, default=0)
+    invoice_services_count = Column(Integer, default=0)
+
     # Equipment (from your OCR system, populated later)
     equipment_age_years = Column(Integer, nullable=True)
     equipment_brand = Column(String(100), nullable=True)

@@ -695,6 +695,69 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
+            <!-- Equipment at Location Context Banner -->
+            {% if ticket.installed_equipment_count is not none %}
+            <div class="rounded-lg border border-gray-700 bg-dark-bg mb-4">
+                <div class="px-4 py-3 border-b border-dark-border flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400">🔧</span>
+                        <h3 class="text-sm font-semibold text-christmas-cream">
+                            Equipment on Location Record
+                            <span class="text-gray-500 font-normal">({{ ticket.installed_equipment_count or 0 }})</span>
+                        </h3>
+                    </div>
+                    {% if ticket.location_id %}
+                    <a href="https://go.servicetitan.com/#/Location/Index/{{ ticket.location_id }}"
+                       target="_blank"
+                       class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
+                        View Location in ST ↗
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="px-4 py-3">
+                    {% if ticket.installed_equipment and ticket.installed_equipment|length > 0 %}
+                    <div class="space-y-2">
+                        {% for eq in ticket.installed_equipment %}
+                        {% set install_date = eq.installedOn[:10] if eq.installedOn else None %}
+                        {% set job_date = ticket.completed_at.strftime('%Y-%m-%d') if ticket.completed_at else None %}
+                        {% set added_today = install_date == job_date if install_date and job_date else False %}
+                        <div class="flex items-center justify-between bg-dark-card rounded p-2 border {% if added_today %}border-christmas-green/50 bg-christmas-green/10{% else %}border-dark-border{% endif %}">
+                            <div class="flex items-center gap-3">
+                                <span class="text-gray-500">📦</span>
+                                <div>
+                                    <span class="text-christmas-cream text-sm font-medium">{{ eq.name or 'Unknown Equipment' }}</span>
+                                    {% if eq.manufacturer or eq.model %}
+                                    <span class="text-gray-500 text-xs ml-1">({{ eq.manufacturer }}{% if eq.manufacturer and eq.model %} {% endif %}{{ eq.model }})</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 text-xs">
+                                {% if eq.serialNumber %}
+                                <span class="text-gray-400">S/N: {{ eq.serialNumber }}</span>
+                                {% endif %}
+                                {% if added_today %}
+                                <span class="px-2 py-0.5 bg-christmas-green/20 text-christmas-green-light rounded font-semibold">Added Today ✓</span>
+                                {% elif install_date %}
+                                <span class="text-gray-500">{{ install_date }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3 p-2 bg-blue-900/20 border border-blue-600/30 rounded text-xs text-blue-200">
+                        💡 Check if equipment serviced/installed today was added to the location record.
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <span class="text-gray-500">📭</span>
+                        <p class="text-gray-400 text-sm mt-1">No equipment on location record</p>
+                        <p class="text-xs text-christmas-gold mt-2">⚠️ Equipment should be added after service/install visits</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- 8. Equipment Added to Location -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
@@ -726,6 +789,86 @@
                 <input type="text" name="equipment_added_notes" placeholder="Notes (optional)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
+
+            <!-- Invoice Line Items Context Banner -->
+            {% if ticket.invoice_items is not none %}
+            <div class="rounded-lg border border-christmas-gold/30 bg-christmas-gold/5 mb-4">
+                <div class="px-4 py-3 border-b border-christmas-gold/20 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-christmas-gold">💰</span>
+                        <h3 class="text-sm font-semibold text-christmas-cream">
+                            Items on Invoice
+                            <span class="text-gray-500 font-normal">({{ (ticket.invoice_items|length) if ticket.invoice_items else 0 }})</span>
+                        </h3>
+                    </div>
+                    {% if ticket.invoice_id %}
+                    <a href="https://go.servicetitan.com/#/Invoice/Index/{{ ticket.invoice_id }}"
+                       target="_blank"
+                       class="text-xs text-christmas-green-light hover:text-christmas-green hover:underline">
+                        View Invoice in ST ↗
+                    </a>
+                    {% endif %}
+                </div>
+
+                <!-- Summary counts -->
+                <div class="px-4 py-2 grid grid-cols-3 gap-2 text-center border-b border-christmas-gold/10">
+                    <div class="bg-dark-bg rounded-lg p-2 border border-dark-border">
+                        <div class="text-lg font-bold text-gray-200">{{ ticket.invoice_materials_count or 0 }}</div>
+                        <div class="text-xs text-gray-500">Materials</div>
+                    </div>
+                    <div class="bg-dark-bg rounded-lg p-2 border border-dark-border">
+                        <div class="text-lg font-bold text-gray-200">{{ ticket.invoice_equipment_count or 0 }}</div>
+                        <div class="text-xs text-gray-500">Equipment</div>
+                    </div>
+                    <div class="bg-dark-bg rounded-lg p-2 border border-dark-border">
+                        <div class="text-lg font-bold text-gray-200">{{ ticket.invoice_services_count or 0 }}</div>
+                        <div class="text-xs text-gray-500">Services</div>
+                    </div>
+                </div>
+
+                <div class="px-4 py-3">
+                    {% if ticket.invoice_items and ticket.invoice_items|length > 0 %}
+                    <details class="group">
+                        <summary class="cursor-pointer text-sm text-christmas-cream hover:text-christmas-gold transition flex items-center gap-2">
+                            <span class="text-gray-500 group-open:rotate-90 transition-transform">▶</span>
+                            Show all items
+                        </summary>
+                        <div class="mt-2 space-y-1 pl-4">
+                            {% for item in ticket.invoice_items %}
+                            <div class="flex items-center justify-between text-xs py-1 border-b border-dark-border/50 last:border-0">
+                                <div class="flex items-center gap-2">
+                                    {% if item.type and 'material' in item.type|lower %}
+                                    <span class="text-gray-500" title="Material">📦</span>
+                                    {% elif item.type and 'equipment' in item.type|lower %}
+                                    <span class="text-gray-500" title="Equipment">🔧</span>
+                                    {% elif item.type and ('service' in item.type|lower or 'labor' in item.type|lower) %}
+                                    <span class="text-gray-500" title="Service">🔹</span>
+                                    {% else %}
+                                    <span class="text-gray-500">•</span>
+                                    {% endif %}
+                                    <span class="text-christmas-cream">{{ item.skuName or 'Unknown Item' }}</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-gray-500">x{{ item.quantity or 1 }}</span>
+                                    <span class="text-gray-400 w-20 text-right">${{ "%.2f"|format(item.totalPrice or 0) }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    <div class="mt-3 p-2 bg-blue-900/20 border border-blue-600/30 rounded text-xs text-blue-200">
+                        💡 Ask tech: "Did you add all materials you used to the invoice?"
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <span class="text-gray-500">📋</span>
+                        <p class="text-gray-400 text-sm mt-1">No line items on invoice</p>
+                        <p class="text-xs text-christmas-gold mt-2">⚠️ Materials used should be added for gross margin tracking</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
 
             <!-- 9. Materials/Equipment on Invoice (for Gross Margin) -->
             <div class="space-y-2 bg-christmas-gold/5 border border-christmas-gold/20 rounded-lg p-4 -mx-2">
