@@ -9,6 +9,28 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 
 ## Recent Updates (Jan 17, 2026)
 
+### That's a Wrap (debrief-qa) - Deployed
+- **Equipment at Location Banner** - Shows installed equipment on the ServiceTitan location record
+  - Displays near "Equipment Added to ST Location?" question
+  - Shows equipment name, serial number, install date, manufacturer/model
+  - Highlights items "Added Today" in green if install date matches job date
+  - Links to view location in ServiceTitan
+  - **Note:** ServiceTitan API ignores `locationId` filter - uses client-side filtering
+- **Invoice Line Items Banner** - Shows materials/equipment on the invoice
+  - Displays near "Materials & Equipment on Invoice" question
+  - Summary counts: Materials | Equipment | Services
+  - Collapsible list with item name, quantity, price
+  - Icons differentiate material vs equipment vs service
+  - Links to view invoice in ServiceTitan
+- **Dashboard Period Toggle** - Default changed from "today" to "this_month"
+  - Period toggle now shows even when no data available
+
+### ServiceTitan Equipment API Workaround
+The ServiceTitan `installed-equipment` API **ignores the `locationId` filter parameter** and returns equipment from ALL locations. Solution:
+1. Fetch up to 5,000 equipment items (10 pages × 500)
+2. Filter client-side by matching `eq.locationId == job.locationId`
+3. Store only equipment at the specific job's location
+
 ### That's a Wrap (debrief-qa) - NOT YET DEPLOYED
 - **AI-Powered Invoice Review** - Uses Google Gemini Flash to analyze invoice summaries
   - Scores invoice quality 1-10 with feedback notes
