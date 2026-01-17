@@ -199,7 +199,7 @@
 {% block scripts %}
 <script>
 let technicianData = null;
-let currentTechPeriod = 'today';
+let currentTechPeriod = 'this_month';
 
 function getMetricColor(value, threshold = 80) {
     if (value === null || value === undefined) return 'text-gray-500';
@@ -293,14 +293,34 @@ function renderTradePerformance(tradePerformance) {
     `;
 }
 
+function renderPeriodToggle(period) {
+    return `
+        <div class="flex gap-1 bg-dark-bg rounded-lg p-1">
+            <button onclick="renderTechnicianTable('today')"
+                class="px-3 py-1 text-sm rounded ${period === 'today' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
+                Today
+            </button>
+            <button onclick="renderTechnicianTable('this_week')"
+                class="px-3 py-1 text-sm rounded ${period === 'this_week' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
+                This Week
+            </button>
+            <button onclick="renderTechnicianTable('this_month')"
+                class="px-3 py-1 text-sm rounded ${period === 'this_month' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
+                This Month
+            </button>
+        </div>
+    `;
+}
+
 function renderTechnicianTable(period) {
     currentTechPeriod = period;
     const data = technicianData ? technicianData[period] : [];
 
     if (!data || data.length === 0) {
         document.getElementById('technician-container').innerHTML = `
-            <div class="px-6 py-4 border-b border-dark-border">
+            <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
                 <h2 class="text-lg font-semibold text-christmas-cream">Technician Performance</h2>
+                ${renderPeriodToggle(period)}
             </div>
             <div class="p-6 text-center text-gray-500">
                 No technician data available for this period.
@@ -312,20 +332,7 @@ function renderTechnicianTable(period) {
     document.getElementById('technician-container').innerHTML = `
         <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
             <h2 class="text-lg font-semibold text-christmas-cream">Technician Performance</h2>
-            <div class="flex gap-1 bg-dark-bg rounded-lg p-1">
-                <button onclick="renderTechnicianTable('today')"
-                    class="px-3 py-1 text-sm rounded ${period === 'today' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
-                    Today
-                </button>
-                <button onclick="renderTechnicianTable('this_week')"
-                    class="px-3 py-1 text-sm rounded ${period === 'this_week' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
-                    This Week
-                </button>
-                <button onclick="renderTechnicianTable('this_month')"
-                    class="px-3 py-1 text-sm rounded ${period === 'this_month' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
-                    This Month
-                </button>
-            </div>
+            ${renderPeriodToggle(period)}
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-dark-border">
