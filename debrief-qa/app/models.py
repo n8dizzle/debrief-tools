@@ -70,6 +70,7 @@ class TicketDetail(BaseModel):
     customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     is_new_customer: bool = False
+    location_id: Optional[int] = None
     location_address: Optional[str] = None
 
     # Invoice
@@ -95,6 +96,16 @@ class TicketDetail(BaseModel):
     equipment_age_years: Optional[int] = None
     equipment_brand: Optional[str] = None
     equipment_model: Optional[str] = None
+
+    # Installed Equipment at Location
+    installed_equipment: Optional[list] = None
+    installed_equipment_count: Optional[int] = None
+
+    # Invoice Line Items
+    invoice_items: Optional[list] = None
+    invoice_materials_count: Optional[int] = None
+    invoice_equipment_count: Optional[int] = None
+    invoice_services_count: Optional[int] = None
 
     # Timestamps
     completed_at: Optional[datetime] = None

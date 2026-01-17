@@ -180,6 +180,31 @@ class ServiceTitanClient:
             params={"locationId": location_id, "pageSize": 100}
         )
 
+    async def export_installed_equipment(
+        self,
+        location_id: int,
+        export_format: str = "Json",
+        include_fields: Optional[list] = None,
+    ) -> Dict[str, Any]:
+        """
+        Export installed equipment filtered by location.
+
+        Uses the ExportInstalledEquipment endpoint which supports location-based filters.
+        Response typically includes a file/download reference.
+        """
+        payload: Dict[str, Any] = {
+            "filters": {"locationIds": [location_id]},
+            "format": export_format,
+        }
+        if include_fields:
+            payload["includeFields"] = include_fields
+
+        return await self._request(
+            "POST",
+            f"equipmentsystems/v2/tenant/{self.tenant_id}/installed-equipment/export",
+            json=payload,
+        )
+
     async def get_invoice_with_items(self, invoice_id: int) -> Dict[str, Any]:
         """Get invoice details including line items."""
         return await self._request("GET", f"accounting/v2/tenant/{self.tenant_id}/invoices/{invoice_id}")

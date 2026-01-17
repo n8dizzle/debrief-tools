@@ -621,6 +621,33 @@ async def get_job(job_id: int, db: Session = Depends(get_db)):
     return ticket
 
 
+@app.get("/api/location/{location_id}/installed-equipment")
+async def get_location_installed_equipment(
+    location_id: int,
+    export: bool = True,
+    export_format: str = "Json",
+    include_fields: Optional[str] = None,
+):
+    """
+    Get installed equipment for a location.
+
+    By default uses the export endpoint (supports location filters).
+    """
+    from .servicetitan import get_st_client
+
+    client = get_st_client()
+    fields_list = [f.strip() for f in include_fields.split(",")] if include_fields else None
+
+    if export:
+        return await client.export_installed_equipment(
+            location_id=location_id,
+            export_format=export_format,
+            include_fields=fields_list,
+        )
+
+    return await client.get_installed_equipment(location_id)
+
+
 @app.post("/api/job/{job_id}/debrief", response_model=DebriefResponse)
 async def submit_debrief(
     job_id: int,
