@@ -369,7 +369,7 @@ function renderTechnicianTable(period) {
                     ${data.map(t => `
                         <tr class="hover:bg-dark-card-hover">
                             <td class="px-4 py-3 whitespace-nowrap">
-                                <span class="font-medium text-christmas-cream">${t.tech_name}</span>
+                                <a href="/history?tech=${encodeURIComponent(t.tech_name)}" class="font-medium text-christmas-cream hover:text-christmas-gold hover:underline transition">${t.tech_name}</a>
                             </td>
                             <td class="px-4 py-3 text-center text-gray-400">${t.jobs_debriefed}</td>
                             <td class="px-4 py-3 text-center bg-christmas-green/10">

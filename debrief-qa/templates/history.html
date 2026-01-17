@@ -12,6 +12,48 @@
         </div>
     </div>
 
+    <!-- Summary Stats Section -->
+    <div id="summary-stats" class="bg-dark-card rounded-lg border border-dark-border p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h2 id="summary-title" class="text-lg font-semibold text-christmas-cream">Performance Summary</h2>
+            <span id="summary-period" class="text-sm text-gray-500">All Time</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-8 gap-4">
+            <div class="text-center">
+                <div id="stat-jobs" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Jobs</div>
+            </div>
+            <div class="text-center bg-christmas-green/10 rounded-lg py-2">
+                <div id="stat-score" class="text-2xl font-bold text-christmas-green-light">--</div>
+                <div class="text-xs text-gray-500">Avg Score</div>
+            </div>
+            <div class="text-center">
+                <div id="stat-invoice" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Avg Invoice</div>
+            </div>
+            <div class="text-center">
+                <div id="stat-photos" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Photos</div>
+            </div>
+            <div class="text-center">
+                <div id="stat-payment" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Payment</div>
+            </div>
+            <div class="text-center">
+                <div id="stat-estimates" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Estimates</div>
+            </div>
+            <div class="text-center">
+                <div id="stat-membership" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Membership</div>
+            </div>
+            <div class="text-center">
+                <div id="stat-reviews" class="text-2xl font-bold text-christmas-cream">--</div>
+                <div class="text-xs text-gray-500">Reviews</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Date Range Quick Filters -->
     <div class="bg-dark-card rounded-lg border border-dark-border p-4">
         <div class="flex flex-wrap gap-2 mb-4">
@@ -106,6 +148,97 @@ let currentPage = 0;
 const pageSize = 50;
 let currentDateFrom = null;
 let currentDateTo = null;
+
+// Read URL parameters on load
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        tech: params.get('tech'),
+        dateRange: params.get('range'),
+        dateFrom: params.get('from'),
+        dateTo: params.get('to')
+    };
+}
+
+function updateSummaryStats() {
+    const data = filteredData;
+    const techFilter = document.getElementById('filter-tech').value;
+
+    // Update title based on filters
+    let title = 'Performance Summary';
+    if (techFilter) {
+        title = `${techFilter} - Performance`;
+    }
+    document.getElementById('summary-title').textContent = title;
+
+    // Update period label
+    let periodLabel = 'All Time';
+    const activeBtn = document.querySelector('.date-btn.active');
+    if (activeBtn) {
+        periodLabel = activeBtn.textContent.trim();
+    }
+    if (currentDateFrom && currentDateTo && currentDateFrom !== currentDateTo) {
+        periodLabel = `${currentDateFrom} to ${currentDateTo}`;
+    } else if (currentDateFrom && currentDateFrom === currentDateTo) {
+        periodLabel = currentDateFrom;
+    }
+    document.getElementById('summary-period').textContent = periodLabel;
+
+    if (data.length === 0) {
+        document.getElementById('stat-jobs').textContent = '0';
+        document.getElementById('stat-score').textContent = '--';
+        document.getElementById('stat-invoice').textContent = '--';
+        document.getElementById('stat-photos').textContent = '--';
+        document.getElementById('stat-payment').textContent = '--';
+        document.getElementById('stat-estimates').textContent = '--';
+        document.getElementById('stat-membership').textContent = '--';
+        document.getElementById('stat-reviews').textContent = '--';
+        return;
+    }
+
+    // Calculate aggregates
+    const jobCount = data.length;
+    const avgScore = Math.round(data.reduce((sum, j) => sum + (j.composite_score || 0), 0) / jobCount);
+    const avgInvoice = (data.reduce((sum, j) => sum + (j.invoice_score || 0), 0) / jobCount).toFixed(1);
+
+    // Calculate pass rates (excluding N/A)
+    const calcPassRate = (field) => {
+        const applicable = data.filter(j => j[field] === 'pass' || j[field] === 'fail');
+        if (applicable.length === 0) return '--';
+        const passed = applicable.filter(j => j[field] === 'pass').length;
+        return Math.round((passed / applicable.length) * 100) + '%';
+    };
+
+    document.getElementById('stat-jobs').textContent = jobCount;
+
+    // Color-code the score
+    const scoreEl = document.getElementById('stat-score');
+    scoreEl.textContent = avgScore;
+    scoreEl.className = 'text-2xl font-bold ' + (avgScore >= 80 ? 'text-christmas-green-light' : avgScore >= 60 ? 'text-christmas-gold' : 'text-christmas-brown');
+
+    // Color-code invoice
+    const invoiceEl = document.getElementById('stat-invoice');
+    invoiceEl.textContent = avgInvoice;
+    invoiceEl.className = 'text-2xl font-bold ' + (parseFloat(avgInvoice) >= 7 ? 'text-christmas-green-light' : parseFloat(avgInvoice) >= 5 ? 'text-christmas-gold' : 'text-christmas-brown');
+
+    // Set pass rates with colors
+    const setPassRate = (id, value) => {
+        const el = document.getElementById(id);
+        el.textContent = value;
+        if (value === '--') {
+            el.className = 'text-2xl font-bold text-gray-500';
+        } else {
+            const pct = parseInt(value);
+            el.className = 'text-2xl font-bold ' + (pct >= 80 ? 'text-christmas-green-light' : pct >= 50 ? 'text-christmas-gold' : 'text-christmas-brown');
+        }
+    };
+
+    setPassRate('stat-photos', calcPassRate('photos'));
+    setPassRate('stat-payment', calcPassRate('payment'));
+    setPassRate('stat-estimates', calcPassRate('estimates'));
+    setPassRate('stat-membership', calcPassRate('membership'));
+    setPassRate('stat-reviews', calcPassRate('reviews'));
+}
 
 function setDateRange(range) {
     const today = new Date();
@@ -262,6 +395,7 @@ function applyClientFilters() {
 
     currentPage = 0;
     renderTable();
+    updateSummaryStats();
 }
 
 function renderTable() {
@@ -465,8 +599,49 @@ async function addToSpotCheck(debriefSessionId) {
     }
 }
 
-// Initial load
-loadDispatchers();
-loadHistory();
+// Initial load with URL parameter handling
+async function init() {
+    await loadDispatchers();
+
+    // Check URL parameters
+    const params = getUrlParams();
+
+    // If tech param provided, we need to load all data first to populate the dropdown
+    if (params.tech) {
+        // First load with all time to get tech list
+        await loadHistory();
+
+        // Now set the tech filter
+        const techSelect = document.getElementById('filter-tech');
+        // Find matching option (case-insensitive)
+        for (let i = 0; i < techSelect.options.length; i++) {
+            if (techSelect.options[i].value.toLowerCase() === params.tech.toLowerCase()) {
+                techSelect.value = techSelect.options[i].value;
+                break;
+            }
+        }
+
+        // If no exact match found, add it as an option (in case tech has jobs but wasn't in initial load)
+        if (!techSelect.value && params.tech) {
+            const opt = document.createElement('option');
+            opt.value = params.tech;
+            opt.textContent = params.tech;
+            techSelect.appendChild(opt);
+            techSelect.value = params.tech;
+        }
+
+        // Reload with the tech filter applied
+        await loadHistory();
+    } else {
+        await loadHistory();
+    }
+
+    // Handle date range params
+    if (params.dateRange) {
+        setDateRange(params.dateRange);
+    }
+}
+
+init();
 </script>
 {% endblock %}
