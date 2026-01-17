@@ -514,22 +514,26 @@ class ServiceTitanClient:
             form_submissions = []
 
         # Get installed equipment for the location
+        # Note: ServiceTitan API ignores locationId filter, so we filter client-side
         installed_equipment = []
         installed_equipment_count = 0
         if location:
             try:
-                equipment_response = await self.get_installed_equipment(location.get("id"))
+                location_id = location.get("id")
+                equipment_response = await self.get_installed_equipment(location_id)
                 equipment_data = equipment_response.get("data", [])
-                # Format equipment data for display
+                # Filter by locationId client-side (API ignores the filter parameter)
                 for eq in equipment_data:
-                    installed_equipment.append({
-                        "id": eq.get("id"),
-                        "name": eq.get("name") or eq.get("equipmentType") or "Unknown Equipment",
-                        "serialNumber": eq.get("serialNumber"),
-                        "installedOn": eq.get("installedOn"),
-                        "manufacturer": eq.get("manufacturer"),
-                        "model": eq.get("model"),
-                    })
+                    # Only include equipment that matches this location
+                    if eq.get("locationId") == location_id:
+                        installed_equipment.append({
+                            "id": eq.get("id"),
+                            "name": eq.get("name") or eq.get("equipmentType") or "Unknown Equipment",
+                            "serialNumber": eq.get("serialNumber"),
+                            "installedOn": eq.get("installedOn"),
+                            "manufacturer": eq.get("manufacturer"),
+                            "model": eq.get("model"),
+                        })
                 installed_equipment_count = len(installed_equipment)
             except:
                 pass
