@@ -47,8 +47,8 @@ def _get_model():
     if not GOOGLE_AI_API_KEY:
         return None
     genai.configure(api_key=GOOGLE_AI_API_KEY)
-    # Use gemini-1.5-flash for cost efficiency
-    return genai.GenerativeModel('gemini-1.5-flash')
+    # Use gemini-2.0-flash-lite for cost efficiency (~$0.075/1M tokens)
+    return genai.GenerativeModel('gemini-2.0-flash-lite')
 
 
 async def review_invoice_summary(

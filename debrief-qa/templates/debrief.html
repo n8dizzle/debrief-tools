@@ -749,7 +749,8 @@
             </div>
 
             <!-- Equipment at Location Context Banner -->
-            {% if ticket.installed_equipment_count is not none %}
+            <!-- DISABLED: API not filtering by location correctly - shows all equipment instead of location-specific -->
+            {% if False and ticket.installed_equipment_count is not none %}
             <div class="rounded-lg border border-gray-700 bg-dark-bg mb-4">
                 <div class="px-4 py-3 border-b border-dark-border flex justify-between items-center">
                     <div class="flex items-center gap-2">

@@ -7,7 +7,46 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Not yet deployed
 
-## Recent Updates (Jan 8, 2025)
+## Recent Updates (Jan 17, 2026)
+
+### That's a Wrap (debrief-qa) - NOT YET DEPLOYED
+- **AI-Powered Invoice Review** - Uses Google Gemini Flash to analyze invoice summaries
+  - Scores invoice quality 1-10 with feedback notes
+  - Pre-fills invoice score slider with AI suggestion
+  - Blue "AI suggests" badges show suggested values
+  - Cost: ~$0.00015 per review
+- **Auto QA Suggestions** - Pre-selects form fields based on ServiceTitan data:
+  - Photos: Pass if photo_count > 0
+  - Payment: Pass if payment_collected
+  - Estimates: Pass if estimate_count > 0, N/A if not opportunity job
+  - Membership: Pass if membership_sold, N/A if customer has active membership
+  - Materials: Pass if materials/equipment on invoice
+- **New API Endpoint** - `/api/run-ai-reviews` to backfill AI reviews on existing tickets
+- **Environment Variable Required**: `GOOGLE_AI_API_KEY` for Gemini API
+
+### Deployment Steps for AI Review Feature
+```bash
+# 1. SSH to server
+ssh root@64.225.12.86
+
+# 2. Run migration to add new columns
+cd /opt/debrief-qa/debrief-qa
+python migrations/add_ai_review_columns.py
+
+# 3. Install new dependency
+pip install google-generativeai
+
+# 4. Add API key to .env
+echo "GOOGLE_AI_API_KEY=your-key-here" >> .env
+
+# 5. Restart app
+systemctl restart debrief-qa
+
+# 6. Backfill AI reviews on existing pending tickets
+curl -X POST "http://localhost:8000/api/run-ai-reviews?limit=100&status=pending"
+```
+
+## Previous Updates (Jan 8, 2025)
 
 ### That's a Wrap (debrief-qa) - Deployed
 - **Membership Visit Tracking** - Shows visit count (e.g., "Visit 1 of 2") for tune-up jobs
