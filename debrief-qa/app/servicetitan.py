@@ -173,12 +173,31 @@ class ServiceTitanClient:
         return await self._request("GET", f"crm/v2/tenant/{self.tenant_id}/locations/{location_id}")
 
     async def get_installed_equipment(self, location_id: int) -> Dict[str, Any]:
-        """Get installed equipment for a location."""
-        return await self._request(
-            "GET",
-            f"equipmentsystems/v2/tenant/{self.tenant_id}/installed-equipment",
-            params={"locationId": location_id, "pageSize": 100}
-        )
+        """Get installed equipment for a location.
+
+        Note: ServiceTitan API ignores the locationId filter, so we fetch multiple
+        pages of data to increase the chance of finding equipment for any location.
+        Client-side filtering is done in enrich_job_data().
+        """
+        all_equipment = []
+        page = 1
+        max_pages = 10  # Fetch up to 5000 items (500 per page)
+
+        while page <= max_pages:
+            response = await self._request(
+                "GET",
+                f"equipmentsystems/v2/tenant/{self.tenant_id}/installed-equipment",
+                params={"locationId": location_id, "pageSize": 500, "page": page}
+            )
+            items = response.get("data", [])
+            all_equipment.extend(items)
+
+            # Stop if no more pages
+            if not response.get("hasMore", False):
+                break
+            page += 1
+
+        return {"data": all_equipment}
 
     async def export_installed_equipment(
         self,
