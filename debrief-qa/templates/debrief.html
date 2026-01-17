@@ -903,7 +903,7 @@
                                     <span class="text-christmas-cream">{{ item.skuName or 'Unknown Item' }}</span>
                                 </div>
                                 <div class="flex items-center gap-4">
-                                    <span class="text-gray-500">x{{ item.quantity or 1 }}</span>
+                                    <span class="text-gray-500">x{{ (item.quantity or 1)|float|round|int }}</span>
                                     <span class="text-gray-400 w-20 text-right">${{ "%.2f"|format((item.totalPrice or 0)|float) }}</span>
                                 </div>
                             </div>
