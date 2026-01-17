@@ -33,6 +33,7 @@ from .models import (
     DispatcherCreate, DispatcherResponse
 )
 from .webhook import verify_webhook_signature, process_webhook, manual_add_job
+from .auto_qa import calculate_auto_suggestions, format_suggestions_for_template
 from .auth import (
     oauth, get_current_user_optional, require_auth, require_roles,
     is_admin, handle_google_callback, create_session, clear_session
@@ -560,6 +561,10 @@ async def debrief_page(
         except Exception:
             pass  # Forms will just be empty if fetch fails
 
+    # Calculate auto-suggestions based on ticket data
+    auto_suggestions = calculate_auto_suggestions(ticket)
+    formatted_suggestions = format_suggestions_for_template(auto_suggestions, ticket)
+
     return templates.TemplateResponse("debrief.html", {
         "request": request,
         "current_user": current_user,
@@ -569,6 +574,7 @@ async def debrief_page(
         "debrief": existing_debrief,
         "spot_check": existing_spot_check,
         "form_submissions": form_submissions,
+        "auto_suggestions": formatted_suggestions,
     })
 
 
@@ -1768,6 +1774,72 @@ async def re_enrich_payments(
         "updated_count": len(updated),
         "changed_count": changed_count,
         "updated": updated[:30],  # Show first 30 in response
+        "errors": errors
+    }
+
+
+@app.post("/api/run-ai-reviews")
+async def run_ai_reviews(
+    limit: int = 50,
+    status: Optional[str] = None,
+    force: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Run AI invoice reviews on existing tickets.
+    Useful for backfilling AI reviews on tickets added before this feature.
+
+    Args:
+        limit: Max number of tickets to review (default 50)
+        status: Only review tickets with this status (pending, in_progress, completed)
+        force: Re-run AI review even if already reviewed (default False)
+    """
+    from .ai_review import update_ticket_ai_review
+
+    # Query tickets to review - prioritize those without AI reviews
+    query = db.query(TicketRaw)
+    if status:
+        try:
+            status_enum = TicketStatus(status)
+            query = query.filter(TicketRaw.debrief_status == status_enum)
+        except ValueError:
+            pass
+
+    if not force:
+        # Only get tickets without AI reviews
+        query = query.filter(TicketRaw.ai_reviewed_at == None)
+
+    # Order by most recent first
+    tickets = query.order_by(TicketRaw.pulled_at.desc()).limit(limit).all()
+
+    reviewed = []
+    errors = []
+
+    for ticket in tickets:
+        try:
+            old_score = ticket.ai_invoice_score
+            success = await update_ticket_ai_review(ticket, db)
+
+            reviewed.append({
+                "job_id": ticket.job_id,
+                "job_number": ticket.job_number,
+                "old_score": old_score,
+                "new_score": ticket.ai_invoice_score,
+                "notes": ticket.ai_invoice_notes[:100] if ticket.ai_invoice_notes else None,
+                "success": success,
+            })
+
+        except Exception as e:
+            errors.append({
+                "job_id": ticket.job_id,
+                "error": str(e)
+            })
+
+    return {
+        "status": "success",
+        "message": f"AI reviewed {len(reviewed)} tickets.",
+        "reviewed_count": len(reviewed),
+        "reviewed": reviewed[:30],  # Show first 30 in response
         "errors": errors
     }
 

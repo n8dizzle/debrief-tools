@@ -164,7 +164,12 @@ class TicketRaw(Base):
     
     # Full payload for future use
     raw_payload = Column(JSON)
-    
+
+    # AI Invoice Review Results
+    ai_invoice_score = Column(Integer, nullable=True)  # 1-10
+    ai_invoice_notes = Column(Text, nullable=True)     # Pre-populated notes for reviewer
+    ai_reviewed_at = Column(DateTime, nullable=True)
+
     # Debrief status
     debrief_status = Column(SQLEnum(TicketStatus, values_callable=lambda x: [e.value for e in x]), default=TicketStatus.PENDING)
     

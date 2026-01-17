@@ -336,6 +336,9 @@
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Photos Reviewed ({{ ticket.photo_count }} photos attached)
+                    {% if auto_suggestions.photos_reviewed %}
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ auto_suggestions.photos_reviewed.value|upper }}</span>
+                    {% endif %}
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
                         <div class="font-semibold text-christmas-cream mb-1">How to Grade Photos</div>
@@ -348,15 +351,18 @@
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="photos_reviewed" value="pass" class="sr-only" required>
+                        <input type="radio" name="photos_reviewed" value="pass" class="sr-only" required
+                            {% if auto_suggestions.photos_reviewed and auto_suggestions.photos_reviewed.value == 'pass' %}checked{% endif %}>
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
-                        <input type="radio" name="photos_reviewed" value="fail" class="sr-only">
+                        <input type="radio" name="photos_reviewed" value="fail" class="sr-only"
+                            {% if auto_suggestions.photos_reviewed and auto_suggestions.photos_reviewed.value == 'fail' %}checked{% endif %}>
                         <span>✗ Fail</span>
                     </label>
                     <label class="na-option">
-                        <input type="radio" name="photos_reviewed" value="na" class="sr-only">
+                        <input type="radio" name="photos_reviewed" value="na" class="sr-only"
+                            {% if auto_suggestions.photos_reviewed and auto_suggestions.photos_reviewed.value == 'na' %}checked{% endif %}>
                         <span>N/A</span>
                     </label>
                 </div>
@@ -364,10 +370,37 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
+            <!-- AI Invoice Review Panel (if available) -->
+            {% if ticket.ai_invoice_score %}
+            <div class="rounded-lg border border-blue-600/30 bg-blue-900/10 mb-4">
+                <div class="px-4 py-3 border-b border-blue-600/20 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-blue-400">🤖</span>
+                        <h3 class="text-sm font-semibold text-blue-200">AI Invoice Review</h3>
+                        <span class="px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">Suggestion</span>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold {% if ticket.ai_invoice_score >= 7 %}text-christmas-green-light{% elif ticket.ai_invoice_score >= 4 %}text-yellow-400{% else %}text-christmas-brown{% endif %}">
+                            {{ ticket.ai_invoice_score }}/10
+                        </div>
+                    </div>
+                </div>
+                {% if ticket.ai_invoice_notes %}
+                <div class="px-4 py-3">
+                    <p class="text-sm text-gray-300">{{ ticket.ai_invoice_notes }}</p>
+                    <p class="text-xs text-gray-500 mt-2">Review and adjust the score below based on your own assessment.</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <!-- 2. Invoice Summary Score -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Invoice Summary Quality (1-10)
+                    {% if ticket.ai_invoice_score %}
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ ticket.ai_invoice_score }}</span>
+                    {% endif %}
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
                         <div class="font-semibold text-christmas-cream mb-1">How to Score Invoice Summary</div>
@@ -381,14 +414,16 @@
                 <div class="flex items-center space-x-4">
                     <input type="range" name="invoice_summary_score" id="invoice-score-slider" min="1" max="10"
                         class="w-48 h-2 rounded-lg appearance-none cursor-pointer opacity-50"
-                        oninput="setInvoiceScore(this.value)">
-                    <span id="score-display" class="text-2xl font-bold text-gray-500 w-8">-</span>
+                        oninput="setInvoiceScore(this.value)"
+                        {% if ticket.ai_invoice_score %}value="{{ ticket.ai_invoice_score }}"{% endif %}>
+                    <span id="score-display" class="text-2xl font-bold text-gray-500 w-8">{% if ticket.ai_invoice_score %}{{ ticket.ai_invoice_score }}{% else %}-{% endif %}</span>
                     <span class="text-sm text-gray-500">/ 10</span>
-                    <span id="score-required" class="text-xs text-christmas-brown ml-2">← Select a score</span>
+                    <span id="score-required" class="text-xs text-christmas-brown ml-2 {% if ticket.ai_invoice_score %}hidden{% endif %}">← Select a score</span>
                 </div>
-                <input type="hidden" name="invoice_summary_score_set" id="invoice-score-set" value="false">
+                <input type="hidden" name="invoice_summary_score_set" id="invoice-score-set" value="{% if ticket.ai_invoice_score %}true{% else %}false{% endif %}">
                 <input type="text" name="invoice_summary_notes" placeholder="Notes (optional)"
-                    class="mt-2 w-full rounded-md p-2 border text-sm">
+                    class="mt-2 w-full rounded-md p-2 border text-sm"
+                    {% if ticket.ai_invoice_notes %}value="{{ ticket.ai_invoice_notes }}"{% endif %}>
             </div>
 
             <!-- Membership Visit Context Banner (for tune-up jobs) -->
@@ -509,6 +544,9 @@
                     <span class="{% if ticket.payment_collected %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">
                         ({% if ticket.payment_collected %}Collected{% if ticket.payment_method %} via {{ ticket.payment_method }}{% endif %}{% else %}Not Collected - ${{ "{:,.2f}".format(ticket.invoice_balance) }} balance{% endif %})
                     </span>
+                    {% if auto_suggestions.payment_verified %}
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ auto_suggestions.payment_verified.value|upper }}</span>
+                    {% endif %}
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
                         <div class="font-semibold text-christmas-cream mb-1">How to Grade Payment</div>
@@ -540,15 +578,18 @@
                 {% endif %}
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="payment_verified" value="pass" class="sr-only" required {% if ticket.payment_collected and ticket.payment_method %}checked{% endif %}>
+                        <input type="radio" name="payment_verified" value="pass" class="sr-only" required
+                            {% if auto_suggestions.payment_verified and auto_suggestions.payment_verified.value == 'pass' %}checked{% endif %}>
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
-                        <input type="radio" name="payment_verified" value="fail" class="sr-only">
+                        <input type="radio" name="payment_verified" value="fail" class="sr-only"
+                            {% if auto_suggestions.payment_verified and auto_suggestions.payment_verified.value == 'fail' %}checked{% endif %}>
                         <span>✗ Fail</span>
                     </label>
                     <label class="na-option">
-                        <input type="radio" name="payment_verified" value="na" class="sr-only">
+                        <input type="radio" name="payment_verified" value="na" class="sr-only"
+                            {% if auto_suggestions.payment_verified and auto_suggestions.payment_verified.value == 'na' %}checked{% endif %}>
                         <span>N/A</span>
                     </label>
                 </div>
@@ -563,6 +604,9 @@
                     {% if ticket.is_opportunity %}
                     <span class="ml-2 text-christmas-gold text-xs font-semibold">🎯 OPPORTUNITY JOB - Estimates Expected</span>
                     {% endif %}
+                    {% if auto_suggestions.estimates_verified %}
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ auto_suggestions.estimates_verified.value|upper }}</span>
+                    {% endif %}
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
                         <div class="font-semibold text-christmas-cream mb-1">How to Grade Estimates</div>
@@ -575,15 +619,18 @@
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="estimates_verified" value="pass" class="sr-only" required>
+                        <input type="radio" name="estimates_verified" value="pass" class="sr-only" required
+                            {% if auto_suggestions.estimates_verified and auto_suggestions.estimates_verified.value == 'pass' %}checked{% endif %}>
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
-                        <input type="radio" name="estimates_verified" value="fail" class="sr-only">
+                        <input type="radio" name="estimates_verified" value="fail" class="sr-only"
+                            {% if auto_suggestions.estimates_verified and auto_suggestions.estimates_verified.value == 'fail' %}checked{% endif %}>
                         <span>✗ Fail</span>
                     </label>
                     <label class="na-option">
-                        <input type="radio" name="estimates_verified" value="na" class="sr-only">
+                        <input type="radio" name="estimates_verified" value="na" class="sr-only"
+                            {% if auto_suggestions.estimates_verified and auto_suggestions.estimates_verified.value == 'na' %}checked{% endif %}>
                         <span>N/A</span>
                     </label>
                 </div>
@@ -598,6 +645,9 @@
                     <span class="{% if ticket.membership_sold %}text-christmas-green-light{% else %}text-gray-500{% endif %}">
                         ({{ "Sold: " + (ticket.membership_type or "Unknown") if ticket.membership_sold else "Not Sold" }})
                     </span>
+                    {% if auto_suggestions.membership_verified %}
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ auto_suggestions.membership_verified.value|upper }}</span>
+                    {% endif %}
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
                         <div class="font-semibold text-christmas-cream mb-1">How to Grade Membership</div>
@@ -610,15 +660,18 @@
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="membership_verified" value="pass" class="sr-only" required>
+                        <input type="radio" name="membership_verified" value="pass" class="sr-only" required
+                            {% if auto_suggestions.membership_verified and auto_suggestions.membership_verified.value == 'pass' %}checked{% endif %}>
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
-                        <input type="radio" name="membership_verified" value="fail" class="sr-only">
+                        <input type="radio" name="membership_verified" value="fail" class="sr-only"
+                            {% if auto_suggestions.membership_verified and auto_suggestions.membership_verified.value == 'fail' %}checked{% endif %}>
                         <span>✗ Fail</span>
                     </label>
                     <label class="na-option">
-                        <input type="radio" name="membership_verified" value="na" class="sr-only">
+                        <input type="radio" name="membership_verified" value="na" class="sr-only"
+                            {% if auto_suggestions.membership_verified and auto_suggestions.membership_verified.value == 'na' %}checked{% endif %}>
                         <span>N/A</span>
                     </label>
                 </div>
@@ -850,7 +903,7 @@
                                 </div>
                                 <div class="flex items-center gap-4">
                                     <span class="text-gray-500">x{{ item.quantity or 1 }}</span>
-                                    <span class="text-gray-400 w-20 text-right">${{ "%.2f"|format(item.totalPrice or 0) }}</span>
+                                    <span class="text-gray-400 w-20 text-right">${{ "%.2f"|format((item.totalPrice or 0)|float) }}</span>
                                 </div>
                             </div>
                             {% endfor %}
@@ -875,6 +928,9 @@
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Materials & Equipment on Invoice?
                     <span class="text-christmas-gold text-xs ml-1">💰 Critical for Gross Margin</span>
+                    {% if auto_suggestions.materials_on_invoice %}
+                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ auto_suggestions.materials_on_invoice.value|upper }}</span>
+                    {% endif %}
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
                         <div class="font-semibold text-christmas-cream mb-1">How to Grade Materials on Invoice</div>
@@ -888,15 +944,18 @@
                 <p class="text-xs text-gray-400 mb-2">Ask tech: "Did you add all materials and equipment used to the invoice?"</p>
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="materials_on_invoice" value="pass" class="sr-only" required>
+                        <input type="radio" name="materials_on_invoice" value="pass" class="sr-only" required
+                            {% if auto_suggestions.materials_on_invoice and auto_suggestions.materials_on_invoice.value == 'pass' %}checked{% endif %}>
                         <span>✓ Yes - All Added</span>
                     </label>
                     <label class="fail-option">
-                        <input type="radio" name="materials_on_invoice" value="fail" class="sr-only">
+                        <input type="radio" name="materials_on_invoice" value="fail" class="sr-only"
+                            {% if auto_suggestions.materials_on_invoice and auto_suggestions.materials_on_invoice.value == 'fail' %}checked{% endif %}>
                         <span>✗ No - Missing Items</span>
                     </label>
                     <label class="na-option">
-                        <input type="radio" name="materials_on_invoice" value="na" class="sr-only">
+                        <input type="radio" name="materials_on_invoice" value="na" class="sr-only"
+                            {% if auto_suggestions.materials_on_invoice and auto_suggestions.materials_on_invoice.value == 'na' %}checked{% endif %}>
                         <span>N/A</span>
                     </label>
                 </div>
@@ -1099,6 +1158,20 @@ function setInvoiceScore(value) {
     scoreSet.value = 'true';
     formDirty = true;
 }
+
+// Initialize score display if AI has pre-selected a value
+document.addEventListener('DOMContentLoaded', function() {
+    const scoreSet = document.getElementById('invoice-score-set');
+    const slider = document.getElementById('invoice-score-slider');
+    const display = document.getElementById('score-display');
+
+    if (scoreSet && scoreSet.value === 'true' && slider) {
+        // AI has pre-selected a score, update styling
+        display.classList.remove('text-gray-500');
+        display.classList.add('text-christmas-green-light');
+        slider.classList.remove('opacity-50');
+    }
+});
 
 function toggleFollowup(show) {
     const details = document.getElementById('followup-details');

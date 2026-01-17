@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from .database import TicketRaw, WebhookLog, TicketStatus, BusinessUnit
 from .servicetitan import get_st_client, categorize_job_type
+from .ai_review import update_ticket_ai_review
 
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
@@ -212,6 +213,13 @@ async def process_webhook(payload: dict, db: Session) -> dict:
         log.processed = True
         db.commit()
 
+        # Run AI invoice review in background (non-blocking)
+        try:
+            await update_ticket_ai_review(ticket, db)
+        except Exception as e:
+            print(f"AI review failed for job {job_id}: {e}")
+            # Don't fail the webhook if AI review fails
+
         return {
             "processed": True,
             "job_id": job_id,
@@ -333,6 +341,13 @@ async def manual_add_job(job_id: int, db: Session) -> dict:
 
         db.add(ticket)
         db.commit()
+
+        # Run AI invoice review in background (non-blocking)
+        try:
+            await update_ticket_ai_review(ticket, db)
+        except Exception as e:
+            print(f"AI review failed for job {job_id}: {e}")
+            # Don't fail if AI review fails
 
         return {
             "processed": True,
