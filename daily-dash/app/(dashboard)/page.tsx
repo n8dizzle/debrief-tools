@@ -277,7 +277,7 @@ function RevenueCard({ label, revenue, target, loading, accentColor, expectedPac
             className="text-xs"
             style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
           >
-            {isAheadOfPace ? '▲ Ahead' : '▼ Behind'} of pace
+            {isAheadOfPace ? '▲ Ahead of pace' : '▼ Behind pace'}
           </span>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
             Expected: {expectedPacing}%
