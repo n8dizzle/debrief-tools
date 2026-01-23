@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SummaryCard, PacingSection } from '@/features/pacing/components';
 
 interface PacingData {
   todayRevenue: number;
@@ -10,6 +9,9 @@ interface PacingData {
   weeklyTarget: number;
   mtdRevenue: number;
   monthlyTarget: number;
+  qtdRevenue: number;
+  quarterlyTarget: number;
+  quarter: number;
   pacingPercent: number;
   businessDaysRemaining: number;
   businessDaysElapsed: number;
@@ -45,15 +47,7 @@ const departmentConfig: Record<string, { revenueKpi: string; label: string }> = 
   'marketing': { revenueKpi: 'leads', label: 'Marketing' },
 };
 
-function formatCurrency(value: number, abbreviated: boolean = false): string {
-  if (abbreviated) {
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    }
-    if (value >= 1000) {
-      return `$${Math.round(value / 1000)}K`;
-    }
-  }
+function formatCurrency(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
@@ -85,9 +79,82 @@ function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+// Revenue Card Component
+interface RevenueCardProps {
+  label: string;
+  revenue: number;
+  target: number;
+  loading?: boolean;
+  accentColor: 'green' | 'blue' | 'gold' | 'purple';
+}
+
+function RevenueCard({ label, revenue, target, loading, accentColor }: RevenueCardProps) {
+  const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
+  const statusColor = getStatusColor(percentage);
+
+  const accentColors = {
+    green: { border: 'rgba(52, 102, 67, 0.3)' },
+    blue: { border: 'rgba(59, 130, 246, 0.3)' },
+    gold: { border: 'rgba(184, 149, 107, 0.3)' },
+    purple: { border: 'rgba(139, 92, 246, 0.3)' },
+  };
+
+  const colors = accentColors[accentColor];
+
+  return (
+    <div
+      className="relative p-5 rounded-xl transition-all hover:scale-[1.02]"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: `1px solid ${colors.border}`,
+      }}
+    >
+      {/* Percentage Badge */}
+      <div
+        className="absolute top-4 right-4 px-2.5 py-1 rounded-full text-xs font-bold"
+        style={{
+          backgroundColor: `${statusColor}20`,
+          color: statusColor,
+        }}
+      >
+        {loading ? '...' : `${percentage}%`}
+      </div>
+
+      {/* Label */}
+      <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </p>
+
+      {/* Revenue */}
+      <p className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+        {loading ? '...' : formatCurrency(revenue)}
+      </p>
+
+      {/* Target */}
+      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        of {formatCurrency(target)} target
+      </p>
+
+      {/* Progress Bar */}
+      <div
+        className="mt-4 h-1.5 rounded-full overflow-hidden"
+        style={{ backgroundColor: 'var(--bg-card)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${Math.min(percentage, 100)}%`,
+            backgroundColor: statusColor,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('');
-  const [selectedDate, setSelectedDate] = useState(getYesterdayDateString()); // Default to yesterday
+  const [selectedDate, setSelectedDate] = useState(getYesterdayDateString());
   const [dashData, setDashData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -119,7 +186,7 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setLastSync(new Date().toLocaleTimeString());
-        await fetchData(); // Refresh data after sync
+        await fetchData();
       }
     } catch (err) {
       console.error('Sync error:', err);
@@ -138,10 +205,8 @@ export default function DashboardPage() {
     };
     setCurrentDate(now.toLocaleDateString('en-US', options));
 
-    // Initial fetch
     fetchData();
 
-    // Auto-refresh every 10 minutes
     const interval = setInterval(fetchData, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [selectedDate]);
@@ -149,12 +214,14 @@ export default function DashboardPage() {
   // Use real data from API, with fallback defaults
   const pacing = dashData?.pacing;
   const todayRevenue = pacing?.todayRevenue || 0;
-  const dailyTarget = pacing?.dailyTarget || 36368;
+  const dailyTarget = pacing?.dailyTarget || 38864;
   const weekRevenue = pacing?.wtdRevenue || 0;
-  const weeklyTarget = pacing?.weeklyTarget || 181840;
+  const weeklyTarget = pacing?.weeklyTarget || 194318;
   const mtdRevenue = pacing?.mtdRevenue || 0;
-  const monthlyTarget = pacing?.monthlyTarget || 800096;
-  const monthlyProgress = pacing?.pacingPercent || 0;
+  const monthlyTarget = pacing?.monthlyTarget || 855000;
+  const qtdRevenue = pacing?.qtdRevenue || 0;
+  const quarterlyTarget = pacing?.quarterlyTarget || 2565000;
+  const currentQuarter = pacing?.quarter || Math.floor((new Date().getMonth()) / 3) + 1;
 
   // Extract department summary data from API response
   const getDepartmentSummary = () => {
@@ -166,7 +233,6 @@ export default function DashboardPage() {
         return { name: config.label, today: 0, mtd: 0, target: 0, pacing: 0 };
       }
 
-      // Find the primary KPI for this department
       const primaryKpi = dept.kpis.find(k => k.slug === config.revenueKpi);
       const todayValue = primaryKpi?.actual || 0;
       const targetValue = primaryKpi?.target || 0;
@@ -175,7 +241,7 @@ export default function DashboardPage() {
       return {
         name: config.label,
         today: todayValue,
-        mtd: 0, // TODO: Calculate MTD from historical data
+        mtd: 0,
         target: targetValue,
         pacing: Math.round(pacingValue),
       };
@@ -290,41 +356,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <SummaryCard
-          icon="dollar"
-          label="Today's Revenue"
-          value={loading ? '...' : formatCurrency(todayRevenue)}
-          subValue={`of ${formatCurrency(dailyTarget)}`}
-          trend={todayRevenue > dailyTarget ? { direction: 'up', value: `+${Math.round(((todayRevenue / dailyTarget) - 1) * 100)}%` } : undefined}
+      {/* Revenue Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <RevenueCard
+          label="Today"
+          revenue={todayRevenue}
+          target={dailyTarget}
+          loading={loading}
           accentColor="green"
         />
-        <SummaryCard
-          icon="percent"
-          label="Monthly Progress"
-          value={loading ? '...' : `${monthlyProgress}%`}
-          subValue={`of ${formatCurrency(monthlyTarget)}`}
-          accentColor="gold"
-        />
-        <SummaryCard
-          icon="trend"
+        <RevenueCard
           label="This Week"
-          value={loading ? '...' : formatCurrency(weekRevenue)}
-          subValue={`of ${formatCurrency(weeklyTarget)}`}
-          trend={weekRevenue > weeklyTarget * 0.5 ? { direction: 'up', value: `${Math.round((weekRevenue / weeklyTarget) * 100)}%` } : undefined}
+          revenue={weekRevenue}
+          target={weeklyTarget}
+          loading={loading}
           accentColor="blue"
         />
-      </div>
-
-      {/* Goal Pacing Section */}
-      <div className="mb-8">
-        <PacingSection data={{
-          today: { current: todayRevenue, target: dailyTarget },
-          week: { current: weekRevenue, target: weeklyTarget },
-          month: { current: mtdRevenue, target: monthlyTarget },
-          year: { current: mtdRevenue, target: 15100000 }, // Annual target
-        }} />
+        <RevenueCard
+          label="This Month"
+          revenue={mtdRevenue}
+          target={monthlyTarget}
+          loading={loading}
+          accentColor="gold"
+        />
+        <RevenueCard
+          label={`Q${currentQuarter}`}
+          revenue={qtdRevenue}
+          target={quarterlyTarget}
+          loading={loading}
+          accentColor="purple"
+        />
       </div>
 
       {/* Department Summary */}

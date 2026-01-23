@@ -113,12 +113,21 @@ export async function POST(request: NextRequest) {
             actualValue = await stClient.getDailySales(date);
             break;
           case 'revenue-completed':
-            actualValue = await stClient.getDailyRevenue(date);
+            // Use invoice totals for completed jobs (matches ST's "Completed Revenue")
+            const revBreakdown = await stClient.getTotalRevenue(date);
+            actualValue = revBreakdown.completedRevenue;
             break;
           case 'non-job-revenue':
-            actualValue = await stClient.getNonJobRevenue(date);
+            const nonJobBreakdown = await stClient.getTotalRevenue(date);
+            actualValue = nonJobBreakdown.nonJobRevenue;
+            break;
+          case 'adj-revenue':
+            // Adjustment revenue (refunds, credits - usually negative)
+            const adjBreakdown = await stClient.getTotalRevenue(date);
+            actualValue = adjBreakdown.adjRevenue;
             break;
           case 'total-revenue':
+            // Total = Completed + Non-Job + Adj (matches ST's "Total Revenue")
             const totalRev = await stClient.getTotalRevenue(date);
             actualValue = totalRev.totalRevenue;
             break;

@@ -216,15 +216,15 @@ export async function GET(request: NextRequest) {
     const totalWeekBusinessDays = getTotalBusinessDaysInWeek(selectedDate, holidays);
     const weeklyTarget = dailyTarget * totalWeekBusinessDays;
 
-    // Get MTD revenue (sum of revenue-completed for the month)
-    // Note: Using revenue-completed only to match ServiceTitan's "Completed Revenue"
+    // Get MTD revenue (sum of total-revenue for the month)
+    // Using total-revenue to match ServiceTitan's "Total Revenue" = Completed + Non-Job + Adj
     const firstOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const { data: mtdSnapshots } = await supabase
       .from('huddle_snapshots')
       .select('actual_value, huddle_kpis!inner(slug)')
       .gte('snapshot_date', firstOfMonth)
       .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'revenue-completed');
+      .eq('huddle_kpis.slug', 'total-revenue');
 
     const mtdRevenue = mtdSnapshots?.reduce((sum, s) => {
       const snap = s as unknown as { actual_value: number };
@@ -242,17 +242,47 @@ export async function GET(request: NextRequest) {
       .select('actual_value, huddle_kpis!inner(slug)')
       .gte('snapshot_date', mondayStr)
       .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'revenue-completed');
+      .eq('huddle_kpis.slug', 'total-revenue');
 
     const wtdRevenue = wtdSnapshots?.reduce((sum, s) => {
       const snap = s as unknown as { actual_value: number };
       return sum + (Number(snap.actual_value) || 0);
     }, 0) || 0;
 
-    // Today's revenue from snapshot - use revenue-completed (matches ST's "Completed Revenue")
-    // Note: total-revenue includes non-job revenue which has calculation issues
-    const completedRevenueKpi = kpis.find(k => k.slug === 'revenue-completed');
-    const todaySnapshot = snapshotMap.get(completedRevenueKpi?.id || '');
+    // Calculate quarterly data
+    const quarter = Math.floor((month - 1) / 3) + 1;
+    const quarterStartMonth = (quarter - 1) * 3 + 1;
+    const quarterEndMonth = quarter * 3;
+    const quarterStartDate = new Date(year, quarterStartMonth - 1, 1).toISOString().split('T')[0];
+
+    // Get quarterly target (sum of 3 months)
+    const { data: quarterlyTargets } = await supabase
+      .from('dash_monthly_targets')
+      .select('target_value')
+      .eq('year', year)
+      .gte('month', quarterStartMonth)
+      .lte('month', quarterEndMonth)
+      .eq('department', 'TOTAL')
+      .eq('target_type', 'revenue');
+
+    const quarterlyTargetValue = quarterlyTargets?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+
+    // Get QTD revenue
+    const { data: qtdSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value, huddle_kpis!inner(slug)')
+      .gte('snapshot_date', quarterStartDate)
+      .lte('snapshot_date', date)
+      .eq('huddle_kpis.slug', 'total-revenue');
+
+    const qtdRevenue = qtdSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
+
+    // Today's revenue from snapshot - use total-revenue to match ST's "Total Revenue"
+    const totalRevenueKpi = kpis.find(k => k.slug === 'total-revenue');
+    const todaySnapshot = snapshotMap.get(totalRevenueKpi?.id || '');
     const todayRevenue = Number(todaySnapshot?.actual_value) || 0;
 
     // Calculate pacing percentage
@@ -271,6 +301,9 @@ export async function GET(request: NextRequest) {
       weeklyTarget,
       mtdRevenue,
       monthlyTarget: monthlyTargetValue,
+      qtdRevenue,
+      quarterlyTarget: quarterlyTargetValue,
+      quarter,
       pacingPercent,
       businessDaysRemaining,
       businessDaysElapsed: daysElapsedInMonth,

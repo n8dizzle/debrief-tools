@@ -268,39 +268,51 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get total revenue breakdown
-   * - jobRevenue: sum of completed job totals
-   * - nonJobRevenue: invoice revenue not tied to completed jobs
-   * - totalRevenue: jobRevenue + nonJobRevenue
+   * Get total revenue breakdown matching ServiceTitan's dashboard formula:
+   * Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
+   *
+   * - completedRevenue: sum of job.total for completed jobs (from jobs API)
+   * - nonJobRevenue: sum of positive invoices NOT tied to any job (job is null)
+   * - adjRevenue: sum of negative invoices (refunds, credits, adjustments)
+   * - totalRevenue: completedRevenue + nonJobRevenue + adjRevenue
    */
   async getTotalRevenue(date: string, businessUnitId?: number): Promise<{
-    jobRevenue: number;
+    completedRevenue: number;
     nonJobRevenue: number;
+    adjRevenue: number;
     totalRevenue: number;
   }> {
     const nextDay = this.getNextDay(date);
 
-    // Get completed jobs
+    // Completed Revenue = sum of job.total for jobs completed on this date
     const jobs = await this.getCompletedJobs(date, nextDay, businessUnitId);
-    const jobRevenue = jobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
-    const completedJobIds = new Set(jobs.map((j) => j.id));
+    const completedRevenue = jobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
 
-    // Get all invoices created on date
+    // Get all invoices created on date for non-job and adj revenue
     const invoices = await this.getInvoices(date, nextDay);
-    const invoiceTotal = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
 
-    // Sum invoices for completed jobs
-    const completedJobInvoiceTotal = invoices
-      .filter((inv) => inv.job && completedJobIds.has(inv.job.id))
-      .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+    // Categorize invoices
+    let nonJobRevenue = 0;
+    let adjRevenue = 0;
 
-    // Non-job revenue = extra invoice revenue not from completed jobs
-    const nonJobRevenue = Math.max(0, invoiceTotal - completedJobInvoiceTotal);
+    for (const inv of invoices) {
+      const total = Number(inv.total) || 0;
+
+      if (total < 0) {
+        // Negative invoices are adjustments (refunds, credits)
+        adjRevenue += total;
+      } else if (!inv.job) {
+        // Positive invoice with no job = non-job revenue (memberships, etc.)
+        nonJobRevenue += total;
+      }
+      // Positive invoices tied to jobs are already counted in completedRevenue via job.total
+    }
 
     return {
-      jobRevenue,
+      completedRevenue,
       nonJobRevenue,
-      totalRevenue: jobRevenue + nonJobRevenue,
+      adjRevenue,
+      totalRevenue: completedRevenue + nonJobRevenue + adjRevenue,
     };
   }
 
