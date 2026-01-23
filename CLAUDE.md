@@ -5,11 +5,37 @@
 This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
-2. **Internal Portal** (`/internal-portal`) - Not yet deployed
+2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
+3. **Daily Dash** (`/daily-dash`) - Dashboard at dash.christmasair.com (not yet deployed)
 
 ## Recent Updates (Jan 23, 2026)
 
-### Internal Portal - Daily Huddle Data Sync Architecture (NOT YET DEPLOYED)
+### Split Internal Portal into Two Apps
+Separated the monolithic internal-portal into two independent Next.js applications:
+
+**Internal Portal** (`/internal-portal`) - Port 3000
+- Simple company intranet with tools/links
+- Routes: `/`, `/login`, `/preview`, `/admin/*`
+- API: `/api/auth/*`, `/api/tools/*`, `/api/users/*`, `/api/departments`, `/api/stats`
+- Deployment: portal.christmasair.com
+
+**Daily Dash** (`/daily-dash`) - Port 3001
+- Dashboard for daily operations tracking
+- Routes: `/`, `/pacing`, `/huddle`, `/huddle/history`, `/reviews`, `/settings`, `/[dept]`
+- API: `/api/huddle/*`, `/api/reviews/*`, `/api/targets/*`, `/api/departments`
+- Features organized in `/features/pacing/` and `/features/huddle/`
+- Deployment: dash.christmasair.com
+
+**Local Development:**
+```bash
+# Terminal 1 - Internal Portal
+cd internal-portal && npm run dev  # http://localhost:3000
+
+# Terminal 2 - Daily Dash
+cd daily-dash && npm run dev       # http://localhost:3001
+```
+
+### Daily Dash - Daily Huddle Data Sync Architecture (NOT YET DEPLOYED)
 - **Problem Solved**: MTD/WTD numbers were incorrect because data sync was manual-only
 - **Automated Daily Sync** via Vercel Cron Jobs:
   - Daily at 6am CT: Syncs yesterday's final numbers
@@ -23,14 +49,13 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
   - Warns when MTD data is incomplete
   - One-click backfill button for owners
   - Last sync timestamp indicator
-- **New API Endpoints**:
+- **API Endpoints**:
   - `POST /api/huddle/backfill` - Backfill date range
   - `GET /api/huddle/backfill` - Check data completeness
   - `GET /api/huddle/sync-status` - Get sync status
-  - `GET /api/cron/huddle-sync` - Vercel cron endpoint
 - **Environment Variable**: `CRON_SECRET` for cron authentication
 
-### Deployment Checklist for Huddle Sync
+### Deployment Checklist for Daily Dash
 ```bash
 # 1. Add CRON_SECRET to Vercel environment variables
 # Generate with: openssl rand -hex 32
@@ -39,7 +64,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 vercel --prod
 
 # 3. After deploy, run initial backfill via curl or dashboard
-curl -X POST "https://portal.christmasair.com/api/huddle/backfill" \
+curl -X POST "https://dash.christmasair.com/api/huddle/backfill" \
   -H "Authorization: Bearer $CRON_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"startDate": "2026-01-01", "endDate": "2026-01-22", "skipExisting": true}'
@@ -140,7 +165,7 @@ curl -X POST "http://localhost:8000/api/run-ai-reviews?limit=100&status=pending"
 - **Payment method** visible in completed debrief view
 - Payment lookup improvements (customer ID filter, 90-day lookback, client-side filtering)
 
-### Internal Portal (internal-portal) - Not Deployed Yet
+### Daily Dash (daily-dash) - Not Deployed Yet
 - **Reviews dashboard** - Added recharts for data visualization
 - **API auth fix** - Added `credentials: 'include'` to fetch calls
 - **Stats API** - Extended types for daily counts and period tracking
@@ -157,6 +182,11 @@ See `DEPLOYMENT_STATUS.md` for full details.
 
 ### Internal Portal - NOT DEPLOYED
 - Planned for Vercel at portal.christmasair.com
+- Simple tools/links intranet
+
+### Daily Dash - NOT DEPLOYED
+- Planned for Vercel at dash.christmasair.com
+- Pacing, huddle, reviews dashboards
 
 ## Key Information
 
@@ -187,14 +217,17 @@ curl -X POST http://localhost:8000/api/sync  # Trigger sync
 
 ## Development Notes
 
-- The repo root contains both projects as subfolders
-- Local development runs on localhost:8000 (debrief-qa) and localhost:3000 (internal-portal)
+- The repo root contains three projects as subfolders:
+  - `/debrief-qa` - Python/FastAPI (port 8000)
+  - `/internal-portal` - Next.js (port 3000)
+  - `/daily-dash` - Next.js (port 3001)
 - Always test locally before deploying
-- Database is SQLite, stored on server (not in git)
+- Database: SQLite for debrief-qa (on server), Supabase for portal/dash
 
 ## DNS (Namecheap)
 - debrief.christmasair.com -> A record -> 64.225.12.86
 - portal.christmasair.com -> Not configured yet
+- dash.christmasair.com -> Not configured yet
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
