@@ -18,6 +18,109 @@ interface PacingData {
   businessDaysInMonth: number;
 }
 
+// Business hours: Mon-Sat 8am-6pm (10 hours per day)
+const BUSINESS_START_HOUR = 8;
+const BUSINESS_END_HOUR = 18;
+const BUSINESS_HOURS_PER_DAY = BUSINESS_END_HOUR - BUSINESS_START_HOUR; // 10 hours
+
+// Calculate what percentage of the business day has elapsed
+function getDailyPacingPercent(): number {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+
+  // Sunday is not a business day
+  if (dayOfWeek === 0) return 0;
+
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+
+  if (currentHour < BUSINESS_START_HOUR) return 0;
+  if (currentHour >= BUSINESS_END_HOUR) return 100;
+
+  const hoursElapsed = currentHour - BUSINESS_START_HOUR;
+  return Math.round((hoursElapsed / BUSINESS_HOURS_PER_DAY) * 100);
+}
+
+// Calculate what percentage of the business week has elapsed (Mon-Sat)
+function getWeeklyPacingPercent(): number {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+
+  // Sunday - week hasn't started yet for business purposes
+  if (dayOfWeek === 0) return 0;
+
+  // Mon=1 -> day 1, Tue=2 -> day 2, ..., Sat=6 -> day 6
+  const businessDayOfWeek = dayOfWeek;
+  const totalBusinessDaysInWeek = 6; // Mon-Sat
+
+  // Calculate partial day progress
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  let dayProgress = 0;
+  if (currentHour >= BUSINESS_END_HOUR) {
+    dayProgress = 1;
+  } else if (currentHour >= BUSINESS_START_HOUR) {
+    dayProgress = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+  }
+
+  // Days completed + partial current day
+  const daysCompleted = businessDayOfWeek - 1;
+  const totalProgress = (daysCompleted + dayProgress) / totalBusinessDaysInWeek;
+
+  return Math.round(totalProgress * 100);
+}
+
+// Calculate what percentage of the business month has elapsed
+function getMonthlyPacingPercent(businessDaysElapsed: number, businessDaysInMonth: number): number {
+  if (businessDaysInMonth <= 0) return 0;
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+
+  // Add partial day progress if it's a business day (Mon-Sat)
+  let partialDay = 0;
+  if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    if (currentHour >= BUSINESS_END_HOUR) {
+      partialDay = 1;
+    } else if (currentHour >= BUSINESS_START_HOUR) {
+      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+    }
+  }
+
+  // businessDaysElapsed from API is full days completed, add partial
+  const totalElapsed = businessDaysElapsed + partialDay;
+  return Math.round((totalElapsed / businessDaysInMonth) * 100);
+}
+
+// Calculate what percentage of the business quarter has elapsed
+function getQuarterlyPacingPercent(businessDaysElapsed: number, businessDaysInMonth: number, quarter: number): number {
+  // Estimate ~22 business days per month, 66 per quarter
+  const estimatedBusinessDaysInQuarter = 66;
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // 1-12
+  const quarterStartMonth = (quarter - 1) * 3 + 1;
+  const monthsIntoQuarter = currentMonth - quarterStartMonth;
+
+  // Calculate total business days elapsed in quarter
+  // Previous months in quarter (estimate 22 days each) + current month progress
+  const previousMonthsDays = monthsIntoQuarter * 22;
+  const currentMonthProgress = businessDaysElapsed;
+
+  const now2 = new Date();
+  const dayOfWeek = now2.getDay();
+  let partialDay = 0;
+  if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+    const currentHour = now2.getHours() + now2.getMinutes() / 60;
+    if (currentHour >= BUSINESS_END_HOUR) {
+      partialDay = 1;
+    } else if (currentHour >= BUSINESS_START_HOUR) {
+      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+    }
+  }
+
+  const totalElapsed = previousMonthsDays + currentMonthProgress + partialDay;
+  return Math.round((totalElapsed / estimatedBusinessDaysInQuarter) * 100);
+}
+
 interface KPIData {
   slug: string;
   name: string;
@@ -86,11 +189,15 @@ interface RevenueCardProps {
   target: number;
   loading?: boolean;
   accentColor: 'green' | 'blue' | 'gold' | 'purple';
+  expectedPacing?: number; // Where we should be based on time elapsed (0-100)
 }
 
-function RevenueCard({ label, revenue, target, loading, accentColor }: RevenueCardProps) {
+function RevenueCard({ label, revenue, target, loading, accentColor, expectedPacing }: RevenueCardProps) {
   const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const statusColor = getStatusColor(percentage);
+
+  // Determine if we're ahead or behind pace
+  const isAheadOfPace = expectedPacing !== undefined && percentage >= expectedPacing;
 
   const accentColors = {
     green: { border: 'rgba(52, 102, 67, 0.3)' },
@@ -135,26 +242,55 @@ function RevenueCard({ label, revenue, target, loading, accentColor }: RevenueCa
         of {formatCurrency(target)} target
       </p>
 
-      {/* Progress Bar */}
+      {/* Progress Bar with Pacing Marker */}
       <div
-        className="mt-4 h-1.5 rounded-full overflow-hidden"
+        className="relative mt-4 h-2 rounded-full overflow-visible"
         style={{ backgroundColor: 'var(--bg-card)' }}
       >
+        {/* Actual Progress */}
         <div
-          className="h-full rounded-full transition-all duration-500"
+          className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
           style={{
             width: `${Math.min(percentage, 100)}%`,
             backgroundColor: statusColor,
           }}
         />
+
+        {/* Expected Pacing Marker */}
+        {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 transition-all duration-300"
+            style={{
+              left: `${Math.min(expectedPacing, 100)}%`,
+              backgroundColor: 'var(--christmas-cream)',
+              opacity: 0.8,
+            }}
+            title={`Expected: ${expectedPacing}%`}
+          />
+        )}
       </div>
+
+      {/* Pacing indicator text */}
+      {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
+        <div className="flex items-center justify-between mt-2">
+          <span
+            className="text-xs"
+            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+          >
+            {isAheadOfPace ? '▲ Ahead' : '▼ Behind'} of pace
+          </span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Expected: {expectedPacing}%
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('');
-  const [selectedDate, setSelectedDate] = useState(getYesterdayDateString());
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [dashData, setDashData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -364,6 +500,7 @@ export default function DashboardPage() {
           target={dailyTarget}
           loading={loading}
           accentColor="green"
+          expectedPacing={getDailyPacingPercent()}
         />
         <RevenueCard
           label="This Week"
@@ -371,6 +508,7 @@ export default function DashboardPage() {
           target={weeklyTarget}
           loading={loading}
           accentColor="blue"
+          expectedPacing={getWeeklyPacingPercent()}
         />
         <RevenueCard
           label="This Month"
@@ -378,6 +516,10 @@ export default function DashboardPage() {
           target={monthlyTarget}
           loading={loading}
           accentColor="gold"
+          expectedPacing={getMonthlyPacingPercent(
+            pacing?.businessDaysElapsed || 0,
+            pacing?.businessDaysInMonth || 22
+          )}
         />
         <RevenueCard
           label={`Q${currentQuarter}`}
@@ -385,6 +527,11 @@ export default function DashboardPage() {
           target={quarterlyTarget}
           loading={loading}
           accentColor="purple"
+          expectedPacing={getQuarterlyPacingPercent(
+            pacing?.businessDaysElapsed || 0,
+            pacing?.businessDaysInMonth || 22,
+            currentQuarter
+          )}
         />
       </div>
 
