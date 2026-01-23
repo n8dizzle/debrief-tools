@@ -6,9 +6,17 @@ import { getServerSupabase } from '@/lib/supabase';
 // GET /api/huddle/sync-status - Get sync status and data completeness
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check for cron secret (for scheduled jobs and testing)
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+    const isCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+    // If not cron auth, check session
+    if (!isCronAuth) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     const { searchParams } = new URL(request.url);
