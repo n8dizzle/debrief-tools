@@ -522,7 +522,7 @@ export default function DashboardPage() {
           )}
         />
         <RevenueCard
-          label={`Q${currentQuarter}`}
+          label="This Quarter"
           revenue={qtdRevenue}
           target={quarterlyTarget}
           loading={loading}
