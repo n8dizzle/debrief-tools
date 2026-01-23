@@ -7,8 +7,75 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - Dashboard at dash.christmasair.com (not yet deployed)
+4. **AR Collections** (`/ar-collections`) - AR management at ar.christmasair.com (not yet deployed)
 
 ## Recent Updates (Jan 23, 2026)
+
+### NEW: AR Collections App (`/ar-collections`) - Port 3002
+Complete accounts receivable collections management system.
+
+**Features:**
+- Dashboard with AR metrics (total outstanding, aging buckets, Install vs Service split)
+- Invoice lists with Install/Service tabs (mirrors existing spreadsheet workflow)
+- Collection workflow checkboxes: Day 1/2/3/7, Certified Letter, Closed
+- Job status tracking: QC Booked, Job Not Done, Financing Pending, etc.
+- Control bucket toggle: AR Collectible vs Not In Our Control
+- Customer management with payment history and notes
+- In-House Financing tracker with monthly payment checkboxes
+- Email/SMS templates and send history
+- Reports with aging breakdown and historical trends
+- ServiceTitan sync with automatic daily/hourly updates
+
+**Routes:**
+- `/` - Dashboard with AR metrics
+- `/invoices/install` - Install jobs AR table
+- `/invoices/service` - Service jobs AR table
+- `/invoices/[id]` - Invoice detail with workflow panel
+- `/customers` - Customer list
+- `/customers/[id]` - Customer detail
+- `/financing` - In-house payment plans
+- `/communications` - Email/SMS templates & history
+- `/reports` - Aging reports
+- `/settings` - Sync config
+
+**API Endpoints:**
+- `/api/dashboard` - AR metrics
+- `/api/invoices` - Invoice CRUD + filtering
+- `/api/invoices/[id]/tracking` - Workflow updates
+- `/api/invoices/[id]/notes` - Collection notes
+- `/api/customers` - Customer data
+- `/api/payment-plans` - In-house financing
+- `/api/communications/*` - Templates & history
+- `/api/sync` - Manual sync
+- `/api/cron/sync` - Vercel cron endpoint
+- `/api/reports/snapshots` - Historical data
+
+**Role-Based Permissions:**
+| Action | Employee | Manager | Owner |
+|--------|----------|---------|-------|
+| View invoices | ✓ | ✓ | ✓ |
+| Update workflow | ✓ | ✓ | ✓ |
+| Add notes | ✓ | ✓ | ✓ |
+| Assign owner | ✗ | ✓ | ✓ |
+| Change control bucket | ✗ | ✓ | ✓ |
+| Mark written off | ✗ | ✗ | ✓ |
+| Run manual sync | ✗ | ✓ | ✓ |
+| Manage settings | ✗ | ✗ | ✓ |
+
+**Local Development:**
+```bash
+cd ar-collections && npm install && npm run dev  # http://localhost:3002
+```
+
+**Database Migration:**
+Run `migrations/001_create_ar_tables.sql` in Supabase SQL Editor before first use.
+
+**Deployment (Vercel):**
+1. Add environment variables (see `.env.example`)
+2. Deploy: `vercel --prod`
+3. Run initial sync via dashboard or API
+
+---
 
 ### Split Internal Portal into Two Apps
 Separated the monolithic internal-portal into two independent Next.js applications:
@@ -217,17 +284,23 @@ curl -X POST http://localhost:8000/api/sync  # Trigger sync
 
 ## Development Notes
 
-- The repo root contains three projects as subfolders:
+- The repo root contains four projects as subfolders:
   - `/debrief-qa` - Python/FastAPI (port 8000)
   - `/internal-portal` - Next.js (port 3000)
   - `/daily-dash` - Next.js (port 3001)
+  - `/ar-collections` - Next.js (port 3002)
 - Always test locally before deploying
-- Database: SQLite for debrief-qa (on server), Supabase for portal/dash
+- Database: SQLite for debrief-qa (on server), Supabase for portal/dash/ar-collections
+
+### AR Collections - NOT DEPLOYED
+- Planned for Vercel at ar.christmasair.com
+- AR collections management
 
 ## DNS (Namecheap)
 - debrief.christmasair.com -> A record -> 64.225.12.86
 - portal.christmasair.com -> Not configured yet
 - dash.christmasair.com -> Not configured yet
+- ar.christmasair.com -> Not configured yet
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
