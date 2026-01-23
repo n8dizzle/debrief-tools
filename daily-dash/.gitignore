@@ -1,0 +1,25 @@
+# Vercel
+.vercel
+
+# Environment
+.env*.local
+.env.production
+
+# Build artifacts
+tsconfig.tsbuildinfo
+
+# Dependencies
+node_modules
+
+# Next.js
+.next
+out
+
+# Debug
+npm-debug.log*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
