@@ -181,13 +181,13 @@ export async function GET(request: NextRequest) {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1; // 1-indexed
 
-    // Get monthly target for this month (column is 'target_type', not 'metric_type')
+    // Get monthly target for this month - use TOTAL row for company-wide target
     const { data: monthlyTarget } = await supabase
       .from('dash_monthly_targets')
       .select('*')
       .eq('year', year)
       .eq('month', month)
-      .eq('department', 'christmas')
+      .eq('department', 'TOTAL')
       .eq('target_type', 'revenue')
       .single();
 
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
 
     const holidays = holidaysData?.map(h => h.date) || [];
     const businessDaysInMonth = businessDaysData?.total_days || 22;
-    const monthlyTargetValue = monthlyTarget?.target_value || 800096; // Default to Jan target
+    const monthlyTargetValue = monthlyTarget?.target_value || 855000; // Default to Jan TOTAL target
 
     // Calculate daily target
     const dailyTarget = businessDaysInMonth > 0 ? monthlyTargetValue / businessDaysInMonth : 0;
@@ -216,32 +216,20 @@ export async function GET(request: NextRequest) {
     const totalWeekBusinessDays = getTotalBusinessDaysInWeek(selectedDate, holidays);
     const weeklyTarget = dailyTarget * totalWeekBusinessDays;
 
-    // Get MTD revenue (sum of revenue-completed + non-job-revenue for the month)
+    // Get MTD revenue (sum of revenue-completed for the month)
+    // Note: Using revenue-completed only to match ServiceTitan's "Completed Revenue"
     const firstOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const { data: mtdSnapshots } = await supabase
       .from('huddle_snapshots')
       .select('actual_value, huddle_kpis!inner(slug)')
       .gte('snapshot_date', firstOfMonth)
       .lte('snapshot_date', date)
-      .in('huddle_kpis.slug', ['revenue-completed', 'non-job-revenue', 'total-revenue']);
+      .eq('huddle_kpis.slug', 'revenue-completed');
 
-    // Sum revenue, preferring total-revenue if available, otherwise sum job + non-job
-    const mtdByDate = new Map<string, number>();
-    mtdSnapshots?.forEach((s) => {
-      const snap = s as unknown as { actual_value: number; huddle_kpis: { slug: string }; snapshot_date?: string };
-      const snapDate = snap.snapshot_date || '';
-      const slug = snap.huddle_kpis?.slug;
-      const value = Number(snap.actual_value) || 0;
-
-      if (slug === 'total-revenue') {
-        // Total revenue overrides individual components
-        mtdByDate.set(snapDate, value);
-      } else if (!mtdByDate.has(snapDate)) {
-        // Add job or non-job revenue
-        mtdByDate.set(snapDate, (mtdByDate.get(snapDate) || 0) + value);
-      }
-    });
-    const mtdRevenue = Array.from(mtdByDate.values()).reduce((sum, v) => sum + v, 0);
+    const mtdRevenue = mtdSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
 
     // Get week-to-date revenue (Monday to selected date)
     const dayOfWeek = selectedDate.getDay();
@@ -254,28 +242,17 @@ export async function GET(request: NextRequest) {
       .select('actual_value, huddle_kpis!inner(slug)')
       .gte('snapshot_date', mondayStr)
       .lte('snapshot_date', date)
-      .in('huddle_kpis.slug', ['revenue-completed', 'non-job-revenue', 'total-revenue']);
+      .eq('huddle_kpis.slug', 'revenue-completed');
 
-    // Sum WTD revenue same way
-    const wtdByDate = new Map<string, number>();
-    wtdSnapshots?.forEach((s) => {
-      const snap = s as unknown as { actual_value: number; huddle_kpis: { slug: string }; snapshot_date?: string };
-      const snapDate = snap.snapshot_date || '';
-      const slug = snap.huddle_kpis?.slug;
-      const value = Number(snap.actual_value) || 0;
+    const wtdRevenue = wtdSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
 
-      if (slug === 'total-revenue') {
-        wtdByDate.set(snapDate, value);
-      } else if (!wtdByDate.has(snapDate)) {
-        wtdByDate.set(snapDate, (wtdByDate.get(snapDate) || 0) + value);
-      }
-    });
-    const wtdRevenue = Array.from(wtdByDate.values()).reduce((sum, v) => sum + v, 0);
-
-    // Today's revenue from snapshot - prefer total-revenue, fall back to revenue-completed
-    const totalRevenueKpi = kpis.find(k => k.slug === 'total-revenue');
+    // Today's revenue from snapshot - use revenue-completed (matches ST's "Completed Revenue")
+    // Note: total-revenue includes non-job revenue which has calculation issues
     const completedRevenueKpi = kpis.find(k => k.slug === 'revenue-completed');
-    const todaySnapshot = snapshotMap.get(totalRevenueKpi?.id || completedRevenueKpi?.id || '');
+    const todaySnapshot = snapshotMap.get(completedRevenueKpi?.id || '');
     const todayRevenue = Number(todaySnapshot?.actual_value) || 0;
 
     // Calculate pacing percentage

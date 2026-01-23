@@ -7,7 +7,45 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Not yet deployed
 
-## Recent Updates (Jan 17, 2026)
+## Recent Updates (Jan 23, 2026)
+
+### Internal Portal - Daily Huddle Data Sync Architecture (NOT YET DEPLOYED)
+- **Problem Solved**: MTD/WTD numbers were incorrect because data sync was manual-only
+- **Automated Daily Sync** via Vercel Cron Jobs:
+  - Daily at 6am CT: Syncs yesterday's final numbers
+  - Hourly 8am-6pm Mon-Fri: Updates today's running totals
+- **Backfill Endpoint** (`/api/huddle/backfill`):
+  - Syncs historical data for any date range
+  - Rate-limited to avoid API throttling (500ms between dates)
+  - Skips dates that already have data (configurable)
+- **Sync Status Dashboard**:
+  - Shows data completeness percentage
+  - Warns when MTD data is incomplete
+  - One-click backfill button for owners
+  - Last sync timestamp indicator
+- **New API Endpoints**:
+  - `POST /api/huddle/backfill` - Backfill date range
+  - `GET /api/huddle/backfill` - Check data completeness
+  - `GET /api/huddle/sync-status` - Get sync status
+  - `GET /api/cron/huddle-sync` - Vercel cron endpoint
+- **Environment Variable**: `CRON_SECRET` for cron authentication
+
+### Deployment Checklist for Huddle Sync
+```bash
+# 1. Add CRON_SECRET to Vercel environment variables
+# Generate with: openssl rand -hex 32
+
+# 2. Deploy to Vercel (vercel.json configures cron jobs)
+vercel --prod
+
+# 3. After deploy, run initial backfill via curl or dashboard
+curl -X POST "https://portal.christmasair.com/api/huddle/backfill" \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"startDate": "2026-01-01", "endDate": "2026-01-22", "skipExisting": true}'
+```
+
+## Previous Updates (Jan 17, 2026)
 
 ### That's a Wrap (debrief-qa) - Deployed
 - **Equipment at Location Banner** - Shows installed equipment on the ServiceTitan location record

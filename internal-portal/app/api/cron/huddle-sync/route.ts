@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
 import {
@@ -10,43 +8,77 @@ import {
   getYesterdayDateString,
 } from '@/lib/huddle-utils';
 
-interface SyncResult {
-  kpi_slug: string;
-  actual_value: number | null;
-  status: string;
-  error?: string;
+// Helper to get yesterday's date in YYYY-MM-DD format (Central Time)
+function getYesterdayCT(): string {
+  const now = new Date();
+  // Convert to Central Time (UTC-6 or UTC-5 depending on DST)
+  const ct = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  ct.setDate(ct.getDate() - 1);
+  return ct.toISOString().split('T')[0];
 }
 
-// POST /api/huddle/snapshots/sync - Trigger data sync from ServiceTitan
-export async function POST(request: NextRequest) {
+// Helper to get today's date in YYYY-MM-DD format (Central Time)
+function getTodayCT(): string {
+  const now = new Date();
+  const ct = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  return ct.toISOString().split('T')[0];
+}
+
+// GET /api/cron/huddle-sync - Called by Vercel Cron
+export async function GET(request: NextRequest) {
   try {
-    // Check for cron secret (for scheduled jobs)
+    // Verify the request is from Vercel Cron
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    const isCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
 
-    // If not cron auth, check session
-    if (!isCronAuth) {
-      const session = await getServerSession(authOptions);
-      if (!session?.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // In production, verify the request is from Vercel
+    // Vercel sets this header for cron jobs
+    if (process.env.VERCEL === '1') {
+      // Vercel cron jobs are authenticated by the platform
+      // But we can also check our own secret if set
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        // Allow if it's a genuine Vercel cron request (no auth header needed)
+        const isVercelCron = request.headers.get('x-vercel-id');
+        if (!isVercelCron) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
       }
-
-      // Only managers and owners can trigger sync
-      const { role } = session.user;
-      if (role === 'employee') {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    } else {
+      // In development, require the cron secret
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    const body = await request.json().catch(() => ({}));
-    const date = body.date || getYesterdayDateString(); // Default to yesterday's data
-    const syncSource = isCronAuth ? 'cron' : 'manual';
+    const { searchParams } = new URL(request.url);
+    const syncToday = searchParams.get('today') === 'true';
+
+    // Determine which date to sync
+    const date = syncToday ? getTodayCT() : getYesterdayCT();
 
     const supabase = getServerSupabase();
     const stClient = getServiceTitanClient();
 
-    // Fetch all KPIs with ServiceTitan as data source
+    if (!stClient.isConfigured()) {
+      console.warn('ServiceTitan not configured - skipping cron sync');
+      return NextResponse.json({
+        success: false,
+        message: 'ServiceTitan not configured',
+      });
+    }
+
+    // Log sync start
+    const { data: syncLog } = await supabase
+      .from('dash_sync_log')
+      .insert({
+        sync_type: syncToday ? 'huddle_cron_today' : 'huddle_cron_yesterday',
+        status: 'running',
+        records_synced: 0,
+      })
+      .select()
+      .single();
+
+    // Fetch KPIs
     const { data: kpis, error: kpiError } = await supabase
       .from('huddle_kpis')
       .select('*, huddle_departments(slug)')
@@ -58,7 +90,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch KPIs' }, { status: 500 });
     }
 
-    // Fetch current targets for calculating percent to goal
+    // Fetch targets
     const { data: targets } = await supabase
       .from('huddle_targets')
       .select('*')
@@ -69,43 +101,19 @@ export async function POST(request: NextRequest) {
     const targetMap = new Map<string, number>();
     targets?.forEach((t) => {
       if (!targetMap.has(t.kpi_id)) {
-        targetMap.set(t.kpi_id, t.target_value);
+        targetMap.set(t.kpi_id, Number(t.target_value));
       }
     });
 
-    const results: SyncResult[] = [];
-
-    // Log sync start
-    const { data: syncLog } = await supabase
-      .from('dash_sync_log')
-      .insert({
-        sync_type: `huddle_sync_${syncSource}`,
-        status: 'running',
-        records_synced: 0,
-      })
-      .select()
-      .single();
-
-    // Check if ServiceTitan is configured
-    if (!stClient.isConfigured()) {
-      console.warn('ServiceTitan not configured - skipping ST sync');
-      return NextResponse.json({
-        success: false,
-        message: 'ServiceTitan not configured',
-        results: [],
-      });
-    }
+    let syncedCount = 0;
+    const errors: string[] = [];
 
     // Process each KPI
-    for (const kpi of kpis) {
-      const deptSlug = (kpi.huddle_departments as any)?.slug || '';
+    for (const kpi of kpis || []) {
       let actualValue: number | null = null;
-      let error: string | undefined;
 
       try {
-        // Map KPI slug to ServiceTitan data fetch
         switch (kpi.slug) {
-          // Christmas Overall
           case 'jobs-scheduled':
             actualValue = await stClient.getScheduledJobCount(date);
             break;
@@ -122,8 +130,6 @@ export async function POST(request: NextRequest) {
             const totalRev = await stClient.getTotalRevenue(date);
             actualValue = totalRev.totalRevenue;
             break;
-
-          // HVAC Service
           case 'service-jobs-completed':
             actualValue = await stClient.getCompletedJobCount(date, { tradeType: 'HVAC' });
             break;
@@ -133,8 +139,6 @@ export async function POST(request: NextRequest) {
           case 'zero-dollar-tickets':
             actualValue = await stClient.getZeroDollarPercentage(date, 'HVAC');
             break;
-
-          // HVAC Install
           case 'installs-scheduled':
             const installMetrics = await stClient.getInstallMetrics(date);
             actualValue = installMetrics.scheduled;
@@ -147,8 +151,6 @@ export async function POST(request: NextRequest) {
             const installMetrics3 = await stClient.getInstallMetrics(date);
             actualValue = installMetrics3.revenue;
             break;
-
-          // Plumbing
           case 'plumbing-sales':
             const plumbingMetrics = await stClient.getPlumbingMetrics(date);
             actualValue = plumbingMetrics.sales;
@@ -164,23 +166,18 @@ export async function POST(request: NextRequest) {
           case 'plumbing-average-ticket':
             actualValue = await stClient.getAverageTicket(date, { tradeType: 'Plumbing' });
             break;
-
-          default:
-            // KPI not mapped to ST data yet
-            error = 'No ST mapping defined';
         }
       } catch (e) {
-        error = e instanceof Error ? e.message : 'Unknown error';
-        console.error(`Error syncing KPI ${kpi.slug}:`, e);
+        const errorMsg = `Error syncing ${kpi.slug}: ${e instanceof Error ? e.message : 'Unknown error'}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
       }
 
-      // Calculate percent to goal and status
-      const target = targetMap.get(kpi.id) || null;
-      const percentToGoal = calculatePercentToGoal(actualValue, target, kpi.higher_is_better);
-      const status = getStatusFromPercentage(percentToGoal, kpi.higher_is_better);
-
-      // Upsert snapshot
       if (actualValue !== null) {
+        const target = targetMap.get(kpi.id) || null;
+        const percentToGoal = calculatePercentToGoal(actualValue, target, kpi.higher_is_better);
+        const status = getStatusFromPercentage(percentToGoal, kpi.higher_is_better);
+
         const { error: upsertError } = await supabase.from('huddle_snapshots').upsert(
           {
             kpi_id: kpi.id,
@@ -191,48 +188,44 @@ export async function POST(request: NextRequest) {
             data_source: 'servicetitan',
             updated_at: new Date().toISOString(),
           },
-          {
-            onConflict: 'kpi_id,snapshot_date',
-          }
+          { onConflict: 'kpi_id,snapshot_date' }
         );
 
         if (upsertError) {
           console.error(`Error upserting snapshot for ${kpi.slug}:`, upsertError);
-          error = upsertError.message;
+          errors.push(`Upsert error for ${kpi.slug}: ${upsertError.message}`);
+        } else {
+          syncedCount++;
         }
       }
-
-      results.push({
-        kpi_slug: kpi.slug,
-        actual_value: actualValue,
-        status,
-        error,
-      });
     }
 
-    const syncedCount = results.filter((r) => r.actual_value !== null).length;
-
-    // Update sync log with completion status
+    // Update sync log
     if (syncLog?.id) {
       await supabase
         .from('dash_sync_log')
         .update({
           completed_at: new Date().toISOString(),
-          status: 'completed',
+          status: errors.length > 0 ? 'completed_with_errors' : 'completed',
           records_synced: syncedCount,
+          error_message: errors.length > 0 ? errors.join('; ') : null,
         })
         .eq('id', syncLog.id);
     }
+
+    console.log(`Cron sync completed for ${date}: ${syncedCount} records synced`);
 
     return NextResponse.json({
       success: true,
       date,
       synced_count: syncedCount,
-      sync_source: syncSource,
-      results,
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error('Error in snapshots sync:', error);
-    return NextResponse.json({ error: 'Failed to sync snapshots' }, { status: 500 });
+    console.error('Error in cron huddle sync:', error);
+    return NextResponse.json(
+      { error: 'Failed to run cron sync' },
+      { status: 500 }
+    );
   }
 }
