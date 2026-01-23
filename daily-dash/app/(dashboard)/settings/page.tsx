@@ -132,7 +132,7 @@ export default function SettingsPage() {
     setIsSyncing(true);
     setSyncResult(null);
     try {
-      const response = await fetch('/api/dash/targets/sync', { method: 'POST' });
+      const response = await fetch('/api/targets/sync', { method: 'POST' });
       const data = await response.json();
 
       if (data.success) {
@@ -155,7 +155,7 @@ export default function SettingsPage() {
     setIsSyncing(true);
     setSyncResult(null);
     try {
-      const response = await fetch('/api/dash/targets/seed', { method: 'POST' });
+      const response = await fetch('/api/targets/seed', { method: 'POST' });
       const data = await response.json();
       console.log('Seed response:', data);
 
@@ -178,7 +178,7 @@ export default function SettingsPage() {
     setIsSyncing(true);
     setSyncResult(null);
     try {
-      const response = await fetch('/api/dash/targets/fix', { method: 'POST' });
+      const response = await fetch('/api/targets/fix', { method: 'POST' });
       const data = await response.json();
 
       if (data.success) {

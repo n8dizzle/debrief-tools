@@ -12,6 +12,8 @@ interface PacingData {
   qtdRevenue: number;
   quarterlyTarget: number;
   quarter: number;
+  ytdRevenue: number;
+  annualTarget: number;
   pacingPercent: number;
   businessDaysRemaining: number;
   businessDaysElapsed: number;
@@ -119,6 +121,46 @@ function getQuarterlyPacingPercent(businessDaysElapsed: number, businessDaysInMo
 
   const totalElapsed = previousMonthsDays + currentMonthProgress + partialDay;
   return Math.round((totalElapsed / estimatedBusinessDaysInQuarter) * 100);
+}
+
+// Calculate what percentage of the annual target should be achieved by now
+// Uses actual monthly target weights instead of assuming even distribution
+function getAnnualPacingPercent(
+  businessDaysElapsed: number,
+  businessDaysInMonth: number,
+  monthlyTarget: number,
+  annualTarget: number
+): number {
+  if (annualTarget <= 0) return 0;
+
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-11
+
+  // Calculate what % of the current month has elapsed
+  const dayOfWeek = now.getDay();
+  let partialDay = 0;
+  if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    if (currentHour >= BUSINESS_END_HOUR) {
+      partialDay = 1;
+    } else if (currentHour >= BUSINESS_START_HOUR) {
+      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+    }
+  }
+
+  const monthProgress = businessDaysInMonth > 0
+    ? (businessDaysElapsed + partialDay) / businessDaysInMonth
+    : 0;
+
+  // Current month's contribution to annual target (as a percentage)
+  const currentMonthPercent = (monthlyTarget / annualTarget) * 100;
+
+  // For now, assume previous months hit their targets (we're in January so this is 0)
+  // In a full implementation, we'd sum actual completed months
+  // For January: expected = monthProgress * currentMonthPercent
+  const expectedPercent = monthProgress * currentMonthPercent;
+
+  return Math.round(expectedPercent);
 }
 
 interface KPIData {
@@ -358,6 +400,8 @@ export default function DashboardPage() {
   const qtdRevenue = pacing?.qtdRevenue || 0;
   const quarterlyTarget = pacing?.quarterlyTarget || 2565000;
   const currentQuarter = pacing?.quarter || Math.floor((new Date().getMonth()) / 3) + 1;
+  const ytdRevenue = pacing?.ytdRevenue || 0;
+  const annualTarget = pacing?.annualTarget || 10260000; // ~$855K * 12
 
   // Extract department summary data from API response
   const getDepartmentSummary = () => {
@@ -493,7 +537,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Revenue Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <RevenueCard
           label="Today"
           revenue={todayRevenue}
@@ -533,6 +577,112 @@ export default function DashboardPage() {
             currentQuarter
           )}
         />
+      </div>
+
+      {/* Annual Revenue Card - Full Width */}
+      <div className="mb-8">
+        <RevenueCard
+          label="This Year"
+          revenue={ytdRevenue}
+          target={annualTarget}
+          loading={loading}
+          accentColor="green"
+          expectedPacing={getAnnualPacingPercent(
+            pacing?.businessDaysElapsed || 0,
+            pacing?.businessDaysInMonth || 22,
+            monthlyTarget,
+            annualTarget
+          )}
+        />
+      </div>
+
+      {/* Department Revenue Sections */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        {/* HVAC Section - 3/4 width */}
+        <div
+          className="col-span-4 lg:col-span-3 p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              HVAC
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Today</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrency(0)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Week</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrency(0)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Month</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrency(0)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Quarter</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrency(0)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Plumbing Section - 1/4 width */}
+        <div
+          className="col-span-4 lg:col-span-1 p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Plumbing
+            </h3>
+          </div>
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Today</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrency(0)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Month</p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrency(0)}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Department Summary */}

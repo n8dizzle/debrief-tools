@@ -280,6 +280,30 @@ export async function GET(request: NextRequest) {
       return sum + (Number(snap.actual_value) || 0);
     }, 0) || 0;
 
+    // Get YTD (year-to-date) revenue
+    const yearStartDate = `${year}-01-01`;
+    const { data: ytdSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value, huddle_kpis!inner(slug)')
+      .gte('snapshot_date', yearStartDate)
+      .lte('snapshot_date', date)
+      .eq('huddle_kpis.slug', 'total-revenue');
+
+    const ytdRevenue = ytdSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
+
+    // Get annual target (sum of all 12 months)
+    const { data: annualTargets } = await supabase
+      .from('dash_monthly_targets')
+      .select('target_value')
+      .eq('year', year)
+      .eq('department', 'TOTAL')
+      .eq('target_type', 'revenue');
+
+    const annualTargetValue = annualTargets?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+
     // Today's revenue from snapshot - use total-revenue to match ST's "Total Revenue"
     const totalRevenueKpi = kpis.find(k => k.slug === 'total-revenue');
     const todaySnapshot = snapshotMap.get(totalRevenueKpi?.id || '');
@@ -304,6 +328,8 @@ export async function GET(request: NextRequest) {
       qtdRevenue,
       quarterlyTarget: quarterlyTargetValue,
       quarter,
+      ytdRevenue,
+      annualTarget: annualTargetValue,
       pacingPercent,
       businessDaysRemaining,
       businessDaysElapsed: daysElapsedInMonth,
