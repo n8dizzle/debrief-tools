@@ -8,7 +8,29 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 23, 2026) - Trade Revenue & Targets Fix
+## Recent Updates (Jan 23, 2026) - Trend Chart & Revenue Fixes
+
+### Daily Dash - Trend Chart Improvements
+
+#### Clickable Legend Filter
+- Filter buttons in chart header: **All** | **HVAC** | **Plumbing**
+- Click to show only selected trade's revenue bars
+- Active filter shows highlighted state with trade color indicator
+
+#### Trend Chart Data Caching
+- Trend data cached in `trade_daily_snapshots` Supabase table
+- Falls back to direct ServiceTitan API if cache incomplete
+- Improves dashboard load times
+
+#### December Data Fix
+**Problem**: Dec 2024 and Dec 2025 showed identical values (Recharts merged them).
+**Fix**: Month labels now include year: `"DEC '24"`, `"DEC '25"`
+
+#### Trade Revenue for Trend Chart
+**Important**: Trade breakdown uses `completedRevenue` only (not full Total Revenue formula).
+This matches how ServiceTitan displays trade-level revenue (non-job revenue isn't attributed to trades).
+
+---
 
 ### Daily Dash - Fixed Trade Revenue Calculation
 
@@ -69,10 +91,10 @@ Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
 │  2026 ANNUAL PROGRESS            $401K / $15.8M    ███░░░  3%      │
 └─────────────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────────────┐
-│  18 MONTH TREND                                                     │
+│  18 MONTH TREND                        [All] [HVAC] [Plumbing]     │
 │  [Stacked Bar Chart: HVAC (green) + Plumbing (gold)]               │
 └─────────────────────────────────────────────────────────────────────┘
-───────────────────────── DAILY METRICS ──────────────────────────────
+───────────────────────── PACING METRICS ─────────────────────────────
 ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
 │   Today   │ │ This Week │ │This Month │ │This Quarter│
 └───────────┘ └───────────┘ └───────────┘ └───────────┘
