@@ -184,11 +184,12 @@ export async function GET(request: NextRequest) {
       .from('google_reviews')
       .select('id', { count: 'exact', head: true }),
 
-    // All ratings for calculating overall average
+    // Period ratings for calculating average (matches selected period)
     supabase
       .from('google_reviews')
       .select('star_rating')
-      .limit(10000),
+      .gte('create_time', periodStartDate.toISOString())
+      .lte('create_time', periodEndDate.toISOString()),
 
     // Year count - use count instead of fetching all rows
     supabase
