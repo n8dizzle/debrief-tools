@@ -14,6 +14,7 @@ import { getStatusFromPercentage, getTodayDateString } from '@/lib/huddle-utils'
 import { getServiceTitanClient, TradeName, HVACDepartment } from '@/lib/servicetitan';
 
 // Helper to get business days in the current week up to the given date
+// Saturday counts as 0.5 business day, Sunday counts as 0
 function getBusinessDaysInWeekForDate(date: Date, holidays: string[]): number {
   const holidaySet = new Set(holidays);
   const dayOfWeek = date.getDay();
@@ -28,9 +29,16 @@ function getBusinessDaysInWeekForDate(date: Date, holidays: string[]): number {
   while (current <= date) {
     const day = current.getDay();
     const dateStr = current.toISOString().split('T')[0];
-    // Monday=1 to Friday=5, not a holiday
-    if (day >= 1 && day <= 5 && !holidaySet.has(dateStr)) {
-      count++;
+    if (!holidaySet.has(dateStr)) {
+      // Monday-Friday = 1 full day each
+      if (day >= 1 && day <= 5) {
+        count++;
+      }
+      // Saturday = 0.5 day
+      else if (day === 6) {
+        count += 0.5;
+      }
+      // Sunday = 0
     }
     current.setDate(current.getDate() + 1);
   }
@@ -39,6 +47,7 @@ function getBusinessDaysInWeekForDate(date: Date, holidays: string[]): number {
 }
 
 // Helper to get total business days in the current week
+// Mon-Fri = 1 day each, Saturday = 0.5, Sunday = 0 (total: 5.5 max)
 function getTotalBusinessDaysInWeek(date: Date, holidays: string[]): number {
   const holidaySet = new Set(holidays);
   const dayOfWeek = date.getDay();
@@ -49,11 +58,16 @@ function getTotalBusinessDaysInWeek(date: Date, holidays: string[]): number {
   let count = 0;
   const current = new Date(monday);
 
-  // Count all business days Mon-Fri
-  for (let i = 0; i < 5; i++) {
+  // Count all business days Mon-Sat (Mon-Fri = 1 each, Sat = 0.5)
+  for (let i = 0; i < 6; i++) {
     const dateStr = current.toISOString().split('T')[0];
+    const currentDay = current.getDay();
     if (!holidaySet.has(dateStr)) {
-      count++;
+      if (currentDay >= 1 && currentDay <= 5) {
+        count++; // Mon-Fri = 1 day
+      } else if (currentDay === 6) {
+        count += 0.5; // Saturday = 0.5 day
+      }
     }
     current.setDate(current.getDate() + 1);
   }
@@ -62,6 +76,7 @@ function getTotalBusinessDaysInWeek(date: Date, holidays: string[]): number {
 }
 
 // Helper to get business days elapsed in month up to given date
+// Saturday counts as 0.5 business day, Sunday counts as 0
 function getBusinessDaysElapsedInMonth(date: Date, holidays: string[]): number {
   const holidaySet = new Set(holidays);
   const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -72,8 +87,16 @@ function getBusinessDaysElapsedInMonth(date: Date, holidays: string[]): number {
   while (current <= date) {
     const day = current.getDay();
     const dateStr = current.toISOString().split('T')[0];
-    if (day >= 1 && day <= 5 && !holidaySet.has(dateStr)) {
-      count++;
+    if (!holidaySet.has(dateStr)) {
+      // Monday-Friday = 1 full day each
+      if (day >= 1 && day <= 5) {
+        count++;
+      }
+      // Saturday = 0.5 day
+      else if (day === 6) {
+        count += 0.5;
+      }
+      // Sunday = 0
     }
     current.setDate(current.getDate() + 1);
   }
@@ -242,6 +265,10 @@ export async function GET(request: NextRequest) {
     const dailyTarget = businessDaysInMonth > 0 ? monthlyTargetValue / businessDaysInMonth : 0;
     const totalWeekBusinessDays = getTotalBusinessDaysInWeek(selectedDate, holidays);
     const weeklyTarget = dailyTarget * totalWeekBusinessDays;
+
+    // Calculate today's target based on day of week (dayOfWeek already declared above)
+    // Sunday = $0, Saturday = 50% of daily, Mon-Fri = 100% of daily
+    const todayTarget = dayOfWeek === 0 ? 0 : dayOfWeek === 6 ? dailyTarget * 0.5 : dailyTarget;
 
     // Helper to sum snapshot values
     const sumSnapshots = (data: unknown): number => {
@@ -697,10 +724,41 @@ export async function GET(request: NextRequest) {
         currentMonthData.plumbingRevenue = tradeData.plumbing.mtd.revenue;
         currentMonthData.totalRevenue = tradeData.hvac.mtd.revenue + tradeData.plumbing.mtd.revenue;
       }
+
+      // Fetch missing months from ServiceTitan (months with $0 revenue and not the current month)
+      if (stClient.isConfigured()) {
+        const missingMonths = monthlyTrend.filter(m =>
+          m.totalRevenue === 0 && m.month !== currentMonthKey
+        );
+
+        if (missingMonths.length > 0) {
+          console.log(`Fetching ${missingMonths.length} missing months from ServiceTitan...`);
+          const fetchTasks = missingMonths.map(async (monthData) => {
+            const [yearStr, monthStr] = monthData.month.split('-');
+            const yr = parseInt(yearStr);
+            const mo = parseInt(monthStr);
+            const firstOfMonth = new Date(yr, mo - 1, 1);
+            const lastOfMonth = new Date(yr, mo, 0);
+            if (firstOfMonth > selectedDate) return;
+            const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
+            const startStr = firstOfMonth.toISOString().split('T')[0];
+            const endStr = endDate.toISOString().split('T')[0];
+            try {
+              const metrics = await stClient.getTradeMetrics(startStr, endStr);
+              monthData.hvacRevenue = metrics.hvac.revenue;
+              monthData.plumbingRevenue = metrics.plumbing.revenue;
+              monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
+            } catch (err) {
+              console.error(`Error fetching trend data for ${monthData.month}:`, err);
+            }
+          });
+          await Promise.all(fetchTasks);
+        }
+      }
     } catch (trendError) {
       console.error('Error fetching trend data from cache:', trendError);
 
-      // Fallback: fetch from ServiceTitan if cache fails
+      // Fallback: fetch ALL from ServiceTitan if cache completely fails
       if (stClient.isConfigured()) {
         try {
           const fetchTasks = monthlyTrend.map(async (monthData) => {
@@ -733,7 +791,8 @@ export async function GET(request: NextRequest) {
     const pacingData = {
       todayRevenue,
       todaySales,
-      dailyTarget,
+      dailyTarget,      // Base daily target (for full business day)
+      todayTarget,      // Adjusted for day of week (0 on Sunday, 50% on Saturday)
       wtdRevenue,
       wtdSales,
       weeklyTarget,
@@ -751,6 +810,11 @@ export async function GET(request: NextRequest) {
       businessDaysRemaining,
       businessDaysElapsed: daysElapsedInMonth,
       businessDaysInMonth,
+      // Department-specific monthly targets
+      hvacInstallMonthlyTarget: deptTargets['HVAC Install']?.monthly || 0,
+      hvacServiceMonthlyTarget: deptTargets['HVAC Service']?.monthly || 0,
+      hvacMaintenanceMonthlyTarget: deptTargets['HVAC Maintenance']?.monthly || 0,
+      plumbingMonthlyTarget: deptTargets['Plumbing']?.monthly || 0,
       // Trade data
       trades: tradeData,
       // Monthly trend for chart

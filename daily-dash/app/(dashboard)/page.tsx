@@ -99,7 +99,8 @@ interface MonthlyTrendData {
 interface PacingData {
   todayRevenue: number;
   todaySales: number;
-  dailyTarget: number;
+  dailyTarget: number;       // Base daily target (for full business day)
+  todayTarget?: number;      // Adjusted for day of week (0 Sunday, 50% Saturday)
   wtdRevenue: number;
   wtdSales: number;
   weeklyTarget: number;
@@ -129,28 +130,38 @@ const BUSINESS_HOURS_PER_DAY = BUSINESS_END_HOUR - BUSINESS_START_HOUR;
 function getDailyPacingPercent(): number {
   const now = new Date();
   const dayOfWeek = now.getDay();
+  // Sunday = no target, return 0
   if (dayOfWeek === 0) return 0;
   const currentHour = now.getHours() + now.getMinutes() / 60;
   if (currentHour < BUSINESS_START_HOUR) return 0;
   if (currentHour >= BUSINESS_END_HOUR) return 100;
   const hoursElapsed = currentHour - BUSINESS_START_HOUR;
+  // Saturday is a half day, but pacing % is still based on progress through business hours
+  // The target itself is already halved, so pacing calculation stays the same
   return Math.round((hoursElapsed / BUSINESS_HOURS_PER_DAY) * 100);
 }
 
 function getWeeklyPacingPercent(): number {
   const now = new Date();
   const dayOfWeek = now.getDay();
+  // Sunday = no progress tracking
   if (dayOfWeek === 0) return 0;
-  const businessDayOfWeek = dayOfWeek;
-  const totalBusinessDaysInWeek = 6;
+
+  // Total business days in week: Mon-Fri = 5, Saturday = 0.5, Total = 5.5
+  const totalBusinessDaysInWeek = 5.5;
+
   const currentHour = now.getHours() + now.getMinutes() / 60;
   let dayProgress = 0;
   if (currentHour >= BUSINESS_END_HOUR) {
-    dayProgress = 1;
+    dayProgress = dayOfWeek === 6 ? 0.5 : 1; // Saturday counts as 0.5 when complete
   } else if (currentHour >= BUSINESS_START_HOUR) {
-    dayProgress = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+    const hourProgress = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+    dayProgress = dayOfWeek === 6 ? hourProgress * 0.5 : hourProgress; // Saturday partial = 0.5 max
   }
-  const daysCompleted = businessDayOfWeek - 1;
+
+  // Days completed before today: Mon-Fri each count as 1
+  // If today is Saturday (6), then Mon-Fri (5 days) are completed
+  const daysCompleted = dayOfWeek === 6 ? 5 : dayOfWeek - 1;
   const totalProgress = (daysCompleted + dayProgress) / totalBusinessDaysInWeek;
   return Math.round(totalProgress * 100);
 }
@@ -162,10 +173,12 @@ function getMonthlyPacingPercent(businessDaysElapsed: number, businessDaysInMont
   let partialDay = 0;
   if (dayOfWeek >= 1 && dayOfWeek <= 6) {
     const currentHour = now.getHours() + now.getMinutes() / 60;
+    const dayWeight = dayOfWeek === 6 ? 0.5 : 1; // Saturday counts as 0.5 max
     if (currentHour >= BUSINESS_END_HOUR) {
-      partialDay = 1;
+      partialDay = dayWeight;
     } else if (currentHour >= BUSINESS_START_HOUR) {
-      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+      const hourProgress = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+      partialDay = hourProgress * dayWeight;
     }
   }
   const totalElapsed = businessDaysElapsed + partialDay;
@@ -184,12 +197,21 @@ function getQuarterlyPacingPercent(): number {
   let businessDaysInQuarter = 0;
   const current = new Date(quarterStart);
 
+  // Reset time to start of day for comparison
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   while (current <= quarterEnd) {
     const dow = current.getDay();
-    if (dow >= 1 && dow <= 6) {
-      businessDaysInQuarter++;
-      if (current < now) {
-        businessDaysElapsed++;
+    // Mon-Fri = 1 full day, Saturday = 0.5, Sunday = 0
+    if (dow >= 1 && dow <= 5) {
+      businessDaysInQuarter += 1;
+      if (current < todayStart) {
+        businessDaysElapsed += 1;
+      }
+    } else if (dow === 6) {
+      businessDaysInQuarter += 0.5;
+      if (current < todayStart) {
+        businessDaysElapsed += 0.5;
       }
     }
     current.setDate(current.getDate() + 1);
@@ -199,10 +221,12 @@ function getQuarterlyPacingPercent(): number {
   let partialDay = 0;
   if (dayOfWeek >= 1 && dayOfWeek <= 6) {
     const currentHour = now.getHours() + now.getMinutes() / 60;
+    const dayWeight = dayOfWeek === 6 ? 0.5 : 1; // Saturday counts as 0.5 max
     if (currentHour >= BUSINESS_END_HOUR) {
-      partialDay = 1;
+      partialDay = dayWeight;
     } else if (currentHour >= BUSINESS_START_HOUR) {
-      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+      const hourProgress = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+      partialDay = hourProgress * dayWeight;
     }
   }
 
@@ -473,13 +497,14 @@ function TrendChart({ data, loading }: TrendChartProps) {
 
       <div className="h-48 sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 5, left: 0, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 10, right: 5, left: 0, bottom: 5 }}>
             <XAxis
               dataKey="label"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: 'var(--text-muted)', fontSize: 9 }}
-              interval={1}
+              tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+              interval="preserveStartEnd"
+              minTickGap={30}
             />
             <YAxis
               axisLine={false}
@@ -575,8 +600,8 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
       {hasSales ? (
         <>
           <div className="flex flex-col sm:flex-row sm:items-center mb-3 gap-2 sm:gap-0">
-            <div className="flex-1 min-w-0">
-              <span className="text-lg sm:text-xl font-bold block truncate" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="flex-1">
+              <span className="text-base sm:text-lg font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-cream)' }}>
                 {loading ? '...' : formatCurrencyCompact(revenue)}
               </span>
               <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
@@ -587,8 +612,8 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
               className="hidden sm:block w-px h-8 mx-2 flex-shrink-0"
               style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }}
             />
-            <div className="flex-1 min-w-0">
-              <span className="text-lg sm:text-xl font-bold block truncate" style={{ color: 'var(--christmas-gold)' }}>
+            <div className="flex-1">
+              <span className="text-base sm:text-lg font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-gold)' }}>
                 {loading ? '...' : formatCurrencyCompact(sales)}
               </span>
               <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
@@ -828,6 +853,8 @@ export default function DashboardPage() {
   const todayRevenue = pacing?.todayRevenue || 0;
   const todaySales = pacing?.todaySales || 0;
   const dailyTarget = pacing?.dailyTarget || 38864;
+  // todayTarget is adjusted for day of week (0 Sunday, 50% Saturday)
+  const todayTarget = pacing?.todayTarget ?? dailyTarget;
   const weekRevenue = pacing?.wtdRevenue || 0;
   const weekSales = pacing?.wtdSales || 0;
   const weeklyTarget = pacing?.weeklyTarget || 194318;
@@ -992,7 +1019,7 @@ export default function DashboardPage() {
           label="Today"
           revenue={todayRevenue}
           sales={todaySales}
-          target={dailyTarget}
+          target={todayTarget}
           loading={loading}
           accentColor="green"
           expectedPacing={dailyPacing}
