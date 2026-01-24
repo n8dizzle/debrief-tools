@@ -65,6 +65,54 @@ Expected YTD = Sum of completed months' targets (100%) + Current month's target 
 - Frontend usage: `daily-dash/app/(dashboard)/page.tsx` - `pacing?.expectedAnnualPacingPercent`
 - Monthly targets: `dash_monthly_targets` table with seasonal weights from Google Sheet
 
+#### Total Sales Added to Dashboard Cards (Jan 23, 2026)
+Dashboard now shows both **Revenue** and **Sales** on the top 4 cards (Today, This Week, This Month, This Quarter).
+
+**Display format**:
+```
+Today
+$38.9K / $27.9K
+revenue / sales
+```
+- Revenue shown in cream/white
+- Sales shown in gold color
+- Compact formatting ($38.9K instead of $38,864)
+
+**What is "Total Sales"?**
+Matches ServiceTitan's "Total Sales" metric:
+- **Definition**: Sum of sold estimate subtotals
+- **Calculation**: Sum of `estimate.subtotal` where `status = 'Sold'` and `soldOn` is within the date range
+- Different from revenue (which is based on completed jobs and invoices)
+
+**Code changes**:
+1. `lib/servicetitan.ts`:
+   - Added `STEstimate` interface
+   - Added `getSoldEstimates(soldOnOrAfter, soldBefore)` method
+   - Added `getTotalSales(date)` method
+
+2. `app/api/huddle/route.ts`:
+   - Added sales queries: `todaySales`, `wtdSales`, `mtdSales`, `qtdSales`
+   - Added to pacing response object
+
+3. `app/api/huddle/snapshots/sync/route.ts` and `backfill/route.ts`:
+   - Added `total-sales` KPI case
+
+4. `app/(dashboard)/page.tsx`:
+   - Updated `PacingData` interface with sales fields
+   - Updated `RevenueCard` component to accept optional `sales` prop
+   - Added `formatCurrencyCompact()` for K/M formatting
+
+**Database**:
+- Added `total-sales` KPI to `huddle_kpis` table (same department as `total-revenue`)
+
+**To backfill historical sales data**:
+```bash
+curl -X POST "https://dash.christmasair.com/api/huddle/backfill" \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"startDate": "2026-01-01", "endDate": "2026-01-23"}'
+```
+
 #### Dashboard Layout
 - **4 time-period cards**: Today, This Week, This Month, This Quarter
 - **Annual card** (full width): This Year with YTD revenue vs annual target
