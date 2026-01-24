@@ -842,59 +842,43 @@ export async function GET(request: NextRequest) {
       current.setMonth(current.getMonth() + 1);
     }
 
-    // Fetch trend revenue from Supabase snapshots (much faster than 18 ServiceTitan calls!)
-    try {
-      // Get all trade snapshots for the trend period
-      const { data: trendSnapshots } = await supabase
-        .from('trade_daily_snapshots')
-        .select('snapshot_date, trade, revenue')
-        .gte('snapshot_date', trendStartStr)
-        .lte('snapshot_date', date)
-        .is('department', null); // Only aggregate rows, not department breakdowns
+    // Fetch trade revenue for each month from ServiceTitan (in parallel for speed)
+    if (stClient.isConfigured()) {
+      try {
+        // Build list of date ranges to fetch
+        const fetchTasks = monthlyTrend.map(async (monthData) => {
+          const [yearStr, monthStr] = monthData.month.split('-');
+          const yr = parseInt(yearStr);
+          const mo = parseInt(monthStr);
 
-      if (trendSnapshots && trendSnapshots.length > 0) {
-        // Group by month and aggregate
-        const monthlyRevenue: Record<string, { hvac: number; plumbing: number }> = {};
+          // Calculate first and last day of the month
+          const firstOfMonth = new Date(yr, mo - 1, 1);
+          const lastOfMonth = new Date(yr, mo, 0); // Day 0 of next month = last day of this month
 
-        for (const snap of trendSnapshots) {
-          // Handle both string and Date formats from Supabase
-          const dateStr = typeof snap.snapshot_date === 'string'
-            ? snap.snapshot_date
-            : new Date(snap.snapshot_date).toISOString().split('T')[0];
-          const monthKey = dateStr.substring(0, 7); // "YYYY-MM"
-          if (!monthlyRevenue[monthKey]) {
-            monthlyRevenue[monthKey] = { hvac: 0, plumbing: 0 };
-          }
-          if (snap.trade === 'hvac') {
-            monthlyRevenue[monthKey].hvac += Number(snap.revenue) || 0;
-          } else if (snap.trade === 'plumbing') {
-            monthlyRevenue[monthKey].plumbing += Number(snap.revenue) || 0;
-          }
-        }
+          // Don't fetch future months
+          if (firstOfMonth > selectedDate) return;
 
-        // Update monthlyTrend with aggregated values
-        for (const monthData of monthlyTrend) {
-          const rev = monthlyRevenue[monthData.month];
-          if (rev) {
-            monthData.hvacRevenue = rev.hvac;
-            monthData.plumbingRevenue = rev.plumbing;
-            monthData.totalRevenue = rev.hvac + rev.plumbing;
+          // For current month, use selected date as end
+          const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
+
+          const startStr = firstOfMonth.toISOString().split('T')[0];
+          const endStr = endDate.toISOString().split('T')[0];
+
+          try {
+            const metrics = await stClient.getTradeMetrics(startStr, endStr);
+            monthData.hvacRevenue = metrics.hvac.revenue;
+            monthData.plumbingRevenue = metrics.plumbing.revenue;
+            monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
+          } catch (err) {
+            console.error(`Error fetching trend data for ${monthData.month}:`, err);
           }
-        }
+        });
+
+        // Run all fetches in parallel
+        await Promise.all(fetchTasks);
+      } catch (trendError) {
+        console.error('Error fetching trend data:', trendError);
       }
-
-      // For current month, add today's live data if we have it
-      if (isToday && tradeData.hvac.today.revenue > 0) {
-        const currentMonthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
-        const currentMonthData = monthlyTrend.find(m => m.month === currentMonthKey);
-        if (currentMonthData) {
-          currentMonthData.hvacRevenue += tradeData.hvac.today.revenue;
-          currentMonthData.plumbingRevenue += tradeData.plumbing.today.revenue;
-          currentMonthData.totalRevenue = currentMonthData.hvacRevenue + currentMonthData.plumbingRevenue;
-        }
-      }
-    } catch (trendError) {
-      console.error('Error fetching trend data from snapshots:', trendError);
     }
 
     // Pacing data object
