@@ -720,13 +720,13 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
                     borderBottom: index < locations.length - 1 ? '1px solid rgba(212, 197, 169, 0.1)' : 'none',
                   }}
                 >
-                  <td className="py-2 px-4">
+                  <td className="py-2.5 px-4">
                     <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{location.short_name}</span>
                   </td>
-                  <td className="py-2 px-4 text-right">
+                  <td className="py-2.5 px-4 text-right">
                     <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>{location.average_rating.toFixed(1)} ★</span>
                   </td>
-                  <td className="py-2 px-4 text-right">
+                  <td className="py-2.5 px-4 text-right">
                     <span className="text-sm font-medium" style={{ color: 'var(--christmas-green)' }}>{location.reviews_this_period}</span>
                     {changePercent !== null && (
                       <span
@@ -739,7 +739,7 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
                       </span>
                     )}
                   </td>
-                  <td className="py-2 px-4 text-right">
+                  <td className="py-2.5 px-4 text-right">
                     <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{location.total_reviews.toLocaleString()}</span>
                   </td>
                 </tr>
@@ -828,7 +828,7 @@ function Leaderboard({
           <th className="text-left py-2 px-4 font-medium">Name</th>
           {showWtd && (
             <th
-              className="text-right py-2 px-3 font-medium cursor-pointer hover:opacity-80"
+              className="text-right py-2 px-4 font-medium cursor-pointer hover:opacity-80"
               style={{ color: sortBy === 'wtd' ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
               onClick={() => setSortBy('wtd')}
             >
@@ -837,7 +837,7 @@ function Leaderboard({
           )}
           {showMtd && (
             <th
-              className="text-right py-2 px-3 font-medium cursor-pointer hover:opacity-80"
+              className="text-right py-2 px-4 font-medium cursor-pointer hover:opacity-80"
               style={{ color: sortBy === 'mtd' ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
               onClick={() => setSortBy('mtd')}
             >
@@ -845,7 +845,7 @@ function Leaderboard({
             </th>
           )}
           <th
-            className="text-right py-2 px-3 font-medium cursor-pointer hover:opacity-80"
+            className="text-right py-2 px-4 font-medium cursor-pointer hover:opacity-80"
             style={{ color: sortBy === 'ytd' ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
             onClick={() => setSortBy('ytd')}
           >
@@ -866,20 +866,20 @@ function Leaderboard({
               <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
             </td>
             {showWtd && (
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-2.5 px-4 text-right">
                 <span className="text-sm" style={{ color: sortBy === 'wtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
                   {entry.wtd > 0 ? entry.wtd : '-'}
                 </span>
               </td>
             )}
             {showMtd && (
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-2.5 px-4 text-right">
                 <span className="text-sm" style={{ color: sortBy === 'mtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
                   {entry.mtd > 0 ? entry.mtd : '-'}
                 </span>
               </td>
             )}
-            <td className="py-2.5 px-3 text-right">
+            <td className="py-2.5 px-4 text-right">
               <span className="text-sm font-medium" style={{ color: sortBy === 'ytd' ? 'var(--christmas-green)' : 'var(--text-secondary)' }}>
                 {entry.ytd}
               </span>
