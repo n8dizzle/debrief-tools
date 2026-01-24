@@ -14,6 +14,7 @@ interface PacingData {
   quarter: number;
   ytdRevenue: number;
   annualTarget: number;
+  expectedAnnualPacingPercent: number; // Seasonal weighted expected YTD %
   pacingPercent: number;
   businessDaysRemaining: number;
   businessDaysElapsed: number;
@@ -123,46 +124,6 @@ function getQuarterlyPacingPercent(businessDaysElapsed: number, businessDaysInMo
   return Math.round((totalElapsed / estimatedBusinessDaysInQuarter) * 100);
 }
 
-// Calculate what percentage of the annual target should be achieved by now
-// Uses actual monthly target weights instead of assuming even distribution
-function getAnnualPacingPercent(
-  businessDaysElapsed: number,
-  businessDaysInMonth: number,
-  monthlyTarget: number,
-  annualTarget: number
-): number {
-  if (annualTarget <= 0) return 0;
-
-  const now = new Date();
-  const currentMonth = now.getMonth(); // 0-11
-
-  // Calculate what % of the current month has elapsed
-  const dayOfWeek = now.getDay();
-  let partialDay = 0;
-  if (dayOfWeek >= 1 && dayOfWeek <= 6) {
-    const currentHour = now.getHours() + now.getMinutes() / 60;
-    if (currentHour >= BUSINESS_END_HOUR) {
-      partialDay = 1;
-    } else if (currentHour >= BUSINESS_START_HOUR) {
-      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
-    }
-  }
-
-  const monthProgress = businessDaysInMonth > 0
-    ? (businessDaysElapsed + partialDay) / businessDaysInMonth
-    : 0;
-
-  // Current month's contribution to annual target (as a percentage)
-  const currentMonthPercent = (monthlyTarget / annualTarget) * 100;
-
-  // For now, assume previous months hit their targets (we're in January so this is 0)
-  // In a full implementation, we'd sum actual completed months
-  // For January: expected = monthProgress * currentMonthPercent
-  const expectedPercent = monthProgress * currentMonthPercent;
-
-  return Math.round(expectedPercent);
-}
-
 interface KPIData {
   slug: string;
   name: string;
@@ -213,15 +174,22 @@ function StatusDot({ pacing }: { pacing: number }) {
   );
 }
 
-// Helper to get yesterday's date in YYYY-MM-DD format
+// Helper to get date in YYYY-MM-DD format using local time (not UTC)
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function getYesterdayDateString(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
+  return getLocalDateString(d);
 }
 
 function getTodayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateString(new Date());
 }
 
 // Revenue Card Component
@@ -587,20 +555,15 @@ export default function DashboardPage() {
           target={annualTarget}
           loading={loading}
           accentColor="green"
-          expectedPacing={getAnnualPacingPercent(
-            pacing?.businessDaysElapsed || 0,
-            pacing?.businessDaysInMonth || 22,
-            monthlyTarget,
-            annualTarget
-          )}
+          expectedPacing={pacing?.expectedAnnualPacingPercent || 0}
         />
       </div>
 
-      {/* Department Revenue Sections */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {/* HVAC Section - 3/4 width */}
+      {/* Department Revenue Sections - 50/50 Split */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        {/* HVAC Section */}
         <div
-          className="col-span-4 lg:col-span-3 p-5 rounded-xl"
+          className="p-5 rounded-xl"
           style={{
             backgroundColor: 'var(--bg-secondary)',
             border: '1px solid rgba(59, 130, 246, 0.3)',
@@ -619,37 +582,86 @@ export default function DashboardPage() {
               HVAC
             </h3>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+          {/* HVAC Breakdown: Install, Service, Maintenance */}
+          <div className="space-y-3">
+            {/* Install */}
             <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Today</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrency(0)}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Install</p>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
+                  0%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(569000)}</p>
+                </div>
+              </div>
             </div>
+
+            {/* Service */}
             <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Week</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrency(0)}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Service</p>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
+                  0%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(124000)}</p>
+                </div>
+              </div>
             </div>
+
+            {/* Maintenance */}
             <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Month</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrency(0)}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Quarter</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrency(0)}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Maintenance</p>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
+                  0%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(31000)}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Plumbing Section - 1/4 width */}
+        {/* Plumbing Section */}
         <div
-          className="col-span-4 lg:col-span-1 p-5 rounded-xl"
+          className="p-5 rounded-xl"
           style={{
             backgroundColor: 'var(--bg-secondary)',
             border: '1px solid rgba(139, 92, 246, 0.3)',
@@ -668,18 +680,55 @@ export default function DashboardPage() {
               Plumbing
             </h3>
           </div>
+
+          {/* Plumbing Breakdown: Service, Maintenance */}
           <div className="space-y-3">
+            {/* Service */}
             <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Today</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrency(0)}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Service</p>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8B5CF6' }}>
+                  0%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(130000)}</p>
+                </div>
+              </div>
             </div>
+
+            {/* Maintenance */}
             <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>This Month</p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrency(0)}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Maintenance</p>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8B5CF6' }}>
+                  0%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(0)}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

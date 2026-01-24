@@ -164,6 +164,7 @@ export async function GET(request: NextRequest) {
     const snapshotMap = new Map<string, SnapshotRecord>();
     (snapshots as SnapshotRecord[] | null)?.forEach((s) => snapshotMap.set(s.kpi_id, s));
 
+
     // Build target lookup (most recent for each KPI)
     const targetMap = new Map<string, number>();
     targets?.forEach((t) => {
@@ -294,25 +295,54 @@ export async function GET(request: NextRequest) {
       return sum + (Number(snap.actual_value) || 0);
     }, 0) || 0;
 
-    // Get annual target (sum of all 12 months)
+    // Get annual target (sum of all 12 months) with month info for pacing calculation
     const { data: annualTargets } = await supabase
       .from('dash_monthly_targets')
-      .select('target_value')
+      .select('target_value, month')
       .eq('year', year)
       .eq('department', 'TOTAL')
-      .eq('target_type', 'revenue');
+      .eq('target_type', 'revenue')
+      .order('month');
 
     const annualTargetValue = annualTargets?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
 
     // Today's revenue from snapshot - use total-revenue to match ST's "Total Revenue"
-    const totalRevenueKpi = kpis.find(k => k.slug === 'total-revenue');
-    const todaySnapshot = snapshotMap.get(totalRevenueKpi?.id || '');
-    const todayRevenue = Number(todaySnapshot?.actual_value) || 0;
+    // Note: actual_value is stored as numeric in Postgres, which Supabase returns as string
+    const totalRevenueKpi = kpis?.find(k => k.slug === 'total-revenue');
+    const todaySnapshot = totalRevenueKpi ? snapshotMap.get(totalRevenueKpi.id) : undefined;
+    const todayRevenue = todaySnapshot?.actual_value
+      ? parseFloat(String(todaySnapshot.actual_value))
+      : 0;
 
     // Calculate pacing percentage
     const daysElapsedInMonth = getBusinessDaysElapsedInMonth(selectedDate, holidays);
     const expectedMTD = dailyTarget * daysElapsedInMonth;
     const pacingPercent = expectedMTD > 0 ? Math.round((mtdRevenue / expectedMTD) * 100) : 0;
+
+    // Calculate expected YTD percentage based on seasonal monthly weights
+    // Sum of completed months + prorated current month
+    let priorMonthsTargetSum = 0;
+    let currentMonthTargetForPacing = monthlyTargetValue;
+
+    if (annualTargets && annualTargets.length > 0) {
+      // Sum targets for all completed months (before current month)
+      for (const t of annualTargets) {
+        if (t.month < month) {
+          priorMonthsTargetSum += Number(t.target_value);
+        } else if (t.month === month) {
+          currentMonthTargetForPacing = Number(t.target_value);
+        }
+      }
+    }
+
+    // Calculate month progress (business days elapsed / total business days)
+    const monthProgressForAnnual = businessDaysInMonth > 0 ? daysElapsedInMonth / businessDaysInMonth : 0;
+
+    // Expected YTD = prior months (100%) + current month (prorated)
+    const expectedYtdTarget = priorMonthsTargetSum + (currentMonthTargetForPacing * monthProgressForAnnual);
+    const expectedAnnualPacingPercent = annualTargetValue > 0
+      ? Math.round((expectedYtdTarget / annualTargetValue) * 100)
+      : 0;
 
     // Business days remaining in month
     const businessDaysRemaining = businessDaysInMonth - daysElapsedInMonth;
@@ -330,6 +360,7 @@ export async function GET(request: NextRequest) {
       quarter,
       ytdRevenue,
       annualTarget: annualTargetValue,
+      expectedAnnualPacingPercent, // Seasonal weighted expected YTD %
       pacingPercent,
       businessDaysRemaining,
       businessDaysElapsed: daysElapsedInMonth,
