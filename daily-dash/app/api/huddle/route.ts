@@ -679,8 +679,12 @@ export async function GET(request: NextRequest) {
             monthData.hvacRevenue = metrics.hvac.revenue;
             monthData.plumbingRevenue = metrics.plumbing.revenue;
             monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
+            // Log if month has no data
+            if (monthData.totalRevenue === 0) {
+              console.log(`Trend: ${monthData.month} (${startStr} to ${endStr}) returned $0`);
+            }
           } catch (err) {
-            console.error(`Error fetching trend data for ${monthData.month}:`, err);
+            console.error(`Error fetching trend data for ${monthData.month} (${startStr} to ${endStr}):`, err);
           }
         });
         await Promise.all(fetchTasks);
