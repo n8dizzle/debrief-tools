@@ -54,7 +54,7 @@ interface ReviewStats {
 // 2026 Review targets from spreadsheet (can't store in dash_monthly_targets due to check constraint)
 const REVIEW_TARGETS: Record<number, { monthly: number[]; daily: number[]; annual: number }> = {
   2026: {
-    monthly: [68, 56, 76, 99, 137, 159, 159, 163, 96, 88, 75, 75], // Jan-Dec
+    monthly: [68, 56, 76, 99, 137, 159, 159, 163, 96, 88, 75, 74], // Jan-Dec (sums to 1250)
     daily: [3, 3, 3, 4, 6, 7, 7, 7, 4, 4, 3, 4],
     annual: 1250,
   },

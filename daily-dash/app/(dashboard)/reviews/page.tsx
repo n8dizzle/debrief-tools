@@ -1518,7 +1518,10 @@ export default function ReviewsPage() {
   const [teamMemberCount, setTeamMemberCount] = useState<number | null>(null);
   const [teamMemberNames, setTeamMemberNames] = useState<string[]>([]);
 
-  const periodDates = getPeriodDates(period, customStartDate || undefined, customEndDate || undefined);
+  const periodDates = useMemo(() =>
+    getPeriodDates(period, customStartDate || undefined, customEndDate || undefined),
+    [period, customStartDate, customEndDate]
+  );
 
   // Generate cache keys
   const statsCacheKey = useMemo(() =>
