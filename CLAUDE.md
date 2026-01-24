@@ -63,6 +63,20 @@ Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
    - Daily/weekly targets calculated from monthly targets
    - Business days: `[22, 19, 22, 22, 21, 22, 23, 21, 21, 23, 19, 23]`
 
+4. **`app/api/huddle/route.ts`** - Fetch WTD/MTD live from ServiceTitan:
+   - **Problem**: WTD/MTD were calculated from Supabase snapshots + today's live data
+   - If snapshots were missing/stale, WTD/MTD values were wrong
+   - **Solution**: Fetch Today, WTD, MTD directly from ServiceTitan in parallel
+   ```typescript
+   const [todayMetrics, wtdMetrics, mtdMetrics] = await Promise.all([
+     stClient.getTradeMetrics(date),              // Today only
+     stClient.getTradeMetrics(mondayStr, date),   // Monday through today
+     stClient.getTradeMetrics(firstOfMonth, date) // First of month through today
+   ]);
+   ```
+   - QTD/YTD still use snapshots (historical data)
+   - Trade cards now show accurate WTD/MTD values
+
 #### To Apply Fix
 
 1. Deploy changes to production
