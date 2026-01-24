@@ -8,7 +8,46 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 23, 2026) - Daily Dash Revenue Tracking
+## Recent Updates (Jan 23, 2026) - Daily Dash Mobile Responsiveness
+
+### Daily Dash - Main Dashboard Mobile Support
+
+#### Mobile Sidebar Navigation
+- **Hamburger menu** appears on screens < 768px (md breakpoint)
+- **Slide-in overlay** from left with dark backdrop
+- **Close button** (X) inside sidebar on mobile
+- Backdrop click closes sidebar
+- Auto-closes on route navigation
+- Body scroll locked when sidebar open
+
+**Files:**
+- `components/DashSidebar.tsx` - Added `isOpen`/`onClose` props, slide animation, backdrop
+- `components/DashboardShell.tsx` - New client wrapper with hamburger button state
+- `app/(dashboard)/layout.tsx` - Uses DashboardShell wrapper
+
+#### Responsive Grid Layouts
+| Component | Desktop | Mobile |
+|-----------|---------|--------|
+| Revenue Cards | 4 columns | 1 column (stacked) |
+| HVAC Time Cards | 3 columns | 1 column |
+| HVAC Departments | 3 columns | 1 column |
+| Plumbing Cards | 3 columns | 1 column |
+
+#### Responsive Component Updates
+- **RevenueCard**: Revenue/Sales stack vertically on mobile, side-by-side on desktop
+- **Header**: Shorter title on mobile ("Christmas Air" vs full name), smaller buttons
+- **TrendChart**: `h-48` on mobile, `h-64` on desktop; labels use `interval="preserveStartEnd"` with `minTickGap={20}`
+- **AnnualBanner**: Responsive text sizing, stacks on mobile
+- **All containers**: Responsive padding (`p-3 sm:p-4` or `p-4 sm:p-5`)
+
+#### Breakpoints Used
+- `sm:` (640px) - Small phones to larger phones
+- `md:` (768px) - Tablets and up (sidebar always visible)
+- `lg:` (1024px) - Desktop
+
+---
+
+## Previous Updates (Jan 23, 2026) - Daily Dash Revenue Tracking
 
 ### Daily Dash - DEPLOYED to https://dash.christmasair.com
 
