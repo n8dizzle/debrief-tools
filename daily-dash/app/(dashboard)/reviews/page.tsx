@@ -233,38 +233,67 @@ function StatCard({
   const isPositive = changePercent !== null && changePercent !== undefined && changePercent > 0;
   const isNegative = changePercent !== null && changePercent !== undefined && changePercent < 0;
 
+  // Determine status color based on change percent
+  const getStatusColor = () => {
+    if (changePercent === null || changePercent === undefined) return 'var(--text-muted)';
+    if (changePercent >= 0) return 'var(--christmas-green)';
+    return '#EF4444';
+  };
+  const statusColor = getStatusColor();
+
   return (
     <div
-      className="rounded-xl p-5"
+      className="relative rounded-xl p-4 sm:p-5 transition-all hover:scale-[1.01]"
       style={{
-        backgroundColor: highlight ? 'rgba(52, 102, 67, 0.2)' : 'var(--bg-secondary)',
+        backgroundColor: 'var(--bg-secondary)',
         border: highlight ? '1px solid rgba(52, 102, 67, 0.4)' : '1px solid var(--border-subtle)',
       }}
     >
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{label}</span>
-        {icon && <div style={{ color: 'var(--text-muted)' }}>{icon}</div>}
-      </div>
-      <div className="flex items-baseline gap-3">
-        <span
-          className="text-3xl font-bold"
-          style={{ color: highlight ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}
+      {/* Change Badge */}
+      {changePercent !== null && changePercent !== undefined && (
+        <div
+          className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1"
+          style={{
+            backgroundColor: `${statusColor}15`,
+            color: statusColor,
+          }}
         >
-          {value}
+          {isPositive && (
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          )}
+          {isNegative && (
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+          {isPositive ? '+' : ''}{Math.round(changePercent)}%
+        </div>
+      )}
+
+      {/* Label with icon */}
+      <div className="flex items-center gap-2 mb-3">
+        {icon && <div style={{ color: highlight ? 'var(--christmas-green)' : 'var(--text-muted)' }}>{icon}</div>}
+        <span className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          {label}
         </span>
-        {changePercent !== null && changePercent !== undefined && (
-          <span
-            className="text-sm font-medium"
-            style={{
-              color: isPositive ? 'var(--christmas-green)' : isNegative ? '#EF4444' : 'var(--text-muted)'
-            }}
-          >
-            {isPositive ? '+' : ''}
-            {Math.round(changePercent)}%
-          </span>
-        )}
       </div>
-      {subtext && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{subtext}</p>}
+
+      {/* Value */}
+      <span
+        className="text-2xl sm:text-3xl font-bold block"
+        style={{ color: highlight ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}
+      >
+        {value}
+      </span>
+
+      {/* Subtext */}
+      {subtext && (
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+          {subtext}
+        </p>
+      )}
     </div>
   );
 }
@@ -547,52 +576,78 @@ function GoalProgress({
           </div>
         ) : (
           <div
-            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1"
             style={{
-              backgroundColor: isAhead ? 'rgba(52, 102, 67, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+              backgroundColor: isAhead ? 'rgba(52, 102, 67, 0.15)' : 'rgba(239, 68, 68, 0.15)',
               color: isAhead ? 'var(--christmas-green)' : '#EF4444',
             }}
           >
-            {isAhead ? '↑' : '↓'} {difference.toFixed(1)}% {isAhead ? 'ahead' : 'behind'}
+            {isAhead ? (
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+            {difference.toFixed(1)}% {isAhead ? 'ahead' : 'behind'}
           </div>
         )}
       </div>
 
-      {/* Progress Bar */}
+      {/* Progress Bar - matches Dashboard style */}
       <div
-        className="relative h-8 rounded-full overflow-hidden mb-3"
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+        className="relative h-2 rounded-full overflow-visible mb-3"
+        style={{ backgroundColor: 'var(--bg-card)' }}
       >
-        {/* Current progress */}
+        {/* Current progress - solid color, no gradient */}
         <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+          className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
           style={{
-            width: `${Math.max(currentPercent, 8)}%`,
-            background: isAhead || isPastPeriod && reviewsInPeriod >= goal
-              ? 'linear-gradient(90deg, #2d5a3d 0%, #346643 100%)'
-              : 'linear-gradient(90deg, #dc2626 0%, #f87171 100%)',
+            width: `${Math.min(currentPercent, 100)}%`,
+            backgroundColor: isAhead || (isPastPeriod && reviewsInPeriod >= goal)
+              ? 'var(--christmas-green)'
+              : '#EF4444',
           }}
-        >
-          <span className="text-xs font-bold text-white">{currentPercent.toFixed(0)}%</span>
-        </div>
+        />
         {/* Expected marker - only show for current periods */}
         {!isPastPeriod && expectedPercent > 0 && expectedPercent < 100 && (
           <div
-            className="absolute inset-y-0 w-0.5"
-            style={{ left: `${expectedPercent}%`, backgroundColor: 'var(--christmas-gold)' }}
-          >
-            <div
-              className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap"
-              style={{ color: 'var(--christmas-gold)' }}
-            >
-              Expected
-            </div>
-          </div>
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 transition-all duration-300"
+            style={{
+              left: `${Math.min(expectedPercent, 100)}%`,
+              backgroundColor: 'var(--christmas-cream)',
+              opacity: 0.9,
+            }}
+          />
         )}
       </div>
 
-      {/* Stats row */}
-      <div className="flex items-center justify-between text-sm">
+      {/* Percentage display - moved outside bar */}
+      <div className="flex items-center justify-between mb-2">
+        <span
+          className="text-sm font-semibold px-2 py-0.5 rounded"
+          style={{
+            backgroundColor: isAhead || (isPastPeriod && reviewsInPeriod >= goal)
+              ? 'rgba(52, 102, 67, 0.15)'
+              : 'rgba(239, 68, 68, 0.15)',
+            color: isAhead || (isPastPeriod && reviewsInPeriod >= goal)
+              ? 'var(--christmas-green)'
+              : '#EF4444',
+          }}
+        >
+          {currentPercent.toFixed(0)}%
+        </span>
+        {!isPastPeriod && expectedPercent > 0 && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Expected: {expectedPercent.toFixed(0)}%
+          </span>
+        )}
+      </div>
+
+      {/* Stats row - responsive */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
         <div style={{ color: 'var(--text-muted)' }}>
           <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{reviewsNeeded.toLocaleString()}</span> {isPastPeriod ? 'short of goal' : 'to go'}
         </div>
@@ -601,7 +656,7 @@ function GoalProgress({
             <div style={{ color: 'var(--text-muted)' }}>
               Target: <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{dailyTarget}</span>/day
               {parseFloat(perBusinessDayNeeded) > dailyTarget && (
-                <span className="ml-1" style={{ color: '#EF4444' }}>(need {perBusinessDayNeeded})</span>
+                <span className="ml-1 text-xs" style={{ color: '#EF4444' }}>(need {perBusinessDayNeeded})</span>
               )}
             </div>
             <div style={{ color: 'var(--text-muted)' }}>
