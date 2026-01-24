@@ -79,6 +79,10 @@ interface Review {
   };
 }
 
+interface UserPermissions {
+  canReplyReviews: boolean;
+}
+
 interface LeaderboardEntry {
   name: string;
   mention_count: number;
@@ -819,9 +823,223 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
   );
 }
 
-function ReviewCard({ review }: { review: Review }) {
+// Reply Modal Component
+function ReplyModal({
+  review,
+  onClose,
+  onSuccess,
+}: {
+  review: Review;
+  onClose: () => void;
+  onSuccess: (reply: string) => void;
+}) {
+  const [replyText, setReplyText] = useState(review.review_reply || '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const maxLength = 4096;
+
+  const handleSubmit = async () => {
+    if (!replyText.trim()) {
+      setError('Reply cannot be empty');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/reviews/${review.id}/reply`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ comment: replyText.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit reply');
+      }
+
+      onSuccess(replyText.trim());
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit reply');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this reply?')) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/reviews/${review.id}/reply`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete reply');
+      }
+
+      onSuccess('');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete reply');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl p-6"
+        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            {review.review_reply ? 'Edit Reply' : 'Reply to Review'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg transition-colors hover:opacity-80"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Original Review */}
+        <div
+          className="p-3 rounded-lg mb-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-medium text-sm" style={{ color: 'var(--christmas-cream)' }}>
+              {review.reviewer_name}
+            </span>
+            <StarRating rating={review.star_rating} size="sm" />
+          </div>
+          {review.comment && (
+            <p className="text-sm line-clamp-3" style={{ color: 'var(--text-muted)' }}>
+              {review.comment}
+            </p>
+          )}
+        </div>
+
+        {/* Reply Textarea */}
+        <div className="mb-4">
+          <textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder="Write your reply..."
+            rows={4}
+            maxLength={maxLength}
+            className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 resize-none"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--christmas-cream)',
+            }}
+            disabled={submitting}
+          />
+          <div className="flex justify-between mt-1">
+            <span
+              className="text-xs"
+              style={{
+                color: replyText.length > maxLength * 0.9
+                  ? '#EF4444'
+                  : 'var(--text-muted)'
+              }}
+            >
+              {replyText.length.toLocaleString()} / {maxLength.toLocaleString()} characters
+            </span>
+            {error && (
+              <span className="text-xs" style={{ color: '#EF4444' }}>{error}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-between">
+          <div>
+            {review.review_reply && (
+              <button
+                onClick={handleDelete}
+                disabled={submitting}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  color: '#EF4444',
+                }}
+              >
+                Delete Reply
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                color: 'var(--christmas-cream)',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !replyText.trim()}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 flex items-center gap-2"
+              style={{ backgroundColor: 'var(--christmas-green)' }}
+            >
+              {submitting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Submitting
+                </>
+              ) : (
+                review.review_reply ? 'Update Reply' : 'Post Reply'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewCard({
+  review,
+  canReply,
+  onReplySuccess,
+}: {
+  review: Review;
+  canReply: boolean;
+  onReplySuccess: (reviewId: string, reply: string) => void;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [showExistingReply, setShowExistingReply] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
 
   const timeAgo = useMemo(() => {
@@ -913,16 +1131,17 @@ function ReviewCard({ review }: { review: Review }) {
             </span>
           )}
           {review.review_reply ? (
-            <span
-              className="text-xs px-2 py-1 rounded-full"
+            <button
+              onClick={() => setShowExistingReply(!showExistingReply)}
+              className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
               style={{
                 backgroundColor: 'rgba(52, 102, 67, 0.2)',
                 color: 'var(--christmas-green)',
                 border: '1px solid rgba(52, 102, 67, 0.3)',
               }}
             >
-              Replied
-            </span>
+              {showExistingReply ? 'Hide Reply' : 'View Reply'}
+            </button>
           ) : (
             <span
               className="text-xs px-2 py-1 rounded-full"
@@ -935,8 +1154,58 @@ function ReviewCard({ review }: { review: Review }) {
               Needs Reply
             </span>
           )}
+          {canReply && (
+            <button
+              onClick={() => setShowReplyModal(true)}
+              className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--christmas-green)',
+                color: 'white',
+              }}
+            >
+              {review.review_reply ? 'Edit' : 'Reply'}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Existing Reply Display */}
+      {showExistingReply && review.review_reply && (
+        <div
+          className="mt-3 ml-12 p-3 rounded-lg"
+          style={{
+            backgroundColor: 'rgba(52, 102, 67, 0.1)',
+            border: '1px solid rgba(52, 102, 67, 0.2)',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-medium" style={{ color: 'var(--christmas-green)' }}>
+              Owner Response
+            </span>
+            {review.reply_time && (
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {new Date(review.reply_time).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </span>
+            )}
+          </div>
+          <p className="text-sm" style={{ color: 'var(--christmas-cream)', opacity: 0.9 }}>
+            {review.review_reply}
+          </p>
+        </div>
+      )}
+
+      {/* Reply Modal */}
+      {showReplyModal && (
+        <ReplyModal
+          review={review}
+          onClose={() => setShowReplyModal(false)}
+          onSuccess={(reply) => onReplySuccess(review.id, reply)}
+        />
+      )}
     </div>
   );
 }
@@ -962,6 +1231,7 @@ export default function ReviewsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [userPermissions, setUserPermissions] = useState<UserPermissions>({ canReplyReviews: false });
 
   const periodDates = getPeriodDates(period, customStartDate || undefined, customEndDate || undefined);
 
@@ -983,6 +1253,37 @@ export default function ReviewsPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Fetch user permissions
+  useEffect(() => {
+    async function fetchPermissions() {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          // Owners and managers can always reply, or users with explicit permission
+          const canReply = data.can_reply_reviews === true ||
+            data.role === 'owner' ||
+            data.role === 'manager';
+          setUserPermissions({ canReplyReviews: canReply });
+        }
+      } catch (error) {
+        console.error('Failed to fetch permissions:', error);
+      }
+    }
+    fetchPermissions();
+  }, []);
+
+  // Handle reply success - update local state
+  const handleReplySuccess = useCallback((reviewId: string, reply: string) => {
+    setReviews(prev => prev.map(r =>
+      r.id === reviewId
+        ? { ...r, review_reply: reply || null, reply_time: reply ? new Date().toISOString() : null }
+        : r
+    ));
+    // Clear cache since data changed
+    reviewsCache.clear();
+  }, []);
 
   // Fetch stats with caching
   useEffect(() => {
@@ -1439,7 +1740,14 @@ export default function ReviewsPage() {
               No reviews found for the selected filters
             </div>
           ) : (
-            reviews.map((review) => <ReviewCard key={review.id} review={review} />)
+            reviews.map((review) => (
+              <ReviewCard
+                key={review.id}
+                review={review}
+                canReply={userPermissions.canReplyReviews}
+                onReplySuccess={handleReplySuccess}
+              />
+            ))
           )}
         </div>
       </div>
