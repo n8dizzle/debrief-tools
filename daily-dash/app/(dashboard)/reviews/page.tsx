@@ -1087,11 +1087,13 @@ function ReviewCard({
   canReply,
   onReplySuccess,
   onMentionsUpdate,
+  teamMembers,
 }: {
   review: Review;
   canReply: boolean;
   onReplySuccess: (reviewId: string, reply: string) => void;
   onMentionsUpdate: (reviewId: string, mentions: string[] | null) => void;
+  teamMembers: string[];
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
@@ -1099,7 +1101,6 @@ function ReviewCard({
   const [showExistingReply, setShowExistingReply] = useState(false);
   const [isEditingMentions, setIsEditingMentions] = useState(false);
   const [editedMentions, setEditedMentions] = useState<string[]>([]);
-  const [newMentionInput, setNewMentionInput] = useState('');
   const [savingMentions, setSavingMentions] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
 
@@ -1251,38 +1252,31 @@ function ReviewCard({
                     </span>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newMentionInput}
-                    onChange={(e) => setNewMentionInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newMentionInput.trim()) {
-                        setEditedMentions(prev => [...prev, newMentionInput.trim()]);
-                        setNewMentionInput('');
-                      }
-                    }}
-                    placeholder="Add name..."
-                    className="flex-1 px-2 py-1 text-xs rounded"
-                    style={{
-                      backgroundColor: 'rgba(0,0,0,0.3)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--christmas-cream)',
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      if (newMentionInput.trim()) {
-                        setEditedMentions(prev => [...prev, newMentionInput.trim()]);
-                        setNewMentionInput('');
-                      }
-                    }}
-                    className="px-2 py-1 text-xs rounded"
-                    style={{ backgroundColor: 'var(--christmas-gold)', color: 'var(--bg-primary)' }}
-                  >
-                    Add
-                  </button>
-                </div>
+                {/* Dropdown to add team members */}
+                <select
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    if (selected && !editedMentions.includes(selected)) {
+                      setEditedMentions(prev => [...prev, selected]);
+                    }
+                    e.target.value = ''; // Reset dropdown
+                  }}
+                  className="w-full px-2 py-1.5 text-xs rounded"
+                  style={{
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--christmas-cream)',
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>+ Add team member...</option>
+                  {teamMembers
+                    .filter(name => !editedMentions.includes(name))
+                    .map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))
+                  }
+                </select>
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={async () => {
@@ -1314,7 +1308,6 @@ function ReviewCard({
                     onClick={() => {
                       setIsEditingMentions(false);
                       setEditedMentions(review.team_members_mentioned || []);
-                      setNewMentionInput('');
                     }}
                     className="px-2 py-1 text-xs rounded"
                     style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--christmas-cream)' }}
@@ -1428,6 +1421,7 @@ export default function ReviewsPage() {
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({ canReplyReviews: false });
   const [syncingTeam, setSyncingTeam] = useState(false);
   const [teamMemberCount, setTeamMemberCount] = useState<number | null>(null);
+  const [teamMemberNames, setTeamMemberNames] = useState<string[]>([]);
 
   const periodDates = getPeriodDates(period, customStartDate || undefined, customEndDate || undefined);
 
@@ -1470,20 +1464,26 @@ export default function ReviewsPage() {
     fetchPermissions();
   }, []);
 
-  // Fetch team member count
+  // Fetch team members (for count and names dropdown)
   useEffect(() => {
-    async function fetchTeamMemberCount() {
+    async function fetchTeamMembers() {
       try {
-        const response = await fetch('/api/team-members/sync', { credentials: 'include' });
+        const response = await fetch('/api/team-members', { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
-          setTeamMemberCount(data.teamMemberCount);
+          setTeamMemberCount(data.total);
+          // Extract just the active team member names for the dropdown
+          const names = (data.teamMembers || [])
+            .filter((m: { is_active: boolean }) => m.is_active)
+            .map((m: { name: string }) => m.name)
+            .sort();
+          setTeamMemberNames(names);
         }
       } catch (error) {
-        console.error('Failed to fetch team member count:', error);
+        console.error('Failed to fetch team members:', error);
       }
     }
-    fetchTeamMemberCount();
+    fetchTeamMembers();
   }, []);
 
   // Sync team members from ServiceTitan
@@ -2053,6 +2053,7 @@ export default function ReviewsPage() {
                 canReply={userPermissions.canReplyReviews}
                 onReplySuccess={handleReplySuccess}
                 onMentionsUpdate={handleMentionsUpdate}
+                teamMembers={teamMemberNames}
               />
             ))
           )}
