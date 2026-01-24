@@ -510,20 +510,19 @@ export class ServiceTitanClient {
 
   /**
    * Get sold estimates for a date range
-   * "Sold" status in ServiceTitan = status.value of 3
+   * Uses soldAfter/soldBefore parameters (not soldOnOrAfter)
    */
   async getSoldEstimates(
-    soldOnOrAfter: string,
-    soldBefore?: string
+    soldAfterDate: string,
+    soldBeforeDate?: string
   ): Promise<STEstimate[]> {
     const params: Record<string, string> = {
-      soldOnOrAfter: `${soldOnOrAfter}T00:00:00Z`,
+      soldAfter: `${soldAfterDate}T00:00:00Z`,
       pageSize: '200',
-      status: 'Sold', // Only get sold estimates
     };
 
-    if (soldBefore) {
-      params.soldBefore = `${soldBefore}T00:00:00Z`;
+    if (soldBeforeDate) {
+      params.soldBefore = `${soldBeforeDate}T00:00:00Z`;
     }
 
     const response = await this.request<STPagedResponse<STEstimate>>(
