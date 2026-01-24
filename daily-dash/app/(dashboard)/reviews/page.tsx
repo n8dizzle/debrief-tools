@@ -231,28 +231,36 @@ function StatCard({
 
   return (
     <div
-      className={`rounded-xl p-5 ${highlight ? 'bg-emerald-900/30 border-emerald-700/50' : 'bg-zinc-900/50 border-zinc-800'} border`}
+      className="rounded-xl p-5"
+      style={{
+        backgroundColor: highlight ? 'rgba(52, 102, 67, 0.2)' : 'var(--bg-secondary)',
+        border: highlight ? '1px solid rgba(52, 102, 67, 0.4)' : '1px solid var(--border-subtle)',
+      }}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-zinc-400">{label}</span>
-        {icon && <div className="text-zinc-500">{icon}</div>}
+        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{label}</span>
+        {icon && <div style={{ color: 'var(--text-muted)' }}>{icon}</div>}
       </div>
       <div className="flex items-baseline gap-3">
-        <span className={`text-3xl font-bold ${highlight ? 'text-emerald-400' : 'text-white'}`}>
+        <span
+          className="text-3xl font-bold"
+          style={{ color: highlight ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}
+        >
           {value}
         </span>
         {changePercent !== null && changePercent !== undefined && (
           <span
-            className={`text-sm font-medium ${
-              isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-zinc-500'
-            }`}
+            className="text-sm font-medium"
+            style={{
+              color: isPositive ? 'var(--christmas-green)' : isNegative ? '#EF4444' : 'var(--text-muted)'
+            }}
           >
             {isPositive ? '+' : ''}
             {Math.round(changePercent)}%
           </span>
         )}
       </div>
-      {subtext && <p className="text-xs text-zinc-500 mt-1">{subtext}</p>}
+      {subtext && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{subtext}</p>}
     </div>
   );
 }
@@ -281,11 +289,14 @@ function ReviewsChart({ data, period }: { data: DailyCount[]; period: PeriodPres
   const avgPerDay = data.length > 0 ? (totalReviews / data.length).toFixed(1) : '0';
 
   return (
-    <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
+    <div
+      className="rounded-xl p-6"
+      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+    >
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-white">Reviews by Day</h3>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Reviews by Day</h3>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {totalReviews} total &middot; {avgPerDay} avg/day
           </p>
         </div>
@@ -293,33 +304,33 @@ function ReviewsChart({ data, period }: { data: DailyCount[]; period: PeriodPres
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
             <XAxis
               dataKey="date"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#71717a', fontSize: 11 }}
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
               interval={Math.max(0, Math.floor(chartData.length / 8) - 1)}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#71717a', fontSize: 11 }}
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
               allowDecimals={false}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#18181b',
-                border: '1px solid #27272a',
+                backgroundColor: '#1a2e1f',
+                border: '1px solid rgba(52, 102, 67, 0.3)',
                 borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
               }}
-              labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
-              itemStyle={{ color: '#10b981' }}
+              labelStyle={{ color: '#d4c5a9', marginBottom: '4px' }}
+              itemStyle={{ color: '#346643' }}
               formatter={(value) => [`${value} reviews`, '']}
-              cursor={{ fill: 'rgba(39, 39, 42, 0.5)' }}
+              cursor={{ fill: 'rgba(52, 102, 67, 0.1)' }}
             />
-            <Bar dataKey="reviews" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="reviews" fill="#346643" radius={[4, 4, 0, 0]} maxBarSize={40} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -511,25 +522,32 @@ function GoalProgress({
   // For past periods, show completion status instead of pacing
 
   return (
-    <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 p-5">
+    <div
+      className="rounded-xl p-5"
+      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+    >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-white">{label}</h3>
-          <p className="text-sm text-zinc-500">{reviewsInPeriod.toLocaleString()} of {goal.toLocaleString()} reviews</p>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>{label}</h3>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{reviewsInPeriod.toLocaleString()} of {goal.toLocaleString()} reviews</p>
         </div>
         {isPastPeriod ? (
           <div
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-              reviewsInPeriod >= goal ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'
-            }`}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: reviewsInPeriod >= goal ? 'rgba(52, 102, 67, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+              color: reviewsInPeriod >= goal ? 'var(--christmas-green)' : '#EF4444',
+            }}
           >
             {reviewsInPeriod >= goal ? 'Goal Met' : `${(goal - reviewsInPeriod)} short`}
           </div>
         ) : (
           <div
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-              isAhead ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'
-            }`}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: isAhead ? 'rgba(52, 102, 67, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+              color: isAhead ? 'var(--christmas-green)' : '#EF4444',
+            }}
           >
             {isAhead ? '↑' : '↓'} {difference.toFixed(1)}% {isAhead ? 'ahead' : 'behind'}
           </div>
@@ -537,14 +555,17 @@ function GoalProgress({
       </div>
 
       {/* Progress Bar */}
-      <div className="relative h-8 bg-zinc-800 rounded-full overflow-hidden mb-3">
+      <div
+        className="relative h-8 rounded-full overflow-hidden mb-3"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      >
         {/* Current progress */}
         <div
           className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
           style={{
             width: `${Math.max(currentPercent, 8)}%`,
             background: isAhead || isPastPeriod && reviewsInPeriod >= goal
-              ? 'linear-gradient(90deg, #059669 0%, #10b981 100%)'
+              ? 'linear-gradient(90deg, #2d5a3d 0%, #346643 100%)'
               : 'linear-gradient(90deg, #dc2626 0%, #f87171 100%)',
           }}
         >
@@ -553,10 +574,13 @@ function GoalProgress({
         {/* Expected marker - only show for current periods */}
         {!isPastPeriod && expectedPercent > 0 && expectedPercent < 100 && (
           <div
-            className="absolute inset-y-0 w-0.5 bg-white/50"
-            style={{ left: `${expectedPercent}%` }}
+            className="absolute inset-y-0 w-0.5"
+            style={{ left: `${expectedPercent}%`, backgroundColor: 'var(--christmas-gold)' }}
           >
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-zinc-400 whitespace-nowrap">
+            <div
+              className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap"
+              style={{ color: 'var(--christmas-gold)' }}
+            >
               Expected
             </div>
           </div>
@@ -565,27 +589,27 @@ function GoalProgress({
 
       {/* Stats row */}
       <div className="flex items-center justify-between text-sm">
-        <div className="text-zinc-400">
-          <span className="text-white font-medium">{reviewsNeeded.toLocaleString()}</span> {isPastPeriod ? 'short of goal' : 'to go'}
+        <div style={{ color: 'var(--text-muted)' }}>
+          <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{reviewsNeeded.toLocaleString()}</span> {isPastPeriod ? 'short of goal' : 'to go'}
         </div>
         {!isPastPeriod && businessDaysRemaining > 0 && (
           <>
-            <div className="text-zinc-400">
-              Target: <span className="text-white font-medium">{dailyTarget}</span>/day
+            <div style={{ color: 'var(--text-muted)' }}>
+              Target: <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{dailyTarget}</span>/day
               {parseFloat(perBusinessDayNeeded) > dailyTarget && (
-                <span className="text-red-400 ml-1">(need {perBusinessDayNeeded})</span>
+                <span className="ml-1" style={{ color: '#EF4444' }}>(need {perBusinessDayNeeded})</span>
               )}
             </div>
-            <div className="text-zinc-400">
-              <span className="text-white font-medium">{businessDaysRemaining}</span> business days left
+            <div style={{ color: 'var(--text-muted)' }}>
+              <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{businessDaysRemaining}</span> business days left
             </div>
           </>
         )}
         {isPastPeriod && (
-          <div className="text-zinc-400">
+          <div style={{ color: 'var(--text-muted)' }}>
             {reviewsInPeriod >= goal
-              ? <span className="text-emerald-400 font-medium">+{reviewsInPeriod - goal} over goal</span>
-              : <span className="text-red-400 font-medium">{((reviewsInPeriod / goal) * 100).toFixed(0)}% of goal</span>
+              ? <span className="font-medium" style={{ color: 'var(--christmas-green)' }}>+{reviewsInPeriod - goal} over goal</span>
+              : <span className="font-medium" style={{ color: '#EF4444' }}>{((reviewsInPeriod / goal) * 100).toFixed(0)}% of goal</span>
             }
           </div>
         )}
@@ -596,14 +620,17 @@ function GoalProgress({
 
 function LocationsTable({ locations }: { locations: LocationStats[] }) {
   return (
-    <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 overflow-hidden">
-      <div className="px-5 py-3 border-b border-zinc-800">
-        <h3 className="text-lg font-semibold text-white">By Location</h3>
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+    >
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>By Location</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-zinc-800 text-xs text-zinc-500">
+            <tr className="text-xs" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
               <th className="text-left py-2 px-4 font-medium">Location</th>
               <th className="text-right py-2 px-4 font-medium">Rating</th>
               <th className="text-right py-2 px-4 font-medium">This Period</th>
@@ -611,33 +638,40 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
             </tr>
           </thead>
           <tbody>
-            {locations.map((location) => {
+            {locations.map((location, index) => {
               const changePercent = location.period_change_percent;
               const isPositive = changePercent !== null && changePercent > 0;
               const isNegative = changePercent !== null && changePercent < 0;
 
               return (
-                <tr key={location.id} className="border-b border-zinc-800/50 last:border-b-0 hover:bg-zinc-800/30 transition-colors">
+                <tr
+                  key={location.id}
+                  className="transition-colors hover:opacity-80"
+                  style={{
+                    borderBottom: index < locations.length - 1 ? '1px solid rgba(212, 197, 169, 0.1)' : 'none',
+                  }}
+                >
                   <td className="py-2.5 px-4">
-                    <span className="text-sm font-medium text-white">{location.short_name}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{location.short_name}</span>
                   </td>
                   <td className="py-2.5 px-4 text-right">
-                    <span className="text-sm text-amber-400">{location.average_rating.toFixed(1)} ★</span>
+                    <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>{location.average_rating.toFixed(1)} ★</span>
                   </td>
                   <td className="py-2.5 px-4 text-right">
-                    <span className="text-sm font-medium text-emerald-400">{location.reviews_this_period}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-green)' }}>{location.reviews_this_period}</span>
                     {changePercent !== null && (
                       <span
-                        className={`text-xs ml-1 ${
-                          isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-zinc-500'
-                        }`}
+                        className="text-xs ml-1"
+                        style={{
+                          color: isPositive ? 'var(--christmas-green)' : isNegative ? '#EF4444' : 'var(--text-muted)'
+                        }}
                       >
                         {isPositive ? '+' : ''}{Math.round(changePercent)}%
                       </span>
                     )}
                   </td>
                   <td className="py-2.5 px-4 text-right">
-                    <span className="text-sm text-white">{location.total_reviews.toLocaleString()}</span>
+                    <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{location.total_reviews.toLocaleString()}</span>
                   </td>
                 </tr>
               );
@@ -652,12 +686,15 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
 function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loading: boolean }) {
   if (loading) {
     return (
-      <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
+      <div
+        className="rounded-xl p-6"
+        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+      >
         <div className="animate-pulse space-y-3">
-          <div className="h-6 w-32 bg-zinc-800 rounded" />
+          <div className="h-6 w-32 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 bg-zinc-800 rounded" />
+              <div key={i} className="h-12 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
             ))}
           </div>
         </div>
@@ -667,9 +704,12 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Team Leaderboard</h3>
-        <p className="text-zinc-500 text-sm">No team member mentions found in reviews.</p>
+      <div
+        className="rounded-xl p-6"
+        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+      >
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No team member mentions found in reviews.</p>
       </div>
     );
   }
@@ -678,24 +718,33 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
   const rest = entries.slice(3, 10);
 
   return (
-    <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 overflow-hidden">
-      <div className="px-5 py-3 border-b border-zinc-800">
-        <h3 className="text-lg font-semibold text-white">Team Leaderboard</h3>
-        <p className="text-xs text-zinc-500 mt-0.5">Most mentioned in reviews</p>
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+    >
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Most mentioned in reviews</p>
       </div>
 
       {/* Top 3 Podium */}
-      <div className="grid grid-cols-3 gap-2 p-3 bg-gradient-to-b from-zinc-800/50 to-transparent">
+      <div
+        className="grid grid-cols-3 gap-2 p-3"
+        style={{ background: 'linear-gradient(to bottom, rgba(52, 102, 67, 0.15), transparent)' }}
+      >
         {/* Second Place */}
         <div className="text-center pt-2">
           {topThree[1] && (
             <>
-              <div className="w-10 h-10 mx-auto rounded-full bg-zinc-700 flex items-center justify-center text-lg font-bold text-zinc-300 mb-1">
+              <div
+                className="w-10 h-10 mx-auto rounded-full flex items-center justify-center text-lg font-bold mb-1"
+                style={{ backgroundColor: 'rgba(212, 197, 169, 0.2)', color: 'var(--christmas-cream)' }}
+              >
                 {topThree[1].name.charAt(0)}
               </div>
-              <div className="text-sm font-medium text-zinc-300">{topThree[1].name}</div>
-              <div className="text-xs text-zinc-500">{topThree[1].mention_count}</div>
-              <div className="text-sm font-bold text-zinc-400">2nd</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{topThree[1].name}</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{topThree[1].mention_count}</div>
+              <div className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>2nd</div>
             </>
           )}
         </div>
@@ -704,12 +753,19 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
         <div className="text-center">
           {topThree[0] && (
             <>
-              <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-xl font-bold text-white mb-1 ring-2 ring-amber-400/50">
+              <div
+                className="w-12 h-12 mx-auto rounded-full flex items-center justify-center text-xl font-bold mb-1"
+                style={{
+                  background: 'linear-gradient(135deg, #c9a227, #8b7355)',
+                  color: 'white',
+                  boxShadow: '0 0 0 2px rgba(201, 162, 39, 0.4)',
+                }}
+              >
                 {topThree[0].name.charAt(0)}
               </div>
-              <div className="text-sm font-medium text-white">{topThree[0].name}</div>
-              <div className="text-xs text-amber-400">{topThree[0].mention_count}</div>
-              <div className="text-sm font-bold text-amber-400">1st</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{topThree[0].name}</div>
+              <div className="text-xs" style={{ color: 'var(--christmas-gold)' }}>{topThree[0].mention_count}</div>
+              <div className="text-sm font-bold" style={{ color: 'var(--christmas-gold)' }}>1st</div>
             </>
           )}
         </div>
@@ -718,12 +774,15 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
         <div className="text-center pt-3">
           {topThree[2] && (
             <>
-              <div className="w-9 h-9 mx-auto rounded-full bg-amber-900/50 flex items-center justify-center text-base font-bold text-amber-700 mb-1">
+              <div
+                className="w-9 h-9 mx-auto rounded-full flex items-center justify-center text-base font-bold mb-1"
+                style={{ backgroundColor: 'rgba(139, 115, 85, 0.3)', color: '#8b7355' }}
+              >
                 {topThree[2].name.charAt(0)}
               </div>
-              <div className="text-sm font-medium text-zinc-400">{topThree[2].name}</div>
-              <div className="text-xs text-zinc-500">{topThree[2].mention_count}</div>
-              <div className="text-sm font-bold text-amber-700/70">3rd</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{topThree[2].name}</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{topThree[2].mention_count}</div>
+              <div className="text-sm font-bold" style={{ color: '#8b7355' }}>3rd</div>
             </>
           )}
         </div>
@@ -731,19 +790,26 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
 
       {/* Rest of the list */}
       {rest.length > 0 && (
-        <div className="divide-y divide-zinc-800">
+        <div>
           {rest.map((entry, index) => (
-            <div key={entry.name} className="flex items-center justify-between px-5 py-2 hover:bg-zinc-800/30 transition-colors">
+            <div
+              key={entry.name}
+              className="flex items-center justify-between px-5 py-2 transition-colors hover:opacity-80"
+              style={{ borderTop: '1px solid rgba(212, 197, 169, 0.1)' }}
+            >
               <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 w-4">{index + 4}.</span>
-                <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-400">
+                <span className="text-xs w-4" style={{ color: 'var(--text-muted)' }}>{index + 4}.</span>
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-muted)' }}
+                >
                   {entry.name.charAt(0)}
                 </div>
-                <span className="text-sm text-zinc-300">{entry.name}</span>
+                <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">{entry.five_star_count} ★5</span>
-                <span className="text-sm font-medium text-zinc-300">{entry.mention_count}</span>
+                <span className="text-xs" style={{ color: 'var(--christmas-gold)' }}>{entry.five_star_count} ★5</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{entry.mention_count}</span>
               </div>
             </div>
           ))}
@@ -786,18 +852,24 @@ function ReviewCard({ review }: { review: Review }) {
   const hasTeamMentions = review.team_members_mentioned && review.team_members_mentioned.length > 0;
 
   return (
-    <div className="p-4 border-b border-zinc-800 last:border-b-0 hover:bg-zinc-800/30 transition-colors">
+    <div
+      className="p-4 last:border-b-0 transition-colors hover:opacity-90"
+      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-full bg-emerald-900/50 flex items-center justify-center text-sm font-medium text-emerald-400 flex-shrink-0">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
+            style={{ backgroundColor: 'rgba(52, 102, 67, 0.3)', color: 'var(--christmas-green)' }}
+          >
             {review.reviewer_name.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-white truncate">{review.reviewer_name}</span>
+              <span className="font-medium truncate" style={{ color: 'var(--christmas-cream)' }}>{review.reviewer_name}</span>
               <StarRating rating={review.star_rating} />
             </div>
-            <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
+            <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
               <span>{timeAgo}</span>
               <span>&middot;</span>
               <span>{review.location.short_name}</span>
@@ -806,16 +878,18 @@ function ReviewCard({ review }: { review: Review }) {
               <div className="mt-2">
                 <p
                   ref={textRef}
-                  className={`text-sm text-zinc-300 transition-all duration-200 ${
+                  className={`text-sm transition-all duration-200 ${
                     isExpanded ? '' : 'line-clamp-2'
                   }`}
+                  style={{ color: 'var(--christmas-cream)', opacity: 0.9 }}
                 >
                   {review.comment}
                 </p>
                 {(isTruncated || isExpanded) && (
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 mt-1 font-medium transition-colors"
+                    className="text-xs mt-1 font-medium transition-colors hover:opacity-80"
+                    style={{ color: 'var(--christmas-green)' }}
                   >
                     {isExpanded ? '← Read less' : 'Read more →'}
                   </button>
@@ -827,16 +901,37 @@ function ReviewCard({ review }: { review: Review }) {
 
         <div className="flex items-center gap-2 flex-shrink-0">
           {hasTeamMentions && (
-            <span className="text-xs px-2 py-1 rounded-full bg-amber-900/30 text-amber-400 border border-amber-800/50">
+            <span
+              className="text-xs px-2 py-1 rounded-full"
+              style={{
+                backgroundColor: 'rgba(201, 162, 39, 0.2)',
+                color: 'var(--christmas-gold)',
+                border: '1px solid rgba(201, 162, 39, 0.3)',
+              }}
+            >
               {review.team_members_mentioned!.join(', ')}
             </span>
           )}
           {review.review_reply ? (
-            <span className="text-xs px-2 py-1 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-800/50">
+            <span
+              className="text-xs px-2 py-1 rounded-full"
+              style={{
+                backgroundColor: 'rgba(52, 102, 67, 0.2)',
+                color: 'var(--christmas-green)',
+                border: '1px solid rgba(52, 102, 67, 0.3)',
+              }}
+            >
               Replied
             </span>
           ) : (
-            <span className="text-xs px-2 py-1 rounded-full bg-red-900/30 text-red-400 border border-red-800/50">
+            <span
+              className="text-xs px-2 py-1 rounded-full"
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                color: '#EF4444',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+              }}
+            >
               Needs Reply
             </span>
           )}
@@ -1054,13 +1149,13 @@ export default function ReviewsPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 w-48 bg-zinc-800 rounded" />
+          <div className="h-8 w-48 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
           <div className="grid grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-28 bg-zinc-800 rounded-xl" />
+              <div key={i} className="h-28 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }} />
             ))}
           </div>
-          <div className="h-72 bg-zinc-800 rounded-xl" />
+          <div className="h-72 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }} />
         </div>
       </div>
     );
@@ -1069,7 +1164,7 @@ export default function ReviewsPage() {
   if (!stats) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-        <p className="text-zinc-400">Failed to load review data</p>
+        <p style={{ color: 'var(--text-muted)' }}>Failed to load review data</p>
       </div>
     );
   }
@@ -1079,8 +1174,8 @@ export default function ReviewsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Google Reviews</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">{getPeriodLabel(period, customStartDate || undefined, customEndDate || undefined)}</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>Google Reviews</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{getPeriodLabel(period, customStartDate || undefined, customEndDate || undefined)}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -1094,7 +1189,12 @@ export default function ReviewsPage() {
                 setCustomEndDate(null);
               }
             }}
-            className="px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--christmas-cream)',
+            }}
           >
             <option value="this_month">This Month</option>
             <option value="last_month">Last Month</option>
@@ -1114,14 +1214,24 @@ export default function ReviewsPage() {
                 type="date"
                 value={customStartDate ? customStartDate.toISOString().split('T')[0] : ''}
                 onChange={(e) => setCustomStartDate(e.target.value ? new Date(e.target.value) : null)}
-                className="px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--christmas-cream)',
+                }}
               />
-              <span className="text-zinc-500">to</span>
+              <span style={{ color: 'var(--text-muted)' }}>to</span>
               <input
                 type="date"
                 value={customEndDate ? customEndDate.toISOString().split('T')[0] : ''}
                 onChange={(e) => setCustomEndDate(e.target.value ? new Date(e.target.value) : null)}
-                className="px-3 py-2 rounded-lg text-sm bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--christmas-cream)',
+                }}
               />
             </div>
           )}
@@ -1129,7 +1239,8 @@ export default function ReviewsPage() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2 disabled:opacity-50 hover:opacity-90"
+            style={{ backgroundColor: 'var(--christmas-green)' }}
           >
             {syncing ? (
               <>
@@ -1220,15 +1331,23 @@ export default function ReviewsPage() {
       </div>
 
       {/* Reviews */}
-      <div className="rounded-xl bg-zinc-900/50 border border-zinc-800 overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-800">
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+      >
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-white">Reviews</h3>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Reviews</h3>
             <div className="flex items-center gap-3">
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-sm bg-zinc-800 border border-zinc-700 text-zinc-300 focus:outline-none"
+                className="px-3 py-1.5 rounded-lg text-sm focus:outline-none"
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--christmas-cream)',
+                }}
               >
                 <option value="all">All Locations</option>
                 {stats.locations.map((loc) => (
@@ -1241,7 +1360,12 @@ export default function ReviewsPage() {
               <select
                 value={ratingFilter}
                 onChange={(e) => setRatingFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-sm bg-zinc-800 border border-zinc-700 text-zinc-300 focus:outline-none"
+                className="px-3 py-1.5 rounded-lg text-sm focus:outline-none"
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--christmas-cream)',
+                }}
               >
                 <option value="all">All Ratings</option>
                 <option value="5">5 Stars</option>
@@ -1253,11 +1377,12 @@ export default function ReviewsPage() {
 
               <button
                 onClick={() => setShowTeamMentionsOnly(!showTeamMentionsOnly)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                  showTeamMentionsOnly
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-zinc-800 border border-zinc-700 text-zinc-300'
-                }`}
+                className="px-3 py-1.5 rounded-lg text-sm transition-colors"
+                style={{
+                  backgroundColor: showTeamMentionsOnly ? 'var(--christmas-gold)' : 'rgba(0,0,0,0.3)',
+                  border: showTeamMentionsOnly ? 'none' : '1px solid var(--border-subtle)',
+                  color: showTeamMentionsOnly ? '#1a2e1f' : 'var(--christmas-cream)',
+                }}
               >
                 Team Mentions
               </button>
@@ -1267,7 +1392,8 @@ export default function ReviewsPage() {
           {/* Search Bar */}
           <div className="relative">
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: 'var(--text-muted)' }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1279,12 +1405,18 @@ export default function ReviewsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search reviews by name, keyword, or tech..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg text-sm bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+              style={{
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--christmas-cream)',
+              }}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80"
+                style={{ color: 'var(--text-muted)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1297,10 +1429,13 @@ export default function ReviewsPage() {
         <div className="max-h-[600px] overflow-y-auto">
           {reviewsLoading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin w-6 h-6 mx-auto rounded-full border-2 border-emerald-500 border-t-transparent" />
+              <div
+                className="animate-spin w-6 h-6 mx-auto rounded-full border-2 border-t-transparent"
+                style={{ borderColor: 'var(--christmas-green)', borderTopColor: 'transparent' }}
+              />
             </div>
           ) : reviews.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500">
+            <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
               No reviews found for the selected filters
             </div>
           ) : (

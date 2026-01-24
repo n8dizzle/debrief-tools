@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -10,6 +10,10 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+
+// Client-side cache for dashboard data
+const dashboardCache = new Map<string, { data: DashboardData; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
 
 // Department revenue breakdown
 interface DepartmentRevenue {
@@ -166,6 +170,43 @@ function getMonthlyPacingPercent(businessDaysElapsed: number, businessDaysInMont
   }
   const totalElapsed = businessDaysElapsed + partialDay;
   return Math.round((totalElapsed / businessDaysInMonth) * 100);
+}
+
+function getQuarterlyPacingPercent(): number {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+
+  const quarterStart = new Date(now.getFullYear(), quarterStartMonth, 1);
+  const quarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
+
+  let businessDaysElapsed = 0;
+  let businessDaysInQuarter = 0;
+  const current = new Date(quarterStart);
+
+  while (current <= quarterEnd) {
+    const dow = current.getDay();
+    if (dow >= 1 && dow <= 6) {
+      businessDaysInQuarter++;
+      if (current < now) {
+        businessDaysElapsed++;
+      }
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  const dayOfWeek = now.getDay();
+  let partialDay = 0;
+  if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    if (currentHour >= BUSINESS_END_HOUR) {
+      partialDay = 1;
+    } else if (currentHour >= BUSINESS_START_HOUR) {
+      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
+    }
+  }
+
+  return Math.round(((businessDaysElapsed + partialDay) / businessDaysInQuarter) * 100);
 }
 
 interface DashboardData {
@@ -683,19 +724,39 @@ export default function DashboardPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (bypassCache = false) => {
+    const cacheKey = `dashboard-${selectedDate}`;
+
+    // Check cache first (unless bypassing)
+    if (!bypassCache) {
+      const cached = dashboardCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setDashData(cached.data);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Only show loading if no cached data exists at all
+    const cached = dashboardCache.get(cacheKey);
+    if (!cached) {
+      setLoading(true);
+    }
+
     try {
       const res = await fetch(`/api/huddle?date=${selectedDate}`);
       if (res.ok) {
         const data = await res.json();
         setDashData(data);
+        // Cache the result
+        dashboardCache.set(cacheKey, { data, timestamp: Date.now() });
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -707,7 +768,9 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setLastSync(new Date().toLocaleTimeString());
-        await fetchData();
+        // Clear cache for this date and refetch
+        dashboardCache.delete(`dashboard-${selectedDate}`);
+        await fetchData(true);
       }
     } catch (err) {
       console.error('Sync error:', err);
@@ -726,9 +789,10 @@ export default function DashboardPage() {
     };
     setCurrentDate(now.toLocaleDateString('en-US', options));
     fetchData();
-    const interval = setInterval(fetchData, 10 * 60 * 1000);
+    // Refresh every 10 minutes (bypassing cache for fresh data)
+    const interval = setInterval(() => fetchData(true), 10 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [selectedDate]);
+  }, [selectedDate, fetchData]);
 
   // Extract data from API response
   const pacing = dashData?.pacing;
@@ -771,6 +835,7 @@ export default function DashboardPage() {
     pacing?.businessDaysElapsed || 0,
     pacing?.businessDaysInMonth || 22
   );
+  const quarterlyPacing = getQuarterlyPacingPercent();
 
   // Monthly trend data
   const monthlyTrend = pacing?.monthlyTrend || [];
@@ -928,6 +993,7 @@ export default function DashboardPage() {
           target={quarterlyTarget}
           loading={loading}
           accentColor="purple"
+          expectedPacing={quarterlyPacing}
         />
       </div>
 
