@@ -8,7 +8,43 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 23, 2026) - Trend Chart & Revenue Fixes
+## Recent Updates (Jan 24, 2026) - Saturday Half Business Day
+
+### Daily Dash - Saturday = 0.5 Business Day
+
+**Problem**: Pacing calculations treated Saturday as a full business day, but the company runs reduced crews on Saturday.
+
+**Solution**: Saturday now counts as 0.5 business day, Sunday has no target.
+
+#### Business Day Weights
+| Day | Weight | Daily Target |
+|-----|--------|--------------|
+| Mon-Fri | 1.0 | Full daily target ($38.9K) |
+| Saturday | 0.5 | Half daily target ($19.4K) |
+| Sunday | 0.0 | $0 (no target) |
+
+#### Weekly Business Days
+- Changed from 6 business days to **5.5 business days** per week
+- Weekly targets now calculated as: `dailyTarget × 5.5`
+
+#### API Changes (`app/api/huddle/route.ts`)
+- `getBusinessDaysInWeekForDate()`: Saturday = 0.5, Sunday = 0
+- `getTotalBusinessDaysInWeek()`: Returns 5.5 max (was 5)
+- `getBusinessDaysElapsedInMonth()`: Saturday = 0.5, Sunday = 0
+- New `todayTarget` field in pacing response (adjusted by day of week)
+
+#### Frontend Changes (`app/(dashboard)/page.tsx`)
+- `getWeeklyPacingPercent()`: Uses 5.5 business days, Saturday progress = 0.5
+- `getMonthlyPacingPercent()`: Saturday partial day weighted at 0.5
+- `getQuarterlyPacingPercent()`: Saturday = 0.5 in all calculations
+- Today card uses `todayTarget` (adjusted) instead of `dailyTarget` (base)
+
+#### Note on Existing Business Days Data
+The `dash_business_days` table already stored business days with 0.5 Saturdays (from the Google Sheet). The calculation functions were updated to match this behavior.
+
+---
+
+## Previous Updates (Jan 23, 2026) - Trend Chart & Revenue Fixes
 
 ### Daily Dash - Trend Chart Improvements
 
