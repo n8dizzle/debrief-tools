@@ -962,7 +962,16 @@ export async function GET(request: NextRequest) {
       pacing: pacingData,
     };
 
-    return NextResponse.json(response);
+    // Add debug version to verify deployment
+    return NextResponse.json({
+      ...response,
+      _debug: {
+        version: 'v3-direct-st-fetch',
+        trendDataSource: 'servicetitan-api',
+        monthCount: monthlyTrend.length,
+        nonZeroMonths: monthlyTrend.filter(m => m.totalRevenue > 0).length,
+      },
+    });
   } catch (error) {
     console.error('Error fetching huddle data:', error);
     return NextResponse.json({ error: 'Failed to fetch huddle data' }, { status: 500 });

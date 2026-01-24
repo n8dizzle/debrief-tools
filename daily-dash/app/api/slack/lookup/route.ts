@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
         .from('team_members')
         .update({
           slack_user_id: slackUser.id,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', teamMemberId);
 

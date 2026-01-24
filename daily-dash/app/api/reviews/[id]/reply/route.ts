@@ -23,7 +23,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   // Check if user has permission to reply to reviews
   const { data: userData, error: userError } = await supabase
-    .from('users')
+    .from('portal_users')
     .select('can_reply_reviews, role')
     .eq('email', session.user.email)
     .single();
@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   // Check if user has permission to reply to reviews
   const { data: userData, error: userError } = await supabase
-    .from('users')
+    .from('portal_users')
     .select('can_reply_reviews, role')
     .eq('email', session.user.email)
     .single();

@@ -17,7 +17,7 @@ export async function GET() {
 
   try {
     const { data: userData, error: userError } = await supabase
-      .from('users')
+      .from('portal_users')
       .select('id, email, name, role, can_reply_reviews')
       .eq('email', session.user.email)
       .single();
