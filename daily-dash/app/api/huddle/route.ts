@@ -537,40 +537,251 @@ export async function GET(request: NextRequest) {
       },
     };
 
+    // Helper to aggregate trade snapshots from Supabase
+    interface TradeSnapshot {
+      snapshot_date: string;
+      trade: string;
+      department: string | null;
+      revenue: number;
+      completed_revenue: number;
+      non_job_revenue: number;
+      adj_revenue: number;
+    }
+
+    function aggregateTradeSnapshots(snapshots: TradeSnapshot[]): typeof tradeData.hvac.today & { departments?: typeof tradeData.hvac.today.departments } {
+      const result = {
+        revenue: 0,
+        completedRevenue: 0,
+        nonJobRevenue: 0,
+        adjRevenue: 0,
+        departments: {
+          install: { ...zeroDeptRevenue },
+          service: { ...zeroDeptRevenue },
+          maintenance: { ...zeroDeptRevenue },
+        },
+      };
+
+      for (const snap of snapshots) {
+        if (snap.department === null) {
+          result.revenue += Number(snap.revenue) || 0;
+          result.completedRevenue += Number(snap.completed_revenue) || 0;
+          result.nonJobRevenue += Number(snap.non_job_revenue) || 0;
+          result.adjRevenue += Number(snap.adj_revenue) || 0;
+        } else if (snap.department === 'install') {
+          result.departments.install.revenue += Number(snap.revenue) || 0;
+          result.departments.install.completedRevenue += Number(snap.completed_revenue) || 0;
+          result.departments.install.nonJobRevenue += Number(snap.non_job_revenue) || 0;
+          result.departments.install.adjRevenue += Number(snap.adj_revenue) || 0;
+        } else if (snap.department === 'service') {
+          result.departments.service.revenue += Number(snap.revenue) || 0;
+          result.departments.service.completedRevenue += Number(snap.completed_revenue) || 0;
+          result.departments.service.nonJobRevenue += Number(snap.non_job_revenue) || 0;
+          result.departments.service.adjRevenue += Number(snap.adj_revenue) || 0;
+        } else if (snap.department === 'maintenance') {
+          result.departments.maintenance.revenue += Number(snap.revenue) || 0;
+          result.departments.maintenance.completedRevenue += Number(snap.completed_revenue) || 0;
+          result.departments.maintenance.nonJobRevenue += Number(snap.non_job_revenue) || 0;
+          result.departments.maintenance.adjRevenue += Number(snap.adj_revenue) || 0;
+        }
+      }
+
+      return result;
+    }
+
+    // Fetch TODAY's metrics from ServiceTitan (live data)
+    // Historical data comes from Supabase snapshots
+    const isToday = date === getTodayDateString();
+
     if (stClient.isConfigured()) {
       try {
-        // Fetch trade metrics for each time period in parallel
-        const [todayMetrics, wtdMetrics, mtdMetrics, qtdMetrics, ytdMetrics] = await Promise.all([
-          stClient.getTradeMetrics(date),
-          stClient.getTradeMetrics(mondayStr, date),
-          stClient.getTradeMetrics(firstOfMonth, date),
-          stClient.getTradeMetrics(quarterStartDate, date),
-          stClient.getTradeMetrics(yearStartDate, date),
-        ]);
+        // Only fetch today from ServiceTitan - everything else from Supabase
+        if (isToday) {
+          const todayMetrics = await stClient.getTradeMetrics(date);
+          tradeData.hvac.today = todayMetrics.hvac;
+          tradeData.plumbing.today = todayMetrics.plumbing;
+        }
 
-        tradeData = {
-          ...tradeData,
-          hvac: {
-            ...tradeData.hvac,
-            today: todayMetrics.hvac,
-            wtd: wtdMetrics.hvac,
-            mtd: mtdMetrics.hvac,
-            qtd: qtdMetrics.hvac,
-            ytd: ytdMetrics.hvac,
-          },
-          plumbing: {
-            ...tradeData.plumbing,
-            today: todayMetrics.plumbing,
-            wtd: wtdMetrics.plumbing,
-            mtd: mtdMetrics.plumbing,
-            qtd: qtdMetrics.plumbing,
-            ytd: ytdMetrics.plumbing,
-          },
-        };
+        // Fetch historical data from Supabase for all other periods
+        // WTD: Monday to yesterday (or today if viewing historical date)
+        const wtdEndDate = isToday ? getYesterdayStr() : date;
+        if (mondayStr <= wtdEndDate) {
+          const { data: wtdSnapshots } = await supabase
+            .from('trade_daily_snapshots')
+            .select('*')
+            .gte('snapshot_date', mondayStr)
+            .lte('snapshot_date', wtdEndDate);
+
+          if (wtdSnapshots && wtdSnapshots.length > 0) {
+            const hvacWtdSnaps = (wtdSnapshots as TradeSnapshot[]).filter(s => s.trade === 'hvac');
+            const plumbingWtdSnaps = (wtdSnapshots as TradeSnapshot[]).filter(s => s.trade === 'plumbing');
+
+            const hvacWtdAgg = aggregateTradeSnapshots(hvacWtdSnaps);
+            const plumbingWtdAgg = aggregateTradeSnapshots(plumbingWtdSnaps);
+
+            // Add today's live data if viewing today
+            if (isToday) {
+              tradeData.hvac.wtd = {
+                revenue: hvacWtdAgg.revenue + tradeData.hvac.today.revenue,
+                completedRevenue: hvacWtdAgg.completedRevenue + tradeData.hvac.today.completedRevenue,
+                nonJobRevenue: hvacWtdAgg.nonJobRevenue + tradeData.hvac.today.nonJobRevenue,
+                adjRevenue: hvacWtdAgg.adjRevenue + tradeData.hvac.today.adjRevenue,
+                departments: {
+                  install: {
+                    revenue: hvacWtdAgg.departments.install.revenue + (tradeData.hvac.today.departments?.install?.revenue || 0),
+                    completedRevenue: hvacWtdAgg.departments.install.completedRevenue + (tradeData.hvac.today.departments?.install?.completedRevenue || 0),
+                    nonJobRevenue: hvacWtdAgg.departments.install.nonJobRevenue + (tradeData.hvac.today.departments?.install?.nonJobRevenue || 0),
+                    adjRevenue: hvacWtdAgg.departments.install.adjRevenue + (tradeData.hvac.today.departments?.install?.adjRevenue || 0),
+                  },
+                  service: {
+                    revenue: hvacWtdAgg.departments.service.revenue + (tradeData.hvac.today.departments?.service?.revenue || 0),
+                    completedRevenue: hvacWtdAgg.departments.service.completedRevenue + (tradeData.hvac.today.departments?.service?.completedRevenue || 0),
+                    nonJobRevenue: hvacWtdAgg.departments.service.nonJobRevenue + (tradeData.hvac.today.departments?.service?.nonJobRevenue || 0),
+                    adjRevenue: hvacWtdAgg.departments.service.adjRevenue + (tradeData.hvac.today.departments?.service?.adjRevenue || 0),
+                  },
+                  maintenance: {
+                    revenue: hvacWtdAgg.departments.maintenance.revenue + (tradeData.hvac.today.departments?.maintenance?.revenue || 0),
+                    completedRevenue: hvacWtdAgg.departments.maintenance.completedRevenue + (tradeData.hvac.today.departments?.maintenance?.completedRevenue || 0),
+                    nonJobRevenue: hvacWtdAgg.departments.maintenance.nonJobRevenue + (tradeData.hvac.today.departments?.maintenance?.nonJobRevenue || 0),
+                    adjRevenue: hvacWtdAgg.departments.maintenance.adjRevenue + (tradeData.hvac.today.departments?.maintenance?.adjRevenue || 0),
+                  },
+                },
+              };
+              tradeData.plumbing.wtd = {
+                revenue: plumbingWtdAgg.revenue + tradeData.plumbing.today.revenue,
+                completedRevenue: plumbingWtdAgg.completedRevenue + tradeData.plumbing.today.completedRevenue,
+                nonJobRevenue: plumbingWtdAgg.nonJobRevenue + tradeData.plumbing.today.nonJobRevenue,
+                adjRevenue: plumbingWtdAgg.adjRevenue + tradeData.plumbing.today.adjRevenue,
+              };
+            } else {
+              tradeData.hvac.wtd = hvacWtdAgg;
+              tradeData.plumbing.wtd = plumbingWtdAgg;
+            }
+          }
+        }
+
+        // MTD, QTD, YTD - fetch from Supabase and add today if needed
+        const periodEndDate = isToday ? getYesterdayStr() : date;
+
+        // Fetch all historical snapshots for YTD range (covers MTD and QTD too)
+        const { data: ytdSnapshots } = await supabase
+          .from('trade_daily_snapshots')
+          .select('*')
+          .gte('snapshot_date', yearStartDate)
+          .lte('snapshot_date', periodEndDate);
+
+        if (ytdSnapshots && ytdSnapshots.length > 0) {
+          const allSnaps = ytdSnapshots as TradeSnapshot[];
+
+          // MTD
+          const mtdSnaps = allSnaps.filter(s => s.snapshot_date >= firstOfMonth);
+          const hvacMtdSnaps = mtdSnaps.filter(s => s.trade === 'hvac');
+          const plumbingMtdSnaps = mtdSnaps.filter(s => s.trade === 'plumbing');
+          const hvacMtdAgg = aggregateTradeSnapshots(hvacMtdSnaps);
+          const plumbingMtdAgg = aggregateTradeSnapshots(plumbingMtdSnaps);
+
+          // QTD
+          const qtdSnaps = allSnaps.filter(s => s.snapshot_date >= quarterStartDate);
+          const hvacQtdSnaps = qtdSnaps.filter(s => s.trade === 'hvac');
+          const plumbingQtdSnaps = qtdSnaps.filter(s => s.trade === 'plumbing');
+          const hvacQtdAgg = aggregateTradeSnapshots(hvacQtdSnaps);
+          const plumbingQtdAgg = aggregateTradeSnapshots(plumbingQtdSnaps);
+
+          // YTD
+          const hvacYtdSnaps = allSnaps.filter(s => s.trade === 'hvac');
+          const plumbingYtdSnaps = allSnaps.filter(s => s.trade === 'plumbing');
+          const hvacYtdAgg = aggregateTradeSnapshots(hvacYtdSnaps);
+          const plumbingYtdAgg = aggregateTradeSnapshots(plumbingYtdSnaps);
+
+          // Helper to add today's data to aggregates
+          const addTodayToAgg = (agg: ReturnType<typeof aggregateTradeSnapshots>, today: typeof tradeData.hvac.today): typeof tradeData.hvac.today => {
+            const aggDepts = agg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } };
+            return {
+              revenue: agg.revenue + today.revenue,
+              completedRevenue: agg.completedRevenue + today.completedRevenue,
+              nonJobRevenue: agg.nonJobRevenue + today.nonJobRevenue,
+              adjRevenue: agg.adjRevenue + today.adjRevenue,
+              departments: {
+                install: {
+                  revenue: aggDepts.install.revenue + (today.departments?.install?.revenue || 0),
+                  completedRevenue: aggDepts.install.completedRevenue + (today.departments?.install?.completedRevenue || 0),
+                  nonJobRevenue: aggDepts.install.nonJobRevenue + (today.departments?.install?.nonJobRevenue || 0),
+                  adjRevenue: aggDepts.install.adjRevenue + (today.departments?.install?.adjRevenue || 0),
+                },
+                service: {
+                  revenue: aggDepts.service.revenue + (today.departments?.service?.revenue || 0),
+                  completedRevenue: aggDepts.service.completedRevenue + (today.departments?.service?.completedRevenue || 0),
+                  nonJobRevenue: aggDepts.service.nonJobRevenue + (today.departments?.service?.nonJobRevenue || 0),
+                  adjRevenue: aggDepts.service.adjRevenue + (today.departments?.service?.adjRevenue || 0),
+                },
+                maintenance: {
+                  revenue: aggDepts.maintenance.revenue + (today.departments?.maintenance?.revenue || 0),
+                  completedRevenue: aggDepts.maintenance.completedRevenue + (today.departments?.maintenance?.completedRevenue || 0),
+                  nonJobRevenue: aggDepts.maintenance.nonJobRevenue + (today.departments?.maintenance?.nonJobRevenue || 0),
+                  adjRevenue: aggDepts.maintenance.adjRevenue + (today.departments?.maintenance?.adjRevenue || 0),
+                },
+              },
+            };
+          };
+
+          const addTodayToPlumbingAgg = (agg: ReturnType<typeof aggregateTradeSnapshots>, today: typeof tradeData.plumbing.today) => ({
+            revenue: agg.revenue + today.revenue,
+            completedRevenue: agg.completedRevenue + today.completedRevenue,
+            nonJobRevenue: agg.nonJobRevenue + today.nonJobRevenue,
+            adjRevenue: agg.adjRevenue + today.adjRevenue,
+          });
+
+          // Helper to ensure departments is always defined
+          const ensureDepts = (agg: ReturnType<typeof aggregateTradeSnapshots>): typeof tradeData.hvac.today => ({
+            ...agg,
+            departments: agg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+          });
+
+          if (isToday) {
+            tradeData.hvac.mtd = addTodayToAgg(hvacMtdAgg, tradeData.hvac.today);
+            tradeData.hvac.qtd = addTodayToAgg(hvacQtdAgg, tradeData.hvac.today);
+            tradeData.hvac.ytd = addTodayToAgg(hvacYtdAgg, tradeData.hvac.today);
+            tradeData.plumbing.mtd = addTodayToPlumbingAgg(plumbingMtdAgg, tradeData.plumbing.today);
+            tradeData.plumbing.qtd = addTodayToPlumbingAgg(plumbingQtdAgg, tradeData.plumbing.today);
+            tradeData.plumbing.ytd = addTodayToPlumbingAgg(plumbingYtdAgg, tradeData.plumbing.today);
+          } else {
+            tradeData.hvac.mtd = ensureDepts(hvacMtdAgg);
+            tradeData.hvac.qtd = ensureDepts(hvacQtdAgg);
+            tradeData.hvac.ytd = ensureDepts(hvacYtdAgg);
+            tradeData.plumbing.mtd = plumbingMtdAgg;
+            tradeData.plumbing.qtd = plumbingQtdAgg;
+            tradeData.plumbing.ytd = plumbingYtdAgg;
+          }
+        }
+
+        // If viewing a historical date, fetch that day's data from Supabase
+        if (!isToday) {
+          const { data: todaySnaps } = await supabase
+            .from('trade_daily_snapshots')
+            .select('*')
+            .eq('snapshot_date', date);
+
+          if (todaySnaps && todaySnaps.length > 0) {
+            const hvacTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'hvac');
+            const plumbingTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'plumbing');
+            const hvacTodayAgg = aggregateTradeSnapshots(hvacTodaySnaps);
+            tradeData.hvac.today = {
+              ...hvacTodayAgg,
+              departments: hvacTodayAgg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+            };
+            tradeData.plumbing.today = aggregateTradeSnapshots(plumbingTodaySnaps);
+          }
+        }
       } catch (tradeError) {
         console.error('Error fetching trade metrics:', tradeError);
         // Continue with zero values if trade data fails
       }
+    }
+
+    // Helper to get yesterday's date string
+    function getYesterdayStr(): string {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
     }
 
     // Fetch 18-month trend data for the stacked bar chart
@@ -631,43 +842,55 @@ export async function GET(request: NextRequest) {
       current.setMonth(current.getMonth() + 1);
     }
 
-    // Fetch trade revenue for each month from ServiceTitan (in parallel for speed)
-    if (stClient.isConfigured()) {
-      try {
-        // Build list of date ranges to fetch
-        const fetchTasks = monthlyTrend.map(async (monthData) => {
-          const [yearStr, monthStr] = monthData.month.split('-');
-          const yr = parseInt(yearStr);
-          const mo = parseInt(monthStr);
+    // Fetch trend revenue from Supabase snapshots (much faster than 18 ServiceTitan calls!)
+    try {
+      // Get all trade snapshots for the trend period
+      const { data: trendSnapshots } = await supabase
+        .from('trade_daily_snapshots')
+        .select('snapshot_date, trade, revenue')
+        .gte('snapshot_date', trendStartStr)
+        .lte('snapshot_date', date)
+        .is('department', null); // Only aggregate rows, not department breakdowns
 
-          // Calculate first and last day of the month
-          const firstOfMonth = new Date(yr, mo - 1, 1);
-          const lastOfMonth = new Date(yr, mo, 0); // Day 0 of next month = last day of this month
+      if (trendSnapshots && trendSnapshots.length > 0) {
+        // Group by month and aggregate
+        const monthlyRevenue: Record<string, { hvac: number; plumbing: number }> = {};
 
-          // Don't fetch future months
-          if (firstOfMonth > selectedDate) return;
-
-          // For current month, use selected date as end
-          const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
-
-          const startStr = firstOfMonth.toISOString().split('T')[0];
-          const endStr = endDate.toISOString().split('T')[0];
-
-          try {
-            const metrics = await stClient.getTradeMetrics(startStr, endStr);
-            monthData.hvacRevenue = metrics.hvac.revenue;
-            monthData.plumbingRevenue = metrics.plumbing.revenue;
-            monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
-          } catch (err) {
-            console.error(`Error fetching trend data for ${monthData.month}:`, err);
+        for (const snap of trendSnapshots) {
+          const monthKey = snap.snapshot_date.substring(0, 7); // "YYYY-MM"
+          if (!monthlyRevenue[monthKey]) {
+            monthlyRevenue[monthKey] = { hvac: 0, plumbing: 0 };
           }
-        });
+          if (snap.trade === 'hvac') {
+            monthlyRevenue[monthKey].hvac += Number(snap.revenue) || 0;
+          } else if (snap.trade === 'plumbing') {
+            monthlyRevenue[monthKey].plumbing += Number(snap.revenue) || 0;
+          }
+        }
 
-        // Run all fetches in parallel
-        await Promise.all(fetchTasks);
-      } catch (trendError) {
-        console.error('Error fetching trend data:', trendError);
+        // Update monthlyTrend with aggregated values
+        for (const monthData of monthlyTrend) {
+          const rev = monthlyRevenue[monthData.month];
+          if (rev) {
+            monthData.hvacRevenue = rev.hvac;
+            monthData.plumbingRevenue = rev.plumbing;
+            monthData.totalRevenue = rev.hvac + rev.plumbing;
+          }
+        }
       }
+
+      // For current month, add today's live data if we have it
+      if (isToday && tradeData.hvac.today.revenue > 0) {
+        const currentMonthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
+        const currentMonthData = monthlyTrend.find(m => m.month === currentMonthKey);
+        if (currentMonthData) {
+          currentMonthData.hvacRevenue += tradeData.hvac.today.revenue;
+          currentMonthData.plumbingRevenue += tradeData.plumbing.today.revenue;
+          currentMonthData.totalRevenue = currentMonthData.hvacRevenue + currentMonthData.plumbingRevenue;
+        }
+      }
+    } catch (trendError) {
+      console.error('Error fetching trend data from snapshots:', trendError);
     }
 
     // Pacing data object

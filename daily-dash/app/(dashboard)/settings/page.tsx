@@ -124,9 +124,14 @@ function SourceBadge({ source }: { source: string }) {
 export default function SettingsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'kpis' | 'targets' | 'sheets'>('targets');
+  const [activeTab, setActiveTab] = useState<'kpis' | 'targets' | 'sheets' | 'data'>('targets');
 
   const [syncResult, setSyncResult] = useState<{ message?: string; error?: string } | null>(null);
+
+  // Trade sync state
+  const [isSyncingTrades, setIsSyncingTrades] = useState(false);
+  const [tradeSyncResult, setTradeSyncResult] = useState<{ message?: string; error?: string } | null>(null);
+  const [tradeSyncedDates, setTradeSyncedDates] = useState<string[]>([]);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -197,10 +202,90 @@ export default function SettingsPage() {
     }
   };
 
+  // Fetch trade sync status on mount
+  useEffect(() => {
+    const fetchTradeSyncStatus = async () => {
+      try {
+        const response = await fetch('/api/trades/sync');
+        const data = await response.json();
+        if (data.syncedDates) {
+          setTradeSyncedDates(data.syncedDates);
+        }
+      } catch (err) {
+        console.error('Failed to fetch trade sync status:', err);
+      }
+    };
+    fetchTradeSyncStatus();
+  }, []);
+
+  const handleTradeSyncBackfill = async (days: number) => {
+    setIsSyncingTrades(true);
+    setTradeSyncResult(null);
+    try {
+      const response = await fetch('/api/trades/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backfillDays: days }),
+      });
+      const data = await response.json();
+
+      const successCount = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
+      const failCount = data.results?.filter((r: { success: boolean }) => !r.success).length || 0;
+
+      if (failCount === 0) {
+        setTradeSyncResult({ message: `Successfully synced ${successCount} days of trade data` });
+      } else {
+        setTradeSyncResult({ message: `Synced ${successCount} days, ${failCount} failed` });
+      }
+
+      // Refresh synced dates
+      const statusResponse = await fetch('/api/trades/sync');
+      const statusData = await statusResponse.json();
+      if (statusData.syncedDates) {
+        setTradeSyncedDates(statusData.syncedDates);
+      }
+    } catch (err) {
+      setTradeSyncResult({ error: 'Failed to sync trade data' });
+    } finally {
+      setIsSyncingTrades(false);
+    }
+  };
+
+  const handleTradeSyncYesterday = async () => {
+    setIsSyncingTrades(true);
+    setTradeSyncResult(null);
+    try {
+      const response = await fetch('/api/trades/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}), // defaults to yesterday
+      });
+      const data = await response.json();
+
+      if (data.results?.[0]?.success) {
+        setTradeSyncResult({ message: `Synced trade data for ${data.results[0].date}` });
+      } else {
+        setTradeSyncResult({ error: data.results?.[0]?.error || 'Sync failed' });
+      }
+
+      // Refresh synced dates
+      const statusResponse = await fetch('/api/trades/sync');
+      const statusData = await statusResponse.json();
+      if (statusData.syncedDates) {
+        setTradeSyncedDates(statusData.syncedDates);
+      }
+    } catch (err) {
+      setTradeSyncResult({ error: 'Failed to sync trade data' });
+    } finally {
+      setIsSyncingTrades(false);
+    }
+  };
+
   const tabs = [
     { id: 'targets', label: 'Revenue Targets' },
     { id: 'kpis', label: 'KPI Definitions' },
     { id: 'sheets', label: 'Sheet Mappings' },
+    { id: 'data', label: 'Data Sync' },
   ];
 
   return (
@@ -789,6 +874,210 @@ export default function SettingsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data Sync Tab */}
+      {activeTab === 'data' && (
+        <div className="space-y-6">
+          {/* Trade Data Sync */}
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+          >
+            <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                    Trade Revenue Data
+                  </h3>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    Historical trade metrics synced from ServiceTitan to Supabase for faster dashboard loading
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tradeSyncedDates.length > 0 ? '#4ADE80' : '#ef4444' }}></div>
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {tradeSyncedDates.length} days synced
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5">
+              {tradeSyncResult && (
+                <div
+                  className="p-3 rounded-lg mb-4 text-sm"
+                  style={{
+                    backgroundColor: tradeSyncResult.error
+                      ? 'rgba(220, 38, 38, 0.1)'
+                      : 'rgba(74, 222, 128, 0.1)',
+                    border: `1px solid ${tradeSyncResult.error ? 'rgba(220, 38, 38, 0.3)' : 'rgba(74, 222, 128, 0.3)'}`,
+                    color: tradeSyncResult.error ? '#dc2626' : '#4ADE80',
+                  }}
+                >
+                  {tradeSyncResult.message || tradeSyncResult.error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div
+                  className="rounded-lg p-4"
+                  style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                    Sync Yesterday
+                  </div>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    Sync the previous day&apos;s trade data. Run this daily or set up a cron job.
+                  </p>
+                  <button
+                    onClick={handleTradeSyncYesterday}
+                    disabled={isSyncingTrades}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: 'var(--christmas-green)',
+                      color: 'var(--christmas-cream)',
+                      opacity: isSyncingTrades ? 0.7 : 1,
+                    }}
+                  >
+                    <svg
+                      className={`w-4 h-4 ${isSyncingTrades ? 'animate-spin' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    {isSyncingTrades ? 'Syncing...' : 'Sync Yesterday'}
+                  </button>
+                </div>
+
+                <div
+                  className="rounded-lg p-4"
+                  style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                    Backfill Historical Data
+                  </div>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    Sync multiple days of historical data. Use for initial setup.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleTradeSyncBackfill(30)}
+                      disabled={isSyncingTrades}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        backgroundColor: 'var(--christmas-gold)',
+                        color: 'var(--bg-primary)',
+                        opacity: isSyncingTrades ? 0.7 : 1,
+                      }}
+                    >
+                      30 Days
+                    </button>
+                    <button
+                      onClick={() => handleTradeSyncBackfill(90)}
+                      disabled={isSyncingTrades}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        backgroundColor: 'var(--christmas-gold)',
+                        color: 'var(--bg-primary)',
+                        opacity: isSyncingTrades ? 0.7 : 1,
+                      }}
+                    >
+                      90 Days
+                    </button>
+                    <button
+                      onClick={() => handleTradeSyncBackfill(365)}
+                      disabled={isSyncingTrades}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        opacity: isSyncingTrades ? 0.7 : 1,
+                      }}
+                    >
+                      1 Year
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Synced dates preview */}
+              {tradeSyncedDates.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                    Recent Synced Dates
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {tradeSyncedDates.slice(0, 14).map((date) => (
+                      <span
+                        key={date}
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-muted)' }}
+                      >
+                        {date}
+                      </span>
+                    ))}
+                    {tradeSyncedDates.length > 14 && (
+                      <span
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-gold)' }}
+                      >
+                        +{tradeSyncedDates.length - 14} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                💡 Trade data is stored in the <code style={{ color: 'var(--christmas-gold)' }}>trade_daily_snapshots</code> table.
+                The dashboard reads historical data from here instead of calling ServiceTitan for each period.
+              </p>
+            </div>
+          </div>
+
+          {/* Architecture explanation */}
+          <div
+            className="rounded-xl p-5"
+            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+          >
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              Data Architecture
+            </h3>
+            <div className="space-y-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <div className="flex items-start gap-3">
+                <span className="text-lg">📊</span>
+                <div>
+                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Historical Data (Supabase)</div>
+                  <p className="mt-1">MTD, QTD, YTD metrics are read from stored snapshots. This reduces API calls from 20+ to 1-2.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-lg">⚡</span>
+                <div>
+                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Live Data (ServiceTitan)</div>
+                  <p className="mt-1">Only &quot;today&quot; metrics are fetched live from ServiceTitan API to show real-time numbers.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-lg">🔄</span>
+                <div>
+                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Daily Sync</div>
+                  <p className="mt-1">Run &quot;Sync Yesterday&quot; daily (or set up cron) to keep historical data fresh. Revenue adjustments are captured when they&apos;re posted.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
