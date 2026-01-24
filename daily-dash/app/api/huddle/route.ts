@@ -844,6 +844,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch trade revenue for each month from ServiceTitan (in parallel for speed)
     if (stClient.isConfigured()) {
+      console.log('[TREND DEBUG] Starting trend data fetch for', monthlyTrend.length, 'months');
       try {
         // Build list of date ranges to fetch
         const fetchTasks = monthlyTrend.map(async (monthData) => {
@@ -856,7 +857,10 @@ export async function GET(request: NextRequest) {
           const lastOfMonth = new Date(yr, mo, 0); // Day 0 of next month = last day of this month
 
           // Don't fetch future months
-          if (firstOfMonth > selectedDate) return;
+          if (firstOfMonth > selectedDate) {
+            console.log(`[TREND DEBUG] Skipping future month ${monthData.month}`);
+            return;
+          }
 
           // For current month, use selected date as end
           const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
@@ -865,21 +869,34 @@ export async function GET(request: NextRequest) {
           const endStr = endDate.toISOString().split('T')[0];
 
           try {
+            console.log(`[TREND DEBUG] Fetching ${monthData.month}: ${startStr} to ${endStr}`);
             const metrics = await stClient.getTradeMetrics(startStr, endStr);
             monthData.hvacRevenue = metrics.hvac.revenue;
             monthData.plumbingRevenue = metrics.plumbing.revenue;
             monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
+            console.log(`[TREND DEBUG] ${monthData.month} result: HVAC=${metrics.hvac.revenue}, Plumbing=${metrics.plumbing.revenue}`);
           } catch (err) {
-            console.error(`Error fetching trend data for ${monthData.month}:`, err);
+            console.error(`[TREND DEBUG] Error fetching trend data for ${monthData.month}:`, err);
           }
         });
 
         // Run all fetches in parallel
         await Promise.all(fetchTasks);
+        console.log('[TREND DEBUG] All trend fetches complete');
       } catch (trendError) {
-        console.error('Error fetching trend data:', trendError);
+        console.error('[TREND DEBUG] Error fetching trend data:', trendError);
       }
+    } else {
+      console.log('[TREND DEBUG] ServiceTitan client not configured');
     }
+
+    // Log final trend data for debugging
+    console.log('[TREND DEBUG] Final monthlyTrend:', JSON.stringify(monthlyTrend.map(m => ({
+      month: m.month,
+      hvac: m.hvacRevenue,
+      plumbing: m.plumbingRevenue,
+      total: m.totalRevenue
+    }))));
 
     // Pacing data object
     const pacingData = {
