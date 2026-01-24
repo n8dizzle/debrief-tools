@@ -85,10 +85,12 @@ interface UserPermissions {
 
 interface LeaderboardEntry {
   name: string;
-  mention_count: number;
-  five_star_count: number;
-  avg_rating: number;
-  recent_review?: string;
+  wtd: number;
+  mtd: number;
+  ytd: number;
+  five_star_wtd: number;
+  five_star_mtd: number;
+  five_star_ytd: number;
 }
 
 // Period presets
@@ -742,7 +744,16 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
   );
 }
 
+type SortField = 'wtd' | 'mtd' | 'ytd';
+
 function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loading: boolean }) {
+  const [sortBy, setSortBy] = useState<SortField>('mtd');
+  const [showAllModal, setShowAllModal] = useState(false);
+
+  const sortedEntries = [...entries].sort((a, b) => b[sortBy] - a[sortBy]);
+  const displayEntries = sortedEntries.slice(0, 10);
+  const hasMore = sortedEntries.length > 10;
+
   if (loading) {
     return (
       <div
@@ -753,7 +764,7 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
           <div className="h-6 w-32 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
+              <div key={i} className="h-10 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
             ))}
           </div>
         </div>
@@ -773,108 +784,169 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
     );
   }
 
-  const topThree = entries.slice(0, 3);
-  const rest = entries.slice(3, 10);
-
-  return (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+    <button
+      onClick={() => setSortBy(field)}
+      className="px-2 py-1 text-xs font-medium rounded transition-colors"
+      style={{
+        backgroundColor: sortBy === field ? 'var(--christmas-green)' : 'transparent',
+        color: sortBy === field ? 'var(--christmas-cream)' : 'var(--text-muted)',
+      }}
     >
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Most mentioned in reviews</p>
-      </div>
+      {label}
+    </button>
+  );
 
-      {/* Top 3 Podium */}
-      <div
-        className="grid grid-cols-3 gap-2 p-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(52, 102, 67, 0.15), transparent)' }}
-      >
-        {/* Second Place */}
-        <div className="text-center pt-2">
-          {topThree[1] && (
-            <>
-              <div
-                className="w-10 h-10 mx-auto rounded-full flex items-center justify-center text-lg font-bold mb-1"
-                style={{ backgroundColor: 'rgba(212, 197, 169, 0.2)', color: 'var(--christmas-cream)' }}
-              >
-                {topThree[1].name.charAt(0)}
-              </div>
-              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{topThree[1].name}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{topThree[1].mention_count}</div>
-              <div className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>2nd</div>
-            </>
-          )}
-        </div>
+  const TableHeader = ({ field, label, className = '' }: { field: SortField; label: string; className?: string }) => (
+    <th
+      className={`text-right px-3 py-2 font-medium cursor-pointer hover:opacity-80 transition-opacity ${className}`}
+      style={{ color: sortBy === field ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
+      onClick={() => setSortBy(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortBy === field && <span className="text-[10px]">▼</span>}
+      </span>
+    </th>
+  );
 
-        {/* First Place */}
-        <div className="text-center">
-          {topThree[0] && (
-            <>
-              <div
-                className="w-12 h-12 mx-auto rounded-full flex items-center justify-center text-xl font-bold mb-1"
-                style={{
-                  background: 'linear-gradient(135deg, #c9a227, #8b7355)',
-                  color: 'white',
-                  boxShadow: '0 0 0 2px rgba(201, 162, 39, 0.4)',
-                }}
-              >
-                {topThree[0].name.charAt(0)}
-              </div>
-              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{topThree[0].name}</div>
-              <div className="text-xs" style={{ color: 'var(--christmas-gold)' }}>{topThree[0].mention_count}</div>
-              <div className="text-sm font-bold" style={{ color: 'var(--christmas-gold)' }}>1st</div>
-            </>
-          )}
-        </div>
-
-        {/* Third Place */}
-        <div className="text-center pt-3">
-          {topThree[2] && (
-            <>
-              <div
-                className="w-9 h-9 mx-auto rounded-full flex items-center justify-center text-base font-bold mb-1"
-                style={{ backgroundColor: 'rgba(139, 115, 85, 0.3)', color: '#8b7355' }}
-              >
-                {topThree[2].name.charAt(0)}
-              </div>
-              <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{topThree[2].name}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{topThree[2].mention_count}</div>
-              <div className="text-sm font-bold" style={{ color: '#8b7355' }}>3rd</div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Rest of the list */}
-      {rest.length > 0 && (
-        <div>
-          {rest.map((entry, index) => (
-            <div
-              key={entry.name}
-              className="flex items-center justify-between px-5 py-2 transition-colors hover:opacity-80"
-              style={{ borderTop: '1px solid rgba(212, 197, 169, 0.1)' }}
-            >
+  const renderTable = (data: LeaderboardEntry[], showRank = true) => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          {showRank && <th className="text-left px-3 py-2 w-8" style={{ color: 'var(--text-muted)' }}>#</th>}
+          <th className="text-left px-3 py-2" style={{ color: 'var(--text-muted)' }}>Name</th>
+          <TableHeader field="wtd" label="WTD" />
+          <TableHeader field="mtd" label="MTD" />
+          <TableHeader field="ytd" label="YTD" />
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((entry, index) => (
+          <tr
+            key={entry.name}
+            className="hover:bg-white/5 transition-colors"
+            style={{ borderBottom: '1px solid rgba(212, 197, 169, 0.08)' }}
+          >
+            {showRank && (
+              <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                {index + 1}
+              </td>
+            )}
+            <td className="px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs w-4" style={{ color: 'var(--text-muted)' }}>{index + 4}.</span>
                 <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
-                  style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-muted)' }}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                  style={{
+                    backgroundColor: index < 3 ? 'var(--christmas-green)' : 'rgba(0,0,0,0.3)',
+                    color: index < 3 ? 'var(--christmas-cream)' : 'var(--text-muted)',
+                  }}
                 >
                   {entry.name.charAt(0)}
                 </div>
-                <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
+                <span style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: 'var(--christmas-gold)' }}>{entry.five_star_count} ★5</span>
-                <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{entry.mention_count}</span>
+            </td>
+            <td className="text-right px-3 py-2.5" style={{ color: sortBy === 'wtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+              {entry.wtd > 0 ? entry.wtd : '-'}
+            </td>
+            <td className="text-right px-3 py-2.5" style={{ color: sortBy === 'mtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+              {entry.mtd > 0 ? entry.mtd : '-'}
+            </td>
+            <td className="text-right px-3 py-2.5 font-medium" style={{ color: sortBy === 'ytd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+              {entry.ytd}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <>
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+      >
+        {/* Header */}
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Mentioned in reviews</p>
+          </div>
+          <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <SortButton field="wtd" label="Week" />
+            <SortButton field="mtd" label="Month" />
+            <SortButton field="ytd" label="Year" />
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          {renderTable(displayEntries)}
+        </div>
+
+        {/* View All Footer */}
+        {hasMore && (
+          <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <button
+              onClick={() => setShowAllModal(true)}
+              className="w-full text-center text-sm py-2 rounded-lg transition-colors hover:bg-white/5"
+              style={{ color: 'var(--christmas-gold)' }}
+            >
+              View All {sortedEntries.length} Team Members →
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Full List Modal */}
+      {showAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setShowAllModal(false)}
+          />
+          <div
+            className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
+            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+          >
+            {/* Modal Header */}
+            <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                  All Team Members ({sortedEntries.length})
+                </h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Sorted by {sortBy === 'wtd' ? 'Week to Date' : sortBy === 'mtd' ? 'Month to Date' : 'Year to Date'}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                  <SortButton field="wtd" label="Week" />
+                  <SortButton field="mtd" label="Month" />
+                  <SortButton field="ytd" label="Year" />
+                </div>
+                <button
+                  onClick={() => setShowAllModal(false)}
+                  className="p-2 rounded-lg transition-colors hover:bg-white/10"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </div>
-          ))}
+
+            {/* Modal Body - Scrollable */}
+            <div className="overflow-y-auto flex-1">
+              {renderTable(sortedEntries)}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -1576,16 +1648,12 @@ export default function ReviewsPage() {
     fetchStats();
   }, [period, customStartDate, customEndDate, statsCacheKey]);
 
-  // Fetch leaderboard
+  // Fetch leaderboard (WTD/MTD/YTD)
   useEffect(() => {
     async function fetchLeaderboard() {
       setLeaderboardLoading(true);
       try {
-        const params = new URLSearchParams({
-          year: new Date().getFullYear().toString(),
-        });
-
-        const response = await fetch(`/api/reviews/leaderboard?${params}`, {
+        const response = await fetch(`/api/reviews/leaderboard`, {
           credentials: 'include',
         });
         if (response.ok) {
