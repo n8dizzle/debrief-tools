@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MediaPicker from './MediaPicker';
-import type { GBPPostTopicType } from '@/lib/supabase';
+import type { GBPPostTopicType, GoogleLocation } from '@/lib/supabase';
 
 interface PostComposerProps {
   initialData?: {
@@ -19,6 +19,7 @@ interface PostComposerProps {
     redeem_url?: string | null;
     terms_conditions?: string | null;
     media_urls?: string[];
+    selected_location_ids?: string[];
   };
   onSave?: (data: any) => void;
 }
@@ -46,6 +47,13 @@ export default function PostComposer({ initialData, onSave }: PostComposerProps)
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Location state
+  const [locations, setLocations] = useState<GoogleLocation[]>([]);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>(
+    initialData?.selected_location_ids || []
+  );
+  const [locationsLoading, setLocationsLoading] = useState(true);
+
   // Form state
   const [topicType, setTopicType] = useState<GBPPostTopicType>(initialData?.topic_type || 'STANDARD');
   const [summary, setSummary] = useState(initialData?.summary || '');
@@ -63,11 +71,49 @@ export default function PostComposer({ initialData, onSave }: PostComposerProps)
   const [termsConditions, setTermsConditions] = useState(initialData?.terms_conditions || '');
   const [mediaUrls, setMediaUrls] = useState<string[]>(initialData?.media_urls || []);
 
+  // Fetch locations on mount
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const response = await fetch('/api/gbp/locations');
+        const data = await response.json();
+        if (response.ok && data.locations) {
+          setLocations(data.locations);
+          // If no initial selection, select all by default
+          if (!initialData?.selected_location_ids) {
+            setSelectedLocationIds(data.locations.map((loc: GoogleLocation) => loc.id));
+          }
+        }
+      } catch {
+        console.error('Failed to fetch locations');
+      } finally {
+        setLocationsLoading(false);
+      }
+    };
+    fetchLocations();
+  }, [initialData?.selected_location_ids]);
+
+  const toggleLocation = (locationId: string) => {
+    setSelectedLocationIds((prev) =>
+      prev.includes(locationId)
+        ? prev.filter((id) => id !== locationId)
+        : [...prev, locationId]
+    );
+  };
+
+  const toggleAllLocations = () => {
+    if (selectedLocationIds.length === locations.length) {
+      setSelectedLocationIds([]);
+    } else {
+      setSelectedLocationIds(locations.map((loc) => loc.id));
+    }
+  };
+
   const isEditing = !!initialData?.id;
   const charCount = summary.length;
   const maxChars = 1500;
 
-  const validateForm = () => {
+  const validateForm = (forPublish = false) => {
     if (!summary.trim()) {
       setError('Post content is required');
       return false;
@@ -78,6 +124,10 @@ export default function PostComposer({ initialData, onSave }: PostComposerProps)
     }
     if (ctaType && ctaType !== 'CALL' && !ctaUrl.trim()) {
       setError('URL is required for the selected button type');
+      return false;
+    }
+    if (forPublish && selectedLocationIds.length === 0) {
+      setError('Please select at least one location to publish to');
       return false;
     }
     return true;
@@ -133,7 +183,7 @@ export default function PostComposer({ initialData, onSave }: PostComposerProps)
   };
 
   const handlePublish = async () => {
-    if (!validateForm()) return;
+    if (!validateForm(true)) return;
 
     // First save if not saved
     let postId = initialData?.id;
@@ -157,9 +207,11 @@ export default function PostComposer({ initialData, onSave }: PostComposerProps)
         postId = createData.id;
       }
 
-      // Now publish
+      // Now publish to selected locations
       const publishResponse = await fetch(`/api/gbp/posts/${postId}/publish`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_ids: selectedLocationIds }),
       });
 
       const publishData = await publishResponse.json();
@@ -245,6 +297,74 @@ export default function PostComposer({ initialData, onSave }: PostComposerProps)
           Photos (optional)
         </label>
         <MediaPicker selectedUrls={mediaUrls} onSelect={setMediaUrls} maxItems={10} />
+      </div>
+
+      {/* Location Selection */}
+      <div className="space-y-3 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+            Publish to Locations
+          </h4>
+          <button
+            type="button"
+            onClick={toggleAllLocations}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{ color: 'var(--christmas-green)' }}
+          >
+            {selectedLocationIds.length === locations.length ? 'Deselect All' : 'Select All'}
+          </button>
+        </div>
+
+        {locationsLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <svg className="w-5 h-5 animate-spin" style={{ color: 'var(--christmas-green)' }} fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
+        ) : locations.length === 0 ? (
+          <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>
+            No configured locations found.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {locations.map((location) => {
+              const isSelected = selectedLocationIds.includes(location.id);
+              return (
+                <button
+                  key={location.id}
+                  type="button"
+                  onClick={() => toggleLocation(location.id)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all"
+                  style={{
+                    backgroundColor: isSelected ? 'rgba(52, 102, 67, 0.2)' : 'var(--bg-secondary)',
+                    border: isSelected ? '1px solid var(--christmas-green)' : '1px solid var(--border-subtle)',
+                    color: isSelected ? 'var(--christmas-cream)' : 'var(--text-muted)',
+                  }}
+                >
+                  <span
+                    className="w-4 h-4 rounded flex-shrink-0 flex items-center justify-center"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--christmas-green)' : 'transparent',
+                      border: isSelected ? 'none' : '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    {isSelected && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="truncate">{location.short_name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+          {selectedLocationIds.length} of {locations.length} locations selected
+        </p>
       </div>
 
       {/* Event Fields */}

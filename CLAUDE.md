@@ -8,7 +8,83 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 24, 2026) - User Permission System
+## Recent Updates (Jan 24, 2026) - Google Business Profile Post Management
+
+### Daily Dash - GBP Post Management
+
+Added ability to create and publish posts (Updates, Offers, Events) to all 8 Christmas Air Google Business Profile locations from Daily Dash.
+
+#### Database Changes (Migration Required)
+Run the SQL migration at `daily-dash/migrations/001_gbp_posts_tables.sql`:
+- `gbp_posts` - Post content and metadata
+- `gbp_post_locations` - Per-location publish status tracking
+- `gbp_media` - Media library for uploaded images
+
+Also create a Supabase Storage bucket:
+- Name: `gbp-media`
+- Public: Yes
+- Max file size: 5MB
+- Allowed types: image/jpeg, image/png, image/webp
+
+#### New Permission
+- `can_manage_gbp_posts` - Create and publish GBP posts (added to `DailyDashPermissions`)
+
+#### New Files
+**API Routes:**
+| Route | Methods | Purpose |
+|-------|---------|---------|
+| `/api/gbp/posts` | GET, POST | List posts, create draft |
+| `/api/gbp/posts/[id]` | GET, PATCH, DELETE | Get/update/delete post |
+| `/api/gbp/posts/[id]/publish` | POST | Publish to all locations |
+| `/api/gbp/media` | GET, POST | List/upload media |
+| `/api/gbp/media/[id]` | GET, DELETE | Get/delete media |
+| `/api/gbp/locations` | GET | List configured GBP locations |
+
+**UI Pages:**
+| Page | Purpose |
+|------|---------|
+| `/posts` | Posts list with status |
+| `/posts/new` | Post composer form |
+| `/posts/[id]` | Post detail/status view |
+
+**Components:**
+| Component | Purpose |
+|-----------|---------|
+| `PostComposer.tsx` | Form for creating/editing posts |
+| `MediaPicker.tsx` | Upload/select images modal |
+
+**Lib Extensions:**
+- `lib/google-business.ts` - Added `createLocalPost()`, `deleteLocalPost()`, `listLocalPosts()`, `getLocalPost()`, `uploadMediaFromUrl()`
+- `lib/permissions.ts` - Added `can_manage_gbp_posts` permission
+- `lib/supabase.ts` - Added `GBPPost`, `GBPPostLocation`, `GBPMedia`, `GoogleLocation` types
+
+#### Post Types
+| Type | Description | Extra Fields |
+|------|-------------|--------------|
+| STANDARD | News/updates | CTA button (optional) |
+| EVENT | Upcoming event | Title, start/end dates |
+| OFFER | Special deal | Coupon code, redeem URL, T&C |
+
+#### Publishing Flow
+1. Create post as draft (saved to Supabase)
+2. Click "Publish Now" to send to all locations
+3. System publishes to each location with 1-second rate limiting
+4. Location status tracked (pending/publishing/published/failed)
+5. Post marked "published" when at least one location succeeds
+
+#### UI Location
+- "Posts" link added to sidebar navigation (megaphone icon)
+- Requires `can_manage_gbp_posts` permission to access
+
+#### Technical Notes
+- Uses existing Google Business OAuth credentials (same as reviews)
+- Photos must be uploaded to Supabase Storage (public URL required for Google API)
+- Videos not supported (Google API limitation - requires manual upload)
+- Delete from Google attempted when post deleted, but doesn't block DB deletion on failure
+
+---
+
+## Previous Updates (Jan 24, 2026) - User Permission System
 
 ### Daily Dash - Centralized User & Permission Management
 

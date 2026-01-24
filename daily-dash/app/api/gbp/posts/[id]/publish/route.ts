@@ -40,7 +40,8 @@ function mapCtaType(ctaType: string | null): LocalPostCallToAction['actionType']
 
 /**
  * POST /api/gbp/posts/[id]/publish
- * Publish a post to all configured Google Business locations
+ * Publish a post to selected Google Business locations (defaults to all)
+ * Body: { location_ids?: string[] } - optional array of location IDs to publish to
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions);
@@ -60,6 +61,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const supabase = getServerSupabase();
   const gbClient = getGoogleBusinessClient();
+
+  // Parse optional location_ids from body
+  let selectedLocationIds: string[] | null = null;
+  try {
+    const body = await request.json().catch(() => ({}));
+    if (body.location_ids && Array.isArray(body.location_ids)) {
+      selectedLocationIds = body.location_ids;
+    }
+  } catch {
+    // No body or invalid JSON - publish to all locations
+  }
 
   if (!gbClient.isConfigured()) {
     return NextResponse.json(
@@ -89,13 +101,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  // Get all configured locations
-  const { data: locations, error: locError } = await supabase
+  // Get configured locations (optionally filtered by selected IDs)
+  let query = supabase
     .from('google_locations')
     .select('*')
     .not('google_account_id', 'is', null)
-    .not('google_location_id', 'is', null)
-    .order('display_order');
+    .not('google_location_id', 'is', null);
+
+  if (selectedLocationIds && selectedLocationIds.length > 0) {
+    query = query.in('id', selectedLocationIds);
+  }
+
+  const { data: locations, error: locError } = await query.order('display_order');
 
   if (locError) {
     return NextResponse.json({ error: locError.message }, { status: 500 });
