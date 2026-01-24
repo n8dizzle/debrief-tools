@@ -6,8 +6,7 @@ import { useARPermissions } from '@/hooks/useARPermissions';
 
 const overviewLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
-  { href: '/invoices/install', label: 'Install AR', icon: 'invoice' },
-  { href: '/invoices/service', label: 'Service AR', icon: 'invoice' },
+  { href: '/invoices', label: 'Invoices', icon: 'invoice' },
   { href: '/customers', label: 'Customers', icon: 'users' },
   { href: '/financing', label: 'In-House Financing', icon: 'dollar' },
 ];

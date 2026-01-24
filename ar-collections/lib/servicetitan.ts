@@ -186,12 +186,17 @@ export class ServiceTitanClient {
     minBalance?: number;
     page?: number;
     pageSize?: number;
+    createdOnOrAfter?: string;
   } = {}): Promise<{ invoices: STInvoice[]; hasMore: boolean; totalCount: number }> {
     const params: Record<string, string> = {
       page: (options.page || 1).toString(),
-      pageSize: (options.pageSize || 200).toString(),
-      status: 'Open,Partial',
+      pageSize: (options.pageSize || 100).toString(),
     };
+
+    // Add date filter if provided
+    if (options.createdOnOrAfter) {
+      params.createdOnOrAfter = options.createdOnOrAfter;
+    }
 
     const response = await this.request<STPagedResponse<STInvoice>>(
       'GET',
@@ -199,11 +204,17 @@ export class ServiceTitanClient {
       { params }
     );
 
-    let invoices = response.data || [];
+    const allInvoices = response.data || [];
 
-    // Filter by minimum balance if specified
+    // Filter for invoices with balance > 0 (using parseFloat for safety)
+    let invoices = allInvoices.filter(inv => parseFloat(String(inv.balance)) > 0);
+
+    // Log counts for debugging
+    console.log(`Page ${options.page || 1}: ${allInvoices.length} invoices, ${invoices.length} with balance > 0`);
+
+    // Additional filter by minimum balance if specified
     if (options.minBalance && options.minBalance > 0) {
-      invoices = invoices.filter(inv => inv.balance >= options.minBalance!);
+      invoices = invoices.filter(inv => parseFloat(String(inv.balance)) >= options.minBalance!);
     }
 
     return {
@@ -216,22 +227,35 @@ export class ServiceTitanClient {
   /**
    * Get all open invoices (paginated fetch)
    * Handles pagination automatically to get all invoices
+   * Fetches invoices from the last 90 days where open AR balances typically exist
    */
   async getAllOpenInvoices(minBalance: number = 0): Promise<STInvoice[]> {
     const allInvoices: STInvoice[] = [];
     let page = 1;
     let hasMore = true;
-    const pageSize = 200;
+    const pageSize = 100;
+
+    // Fetch invoices from last 90 days (where open balances are likely)
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const dateFilter = ninetyDaysAgo.toISOString().split('T')[0];
+
+    console.log(`Fetching invoices since ${dateFilter}...`);
 
     while (hasMore) {
-      const result = await this.getOpenInvoices({ page, pageSize, minBalance });
+      const result = await this.getOpenInvoices({
+        page,
+        pageSize,
+        minBalance,
+        createdOnOrAfter: dateFilter,
+      });
       allInvoices.push(...result.invoices);
       hasMore = result.hasMore;
       page++;
 
-      // Safety limit - max 50 pages (10,000 invoices)
-      if (page > 50) {
-        console.warn('Hit pagination limit of 50 pages');
+      // Safety limit - max 30 pages (3,000 invoices)
+      if (page > 30) {
+        console.warn('Hit pagination limit of 30 pages');
         break;
       }
 
@@ -241,6 +265,7 @@ export class ServiceTitanClient {
       }
     }
 
+    console.log(`Total invoices with balance > 0: ${allInvoices.length}`);
     return allInvoices;
   }
 
