@@ -759,18 +759,20 @@ function Leaderboard({
   loading,
   showWtd = true,
   showMtd = true,
+  maxRows = 10,
 }: {
   entries: LeaderboardEntry[];
   loading: boolean;
   showWtd?: boolean;
   showMtd?: boolean;
+  maxRows?: number;
 }) {
   const [sortBy, setSortBy] = useState<SortField>('ytd');
   const [showAllModal, setShowAllModal] = useState(false);
 
   const sortedEntries = [...entries].sort((a, b) => b[sortBy] - a[sortBy]);
-  const displayEntries = sortedEntries.slice(0, 10);
-  const hasMore = sortedEntries.length > 10;
+  const displayEntries = sortedEntries.slice(0, maxRows);
+  const hasMore = sortedEntries.length > maxRows;
 
   if (loading) {
     return (
@@ -2022,7 +2024,7 @@ export default function ReviewsPage() {
 
       {/* Leaderboard and Locations Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Leaderboard entries={leaderboard} loading={leaderboardLoading} showWtd={showWtd} showMtd={showMtd} />
+        <Leaderboard entries={leaderboard} loading={leaderboardLoading} showWtd={showWtd} showMtd={showMtd} maxRows={stats.locations.length} />
         <LocationsTable locations={[...stats.locations].sort((a, b) => b.total_reviews - a.total_reviews)} />
       </div>
 

@@ -223,3 +223,73 @@ export interface MonthlyTrendData {
   totalRevenue: number;
   goal: number;
 }
+
+// ============================================
+// GBP POSTS TYPES
+// ============================================
+
+export type GBPPostTopicType = 'STANDARD' | 'EVENT' | 'OFFER';
+export type GBPPostStatus = 'draft' | 'publishing' | 'published' | 'failed';
+export type GBPPostLocationStatus = 'pending' | 'publishing' | 'published' | 'failed';
+
+export interface GBPPost {
+  id: string;
+  summary: string;
+  topic_type: GBPPostTopicType;
+  cta_type: string | null;
+  cta_url: string | null;
+  event_title: string | null;
+  event_start_date: string | null;
+  event_end_date: string | null;
+  coupon_code: string | null;
+  redeem_url: string | null;
+  terms_conditions: string | null;
+  media_urls: string[]; // JSONB stored as array of URLs
+  status: GBPPostStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  created_by_user?: PortalUser;
+  locations?: GBPPostLocation[];
+}
+
+export interface GBPPostLocation {
+  id: string;
+  post_id: string;
+  location_id: string;
+  google_post_id: string | null;
+  google_post_url: string | null;
+  state: string | null;
+  status: GBPPostLocationStatus;
+  error_message: string | null;
+  published_at: string | null;
+  // Joined data
+  location?: GoogleLocation;
+}
+
+export interface GBPMedia {
+  id: string;
+  name: string;
+  url: string;
+  storage_path: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+  // Joined data
+  uploaded_by_user?: PortalUser;
+}
+
+export interface GoogleLocation {
+  id: string;
+  name: string;
+  short_name: string;
+  place_id: string | null;
+  google_account_id: string | null;
+  google_location_id: string | null;
+  address: string | null;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
+}

@@ -58,6 +58,68 @@ export interface ReviewsResponse {
   nextPageToken?: string;
 }
 
+// ============================================
+// LOCAL POST TYPES (for GBP Posts)
+// ============================================
+
+export type LocalPostTopicType = 'STANDARD' | 'EVENT' | 'OFFER';
+export type LocalPostState = 'LOCAL_POST_STATE_UNSPECIFIED' | 'REJECTED' | 'LIVE' | 'PROCESSING';
+
+export interface LocalPostMedia {
+  mediaFormat: 'PHOTO' | 'VIDEO';
+  sourceUrl: string;
+}
+
+export interface LocalPostEvent {
+  title: string;
+  schedule: {
+    startDate: { year: number; month: number; day: number };
+    startTime?: { hours: number; minutes: number };
+    endDate: { year: number; month: number; day: number };
+    endTime?: { hours: number; minutes: number };
+  };
+}
+
+export interface LocalPostOffer {
+  couponCode?: string;
+  redeemOnlineUrl?: string;
+  termsConditions?: string;
+}
+
+export interface LocalPostCallToAction {
+  actionType: 'ACTION_TYPE_UNSPECIFIED' | 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER' | 'CALL';
+  url?: string;
+}
+
+export interface LocalPost {
+  name?: string;
+  languageCode?: string;
+  summary: string;
+  callToAction?: LocalPostCallToAction;
+  media?: LocalPostMedia[];
+  topicType: LocalPostTopicType;
+  event?: LocalPostEvent;
+  offer?: LocalPostOffer;
+  state?: LocalPostState;
+  createTime?: string;
+  updateTime?: string;
+  searchUrl?: string;
+}
+
+export interface LocalPostsResponse {
+  localPosts: LocalPost[];
+  nextPageToken?: string;
+}
+
+export interface CreateLocalPostRequest {
+  summary: string;
+  topicType: LocalPostTopicType;
+  callToAction?: LocalPostCallToAction;
+  media?: LocalPostMedia[];
+  event?: LocalPostEvent;
+  offer?: LocalPostOffer;
+}
+
 const STAR_RATING_MAP: Record<string, number> = {
   'ONE': 1,
   'TWO': 2,
@@ -388,6 +450,211 @@ export class GoogleBusinessClient {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`Failed to get review: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  // ============================================
+  // LOCAL POSTS METHODS (for GBP Posts)
+  // ============================================
+
+  /**
+   * Create a local post for a location
+   * @param accountId - The account ID (e.g., "accounts/123456")
+   * @param locationId - The location ID (e.g., "locations/789")
+   * @param post - The post data
+   */
+  async createLocalPost(
+    accountId: string,
+    locationId: string,
+    post: CreateLocalPostRequest
+  ): Promise<LocalPost> {
+    if (!this.oauth2Client) {
+      throw new Error('Google Business client not configured');
+    }
+
+    const accessToken = await this.oauth2Client.getAccessToken();
+    const locationName = `${accountId}/${locationId}`;
+
+    const response = await fetch(
+      `https://mybusiness.googleapis.com/v4/${locationName}/localPosts`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          languageCode: 'en-US',
+          summary: post.summary,
+          topicType: post.topicType,
+          ...(post.callToAction && { callToAction: post.callToAction }),
+          ...(post.media && post.media.length > 0 && { media: post.media }),
+          ...(post.event && { event: post.event }),
+          ...(post.offer && { offer: post.offer }),
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to create local post: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Delete a local post
+   * @param accountId - The account ID
+   * @param locationId - The location ID
+   * @param postId - The post ID (just the ID, not the full name)
+   */
+  async deleteLocalPost(
+    accountId: string,
+    locationId: string,
+    postId: string
+  ): Promise<void> {
+    if (!this.oauth2Client) {
+      throw new Error('Google Business client not configured');
+    }
+
+    const accessToken = await this.oauth2Client.getAccessToken();
+    const postName = `${accountId}/${locationId}/localPosts/${postId}`;
+
+    const response = await fetch(
+      `https://mybusiness.googleapis.com/v4/${postName}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken.token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to delete local post: ${error}`);
+    }
+  }
+
+  /**
+   * List local posts for a location
+   * @param accountId - The account ID
+   * @param locationId - The location ID
+   * @param pageSize - Number of posts per page (max 100)
+   * @param pageToken - Token for pagination
+   */
+  async listLocalPosts(
+    accountId: string,
+    locationId: string,
+    pageSize: number = 50,
+    pageToken?: string
+  ): Promise<LocalPostsResponse> {
+    if (!this.oauth2Client) {
+      throw new Error('Google Business client not configured');
+    }
+
+    const accessToken = await this.oauth2Client.getAccessToken();
+    const locationName = `${accountId}/${locationId}`;
+
+    let url = `https://mybusiness.googleapis.com/v4/${locationName}/localPosts?pageSize=${pageSize}`;
+    if (pageToken) {
+      url += `&pageToken=${pageToken}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken.token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to list local posts: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get a single local post by ID
+   * @param accountId - The account ID
+   * @param locationId - The location ID
+   * @param postId - The post ID
+   */
+  async getLocalPost(
+    accountId: string,
+    locationId: string,
+    postId: string
+  ): Promise<LocalPost> {
+    if (!this.oauth2Client) {
+      throw new Error('Google Business client not configured');
+    }
+
+    const accessToken = await this.oauth2Client.getAccessToken();
+    const postName = `${accountId}/${locationId}/localPosts/${postId}`;
+
+    const response = await fetch(
+      `https://mybusiness.googleapis.com/v4/${postName}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken.token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to get local post: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Upload a photo to Google Business Profile media library
+   * The photo must be accessible via a public URL
+   * @param accountId - The account ID
+   * @param locationId - The location ID
+   * @param sourceUrl - Public URL of the photo to upload
+   * @param category - Photo category (defaults to ADDITIONAL)
+   */
+  async uploadMediaFromUrl(
+    accountId: string,
+    locationId: string,
+    sourceUrl: string,
+    category: 'COVER' | 'PROFILE' | 'LOGO' | 'EXTERIOR' | 'INTERIOR' | 'PRODUCT' | 'AT_WORK' | 'FOOD_AND_DRINK' | 'MENU' | 'COMMON_AREA' | 'ROOMS' | 'TEAMS' | 'ADDITIONAL' = 'ADDITIONAL'
+  ): Promise<{ name: string; mediaFormat: string; sourceUrl: string }> {
+    if (!this.oauth2Client) {
+      throw new Error('Google Business client not configured');
+    }
+
+    const accessToken = await this.oauth2Client.getAccessToken();
+    const locationName = `${accountId}/${locationId}`;
+
+    const response = await fetch(
+      `https://mybusiness.googleapis.com/v4/${locationName}/media`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mediaFormat: 'PHOTO',
+          sourceUrl,
+          locationAssociation: {
+            category,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to upload media: ${error}`);
     }
 
     return response.json();

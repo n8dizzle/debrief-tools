@@ -19,6 +19,7 @@ export interface DailyDashPermissions {
   can_reply_reviews?: boolean;
   can_edit_huddle_notes?: boolean;
   can_sync_data?: boolean;
+  can_manage_gbp_posts?: boolean;
 }
 
 export interface InternalPortalPermissions {
@@ -87,6 +88,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Trigger ServiceTitan and Google Sheets syncs',
+      },
+      {
+        key: 'can_manage_gbp_posts',
+        label: 'Manage GBP posts',
+        description: 'Create and publish Google Business Profile posts',
       },
     ],
   },
