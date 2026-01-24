@@ -1227,6 +1227,7 @@ export default function ReviewsPage() {
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [syncing, setSyncing] = useState(false);
   const [showTeamMentionsOnly, setShowTeamMentionsOnly] = useState(false);
+  const [showNeedsReplyOnly, setShowNeedsReplyOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -1244,8 +1245,8 @@ export default function ReviewsPage() {
   );
 
   const reviewsCacheKey = useMemo(() =>
-    `reviews-${period}-${customStartDate?.toISOString()}-${customEndDate?.toISOString()}-${selectedLocation}-${ratingFilter}-${showTeamMentionsOnly}-${debouncedSearch}`,
-    [period, customStartDate, customEndDate, selectedLocation, ratingFilter, showTeamMentionsOnly, debouncedSearch]
+    `reviews-${period}-${customStartDate?.toISOString()}-${customEndDate?.toISOString()}-${selectedLocation}-${ratingFilter}-${showTeamMentionsOnly}-${showNeedsReplyOnly}-${debouncedSearch}`,
+    [period, customStartDate, customEndDate, selectedLocation, ratingFilter, showTeamMentionsOnly, showNeedsReplyOnly, debouncedSearch]
   );
 
   // Debounce search input
@@ -1428,6 +1429,10 @@ export default function ReviewsPage() {
           params.set('hasTeamMention', 'true');
         }
 
+        if (showNeedsReplyOnly) {
+          params.set('needsReply', 'true');
+        }
+
         if (debouncedSearch.trim()) {
           params.set('search', debouncedSearch.trim());
         }
@@ -1449,7 +1454,7 @@ export default function ReviewsPage() {
     }
 
     fetchReviews();
-  }, [period, customStartDate, customEndDate, selectedLocation, ratingFilter, showTeamMentionsOnly, debouncedSearch, reviewsCacheKey]);
+  }, [period, customStartDate, customEndDate, selectedLocation, ratingFilter, showTeamMentionsOnly, showNeedsReplyOnly, debouncedSearch, reviewsCacheKey]);
 
   // Sync reviews - clears cache and reloads
   async function handleSync() {
@@ -1771,6 +1776,18 @@ export default function ReviewsPage() {
                 }}
               >
                 Team Mentions
+              </button>
+
+              <button
+                onClick={() => setShowNeedsReplyOnly(!showNeedsReplyOnly)}
+                className="px-3 py-1.5 rounded-lg text-sm transition-colors"
+                style={{
+                  backgroundColor: showNeedsReplyOnly ? '#EF4444' : 'rgba(0,0,0,0.3)',
+                  border: showNeedsReplyOnly ? 'none' : '1px solid var(--border-subtle)',
+                  color: showNeedsReplyOnly ? 'white' : 'var(--christmas-cream)',
+                }}
+              >
+                Needs Reply
               </button>
             </div>
           </div>
