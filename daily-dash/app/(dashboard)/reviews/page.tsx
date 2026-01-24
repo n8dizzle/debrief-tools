@@ -1232,6 +1232,8 @@ export default function ReviewsPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({ canReplyReviews: false });
+  const [syncingTeam, setSyncingTeam] = useState(false);
+  const [teamMemberCount, setTeamMemberCount] = useState<number | null>(null);
 
   const periodDates = getPeriodDates(period, customStartDate || undefined, customEndDate || undefined);
 
@@ -1273,6 +1275,50 @@ export default function ReviewsPage() {
     }
     fetchPermissions();
   }, []);
+
+  // Fetch team member count
+  useEffect(() => {
+    async function fetchTeamMemberCount() {
+      try {
+        const response = await fetch('/api/team-members/sync', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          setTeamMemberCount(data.teamMemberCount);
+        }
+      } catch (error) {
+        console.error('Failed to fetch team member count:', error);
+      }
+    }
+    fetchTeamMemberCount();
+  }, []);
+
+  // Sync team members from ServiceTitan
+  async function handleSyncTeamMembers() {
+    setSyncingTeam(true);
+    try {
+      const response = await fetch('/api/team-members/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setTeamMemberCount(data.stats.inserted + data.stats.updated + data.stats.skipped);
+        alert(`Synced team members: ${data.stats.inserted} added, ${data.stats.updated} updated`);
+        // Invalidate caches to refresh leaderboard
+        reviewsCache.clear();
+        statsCache.clear();
+      } else {
+        alert(`Sync failed: ${data.error}`);
+      }
+    } catch (error) {
+      alert('Failed to sync team members');
+    } finally {
+      setSyncingTeam(false);
+    }
+  }
 
   // Handle reply success - update local state
   const handleReplySuccess = useCallback((reviewId: string, reply: string) => {
@@ -1556,10 +1602,49 @@ export default function ReviewsPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Sync
+                Sync Reviews
               </>
             )}
           </button>
+
+          {userPermissions.canReplyReviews && (
+            <button
+              onClick={handleSyncTeamMembers}
+              disabled={syncingTeam}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 hover:opacity-90"
+              style={{
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--christmas-cream)',
+              }}
+              title={teamMemberCount !== null ? `${teamMemberCount} team members` : 'Sync team from ServiceTitan'}
+            >
+              {syncingTeam ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Syncing
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Sync Team
+                  {teamMemberCount !== null && teamMemberCount > 0 && (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-xs"
+                      style={{ backgroundColor: 'var(--christmas-green)', color: 'white' }}
+                    >
+                      {teamMemberCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

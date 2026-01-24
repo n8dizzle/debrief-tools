@@ -77,6 +77,24 @@ interface STBusinessUnit {
   active: boolean;
 }
 
+interface STTechnician {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  active: boolean;
+  businessUnitId?: number;
+}
+
+interface STEmployee {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  active: boolean;
+  role?: string;
+}
+
 // Trade types for filtering
 export type TradeName = 'HVAC' | 'Plumbing';
 
@@ -225,6 +243,76 @@ export class ServiceTitanClient {
 
     this.businessUnitsCache = response.data || [];
     return this.businessUnitsCache;
+  }
+
+  /**
+   * Get all technicians (handles pagination)
+   */
+  async getTechnicians(activeOnly: boolean = true): Promise<STTechnician[]> {
+    const allTechnicians: STTechnician[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params: Record<string, string> = {
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      if (activeOnly) {
+        params.active = 'true';
+      }
+
+      const response = await this.request<STPagedResponse<STTechnician>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/technicians`,
+        { params }
+      );
+
+      allTechnicians.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+
+      // Safety limit
+      if (page > 20) break;
+    }
+
+    return allTechnicians;
+  }
+
+  /**
+   * Get all employees (handles pagination)
+   */
+  async getEmployees(activeOnly: boolean = true): Promise<STEmployee[]> {
+    const allEmployees: STEmployee[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params: Record<string, string> = {
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      if (activeOnly) {
+        params.active = 'true';
+      }
+
+      const response = await this.request<STPagedResponse<STEmployee>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/employees`,
+        { params }
+      );
+
+      allEmployees.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+
+      // Safety limit
+      if (page > 20) break;
+    }
+
+    return allEmployees;
   }
 
   /**
@@ -494,30 +582,32 @@ export class ServiceTitanClient {
     const hvacInstallNonJobRevenue = 0;
     const hvacServiceNonJobRevenue = 0;
 
+    // For trade-level metrics, use completedRevenue as the main revenue
+    // ServiceTitan doesn't attribute non-job revenue to specific trades
     return {
       hvac: {
         completedRevenue: hvacCompletedRevenue,
         nonJobRevenue: hvacNonJobRevenue,
         adjRevenue: hvacAdjRevenue,
-        revenue: hvacCompletedRevenue + hvacNonJobRevenue + hvacAdjRevenue,
+        revenue: hvacCompletedRevenue, // Use completed only - matches ST trade breakdown
         departments: {
           install: {
             completedRevenue: hvacInstallCompletedRevenue,
             nonJobRevenue: hvacInstallNonJobRevenue,
             adjRevenue: hvacInstallAdjRevenue,
-            revenue: hvacInstallCompletedRevenue + hvacInstallNonJobRevenue + hvacInstallAdjRevenue,
+            revenue: hvacInstallCompletedRevenue,
           },
           service: {
             completedRevenue: hvacServiceCompletedRevenue,
             nonJobRevenue: hvacServiceNonJobRevenue,
             adjRevenue: hvacServiceAdjRevenue,
-            revenue: hvacServiceCompletedRevenue + hvacServiceNonJobRevenue + hvacServiceAdjRevenue,
+            revenue: hvacServiceCompletedRevenue,
           },
           maintenance: {
             completedRevenue: hvacMaintenanceCompletedRevenue,
             nonJobRevenue: hvacMaintenanceNonJobRevenue,
             adjRevenue: hvacMaintenanceAdjRevenue,
-            revenue: hvacMaintenanceCompletedRevenue + hvacMaintenanceNonJobRevenue + hvacMaintenanceAdjRevenue,
+            revenue: hvacMaintenanceCompletedRevenue,
           },
         },
       },
@@ -525,7 +615,7 @@ export class ServiceTitanClient {
         completedRevenue: plumbingCompletedRevenue,
         nonJobRevenue: plumbingNonJobRevenue,
         adjRevenue: plumbingAdjRevenue,
-        revenue: plumbingCompletedRevenue + plumbingNonJobRevenue + plumbingAdjRevenue,
+        revenue: plumbingCompletedRevenue, // Use completed only - matches ST trade breakdown
       },
     };
   }
