@@ -769,8 +769,8 @@ function Leaderboard({
   const [showAllModal, setShowAllModal] = useState(false);
 
   const sortedEntries = [...entries].sort((a, b) => b[sortBy] - a[sortBy]);
-  const displayEntries = sortedEntries.slice(0, 5);
-  const hasMore = sortedEntries.length > 5;
+  const displayEntries = sortedEntries.slice(0, 10);
+  const hasMore = sortedEntries.length > 10;
 
   if (loading) {
     return (
