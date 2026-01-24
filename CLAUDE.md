@@ -8,7 +8,75 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 23, 2026) - Daily Dash Mobile Responsiveness
+## Recent Updates (Jan 23, 2026) - Dashboard Redesign
+
+### Daily Dash - Dashboard Layout Redesign
+
+#### New Layout Structure
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  2026 ANNUAL PROGRESS            $401K / $15.8M    ███░░░  3%      │
+└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  18 MONTH TREND                                                     │
+│  [Stacked Bar Chart: HVAC (green) + Plumbing (gold)]               │
+└─────────────────────────────────────────────────────────────────────┘
+───────────────────────── DAILY METRICS ──────────────────────────────
+┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
+│   Today   │ │ This Week │ │This Month │ │This Quarter│
+└───────────┘ └───────────┘ └───────────┘ └───────────┘
+─────────────────────────── BY TRADE ─────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────┐
+│  HVAC                                              MTD: $380K       │
+│  [Today] [Week] [Month]  │  Install | Service | Maintenance        │
+├─────────────────────────────────────────────────────────────────────┤
+│  PLUMBING                                          MTD: $21.8K      │
+│  [Today] [Week] [Month]                                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### New Components
+1. **AnnualBanner** - Slim full-width progress bar for YTD revenue
+   - Shows revenue vs target with percentage
+   - Pacing marker and ahead/behind indicator
+
+2. **TrendChart** - 18-month stacked bar chart using recharts
+   - HVAC revenue: branded green (`#346643`)
+   - Plumbing revenue: branded gold (`#B8956B`)
+   - Custom tooltip showing HVAC, Plumbing, and Total
+   - Fetches data in parallel for faster loading
+
+3. **SectionDivider** - Styled dividers with gradient lines
+   - "DAILY METRICS" and "BY TRADE" labels
+
+#### Trade Section Changes
+- **Reduced from 5 columns to 3**: Today, Week, Month (removed Quarter/Year)
+- Quarter/Year data now shown in Annual Banner and Trend Chart
+- MTD total displayed in trade section header
+
+#### API Changes (`/api/huddle/route.ts`)
+- Added `monthlyTrend` array to response (18 months of HVAC/Plumbing revenue)
+- Parallel fetching of trade metrics for faster loading
+- New type: `MonthlyTrendData` in `lib/supabase.ts`
+
+#### Data Structure
+```typescript
+pacing.monthlyTrend = [
+  {
+    month: "2025-08",
+    label: "AUG",
+    hvacRevenue: 1200000,
+    plumbingRevenue: 150000,
+    totalRevenue: 1350000,
+    goal: 1400000
+  },
+  // ... 18 months
+]
+```
+
+---
+
+## Previous Updates (Jan 23, 2026) - Mobile Responsiveness
 
 ### Daily Dash - Main Dashboard Mobile Support
 

@@ -8,6 +8,7 @@ import {
   HuddleKPIWithData,
   HuddleKPIStatus,
   HuddleSnapshot,
+  MonthlyTrendData,
 } from '@/lib/supabase';
 import { getStatusFromPercentage, getTodayDateString } from '@/lib/huddle-utils';
 import { getServiceTitanClient, TradeName, HVACDepartment } from '@/lib/servicetitan';
@@ -475,13 +476,38 @@ export async function GET(request: NextRequest) {
 
     const plumbingAnnualTarget = plumbingAnnualTargetsData?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
 
+    // Type for department revenue breakdown
+    interface DeptRevenue {
+      revenue: number;
+      completedRevenue: number;
+      nonJobRevenue: number;
+      adjRevenue: number;
+    }
+
+    const zeroDeptRevenue: DeptRevenue = { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 };
+
     let tradeData = {
       hvac: {
-        today: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
-        wtd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
-        mtd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
-        qtd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
-        ytd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
+        today: {
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+        },
+        wtd: {
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+        },
+        mtd: {
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+        },
+        qtd: {
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+        },
+        ytd: {
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+        },
         targets: {
           daily: hvacDailyTarget,
           weekly: hvacWeeklyTarget,
@@ -496,11 +522,11 @@ export async function GET(request: NextRequest) {
         },
       },
       plumbing: {
-        today: { revenue: 0 },
-        wtd: { revenue: 0 },
-        mtd: { revenue: 0 },
-        qtd: { revenue: 0 },
-        ytd: { revenue: 0 },
+        today: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
+        wtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
+        mtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
+        qtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
+        ytd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
         targets: {
           daily: plumbingDailyTarget,
           weekly: plumbingWeeklyTarget,
@@ -547,6 +573,103 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch 18-month trend data for the stacked bar chart
+    const monthlyTrend: MonthlyTrendData[] = [];
+
+    // Calculate 18 months ago from current date
+    const trendStartDate = new Date(selectedDate);
+    trendStartDate.setMonth(trendStartDate.getMonth() - 17); // 18 months including current
+    trendStartDate.setDate(1); // First of month
+    const trendStartStr = trendStartDate.toISOString().split('T')[0];
+
+    // Get all monthly targets for the trend period
+    const trendStartYear = trendStartDate.getFullYear();
+    const trendEndYear = selectedDate.getFullYear();
+
+    const { data: trendTargets } = await supabase
+      .from('dash_monthly_targets')
+      .select('year, month, target_value, department')
+      .gte('year', trendStartYear)
+      .lte('year', trendEndYear)
+      .eq('target_type', 'revenue')
+      .in('department', ['TOTAL', 'HVAC Install', 'HVAC Service', 'HVAC Maintenance', 'Plumbing']);
+
+    // Build a map of monthly goals and targets by trade
+    const monthlyGoals: Record<string, { total: number; hvac: number; plumbing: number }> = {};
+    trendTargets?.forEach((t) => {
+      const key = `${t.year}-${String(t.month).padStart(2, '0')}`;
+      if (!monthlyGoals[key]) {
+        monthlyGoals[key] = { total: 0, hvac: 0, plumbing: 0 };
+      }
+      if (t.department === 'TOTAL') {
+        monthlyGoals[key].total = Number(t.target_value);
+      } else if (t.department.startsWith('HVAC')) {
+        monthlyGoals[key].hvac += Number(t.target_value);
+      } else if (t.department === 'Plumbing') {
+        monthlyGoals[key].plumbing = Number(t.target_value);
+      }
+    });
+
+    // Generate all 18 months
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const current = new Date(trendStartDate);
+
+    while (current <= selectedDate) {
+      const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+      const label = monthNames[current.getMonth()];
+      const goal = monthlyGoals[monthKey]?.total || 0;
+
+      monthlyTrend.push({
+        month: monthKey,
+        label,
+        hvacRevenue: 0, // Will be populated from ServiceTitan
+        plumbingRevenue: 0,
+        totalRevenue: 0,
+        goal,
+      });
+
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    // Fetch trade revenue for each month from ServiceTitan (in parallel for speed)
+    if (stClient.isConfigured()) {
+      try {
+        // Build list of date ranges to fetch
+        const fetchTasks = monthlyTrend.map(async (monthData) => {
+          const [yearStr, monthStr] = monthData.month.split('-');
+          const yr = parseInt(yearStr);
+          const mo = parseInt(monthStr);
+
+          // Calculate first and last day of the month
+          const firstOfMonth = new Date(yr, mo - 1, 1);
+          const lastOfMonth = new Date(yr, mo, 0); // Day 0 of next month = last day of this month
+
+          // Don't fetch future months
+          if (firstOfMonth > selectedDate) return;
+
+          // For current month, use selected date as end
+          const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
+
+          const startStr = firstOfMonth.toISOString().split('T')[0];
+          const endStr = endDate.toISOString().split('T')[0];
+
+          try {
+            const metrics = await stClient.getTradeMetrics(startStr, endStr);
+            monthData.hvacRevenue = metrics.hvac.revenue;
+            monthData.plumbingRevenue = metrics.plumbing.revenue;
+            monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
+          } catch (err) {
+            console.error(`Error fetching trend data for ${monthData.month}:`, err);
+          }
+        });
+
+        // Run all fetches in parallel
+        await Promise.all(fetchTasks);
+      } catch (trendError) {
+        console.error('Error fetching trend data:', trendError);
+      }
+    }
+
     // Pacing data object
     const pacingData = {
       todayRevenue,
@@ -571,6 +694,8 @@ export async function GET(request: NextRequest) {
       businessDaysInMonth,
       // Trade data
       trades: tradeData,
+      // Monthly trend for chart
+      monthlyTrend,
     };
 
     // Build response

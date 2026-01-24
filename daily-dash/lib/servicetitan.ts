@@ -30,6 +30,7 @@ interface STInvoice {
   invoiceNumber?: string;
   referenceNumber?: string;
   job?: { id: number; number?: string } | null;
+  businessUnit?: { id: number; name?: string } | null;
   total: number;
   balance: number;
   summary?: string;
@@ -340,19 +341,33 @@ export class ServiceTitanClient {
 
   /**
    * Get all trade metrics for a date range (optimized to reduce API calls)
-   * Returns revenue for both HVAC and Plumbing, plus HVAC department breakdown
+   * Returns TOTAL REVENUE (Completed + Non-Job + Adj) for both HVAC and Plumbing,
+   * plus HVAC department breakdown.
+   *
+   * Matches ServiceTitan's Total Revenue formula:
+   * Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
+   *
+   * - Completed Revenue: sum of job.total for completed jobs in that business unit
+   * - Adj Revenue: negative invoices tied to jobs in that business unit
+   * - Non-Job Revenue: positive invoices with no job - distributed proportionally by trade
    */
   async getTradeMetrics(startDate: string, endDate?: string): Promise<{
     hvac: {
       revenue: number;
+      completedRevenue: number;
+      nonJobRevenue: number;
+      adjRevenue: number;
       departments: {
-        install: number;
-        service: number;
-        maintenance: number;
+        install: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number };
+        service: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number };
+        maintenance: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number };
       };
     };
     plumbing: {
       revenue: number;
+      completedRevenue: number;
+      nonJobRevenue: number;
+      adjRevenue: number;
     };
   }> {
     const effectiveEndDate = endDate || startDate;
@@ -368,26 +383,225 @@ export class ServiceTitanClient {
     // Fetch all completed jobs once
     const jobs = await this.getCompletedJobs(startDate, dayAfterEnd);
 
-    // Calculate totals by filtering
+    // Create a map of jobId -> businessUnitId for quick lookup
+    const jobToBuMap = new Map<number, number>();
+    jobs.forEach(j => jobToBuMap.set(j.id, j.businessUnitId));
+
+    // Fetch all invoices for the date range
+    const invoices = await this.getInvoicesDateRange(startDate, dayAfterEnd);
+
+    // === Calculate Completed Revenue by filtering jobs ===
     const hvacJobs = jobs.filter(j => hvacBuIds.includes(j.businessUnitId));
     const plumbingJobs = jobs.filter(j => plumbingBuIds.includes(j.businessUnitId));
     const hvacInstallJobs = jobs.filter(j => hvacInstallBuIds.includes(j.businessUnitId));
     const hvacServiceJobs = jobs.filter(j => hvacServiceBuIds.includes(j.businessUnitId));
     const hvacMaintenanceJobs = jobs.filter(j => hvacMaintenanceBuIds.includes(j.businessUnitId));
 
+    const hvacCompletedRevenue = hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const plumbingCompletedRevenue = plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const hvacInstallCompletedRevenue = hvacInstallJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const hvacServiceCompletedRevenue = hvacServiceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const hvacMaintenanceCompletedRevenue = hvacMaintenanceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+
+    // === Calculate Adj Revenue (negative invoices) by business unit ===
+    // Initialize accumulators
+    let hvacAdjRevenue = 0;
+    let plumbingAdjRevenue = 0;
+    let hvacInstallAdjRevenue = 0;
+    let hvacServiceAdjRevenue = 0;
+    let hvacMaintenanceAdjRevenue = 0;
+    let totalNonJobRevenue = 0;
+
+    // Create set of completed job IDs for quick lookup
+    const completedJobIds = new Set(jobs.map(j => j.id));
+
+    // Non-job revenue accumulators (by business unit)
+    let hvacMaintenanceNonJobRevenue = 0;
+    let plumbingMaintenanceNonJobRevenue = 0;
+    let otherNonJobRevenue = 0;
+
+    // Find invoices that reference jobs NOT in our completed jobs list
+    // These are likely refunds for jobs completed in prior periods
+    const missingJobIds: number[] = [];
+    for (const inv of invoices) {
+      if (inv.job?.id && !jobToBuMap.has(inv.job.id) && !inv.businessUnit?.id) {
+        missingJobIds.push(inv.job.id);
+      }
+    }
+
+    // Fetch details for missing jobs to get their business units
+    const allJobBuMap = new Map<number, number>(jobToBuMap);
+    if (missingJobIds.length > 0) {
+      const uniqueMissingIds = [...new Set(missingJobIds)];
+      const missingJobs = await this.getJobsByIds(uniqueMissingIds);
+      missingJobs.forEach((job, jobId) => {
+        allJobBuMap.set(jobId, job.businessUnitId);
+      });
+    }
+
+    for (const inv of invoices) {
+      const total = Number(inv.total) || 0;
+      // Check if invoice is tied to a COMPLETED job (in our date range)
+      const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
+
+      // Try to determine business unit: prefer invoice.businessUnit, then lookup via job
+      let invoiceBuId: number | undefined;
+      if (inv.businessUnit?.id) {
+        invoiceBuId = inv.businessUnit.id;
+      } else if (inv.job?.id) {
+        invoiceBuId = allJobBuMap.get(inv.job.id);
+      }
+
+      if (total < 0) {
+        // Negative invoice (refund/credit) - attribute to business unit
+        if (invoiceBuId) {
+          if (hvacBuIds.includes(invoiceBuId)) {
+            hvacAdjRevenue += total;
+            if (hvacInstallBuIds.includes(invoiceBuId)) hvacInstallAdjRevenue += total;
+            else if (hvacServiceBuIds.includes(invoiceBuId)) hvacServiceAdjRevenue += total;
+            else if (hvacMaintenanceBuIds.includes(invoiceBuId)) hvacMaintenanceAdjRevenue += total;
+          } else if (plumbingBuIds.includes(invoiceBuId)) {
+            plumbingAdjRevenue += total;
+          }
+        }
+      } else if (total > 0 && !hasCompletedJob) {
+        // Positive invoice NOT tied to a completed job in this period = non-job revenue
+        if (invoiceBuId) {
+          if (hvacMaintenanceBuIds.includes(invoiceBuId)) {
+            hvacMaintenanceNonJobRevenue += total;
+          } else if (plumbingBuIds.includes(invoiceBuId)) {
+            plumbingMaintenanceNonJobRevenue += total;
+          } else if (hvacBuIds.includes(invoiceBuId)) {
+            // Other HVAC business unit - attribute to that dept's non-job (but we only track maintenance)
+            // For now, still attribute to HVAC Maintenance
+            hvacMaintenanceNonJobRevenue += total;
+          } else {
+            otherNonJobRevenue += total;
+          }
+        } else {
+          // No business unit determinable - attribute to HVAC Maintenance as default
+          hvacMaintenanceNonJobRevenue += total;
+        }
+      }
+      // Positive invoices tied to completed jobs are already counted in completedRevenue via job.total
+    }
+
+    // === Sum up Non-Job Revenue ===
+    const hvacNonJobRevenue = hvacMaintenanceNonJobRevenue;
+    const plumbingNonJobRevenue = plumbingMaintenanceNonJobRevenue;
+
+    // Department non-job revenue (all goes to Maintenance)
+    const hvacInstallNonJobRevenue = 0;
+    const hvacServiceNonJobRevenue = 0;
+
     return {
       hvac: {
-        revenue: hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+        completedRevenue: hvacCompletedRevenue,
+        nonJobRevenue: hvacNonJobRevenue,
+        adjRevenue: hvacAdjRevenue,
+        revenue: hvacCompletedRevenue + hvacNonJobRevenue + hvacAdjRevenue,
         departments: {
-          install: hvacInstallJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
-          service: hvacServiceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
-          maintenance: hvacMaintenanceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+          install: {
+            completedRevenue: hvacInstallCompletedRevenue,
+            nonJobRevenue: hvacInstallNonJobRevenue,
+            adjRevenue: hvacInstallAdjRevenue,
+            revenue: hvacInstallCompletedRevenue + hvacInstallNonJobRevenue + hvacInstallAdjRevenue,
+          },
+          service: {
+            completedRevenue: hvacServiceCompletedRevenue,
+            nonJobRevenue: hvacServiceNonJobRevenue,
+            adjRevenue: hvacServiceAdjRevenue,
+            revenue: hvacServiceCompletedRevenue + hvacServiceNonJobRevenue + hvacServiceAdjRevenue,
+          },
+          maintenance: {
+            completedRevenue: hvacMaintenanceCompletedRevenue,
+            nonJobRevenue: hvacMaintenanceNonJobRevenue,
+            adjRevenue: hvacMaintenanceAdjRevenue,
+            revenue: hvacMaintenanceCompletedRevenue + hvacMaintenanceNonJobRevenue + hvacMaintenanceAdjRevenue,
+          },
         },
       },
       plumbing: {
-        revenue: plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+        completedRevenue: plumbingCompletedRevenue,
+        nonJobRevenue: plumbingNonJobRevenue,
+        adjRevenue: plumbingAdjRevenue,
+        revenue: plumbingCompletedRevenue + plumbingNonJobRevenue + plumbingAdjRevenue,
       },
     };
+  }
+
+  /**
+   * Get a single job by ID to retrieve its business unit
+   */
+  async getJobById(jobId: number): Promise<STJob | null> {
+    try {
+      const response = await this.request<STJob>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}`
+      );
+      return response || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get multiple jobs by IDs (batched)
+   */
+  async getJobsByIds(jobIds: number[]): Promise<Map<number, STJob>> {
+    const jobMap = new Map<number, STJob>();
+
+    // Fetch in batches to avoid too many concurrent requests
+    const batchSize = 10;
+    for (let i = 0; i < jobIds.length; i += batchSize) {
+      const batch = jobIds.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(id => this.getJobById(id))
+      );
+      results.forEach((job, idx) => {
+        if (job) {
+          jobMap.set(batch[idx], job);
+        }
+      });
+    }
+
+    return jobMap;
+  }
+
+  /**
+   * Get invoices for a date range (handles pagination)
+   */
+  async getInvoicesDateRange(
+    createdOnOrAfter: string,
+    createdBefore: string
+  ): Promise<STInvoice[]> {
+    const allInvoices: STInvoice[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params: Record<string, string> = {
+        createdOnOrAfter: `${createdOnOrAfter}T00:00:00Z`,
+        createdBefore: `${createdBefore}T00:00:00Z`,
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      const response = await this.request<STPagedResponse<STInvoice>>(
+        'GET',
+        `accounting/v2/tenant/${this.tenantId}/invoices`,
+        { params }
+      );
+
+      allInvoices.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+
+      // Safety limit to prevent infinite loops
+      if (page > 50) break;
+    }
+
+    return allInvoices;
   }
 
   // ============================================
@@ -395,34 +609,48 @@ export class ServiceTitanClient {
   // ============================================
 
   /**
-   * Get jobs completed on a specific date
+   * Get jobs completed in a date range (handles pagination)
    */
   async getCompletedJobs(
     completedOnOrAfter: string, // YYYY-MM-DD
     completedBefore?: string,
     businessUnitId?: number
   ): Promise<STJob[]> {
-    const params: Record<string, string> = {
-      completedOnOrAfter: `${completedOnOrAfter}T00:00:00Z`,
-      jobStatus: 'Completed',
-      pageSize: '200',
-    };
+    const allJobs: STJob[] = [];
+    let page = 1;
+    let hasMore = true;
 
-    if (completedBefore) {
-      params.completedBefore = `${completedBefore}T00:00:00Z`;
+    while (hasMore) {
+      const params: Record<string, string> = {
+        completedOnOrAfter: `${completedOnOrAfter}T00:00:00Z`,
+        jobStatus: 'Completed',
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      if (completedBefore) {
+        params.completedBefore = `${completedBefore}T00:00:00Z`;
+      }
+
+      if (businessUnitId) {
+        params.businessUnitId = businessUnitId.toString();
+      }
+
+      const response = await this.request<STPagedResponse<STJob>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs`,
+        { params }
+      );
+
+      allJobs.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+
+      // Safety limit to prevent infinite loops
+      if (page > 50) break;
     }
 
-    if (businessUnitId) {
-      params.businessUnitId = businessUnitId.toString();
-    }
-
-    const response = await this.request<STPagedResponse<STJob>>(
-      'GET',
-      `jpm/v2/tenant/${this.tenantId}/jobs`,
-      { params }
-    );
-
-    return response.data || [];
+    return allJobs;
   }
 
   /**

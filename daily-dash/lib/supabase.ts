@@ -208,3 +208,16 @@ export interface HuddleHistoricalResponse {
     }[];
   }[];
 }
+
+// ============================================
+// TREND CHART TYPES
+// ============================================
+
+export interface MonthlyTrendData {
+  month: string;        // "2025-08" format
+  label: string;        // "AUG" display format
+  hvacRevenue: number;
+  plumbingRevenue: number;
+  totalRevenue: number;
+  goal: number;
+}
