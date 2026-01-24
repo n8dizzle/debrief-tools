@@ -68,15 +68,28 @@ Expected YTD = Sum of completed months' targets (100%) + Current month's target 
 #### Total Sales Added to Dashboard Cards (Jan 23, 2026)
 Dashboard now shows both **Revenue** and **Sales** on the top 4 cards (Today, This Week, This Month, This Quarter).
 
-**Display format**:
+**Card layout**:
 ```
-Today
-$38.9K / $27.9K
-revenue / sales
+┌─────────────────────────────────┐
+│ TODAY                      74%  │
+│                                 │
+│  $28.9K    │    $27.9K         │
+│  REVENUE   │    SALES          │
+│─────────────────────────────────│
+│  of $38,864 target             │
+│  ▬▬▬▬▬▬▬▬▬▬▬▬▬│▬▬▬▬▬▬▬▬▬▬▬▬   │
+│  ▼ Behind pace    Expected: 100%│
+└─────────────────────────────────┘
 ```
-- Revenue shown in cream/white
-- Sales shown in gold color
+
+**Design elements**:
+- **Vertical divider** between Revenue and Sales columns
+- **Horizontal separator** above target/progress section
+- **Uppercase labels** with letter-spacing (REVENUE, SALES)
+- Revenue in cream/white, Sales in gold
 - Compact formatting ($38.9K instead of $38,864)
+- Thinner progress bar (1.5px) for subtlety
+- Softer percentage badge styling
 
 **What is "Total Sales"?**
 Matches ServiceTitan's "Total Sales" metric:
