@@ -249,7 +249,15 @@ function StatCard({
         border: highlight ? '1px solid rgba(52, 102, 67, 0.4)' : '1px solid var(--border-subtle)',
       }}
     >
-      {/* Change Badge */}
+      {/* Label with icon - add right padding for badge */}
+      <div className="flex items-center gap-2 mb-3 pr-16">
+        {icon && <div style={{ color: highlight ? 'var(--christmas-green)' : 'var(--text-muted)' }}>{icon}</div>}
+        <span className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </span>
+      </div>
+
+      {/* Change Badge - positioned after label to avoid overlap */}
       {changePercent !== null && changePercent !== undefined && (
         <div
           className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1"
@@ -271,14 +279,6 @@ function StatCard({
           {isPositive ? '+' : ''}{Math.round(changePercent)}%
         </div>
       )}
-
-      {/* Label with icon */}
-      <div className="flex items-center gap-2 mb-3">
-        {icon && <div style={{ color: highlight ? 'var(--christmas-green)' : 'var(--text-muted)' }}>{icon}</div>}
-        <span className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-          {label}
-        </span>
-      </div>
 
       {/* Value */}
       <span
@@ -1129,97 +1129,111 @@ function ReviewCard({
       className="p-4 last:border-b-0 transition-colors hover:opacity-90"
       style={{ borderBottom: '1px solid var(--border-subtle)' }}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
-            style={{ backgroundColor: 'rgba(52, 102, 67, 0.3)', color: 'var(--christmas-green)' }}
-          >
-            {review.reviewer_name.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium truncate" style={{ color: 'var(--christmas-cream)' }}>{review.reviewer_name}</span>
-              <StarRating rating={review.star_rating} />
-            </div>
-            <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              <span>{timeAgo}</span>
-              <span>&middot;</span>
-              <span>{review.location.short_name}</span>
-            </div>
-            {review.comment && (
-              <div className="mt-2">
-                <p
-                  ref={textRef}
-                  className={`text-sm transition-all duration-200 ${
-                    isExpanded ? '' : 'line-clamp-2'
-                  }`}
-                  style={{ color: 'var(--christmas-cream)', opacity: 0.9 }}
-                >
-                  {review.comment}
-                </p>
-                {(isTruncated || isExpanded) && (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-xs mt-1 font-medium transition-colors hover:opacity-80"
-                    style={{ color: 'var(--christmas-green)' }}
-                  >
-                    {isExpanded ? '← Read less' : 'Read more →'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+      {/* Main content row */}
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
+          style={{ backgroundColor: 'rgba(52, 102, 67, 0.3)', color: 'var(--christmas-green)' }}
+        >
+          {review.reviewer_name.charAt(0).toUpperCase()}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          {/* Header row: name, stars, and action buttons */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{review.reviewer_name}</span>
+                <StarRating rating={review.star_rating} />
+              </div>
+              <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                <span>{timeAgo}</span>
+                <span>&middot;</span>
+                <span>{review.location.short_name}</span>
+              </div>
+            </div>
+
+            {/* Action buttons - compact */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {review.review_reply ? (
+                <button
+                  onClick={() => setShowExistingReply(!showExistingReply)}
+                  className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: 'rgba(52, 102, 67, 0.2)',
+                    color: 'var(--christmas-green)',
+                  }}
+                >
+                  {showExistingReply ? 'Hide' : 'View'}
+                </button>
+              ) : (
+                <span
+                  className="text-xs px-2 py-1 rounded-full whitespace-nowrap"
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    color: '#EF4444',
+                  }}
+                >
+                  No Reply
+                </span>
+              )}
+              {canReply && (
+                <button
+                  onClick={() => setShowReplyModal(true)}
+                  className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: 'var(--christmas-green)',
+                    color: 'white',
+                  }}
+                >
+                  {review.review_reply ? 'Edit' : 'Reply'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Review text */}
+          {review.comment && (
+            <div className="mt-2">
+              <p
+                ref={textRef}
+                className={`text-sm transition-all duration-200 ${
+                  isExpanded ? '' : 'line-clamp-3'
+                }`}
+                style={{ color: 'var(--christmas-cream)', opacity: 0.9 }}
+              >
+                {review.comment}
+              </p>
+              {(isTruncated || isExpanded) && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-xs mt-1 font-medium transition-colors hover:opacity-80"
+                  style={{ color: 'var(--christmas-green)' }}
+                >
+                  {isExpanded ? '← Read less' : 'Read more →'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Team mentions - separate row below content */}
           {hasTeamMentions && (
-            <span
-              className="text-xs px-2 py-1 rounded-full"
-              style={{
-                backgroundColor: 'rgba(201, 162, 39, 0.2)',
-                color: 'var(--christmas-gold)',
-                border: '1px solid rgba(201, 162, 39, 0.3)',
-              }}
-            >
-              {review.team_members_mentioned!.join(', ')}
-            </span>
-          )}
-          {review.review_reply ? (
-            <button
-              onClick={() => setShowExistingReply(!showExistingReply)}
-              className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
-              style={{
-                backgroundColor: 'rgba(52, 102, 67, 0.2)',
-                color: 'var(--christmas-green)',
-                border: '1px solid rgba(52, 102, 67, 0.3)',
-              }}
-            >
-              {showExistingReply ? 'Hide Reply' : 'View Reply'}
-            </button>
-          ) : (
-            <span
-              className="text-xs px-2 py-1 rounded-full"
-              style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                color: '#EF4444',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-              }}
-            >
-              Needs Reply
-            </span>
-          )}
-          {canReply && (
-            <button
-              onClick={() => setShowReplyModal(true)}
-              className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
-              style={{
-                backgroundColor: 'var(--christmas-green)',
-                color: 'white',
-              }}
-            >
-              {review.review_reply ? 'Edit' : 'Reply'}
-            </button>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {review.team_members_mentioned!.map((name, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: 'rgba(201, 162, 39, 0.15)',
+                    color: 'var(--christmas-gold)',
+                  }}
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
           )}
         </div>
       </div>
