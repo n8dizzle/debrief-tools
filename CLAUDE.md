@@ -151,11 +151,61 @@ curl -X POST "https://dash.christmasair.com/api/huddle/backfill" \
 └────────────────────────────────────────────────────┘
 ```
 
-**Trade sections** (redesigned Jan 23, 2026):
-- **HVAC**: 5 time-period mini-cards + 3 department cards (Install, Service, Maintenance)
-- **Plumbing**: 5 time-period mini-cards (no sub-departments)
-- Removed Department Summary table (redundant with trade sections)
-- Placeholder $0 values - needs trade-specific revenue data wired up
+#### Trade-Level Revenue Tracking (Jan 23, 2026)
+Trade sections now show **real data** from ServiceTitan, filtered by business unit.
+
+**Business Unit Mapping:**
+```
+HVAC Trade (excludes "HVAC - Sales"):
+  - HVAC - Install      → Install department
+  - HVAC - Service      → Service department
+  - HVAC - Commercial   → Service department (combined)
+  - Mims - Service      → Service department (combined)
+  - HVAC - Maintenance  → Maintenance department
+
+Plumbing Trade (all combined):
+  - Plumbing - Install
+  - Plumbing - Service
+  - Plumbing - Maintenance
+  - Plumbing - Sales
+  - Plumbing - Commercial
+```
+
+**API Changes** (`lib/servicetitan.ts`):
+- `getBusinessUnits()` - Fetches and caches all business units
+- `getBusinessUnitIdsForTrade(trade)` - Returns IDs for HVAC or Plumbing
+- `getBusinessUnitIdsForHVACDepartment(dept)` - Returns IDs for Install/Service/Maintenance
+- `getTradeMetrics(startDate, endDate)` - Optimized method that fetches all trade data in one API call
+
+**Data Structure** (returned by `/api/huddle`):
+```typescript
+pacing.trades = {
+  hvac: {
+    today: { revenue: number, departments: { install, service, maintenance } },
+    wtd: { ... },
+    mtd: { ... },
+    qtd: { ... },
+    ytd: { ... },
+  },
+  plumbing: {
+    today: { revenue: number },
+    wtd: { ... },
+    mtd: { ... },
+    qtd: { ... },
+    ytd: { ... },
+  }
+}
+```
+
+**UI Components:**
+- `MiniTradeCard` - Compact card matching company revenue card style
+- Shows revenue, percentage, progress bar with pacing marker
+- "Ahead/Behind" indicator based on time elapsed
+
+**Target Estimates** (for percentage calculation):
+- HVAC: ~85% of company targets
+- Plumbing: ~15% of company targets
+- TODO: Add actual trade-specific targets to database
 
 #### Middleware Fix for Cron Auth
 Added bypass for cron endpoints in `middleware.ts`:
