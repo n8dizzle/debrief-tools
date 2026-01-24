@@ -407,7 +407,7 @@ export default function DashboardPage() {
             className="text-3xl font-bold tracking-tight"
             style={{ color: 'var(--christmas-cream)' }}
           >
-            Christmas Air
+            Christmas Air Conditioning & Plumbing
           </h1>
           <p className="text-lg mt-1" style={{ color: 'var(--text-secondary)' }}>
             Daily Huddle Dashboard
