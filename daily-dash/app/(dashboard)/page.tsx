@@ -148,14 +148,6 @@ interface DashboardData {
   departments?: DepartmentData[];
 }
 
-// Map department slugs to their primary revenue/metric KPI
-const departmentConfig: Record<string, { revenueKpi: string; label: string }> = {
-  'hvac-service': { revenueKpi: 'service-jobs-completed', label: 'HVAC Service' },
-  'hvac-install': { revenueKpi: 'install-revenue', label: 'HVAC Install' },
-  'plumbing': { revenueKpi: 'plumbing-revenue', label: 'Plumbing' },
-  'call-center': { revenueKpi: 'calls-booked-inbound', label: 'Call Center' },
-  'marketing': { revenueKpi: 'leads', label: 'Marketing' },
-};
 
 function formatCurrency(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
@@ -166,16 +158,6 @@ function getStatusColor(pacing: number): string {
   if (pacing >= 90) return '#3B82F6';
   if (pacing >= 75) return 'var(--christmas-gold)';
   return '#EF4444';
-}
-
-function StatusDot({ pacing }: { pacing: number }) {
-  const color = getStatusColor(pacing);
-  return (
-    <div
-      className="w-3 h-3 rounded-full"
-      style={{ backgroundColor: color }}
-    />
-  );
 }
 
 // Helper to get date in YYYY-MM-DD format using local time (not UTC)
@@ -429,33 +411,6 @@ export default function DashboardPage() {
   const ytdRevenue = pacing?.ytdRevenue || 0;
   const annualTarget = pacing?.annualTarget || 10260000; // ~$855K * 12
 
-  // Extract department summary data from API response
-  const getDepartmentSummary = () => {
-    if (!dashData?.departments) return [];
-
-    return Object.entries(departmentConfig).map(([slug, config]) => {
-      const dept = dashData.departments?.find(d => d.slug === slug);
-      if (!dept) {
-        return { name: config.label, today: 0, mtd: 0, target: 0, pacing: 0 };
-      }
-
-      const primaryKpi = dept.kpis.find(k => k.slug === config.revenueKpi);
-      const todayValue = primaryKpi?.actual || 0;
-      const targetValue = primaryKpi?.target || 0;
-      const pacingValue = primaryKpi?.percent_to_goal || 0;
-
-      return {
-        name: config.label,
-        today: todayValue,
-        mtd: 0,
-        target: targetValue,
-        pacing: Math.round(pacingValue),
-      };
-    });
-  };
-
-  const departmentSummary = getDepartmentSummary();
-
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -621,305 +576,135 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Department Revenue Sections - 50/50 Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        {/* HVAC Section */}
-        <div
-          className="p-5 rounded-xl"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-              HVAC
-            </h3>
-          </div>
-
-          {/* HVAC Breakdown: Install, Service, Maintenance */}
-          <div className="space-y-3">
-            {/* Install */}
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Install</p>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
-                  0%
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(569000)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Service */}
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Service</p>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
-                  0%
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(124000)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Maintenance */}
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Maintenance</p>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
-                  0%
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(31000)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Plumbing Section */}
-        <div
-          className="p-5 rounded-xl"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)' }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-              Plumbing
-            </h3>
-          </div>
-
-          {/* Plumbing Breakdown: Service, Maintenance */}
-          <div className="space-y-3">
-            {/* Service */}
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Service</p>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8B5CF6' }}>
-                  0%
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(130000)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Maintenance */}
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Maintenance</p>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8B5CF6' }}>
-                  0%
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Today</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>MTD</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Target</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{loading ? '...' : formatCurrency(0)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Department Summary */}
+      {/* HVAC Trade Section */}
       <div
-        className="rounded-xl overflow-hidden"
+        className="p-5 rounded-xl mb-4"
         style={{
           backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
         }}
       >
-        {/* Section Header */}
-        <div
-          className="flex items-center gap-3 p-5 border-b"
-          style={{ borderColor: 'var(--border-subtle)' }}
-        >
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-5">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(184, 149, 107, 0.2)' }}
+            style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="var(--christmas-gold)"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
           <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-            Department Summary
+            HVAC
           </h3>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--bg-card)' }}>
-                <th
-                  className="text-left text-xs font-semibold uppercase tracking-wider px-5 py-3"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  Department
-                </th>
-                <th
-                  className="text-right text-xs font-semibold uppercase tracking-wider px-5 py-3"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  Today
-                </th>
-                <th
-                  className="text-right text-xs font-semibold uppercase tracking-wider px-5 py-3"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  MTD
-                </th>
-                <th
-                  className="text-right text-xs font-semibold uppercase tracking-wider px-5 py-3"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  Pacing
-                </th>
-                <th
-                  className="text-center text-xs font-semibold uppercase tracking-wider px-5 py-3"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {departmentSummary.map((dept, index) => (
-                <tr
-                  key={dept.name}
-                  className="transition-colors hover:bg-opacity-50"
-                  style={{
-                    borderBottom:
-                      index < departmentSummary.length - 1
-                        ? '1px solid var(--border-subtle)'
-                        : 'none',
-                  }}
-                >
-                  <td className="px-5 py-4">
-                    <span
-                      className="font-medium"
-                      style={{ color: 'var(--christmas-cream)' }}
-                    >
-                      {dept.name}
-                    </span>
-                  </td>
-                  <td
-                    className="text-right px-5 py-4"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    {dept.today >= 1000
-                      ? formatCurrency(dept.today)
-                      : dept.today.toLocaleString()}
-                  </td>
-                  <td
-                    className="text-right px-5 py-4"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    {formatCurrency(dept.mtd)}
-                  </td>
-                  <td
-                    className="text-right px-5 py-4 font-semibold"
-                    style={{ color: getStatusColor(dept.pacing) }}
-                  >
-                    {dept.pacing}%
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex justify-center">
-                      <StatusDot pacing={dept.pacing} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Time Period Metrics Row */}
+        <div className="grid grid-cols-5 gap-3 mb-5">
+          {[
+            { label: 'Today', value: 0 },
+            { label: 'Week', value: 0 },
+            { label: 'Month', value: 0 },
+            { label: 'Quarter', value: 0 },
+            { label: 'Year', value: 0 },
+          ].map((period, idx) => (
+            <div
+              key={period.label}
+              className="text-center py-3 px-2 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+            >
+              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
+                {period.label}
+              </p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrencyCompact(period.value)}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Separator */}
+        <div className="h-px w-full mb-4" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
+
+        {/* Department Label */}
+        <p className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+          Departments
+        </p>
+
+        {/* HVAC Departments: Install, Service, Maintenance */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { name: 'Install', mtd: 0, target: 569000 },
+            { name: 'Service', mtd: 0, target: 124000 },
+            { name: 'Maintenance', mtd: 0, target: 31000 },
+          ].map((dept) => (
+            <div
+              key={dept.name}
+              className="p-3 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+            >
+              <p className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                {dept.name}
+              </p>
+              <p className="text-xl font-bold mb-1" style={{ color: '#3B82F6' }}>
+                {loading ? '...' : formatCurrencyCompact(dept.mtd)}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                of {formatCurrencyCompact(dept.target)} target
+              </p>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Plumbing Trade Section */}
+      <div
+        className="p-5 rounded-xl mb-8"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-5">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)' }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            Plumbing
+          </h3>
+        </div>
+
+        {/* Time Period Metrics Row */}
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            { label: 'Today', value: 0 },
+            { label: 'Week', value: 0 },
+            { label: 'Month', value: 0 },
+            { label: 'Quarter', value: 0 },
+            { label: 'Year', value: 0 },
+          ].map((period) => (
+            <div
+              key={period.label}
+              className="text-center py-3 px-2 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+            >
+              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
+                {period.label}
+              </p>
+              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrencyCompact(period.value)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }

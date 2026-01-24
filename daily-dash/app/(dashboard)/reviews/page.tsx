@@ -754,6 +754,10 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
 }
 
 function ReviewCard({ review }: { review: Review }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
   const timeAgo = useMemo(() => {
     const now = new Date();
     const reviewDate = new Date(review.create_time);
@@ -766,6 +770,18 @@ function ReviewCard({ review }: { review: Review }) {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
     return `${Math.floor(diffDays / 30)}mo ago`;
   }, [review.create_time]);
+
+  // Check if text is truncated on mount and resize
+  useEffect(() => {
+    const checkTruncation = () => {
+      if (textRef.current) {
+        setIsTruncated(textRef.current.scrollHeight > textRef.current.clientHeight);
+      }
+    };
+    checkTruncation();
+    window.addEventListener('resize', checkTruncation);
+    return () => window.removeEventListener('resize', checkTruncation);
+  }, [review.comment]);
 
   const hasTeamMentions = review.team_members_mentioned && review.team_members_mentioned.length > 0;
 
@@ -787,7 +803,24 @@ function ReviewCard({ review }: { review: Review }) {
               <span>{review.location.short_name}</span>
             </div>
             {review.comment && (
-              <p className="text-sm text-zinc-300 mt-2 line-clamp-2">{review.comment}</p>
+              <div className="mt-2">
+                <p
+                  ref={textRef}
+                  className={`text-sm text-zinc-300 transition-all duration-200 ${
+                    isExpanded ? '' : 'line-clamp-2'
+                  }`}
+                >
+                  {review.comment}
+                </p>
+                {(isTruncated || isExpanded) && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 mt-1 font-medium transition-colors"
+                  >
+                    {isExpanded ? '← Read less' : 'Read more →'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
