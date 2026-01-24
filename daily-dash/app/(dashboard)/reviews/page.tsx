@@ -1086,15 +1086,21 @@ function ReviewCard({
   review,
   canReply,
   onReplySuccess,
+  onMentionsUpdate,
 }: {
   review: Review;
   canReply: boolean;
   onReplySuccess: (reviewId: string, reply: string) => void;
+  onMentionsUpdate: (reviewId: string, mentions: string[] | null) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [showExistingReply, setShowExistingReply] = useState(false);
+  const [isEditingMentions, setIsEditingMentions] = useState(false);
+  const [editedMentions, setEditedMentions] = useState<string[]>([]);
+  const [newMentionInput, setNewMentionInput] = useState('');
+  const [savingMentions, setSavingMentions] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
 
   const timeAgo = useMemo(() => {
@@ -1218,23 +1224,141 @@ function ReviewCard({
             </div>
           )}
 
-          {/* Team mentions - separate row below content */}
-          {hasTeamMentions && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {review.team_members_mentioned!.map((name, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs px-2 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: 'rgba(201, 162, 39, 0.15)',
-                    color: 'var(--christmas-gold)',
-                  }}
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Team mentions - with edit functionality */}
+          <div className="mt-2">
+            {isEditingMentions ? (
+              /* Edit mode */
+              <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(201, 162, 39, 0.1)' }}>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {editedMentions.map((name, idx) => (
+                    <span
+                      key={idx}
+                      className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+                      style={{
+                        backgroundColor: 'rgba(201, 162, 39, 0.2)',
+                        color: 'var(--christmas-gold)',
+                      }}
+                    >
+                      {name}
+                      <button
+                        onClick={() => setEditedMentions(prev => prev.filter((_, i) => i !== idx))}
+                        className="hover:opacity-70"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMentionInput}
+                    onChange={(e) => setNewMentionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newMentionInput.trim()) {
+                        setEditedMentions(prev => [...prev, newMentionInput.trim()]);
+                        setNewMentionInput('');
+                      }
+                    }}
+                    placeholder="Add name..."
+                    className="flex-1 px-2 py-1 text-xs rounded"
+                    style={{
+                      backgroundColor: 'rgba(0,0,0,0.3)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--christmas-cream)',
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (newMentionInput.trim()) {
+                        setEditedMentions(prev => [...prev, newMentionInput.trim()]);
+                        setNewMentionInput('');
+                      }
+                    }}
+                    className="px-2 py-1 text-xs rounded"
+                    style={{ backgroundColor: 'var(--christmas-gold)', color: 'var(--bg-primary)' }}
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={async () => {
+                      setSavingMentions(true);
+                      try {
+                        const res = await fetch(`/api/reviews/${review.id}/mentions`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ mentions: editedMentions }),
+                        });
+                        if (res.ok) {
+                          onMentionsUpdate(review.id, editedMentions.length > 0 ? editedMentions : null);
+                          setIsEditingMentions(false);
+                        }
+                      } catch (err) {
+                        console.error('Failed to save mentions:', err);
+                      } finally {
+                        setSavingMentions(false);
+                      }
+                    }}
+                    disabled={savingMentions}
+                    className="px-2 py-1 text-xs rounded font-medium"
+                    style={{ backgroundColor: 'var(--christmas-green)', color: 'white' }}
+                  >
+                    {savingMentions ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingMentions(false);
+                      setEditedMentions(review.team_members_mentioned || []);
+                      setNewMentionInput('');
+                    }}
+                    className="px-2 py-1 text-xs rounded"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--christmas-cream)' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* View mode */
+              <div className="flex flex-wrap items-center gap-1">
+                {hasTeamMentions && review.team_members_mentioned!.map((name, idx) => (
+                  <span
+                    key={idx}
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: 'rgba(201, 162, 39, 0.15)',
+                      color: 'var(--christmas-gold)',
+                    }}
+                  >
+                    {name}
+                  </span>
+                ))}
+                {canReply && (
+                  <button
+                    onClick={() => {
+                      setEditedMentions(review.team_members_mentioned || []);
+                      setIsEditingMentions(true);
+                    }}
+                    className="text-xs px-1.5 py-0.5 rounded-full transition-colors hover:opacity-80"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      color: 'var(--text-muted)',
+                    }}
+                    title="Edit team mentions"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1395,6 +1519,17 @@ export default function ReviewsPage() {
     setReviews(prev => prev.map(r =>
       r.id === reviewId
         ? { ...r, review_reply: reply || null, reply_time: reply ? new Date().toISOString() : null }
+        : r
+    ));
+    // Clear cache since data changed
+    reviewsCache.clear();
+  }, []);
+
+  // Handle mentions update - update local state
+  const handleMentionsUpdate = useCallback((reviewId: string, mentions: string[] | null) => {
+    setReviews(prev => prev.map(r =>
+      r.id === reviewId
+        ? { ...r, team_members_mentioned: mentions }
         : r
     ));
     // Clear cache since data changed
@@ -1917,6 +2052,7 @@ export default function ReviewsPage() {
                 review={review}
                 canReply={userPermissions.canReplyReviews}
                 onReplySuccess={handleReplySuccess}
+                onMentionsUpdate={handleMentionsUpdate}
               />
             ))
           )}

@@ -552,8 +552,9 @@ export class ServiceTitanClient {
             plumbingAdjRevenue += total;
           }
         }
-      } else if (total > 0 && !hasCompletedJob) {
-        // Positive invoice NOT tied to a completed job in this period = non-job revenue
+      } else if (total > 0 && !inv.job?.id) {
+        // Positive invoice with NO JOB = non-job revenue (memberships, standalone sales, etc.)
+        // Note: Invoices tied to jobs (even from prior periods) are NOT non-job revenue
         if (invoiceBuId) {
           if (hvacMaintenanceBuIds.includes(invoiceBuId)) {
             hvacMaintenanceNonJobRevenue += total;

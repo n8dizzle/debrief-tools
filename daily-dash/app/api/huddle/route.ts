@@ -344,11 +344,11 @@ export async function GET(request: NextRequest) {
     const hvacWeeklyTarget = hvacDailyTarget * totalWeekBusinessDays;
     const plumbingWeeklyTarget = plumbingDailyTarget * totalWeekBusinessDays;
 
-    // BATCH 3: Trade targets - quarterly and annual for HVAC and Plumbing
+    // BATCH 3: Trade targets - quarterly and annual for HVAC and Plumbing (with per-department breakdown)
     const [hvacQtrResult, plumbingQtrResult, hvacAnnualResult, plumbingAnnualResult] = await Promise.all([
       supabase.from('dash_monthly_targets').select('target_value, department').eq('year', year).gte('month', quarterStartMonth).lte('month', quarterEndMonth).eq('target_type', 'revenue').in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']),
       supabase.from('dash_monthly_targets').select('target_value').eq('year', year).gte('month', quarterStartMonth).lte('month', quarterEndMonth).eq('target_type', 'revenue').eq('department', 'Plumbing'),
-      supabase.from('dash_monthly_targets').select('target_value').eq('year', year).eq('target_type', 'revenue').in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']),
+      supabase.from('dash_monthly_targets').select('target_value, department').eq('year', year).eq('target_type', 'revenue').in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']),
       supabase.from('dash_monthly_targets').select('target_value').eq('year', year).eq('target_type', 'revenue').eq('department', 'Plumbing'),
     ]);
 
@@ -356,6 +356,11 @@ export async function GET(request: NextRequest) {
     const plumbingQuarterlyTarget = plumbingQtrResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
     const hvacAnnualTarget = hvacAnnualResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
     const plumbingAnnualTarget = plumbingAnnualResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+
+    // Per-department annual targets (sum of 12 months for each department)
+    const hvacInstallAnnualTarget = hvacAnnualResult.data?.filter(t => t.department === 'HVAC Install').reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+    const hvacServiceAnnualTarget = hvacAnnualResult.data?.filter(t => t.department === 'HVAC Service').reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+    const hvacMaintenanceAnnualTarget = hvacAnnualResult.data?.filter(t => t.department === 'HVAC Maintenance').reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
 
     // Type for department revenue breakdown
     interface DeptRevenue {
@@ -815,6 +820,11 @@ export async function GET(request: NextRequest) {
       hvacServiceMonthlyTarget: deptTargets['HVAC Service']?.monthly || 0,
       hvacMaintenanceMonthlyTarget: deptTargets['HVAC Maintenance']?.monthly || 0,
       plumbingMonthlyTarget: deptTargets['Plumbing']?.monthly || 0,
+      // Department-specific annual targets (sum of all 12 months)
+      hvacInstallAnnualTarget,
+      hvacServiceAnnualTarget,
+      hvacMaintenanceAnnualTarget,
+      plumbingAnnualTarget,
       // Trade data
       trades: tradeData,
       // Monthly trend for chart

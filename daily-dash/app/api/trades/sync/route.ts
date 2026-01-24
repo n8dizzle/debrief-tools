@@ -107,16 +107,26 @@ export async function POST(request: NextRequest) {
           },
         ];
 
-        // Upsert into Supabase
-        const { error: upsertError } = await supabase
+        // Delete existing rows for this date, then insert new ones
+        // (upsert doesn't work with COALESCE-based unique index for NULL handling)
+        const { error: deleteError } = await supabase
           .from('trade_daily_snapshots')
-          .upsert(rows, {
-            onConflict: 'snapshot_date,trade,department',
-          });
+          .delete()
+          .eq('snapshot_date', syncDate);
 
-        if (upsertError) {
-          console.error(`Error upserting trade snapshots for ${syncDate}:`, upsertError);
-          results.push({ date: syncDate, success: false, error: upsertError.message });
+        if (deleteError) {
+          console.error(`Error deleting old snapshots for ${syncDate}:`, deleteError);
+          results.push({ date: syncDate, success: false, error: deleteError.message });
+          continue;
+        }
+
+        const { error: insertError } = await supabase
+          .from('trade_daily_snapshots')
+          .insert(rows);
+
+        if (insertError) {
+          console.error(`Error inserting trade snapshots for ${syncDate}:`, insertError);
+          results.push({ date: syncDate, success: false, error: insertError.message });
         } else {
           results.push({ date: syncDate, success: true });
         }

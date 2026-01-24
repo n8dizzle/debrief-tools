@@ -44,7 +44,7 @@ const MONTHLY_TARGETS = {
 
 // Calculate daily targets from monthly / business days
 const calcDaily = (monthly: number[], days: number[]) => monthly.map((m, i) => Math.round(m / days[i]));
-const calcWeekly = (daily: number[]) => daily.map(d => d * 5);
+const calcWeekly = (daily: number[]) => daily.map(d => Math.round(d * 5.5));
 const formatCurrency = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(0)}K`.replace(/\.0K$/, 'K') : `$${n.toLocaleString()}`;
 const formatCurrencyFull = (n: number) => `$${n.toLocaleString()}`;
 
@@ -57,13 +57,13 @@ const dailyRevenueTargets = [
   { name: 'TOTAL', values: [...calcDaily(MONTHLY_TARGETS['TOTAL'], businessDaysPerMonth).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['TOTAL'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)))], isTotal: true },
 ];
 
-// Weekly Revenue Targets (Daily × 5 business days)
+// Weekly Revenue Targets (Daily × 5.5 business days - Saturday = 0.5)
 const weeklyRevenueTargets = [
-  { name: 'HVAC Install', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Install'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Install'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
-  { name: 'HVAC Service', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Service'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Service'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
-  { name: 'HVAC Maint.', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Maintenance'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Maintenance'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
-  { name: 'Plumbing', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['Plumbing'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['Plumbing'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
-  { name: 'TOTAL', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['TOTAL'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['TOTAL'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)], isTotal: true },
+  { name: 'HVAC Install', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Install'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Install'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0) * 5.5))] },
+  { name: 'HVAC Service', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Service'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Service'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0) * 5.5))] },
+  { name: 'HVAC Maint.', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Maintenance'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Maintenance'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0) * 5.5))] },
+  { name: 'Plumbing', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['Plumbing'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['Plumbing'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0) * 5.5))] },
+  { name: 'TOTAL', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['TOTAL'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['TOTAL'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0) * 5.5))], isTotal: true },
 ];
 
 // Review Targets from spreadsheet
@@ -632,7 +632,7 @@ export default function SettingsPage() {
               Weekly Revenue Targets
             </h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-              Calculated: Daily Target × 5 Business Days
+              Calculated: Daily Target × 5.5 Business Days (Sat = 0.5)
             </p>
           </div>
           <div className="overflow-x-auto">

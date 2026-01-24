@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -10,10 +10,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
-
-// Client-side cache for dashboard data
-const dashboardCache = new Map<string, { data: DashboardData; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
+import { useHuddleData } from '@/lib/hooks/useHuddleData';
 
 // Department revenue breakdown
 interface DepartmentRevenue {
@@ -773,44 +770,13 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('');
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
-  const [dashData, setDashData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
-  const fetchData = useCallback(async (bypassCache = false) => {
-    const cacheKey = `dashboard-${selectedDate}`;
-
-    // Check cache first (unless bypassing)
-    if (!bypassCache) {
-      const cached = dashboardCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        setDashData(cached.data);
-        setLoading(false);
-        return;
-      }
-    }
-
-    // Only show loading if no cached data exists at all
-    const cached = dashboardCache.get(cacheKey);
-    if (!cached) {
-      setLoading(true);
-    }
-
-    try {
-      const res = await fetch(`/api/huddle?date=${selectedDate}`);
-      if (res.ok) {
-        const data = await res.json();
-        setDashData(data);
-        // Cache the result
-        dashboardCache.set(cacheKey, { data, timestamp: Date.now() });
-      }
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate]);
+  // Use SWR for cached data fetching - instant load on navigation
+  const { data: dashData, pacing, isLoading, isValidating, mutate } = useHuddleData(
+    selectedDate === getTodayDateString() ? undefined : selectedDate
+  );
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -822,9 +788,8 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setLastSync(new Date().toLocaleTimeString());
-        // Clear cache for this date and refetch
-        dashboardCache.delete(`dashboard-${selectedDate}`);
-        await fetchData(true);
+        // Refresh SWR cache
+        mutate();
       }
     } catch (err) {
       console.error('Sync error:', err);
@@ -842,14 +807,10 @@ export default function DashboardPage() {
       day: 'numeric',
     };
     setCurrentDate(now.toLocaleDateString('en-US', options));
-    fetchData();
-    // Refresh every 10 minutes (bypassing cache for fresh data)
-    const interval = setInterval(() => fetchData(true), 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [selectedDate, fetchData]);
+  }, []);
 
-  // Extract data from API response
-  const pacing = dashData?.pacing;
+  // Show loading only on first load (no cached data)
+  const loading = isLoading && !pacing;
   const todayRevenue = pacing?.todayRevenue || 0;
   const todaySales = pacing?.todaySales || 0;
   const dailyTarget = pacing?.dailyTarget || 38864;
@@ -944,6 +905,16 @@ export default function DashboardPage() {
             <span className="hidden sm:inline text-xs" style={{ color: 'var(--text-muted)' }}>
               Synced: {lastSync}
             </span>
+          )}
+
+          {/* Background refresh indicator */}
+          {isValidating && !isLoading && !isSyncing && (
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <svg className="w-3 h-3 animate-spin" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span style={{ color: 'var(--text-muted)' }}>Refreshing</span>
+            </div>
           )}
 
           <button

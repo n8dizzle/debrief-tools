@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { HuddleDashboardResponse, HuddleDepartmentWithKPIs } from '@/lib/supabase';
 import { getTodayDateString, getYesterdayDateString, formatDateForDisplay } from '@/lib/huddle-utils';
+import { useHuddleData } from '@/lib/hooks/useHuddleData';
 import DepartmentSection from './DepartmentSection';
 
 interface HuddleDashboardProps {
@@ -97,36 +98,25 @@ export default function HuddleDashboard({
   defaultDate,
   showHeader = true,
 }: HuddleDashboardProps) {
-  const [data, setData] = useState<HuddleDashboardResponse | null>(initialData || null);
   const [selectedDate, setSelectedDate] = useState(defaultDate || getYesterdayDateString());
-  const [isLoading, setIsLoading] = useState(!initialData);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch dashboard data
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/huddle?date=${selectedDate}`);
-      if (!response.ok) throw new Error('Failed to fetch data');
-      const result = await response.json();
-      setData(result);
-    } catch (err) {
-      setError('Failed to load dashboard data');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedDate]);
+  // Use SWR for cached data fetching - instant load on navigation
+  const { data: apiData, error: fetchError, isLoading, isValidating, mutate } = useHuddleData(selectedDate);
 
-  // Initial fetch and auto-refresh
+  // Local state for optimistic updates (notes)
+  const [localData, setLocalData] = useState<HuddleDashboardResponse | null>(initialData || null);
+
+  // Sync local data with API data
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    if (apiData) {
+      setLocalData(apiData as HuddleDashboardResponse);
+    }
+  }, [apiData]);
+
+  const data = localData;
+  const error = fetchError ? 'Failed to load dashboard data' : null;
 
   // Trigger data sync from ServiceTitan
   const handleSync = async () => {
@@ -139,7 +129,8 @@ export default function HuddleDashboard({
       });
       if (!response.ok) throw new Error('Sync failed');
       setLastSync(new Date().toLocaleTimeString());
-      await fetchData();
+      // Refresh SWR cache
+      mutate();
     } catch (err) {
       console.error('Sync error:', err);
     } finally {
@@ -147,12 +138,12 @@ export default function HuddleDashboard({
     }
   };
 
-  // Handle note changes
+  // Handle note changes (optimistic update on local state)
   const handleNoteChange = (kpiId: string, note: string) => {
-    if (!data) return;
-    setData({
-      ...data,
-      departments: data.departments.map((dept) => ({
+    if (!localData) return;
+    setLocalData({
+      ...localData,
+      departments: localData.departments.map((dept) => ({
         ...dept,
         kpis: dept.kpis.map((kpi) =>
           kpi.id === kpiId ? { ...kpi, note } : kpi
@@ -246,6 +237,15 @@ export default function HuddleDashboard({
 
         {/* Sync button */}
         <div className="flex items-center gap-3">
+          {/* Background refresh indicator */}
+          {isValidating && !isLoading && !isSyncing && (
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs" style={{ backgroundColor: 'var(--bg-card)' }}>
+              <svg className="w-3 h-3 animate-spin" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span style={{ color: 'var(--text-muted)' }}>Refreshing</span>
+            </div>
+          )}
           {lastSync && (
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Synced: {lastSync}
