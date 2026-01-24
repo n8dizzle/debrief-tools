@@ -8,7 +8,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
+  CartesianGrid,
 } from 'recharts';
 
 // Client-side cache for dashboard data
@@ -466,11 +466,14 @@ function TrendChart({ data, loading }: TrendChartProps) {
               tickFormatter={(value) => formatCurrencyCompact(value)}
               width={45}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-            <ReferenceLine
-              y={0}
+            <CartesianGrid
+              horizontal={true}
+              vertical={false}
+              strokeDasharray="3 3"
               stroke="var(--border-subtle)"
+              strokeOpacity={0.5}
             />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
             <Bar
               dataKey="hvacRevenue"
               stackId="revenue"

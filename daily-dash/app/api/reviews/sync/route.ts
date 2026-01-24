@@ -5,8 +5,9 @@ import { getServerSupabase } from '@/lib/supabase';
 import {
   getGoogleBusinessClient,
   starRatingToNumber,
-  findTeamMemberMentions,
+  findTeamMemberMentionsAI,
   GoogleReview,
+  TeamMember,
 } from '@/lib/google-business';
 
 /**
@@ -58,11 +59,26 @@ export async function POST(request: NextRequest) {
     // Get team members for mention detection
     const { data: teamMembers } = await supabase
       .from('team_members')
-      .select('name, aliases')
+      .select('name, aliases, slack_user_id')
       .eq('is_active', true);
 
     let totalSynced = 0;
+    let newReviewsWithMentions: Array<{
+      reviewId: string;
+      reviewerName: string;
+      starRating: number;
+      comment: string;
+      locationName: string;
+      teamMentions: string[];
+      slackUserIds: string[];
+    }> = [];
     const errors: string[] = [];
+
+    // Get existing review IDs to detect new reviews
+    const { data: existingReviews } = await supabase
+      .from('google_reviews')
+      .select('google_review_id');
+    const existingReviewIds = new Set(existingReviews?.map(r => r.google_review_id) || []);
 
     // Sync reviews for each location
     for (const location of locations) {
@@ -74,9 +90,16 @@ export async function POST(request: NextRequest) {
 
         // Process and upsert reviews
         for (const review of reviews) {
-          const teamMentions = teamMembers
-            ? findTeamMemberMentions(review.comment || '', teamMembers)
-            : [];
+          // Use AI-powered detection if comment exists
+          let teamMentions: string[] = [];
+          if (review.comment && teamMembers && teamMembers.length > 0) {
+            teamMentions = await findTeamMemberMentionsAI(
+              review.comment,
+              teamMembers as TeamMember[]
+            );
+          }
+
+          const isNewReview = !existingReviewIds.has(review.reviewId);
 
           const reviewData = {
             location_id: location.id,
@@ -105,6 +128,25 @@ export async function POST(request: NextRequest) {
             console.error(`Failed to upsert review ${review.reviewId}:`, upsertError);
           } else {
             totalSynced++;
+
+            // Track new reviews with team mentions for Slack notifications
+            if (isNewReview && teamMentions.length > 0 && teamMembers) {
+              const slackUserIds = teamMembers
+                .filter(m => teamMentions.includes(m.name) && m.slack_user_id)
+                .map(m => m.slack_user_id as string);
+
+              if (slackUserIds.length > 0) {
+                newReviewsWithMentions.push({
+                  reviewId: review.reviewId,
+                  reviewerName: review.reviewer?.displayName || 'Anonymous',
+                  starRating: starRatingToNumber(review.starRating),
+                  comment: review.comment || '',
+                  locationName: location.name,
+                  teamMentions,
+                  slackUserIds,
+                });
+              }
+            }
           }
         }
 
@@ -136,9 +178,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Send Slack notifications for new reviews with team mentions
+    // (Slack client will be added in Phase 3)
+    if (newReviewsWithMentions.length > 0 && process.env.SLACK_ENABLED === 'true') {
+      try {
+        // Dynamic import to avoid errors if slack.ts doesn't exist yet
+        const { sendReviewMentionNotifications } = await import('@/lib/slack');
+        await sendReviewMentionNotifications(newReviewsWithMentions);
+      } catch (slackError) {
+        console.error('Failed to send Slack notifications:', slackError);
+        // Don't fail the sync if Slack notifications fail
+      }
+    }
+
     return NextResponse.json({
       message: 'Sync completed',
       synced: totalSynced,
+      newMentions: newReviewsWithMentions.length,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {

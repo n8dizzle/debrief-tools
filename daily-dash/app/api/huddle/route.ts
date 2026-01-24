@@ -857,7 +857,11 @@ export async function GET(request: NextRequest) {
         const monthlyRevenue: Record<string, { hvac: number; plumbing: number }> = {};
 
         for (const snap of trendSnapshots) {
-          const monthKey = snap.snapshot_date.substring(0, 7); // "YYYY-MM"
+          // Handle both string and Date formats from Supabase
+          const dateStr = typeof snap.snapshot_date === 'string'
+            ? snap.snapshot_date
+            : new Date(snap.snapshot_date).toISOString().split('T')[0];
+          const monthKey = dateStr.substring(0, 7); // "YYYY-MM"
           if (!monthlyRevenue[monthKey]) {
             monthlyRevenue[monthKey] = { hvac: 0, plumbing: 0 };
           }
