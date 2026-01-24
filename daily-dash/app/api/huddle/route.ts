@@ -94,61 +94,34 @@ export async function GET(request: NextRequest) {
     const dateParam = searchParams.get('date');
     const date = dateParam || getTodayDateString();
 
-    // Fetch all departments with their KPIs
-    const { data: departments, error: deptError } = await supabase
-      .from('huddle_departments')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order');
+    // BATCH 1: Core huddle data - run in parallel
+    const [deptResult, kpiResult, snapshotResult, targetResult, notesResult] = await Promise.all([
+      supabase.from('huddle_departments').select('*').eq('is_active', true).order('display_order'),
+      supabase.from('huddle_kpis').select('*').eq('is_active', true).order('display_order'),
+      supabase.from('huddle_snapshots').select('*').eq('snapshot_date', date),
+      supabase.from('huddle_targets').select('*').eq('target_type', 'daily').lte('effective_date', date).order('effective_date', { ascending: false }),
+      supabase.from('huddle_notes').select('*').eq('note_date', date),
+    ]);
+
+    const { data: departments, error: deptError } = deptResult;
+    const { data: kpis, error: kpiError } = kpiResult;
+    const { data: snapshots, error: snapError } = snapshotResult;
+    const { data: targets, error: targetError } = targetResult;
+    const { data: notes, error: notesError } = notesResult;
 
     if (deptError) {
       console.error('Error fetching departments:', deptError);
       return NextResponse.json({ error: 'Failed to fetch departments' }, { status: 500 });
     }
 
-    // Fetch all KPIs
-    const { data: kpis, error: kpiError } = await supabase
-      .from('huddle_kpis')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order');
-
     if (kpiError) {
       console.error('Error fetching KPIs:', kpiError);
       return NextResponse.json({ error: 'Failed to fetch KPIs' }, { status: 500 });
     }
 
-    // Fetch snapshots for the date
-    const { data: snapshots, error: snapError } = await supabase
-      .from('huddle_snapshots')
-      .select('*')
-      .eq('snapshot_date', date);
-
-    if (snapError) {
-      console.error('Error fetching snapshots:', snapError);
-    }
-
-    // Fetch targets (most recent for each KPI)
-    const { data: targets, error: targetError } = await supabase
-      .from('huddle_targets')
-      .select('*')
-      .eq('target_type', 'daily')
-      .lte('effective_date', date)
-      .order('effective_date', { ascending: false });
-
-    if (targetError) {
-      console.error('Error fetching targets:', targetError);
-    }
-
-    // Fetch notes for the date
-    const { data: notes, error: notesError } = await supabase
-      .from('huddle_notes')
-      .select('*')
-      .eq('note_date', date);
-
-    if (notesError) {
-      console.error('Error fetching notes:', notesError);
-    }
+    if (snapError) console.error('Error fetching snapshots:', snapError);
+    if (targetError) console.error('Error fetching targets:', targetError);
+    if (notesError) console.error('Error fetching notes:', notesError);
 
     // Build snapshot lookup
     type SnapshotRecord = {
@@ -588,81 +561,36 @@ export async function GET(request: NextRequest) {
       return result;
     }
 
-    // Fetch TODAY's metrics from ServiceTitan (live data)
-    // Historical data comes from Supabase snapshots
+    // Fetch trade metrics LIVE from ServiceTitan for Today, WTD, MTD
+    // This ensures accuracy without relying on cached snapshots
     const isToday = date === getTodayDateString();
 
     if (stClient.isConfigured()) {
       try {
-        // Only fetch today from ServiceTitan - everything else from Supabase
-        if (isToday) {
-          const todayMetrics = await stClient.getTradeMetrics(date);
-          tradeData.hvac.today = todayMetrics.hvac;
-          tradeData.plumbing.today = todayMetrics.plumbing;
-        }
+        // Fetch Today, WTD, MTD directly from ServiceTitan in parallel
+        // This makes 3 API calls but ensures data matches ServiceTitan exactly
+        const [todayMetrics, wtdMetrics, mtdMetrics] = await Promise.all([
+          stClient.getTradeMetrics(date),           // Today only
+          stClient.getTradeMetrics(mondayStr, date), // Monday through today
+          stClient.getTradeMetrics(firstOfMonth, date), // First of month through today
+        ]);
 
-        // Fetch historical data from Supabase for all other periods
-        // WTD: Monday to yesterday (or today if viewing historical date)
-        const wtdEndDate = isToday ? getYesterdayStr() : date;
-        if (mondayStr <= wtdEndDate) {
-          const { data: wtdSnapshots } = await supabase
-            .from('trade_daily_snapshots')
-            .select('*')
-            .gte('snapshot_date', mondayStr)
-            .lte('snapshot_date', wtdEndDate);
+        // TODAY
+        tradeData.hvac.today = todayMetrics.hvac;
+        tradeData.plumbing.today = todayMetrics.plumbing;
 
-          if (wtdSnapshots && wtdSnapshots.length > 0) {
-            const hvacWtdSnaps = (wtdSnapshots as TradeSnapshot[]).filter(s => s.trade === 'hvac');
-            const plumbingWtdSnaps = (wtdSnapshots as TradeSnapshot[]).filter(s => s.trade === 'plumbing');
+        // WTD (Monday through selected date) - live from ServiceTitan
+        tradeData.hvac.wtd = wtdMetrics.hvac;
+        tradeData.plumbing.wtd = wtdMetrics.plumbing;
 
-            const hvacWtdAgg = aggregateTradeSnapshots(hvacWtdSnaps);
-            const plumbingWtdAgg = aggregateTradeSnapshots(plumbingWtdSnaps);
+        // MTD (First of month through selected date) - live from ServiceTitan
+        tradeData.hvac.mtd = mtdMetrics.hvac;
+        tradeData.plumbing.mtd = mtdMetrics.plumbing;
 
-            // Add today's live data if viewing today
-            if (isToday) {
-              tradeData.hvac.wtd = {
-                revenue: hvacWtdAgg.revenue + tradeData.hvac.today.revenue,
-                completedRevenue: hvacWtdAgg.completedRevenue + tradeData.hvac.today.completedRevenue,
-                nonJobRevenue: hvacWtdAgg.nonJobRevenue + tradeData.hvac.today.nonJobRevenue,
-                adjRevenue: hvacWtdAgg.adjRevenue + tradeData.hvac.today.adjRevenue,
-                departments: {
-                  install: {
-                    revenue: hvacWtdAgg.departments.install.revenue + (tradeData.hvac.today.departments?.install?.revenue || 0),
-                    completedRevenue: hvacWtdAgg.departments.install.completedRevenue + (tradeData.hvac.today.departments?.install?.completedRevenue || 0),
-                    nonJobRevenue: hvacWtdAgg.departments.install.nonJobRevenue + (tradeData.hvac.today.departments?.install?.nonJobRevenue || 0),
-                    adjRevenue: hvacWtdAgg.departments.install.adjRevenue + (tradeData.hvac.today.departments?.install?.adjRevenue || 0),
-                  },
-                  service: {
-                    revenue: hvacWtdAgg.departments.service.revenue + (tradeData.hvac.today.departments?.service?.revenue || 0),
-                    completedRevenue: hvacWtdAgg.departments.service.completedRevenue + (tradeData.hvac.today.departments?.service?.completedRevenue || 0),
-                    nonJobRevenue: hvacWtdAgg.departments.service.nonJobRevenue + (tradeData.hvac.today.departments?.service?.nonJobRevenue || 0),
-                    adjRevenue: hvacWtdAgg.departments.service.adjRevenue + (tradeData.hvac.today.departments?.service?.adjRevenue || 0),
-                  },
-                  maintenance: {
-                    revenue: hvacWtdAgg.departments.maintenance.revenue + (tradeData.hvac.today.departments?.maintenance?.revenue || 0),
-                    completedRevenue: hvacWtdAgg.departments.maintenance.completedRevenue + (tradeData.hvac.today.departments?.maintenance?.completedRevenue || 0),
-                    nonJobRevenue: hvacWtdAgg.departments.maintenance.nonJobRevenue + (tradeData.hvac.today.departments?.maintenance?.nonJobRevenue || 0),
-                    adjRevenue: hvacWtdAgg.departments.maintenance.adjRevenue + (tradeData.hvac.today.departments?.maintenance?.adjRevenue || 0),
-                  },
-                },
-              };
-              tradeData.plumbing.wtd = {
-                revenue: plumbingWtdAgg.revenue + tradeData.plumbing.today.revenue,
-                completedRevenue: plumbingWtdAgg.completedRevenue + tradeData.plumbing.today.completedRevenue,
-                nonJobRevenue: plumbingWtdAgg.nonJobRevenue + tradeData.plumbing.today.nonJobRevenue,
-                adjRevenue: plumbingWtdAgg.adjRevenue + tradeData.plumbing.today.adjRevenue,
-              };
-            } else {
-              tradeData.hvac.wtd = hvacWtdAgg;
-              tradeData.plumbing.wtd = plumbingWtdAgg;
-            }
-          }
-        }
-
-        // MTD, QTD, YTD - fetch from Supabase and add today if needed
+        // QTD and YTD - still use Supabase snapshots (larger date ranges)
         const periodEndDate = isToday ? getYesterdayStr() : date;
 
-        // Fetch all historical snapshots for YTD range (covers MTD and QTD too)
+        // Fetch all historical snapshots for YTD range
         const { data: ytdSnapshots } = await supabase
           .from('trade_daily_snapshots')
           .select('*')
@@ -672,21 +600,14 @@ export async function GET(request: NextRequest) {
         if (ytdSnapshots && ytdSnapshots.length > 0) {
           const allSnaps = ytdSnapshots as TradeSnapshot[];
 
-          // MTD
-          const mtdSnaps = allSnaps.filter(s => s.snapshot_date >= firstOfMonth);
-          const hvacMtdSnaps = mtdSnaps.filter(s => s.trade === 'hvac');
-          const plumbingMtdSnaps = mtdSnaps.filter(s => s.trade === 'plumbing');
-          const hvacMtdAgg = aggregateTradeSnapshots(hvacMtdSnaps);
-          const plumbingMtdAgg = aggregateTradeSnapshots(plumbingMtdSnaps);
-
-          // QTD
+          // QTD from snapshots
           const qtdSnaps = allSnaps.filter(s => s.snapshot_date >= quarterStartDate);
           const hvacQtdSnaps = qtdSnaps.filter(s => s.trade === 'hvac');
           const plumbingQtdSnaps = qtdSnaps.filter(s => s.trade === 'plumbing');
           const hvacQtdAgg = aggregateTradeSnapshots(hvacQtdSnaps);
           const plumbingQtdAgg = aggregateTradeSnapshots(plumbingQtdSnaps);
 
-          // YTD
+          // YTD from snapshots
           const hvacYtdSnaps = allSnaps.filter(s => s.trade === 'hvac');
           const plumbingYtdSnaps = allSnaps.filter(s => s.trade === 'plumbing');
           const hvacYtdAgg = aggregateTradeSnapshots(hvacYtdSnaps);
@@ -736,18 +657,15 @@ export async function GET(request: NextRequest) {
             departments: agg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
           });
 
+          // QTD and YTD - use snapshots + today's data (MTD already fetched live from ServiceTitan above)
           if (isToday) {
-            tradeData.hvac.mtd = addTodayToAgg(hvacMtdAgg, tradeData.hvac.today);
             tradeData.hvac.qtd = addTodayToAgg(hvacQtdAgg, tradeData.hvac.today);
             tradeData.hvac.ytd = addTodayToAgg(hvacYtdAgg, tradeData.hvac.today);
-            tradeData.plumbing.mtd = addTodayToPlumbingAgg(plumbingMtdAgg, tradeData.plumbing.today);
             tradeData.plumbing.qtd = addTodayToPlumbingAgg(plumbingQtdAgg, tradeData.plumbing.today);
             tradeData.plumbing.ytd = addTodayToPlumbingAgg(plumbingYtdAgg, tradeData.plumbing.today);
           } else {
-            tradeData.hvac.mtd = ensureDepts(hvacMtdAgg);
             tradeData.hvac.qtd = ensureDepts(hvacQtdAgg);
             tradeData.hvac.ytd = ensureDepts(hvacYtdAgg);
-            tradeData.plumbing.mtd = plumbingMtdAgg;
             tradeData.plumbing.qtd = plumbingQtdAgg;
             tradeData.plumbing.ytd = plumbingYtdAgg;
           }
