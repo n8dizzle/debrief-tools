@@ -6,11 +6,65 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
-3. **Daily Dash** (`/daily-dash`) - Dashboard at dash.christmasair.com (not yet deployed)
+3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 23, 2026)
+## Recent Updates (Jan 23, 2026) - Daily Dash Revenue Tracking
 
-### Split Internal Portal into Two Apps
+### Daily Dash - DEPLOYED to https://dash.christmasair.com
+
+#### Revenue Calculation Fix - Now Matches ServiceTitan (within 0.14%)
+**Problem**: MTD revenue was off from ServiceTitan because we were only using "Completed Revenue" instead of "Total Revenue".
+
+**ServiceTitan's Formula**:
+```
+Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
+```
+
+**Changes Made**:
+1. Updated `lib/servicetitan.ts` - `getTotalRevenue()` now properly calculates:
+   - `completedRevenue`: sum of `job.total` for completed jobs
+   - `nonJobRevenue`: positive invoices with no job attached (memberships, etc.)
+   - `adjRevenue`: negative invoices (refunds, credits)
+   - `totalRevenue`: all three summed together
+
+2. Added `adj-revenue` KPI to database for tracking adjustments
+
+3. Updated API (`/api/huddle/route.ts`) to use `total-revenue` instead of `revenue-completed` for MTD/WTD/QTD calculations
+
+4. Updated sync routes to handle new revenue breakdown
+
+#### Pacing Markers on Revenue Cards
+Shows where revenue should be based on elapsed business time:
+- **White vertical marker** on progress bar showing expected position
+- **"Ahead of pace" / "Behind pace"** indicator with expected percentage
+- **Business hours**: Mon-Sat 8am-6pm (10 hours per day)
+- **Daily pacing**: Based on hours elapsed in business day
+- **Weekly pacing**: Based on business days elapsed (Mon-Sat = 6 days)
+- **Monthly pacing**: Based on business days elapsed vs total in month
+- **Quarterly pacing**: Based on business days elapsed in quarter
+- **Annual pacing**: Uses actual monthly target weights (not equal 1/12 distribution)
+
+#### Dashboard Layout
+- **4 time-period cards**: Today, This Week, This Month, This Quarter
+- **Annual card** (full width): This Year with YTD revenue vs annual target
+- **HVAC section** (3/4 width): Mini-cards for Today/Week/Month/Quarter (placeholder - needs dept revenue data)
+- **Plumbing section** (1/4 width): Mini-cards for Today/Month (placeholder - needs dept revenue data)
+
+#### Middleware Fix for Cron Auth
+Added bypass for cron endpoints in `middleware.ts`:
+- `/api/huddle/backfill` - uses `CRON_SECRET` header auth
+- `/api/huddle/snapshots/sync` - uses `CRON_SECRET` header auth
+
+#### Environment Variables
+- `NEXTAUTH_URL=http://localhost:3001` (was 3000, caused OAuth redirect issues)
+- `CRON_SECRET` - Required for backfill/sync endpoints
+
+#### Google OAuth Setup
+Must add `http://localhost:3001/api/auth/callback/google` to Google Cloud Console OAuth credentials for local development.
+
+### Previous Jan 23 Updates
+
+#### Split Internal Portal into Two Apps
 Separated the monolithic internal-portal into two independent Next.js applications:
 
 **Internal Portal** (`/internal-portal`) - Port 3000
