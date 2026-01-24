@@ -237,7 +237,7 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
 
   return (
     <div
-      className="relative p-5 rounded-xl transition-all hover:scale-[1.02]"
+      className="relative p-5 rounded-xl transition-all hover:scale-[1.01]"
       style={{
         backgroundColor: 'var(--bg-secondary)',
         border: `1px solid ${colors.border}`,
@@ -245,9 +245,9 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
     >
       {/* Percentage Badge */}
       <div
-        className="absolute top-4 right-4 px-2.5 py-1 rounded-full text-xs font-bold"
+        className="absolute top-4 right-4 px-2 py-0.5 rounded-full text-xs font-semibold"
         style={{
-          backgroundColor: `${statusColor}20`,
+          backgroundColor: `${statusColor}15`,
           color: statusColor,
         }}
       >
@@ -255,50 +255,60 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
       </div>
 
       {/* Label */}
-      <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>
+      <p className="text-sm font-medium mb-4 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
         {label}
       </p>
 
       {/* Revenue / Sales Display */}
       {hasSales ? (
         <>
-          {/* Revenue and Sales side by side with labels underneath */}
-          <div className="flex items-start gap-4 mb-1">
+          {/* Revenue and Sales with vertical divider */}
+          <div className="flex items-center mb-4">
             {/* Revenue column */}
-            <div className="text-center">
+            <div className="flex-1">
               <span className="text-2xl font-bold block" style={{ color: 'var(--christmas-cream)' }}>
                 {loading ? '...' : formatCurrencyCompact(revenue)}
               </span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Revenue
               </span>
             </div>
+            {/* Vertical divider */}
+            <div
+              className="w-px h-10 mx-4"
+              style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }}
+            />
             {/* Sales column */}
-            <div className="text-center">
+            <div className="flex-1">
               <span className="text-2xl font-bold block" style={{ color: 'var(--christmas-gold)' }}>
                 {loading ? '...' : formatCurrencyCompact(sales)}
               </span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Sales
               </span>
             </div>
           </div>
+          {/* Horizontal separator */}
+          <div
+            className="h-px w-full mb-3"
+            style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }}
+          />
         </>
       ) : (
         /* Original revenue-only display */
-        <p className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+        <p className="text-2xl font-bold mb-4" style={{ color: 'var(--christmas-cream)' }}>
           {loading ? '...' : formatCurrency(revenue)}
         </p>
       )}
 
       {/* Target */}
-      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+      <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
         of {formatCurrency(target)} target
       </p>
 
       {/* Progress Bar with Pacing Marker */}
       <div
-        className="relative mt-4 h-2 rounded-full overflow-visible"
+        className="relative h-1.5 rounded-full overflow-visible"
         style={{ backgroundColor: 'var(--bg-card)' }}
       >
         {/* Actual Progress */}
@@ -313,11 +323,11 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
         {/* Expected Pacing Marker */}
         {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 transition-all duration-300"
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-all duration-300"
             style={{
               left: `${Math.min(expectedPacing, 100)}%`,
               backgroundColor: 'var(--christmas-cream)',
-              opacity: 0.8,
+              opacity: 0.9,
             }}
             title={`Expected: ${expectedPacing}%`}
           />
