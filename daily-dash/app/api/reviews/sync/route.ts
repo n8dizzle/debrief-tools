@@ -101,6 +101,10 @@ export async function POST(request: NextRequest) {
 
           const isNewReview = !existingReviewIds.has(review.reviewId);
 
+          // Count photos and videos from media array
+          const photoCount = review.media?.filter(m => m.mediaFormat === 'PHOTO').length || 0;
+          const videoCount = review.media?.filter(m => m.mediaFormat === 'VIDEO').length || 0;
+
           const reviewData = {
             location_id: location.id,
             google_review_id: review.reviewId,
@@ -113,6 +117,9 @@ export async function POST(request: NextRequest) {
             create_time: review.createTime,
             update_time: review.updateTime,
             team_members_mentioned: teamMentions.length > 0 ? teamMentions : null,
+            media: review.media || null,
+            photo_count: photoCount,
+            video_count: videoCount,
             is_processed: true,
             updated_at: new Date().toISOString(),
           };

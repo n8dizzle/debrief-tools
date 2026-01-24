@@ -14,6 +14,11 @@
 import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export interface ReviewMedia {
+  mediaFormat: 'PHOTO' | 'VIDEO';
+  googleUrl: string;
+}
+
 export interface GoogleReview {
   reviewId: string;
   reviewer: {
@@ -28,6 +33,7 @@ export interface GoogleReview {
     comment: string;
     updateTime: string;
   };
+  media?: ReviewMedia[];
 }
 
 export interface LocationInfo {

@@ -60,6 +60,11 @@ interface ReviewStats {
   monthly_goals: MonthlyGoal[];
 }
 
+interface ReviewMedia {
+  mediaFormat: 'PHOTO' | 'VIDEO';
+  googleUrl: string;
+}
+
 interface Review {
   id: string;
   location_id: string;
@@ -72,6 +77,9 @@ interface Review {
   reply_time: string | null;
   create_time: string;
   team_members_mentioned: string[] | null;
+  media: ReviewMedia[] | null;
+  photo_count: number | null;
+  video_count: number | null;
   location: {
     id: string;
     name: string;
@@ -85,12 +93,8 @@ interface UserPermissions {
 
 interface LeaderboardEntry {
   name: string;
-  wtd: number;
-  mtd: number;
-  ytd: number;
-  five_star_wtd: number;
-  five_star_mtd: number;
-  five_star_ytd: number;
+  count: number;
+  five_star_count: number;
 }
 
 // Period presets
@@ -744,29 +748,24 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
   );
 }
 
-type SortField = 'wtd' | 'mtd' | 'ytd';
-
 function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loading: boolean }) {
-  const [sortBy, setSortBy] = useState<SortField>('mtd');
   const [showAllModal, setShowAllModal] = useState(false);
-
-  const sortedEntries = [...entries].sort((a, b) => b[sortBy] - a[sortBy]);
-  const displayEntries = sortedEntries.slice(0, 10);
-  const hasMore = sortedEntries.length > 10;
+  const displayEntries = entries.slice(0, 5);
+  const hasMore = entries.length > 5;
 
   if (loading) {
     return (
       <div
-        className="rounded-xl p-6"
+        className="rounded-xl overflow-hidden"
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
-        <div className="animate-pulse space-y-3">
-          <div className="h-6 w-32 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-10 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
-            ))}
-          </div>
+        <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="h-6 w-32 rounded animate-pulse" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
+        </div>
+        <div className="p-4 space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
+          ))}
         </div>
       </div>
     );
@@ -775,86 +774,47 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
   if (entries.length === 0) {
     return (
       <div
-        className="rounded-xl p-6"
+        className="rounded-xl overflow-hidden"
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No team member mentions found in reviews.</p>
+        <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+        </div>
+        <div className="p-5">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No team member mentions found.</p>
+        </div>
       </div>
     );
   }
 
-  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
-    <button
-      onClick={() => setSortBy(field)}
-      className="px-2 py-1 text-xs font-medium rounded transition-colors"
-      style={{
-        backgroundColor: sortBy === field ? 'var(--christmas-green)' : 'transparent',
-        color: sortBy === field ? 'var(--christmas-cream)' : 'var(--text-muted)',
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  const TableHeader = ({ field, label, className = '' }: { field: SortField; label: string; className?: string }) => (
-    <th
-      className={`text-right px-3 py-2 font-medium cursor-pointer hover:opacity-80 transition-opacity ${className}`}
-      style={{ color: sortBy === field ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
-      onClick={() => setSortBy(field)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {sortBy === field && <span className="text-[10px]">▼</span>}
-      </span>
-    </th>
-  );
-
-  const renderTable = (data: LeaderboardEntry[], showRank = true) => (
-    <table className="w-full text-sm">
+  const renderTable = (data: LeaderboardEntry[]) => (
+    <table className="w-full">
       <thead>
-        <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          {showRank && <th className="text-left px-3 py-2 w-8" style={{ color: 'var(--text-muted)' }}>#</th>}
-          <th className="text-left px-3 py-2" style={{ color: 'var(--text-muted)' }}>Name</th>
-          <TableHeader field="wtd" label="WTD" />
-          <TableHeader field="mtd" label="MTD" />
-          <TableHeader field="ytd" label="YTD" />
+        <tr className="text-xs" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+          <th className="text-left py-2 px-4 font-medium">Team Member</th>
+          <th className="text-right py-2 px-4 font-medium">5★</th>
+          <th className="text-right py-2 px-4 font-medium">Total</th>
         </tr>
       </thead>
       <tbody>
         {data.map((entry, index) => (
           <tr
             key={entry.name}
-            className="hover:bg-white/5 transition-colors"
-            style={{ borderBottom: '1px solid rgba(212, 197, 169, 0.08)' }}
+            className="transition-colors hover:opacity-80"
+            style={{
+              borderBottom: index < data.length - 1 ? '1px solid rgba(212, 197, 169, 0.1)' : 'none',
+            }}
           >
-            {showRank && (
-              <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                {index + 1}
-              </td>
-            )}
-            <td className="px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                  style={{
-                    backgroundColor: index < 3 ? 'var(--christmas-green)' : 'rgba(0,0,0,0.3)',
-                    color: index < 3 ? 'var(--christmas-cream)' : 'var(--text-muted)',
-                  }}
-                >
-                  {entry.name.charAt(0)}
-                </div>
-                <span style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
-              </div>
+            <td className="py-2.5 px-4">
+              <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
             </td>
-            <td className="text-right px-3 py-2.5" style={{ color: sortBy === 'wtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
-              {entry.wtd > 0 ? entry.wtd : '-'}
+            <td className="py-2.5 px-4 text-right">
+              <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>
+                {entry.five_star_count > 0 ? entry.five_star_count : '-'}
+              </span>
             </td>
-            <td className="text-right px-3 py-2.5" style={{ color: sortBy === 'mtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
-              {entry.mtd > 0 ? entry.mtd : '-'}
-            </td>
-            <td className="text-right px-3 py-2.5 font-medium" style={{ color: sortBy === 'ytd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
-              {entry.ytd}
+            <td className="py-2.5 px-4 text-right">
+              <span className="text-sm font-medium" style={{ color: 'var(--christmas-green)' }}>{entry.count}</span>
             </td>
           </tr>
         ))}
@@ -868,36 +828,21 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
         className="rounded-xl overflow-hidden"
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
-        {/* Header */}
-        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div>
-            <h3 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Mentioned in reviews</p>
-          </div>
-          <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-            <SortButton field="wtd" label="Week" />
-            <SortButton field="mtd" label="Month" />
-            <SortButton field="ytd" label="Year" />
-          </div>
+        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+          {hasMore && (
+            <button
+              onClick={() => setShowAllModal(true)}
+              className="text-xs transition-colors hover:opacity-80"
+              style={{ color: 'var(--christmas-gold)' }}
+            >
+              View all {entries.length} →
+            </button>
+          )}
         </div>
-
-        {/* Table */}
         <div className="overflow-x-auto">
           {renderTable(displayEntries)}
         </div>
-
-        {/* View All Footer */}
-        {hasMore && (
-          <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            <button
-              onClick={() => setShowAllModal(true)}
-              className="w-full text-center text-sm py-2 rounded-lg transition-colors hover:bg-white/5"
-              style={{ color: 'var(--christmas-gold)' }}
-            >
-              View All {sortedEntries.length} Team Members →
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Full List Modal */}
@@ -908,40 +853,25 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
             onClick={() => setShowAllModal(false)}
           />
           <div
-            className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
+            className="relative w-full max-w-lg max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
-            {/* Modal Header */}
             <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <div>
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-                  All Team Members ({sortedEntries.length})
-                </h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  Sorted by {sortBy === 'wtd' ? 'Week to Date' : sortBy === 'mtd' ? 'Month to Date' : 'Year to Date'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                  <SortButton field="wtd" label="Week" />
-                  <SortButton field="mtd" label="Month" />
-                  <SortButton field="ytd" label="Year" />
-                </div>
-                <button
-                  onClick={() => setShowAllModal(false)}
-                  className="p-2 rounded-lg transition-colors hover:bg-white/10"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                All Team Members ({entries.length})
+              </h3>
+              <button
+                onClick={() => setShowAllModal(false)}
+                className="p-2 rounded-lg transition-colors hover:bg-white/10"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-
-            {/* Modal Body - Scrollable */}
             <div className="overflow-y-auto flex-1">
-              {renderTable(sortedEntries)}
+              {renderTable(entries)}
             </div>
           </div>
         </div>
@@ -1231,6 +1161,29 @@ function ReviewCard({
                 <span>{timeAgo}</span>
                 <span>&middot;</span>
                 <span>{review.location.short_name}</span>
+                {/* Media indicators */}
+                {(review.photo_count || 0) > 0 && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="flex items-center gap-0.5" style={{ color: 'var(--christmas-green)' }} title={`${review.photo_count} photo${review.photo_count! > 1 ? 's' : ''}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {review.photo_count}
+                    </span>
+                  </>
+                )}
+                {(review.video_count || 0) > 0 && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="flex items-center gap-0.5" style={{ color: 'var(--christmas-green)' }} title={`${review.video_count} video${review.video_count! > 1 ? 's' : ''}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      {review.video_count}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1648,12 +1601,16 @@ export default function ReviewsPage() {
     fetchStats();
   }, [period, customStartDate, customEndDate, statsCacheKey]);
 
-  // Fetch leaderboard (WTD/MTD/YTD)
+  // Fetch leaderboard for selected period
   useEffect(() => {
     async function fetchLeaderboard() {
       setLeaderboardLoading(true);
       try {
-        const response = await fetch(`/api/reviews/leaderboard`, {
+        const params = new URLSearchParams({
+          startDate: periodDates.start.toISOString(),
+          endDate: periodDates.end.toISOString(),
+        });
+        const response = await fetch(`/api/reviews/leaderboard?${params}`, {
           credentials: 'include',
         });
         if (response.ok) {
@@ -1668,7 +1625,7 @@ export default function ReviewsPage() {
     }
 
     fetchLeaderboard();
-  }, []);
+  }, [periodDates.start, periodDates.end]);
 
   // Fetch reviews with caching
   useEffect(() => {
@@ -1990,7 +1947,7 @@ export default function ReviewsPage() {
       {/* Leaderboard and Locations Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Leaderboard entries={leaderboard} loading={leaderboardLoading} />
-        <LocationsTable locations={stats.locations} />
+        <LocationsTable locations={[...stats.locations].sort((a, b) => b.total_reviews - a.total_reviews)} />
       </div>
 
       {/* Reviews */}
