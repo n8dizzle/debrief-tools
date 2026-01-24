@@ -8,7 +8,68 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 24, 2026) - Google Business Profile Post Management
+## Recent Updates (Jan 24, 2026) - Reviews Page Enhancements
+
+### Daily Dash - Reviews Page UI & Features
+
+#### UI Improvements
+- **StatCard redesign** - Percentage badge in top-right corner with SVG arrows (fixes pixelation)
+- **Progress bar fix** - Solid colors instead of gradients to prevent pixelated rounded corners
+- **Progress bar slimmed** - Reduced height from h-8 to h-2 for cleaner look
+- **Team mentions layout** - Moved from inline to separate row below review content
+
+#### Team Mentions Editing
+Users can now edit team member mentions directly on each review:
+- Click "Edit" button on any review card
+- Dropdown shows all active team members from database
+- Add/remove mentions and save changes
+- Permission required: `can_reply_reviews`, owner, or manager role
+
+**API Endpoint:** `PATCH /api/reviews/[id]/mentions`
+```typescript
+// Request body
+{ mentions: string[] | null }
+
+// Response
+{ success: true, review: { id, team_members_mentioned } }
+```
+
+#### Photo/Video Indicators
+Reviews now display photo/video counts when customers attach media (technician incentive tracking).
+
+**Database Changes:**
+```sql
+ALTER TABLE google_reviews
+ADD COLUMN IF NOT EXISTS media JSONB DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS photo_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS video_count INTEGER DEFAULT 0;
+```
+
+**Sync Route Updates** (`/api/reviews/sync/route.ts`):
+- Captures `media` array from Google API
+- Counts photos/videos and stores in dedicated columns
+
+**UI Display:**
+- Camera icon with count for photos
+- Video icon with count for videos
+- Gold color to stand out
+
+#### Team Leaderboard Fix
+**Problem:** Leaderboard card was flashing rapidly due to infinite re-render loop.
+
+**Cause:** `periodDates` was recalculated every render, causing `useEffect` dependencies (`periodDates.start`, `periodDates.end`) to be new Date objects each time.
+
+**Solution:** Wrapped `periodDates` in `useMemo`:
+```typescript
+const periodDates = useMemo(() =>
+  getPeriodDates(period, customStartDate || undefined, customEndDate || undefined),
+  [period, customStartDate, customEndDate]
+);
+```
+
+---
+
+## Previous Updates (Jan 24, 2026) - Google Business Profile Post Management
 
 ### Daily Dash - GBP Post Management
 
