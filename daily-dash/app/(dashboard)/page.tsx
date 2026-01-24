@@ -365,7 +365,11 @@ interface TrendChartProps {
   loading?: boolean;
 }
 
+type TrendFilter = 'all' | 'hvac' | 'plumbing';
+
 function TrendChart({ data, loading }: TrendChartProps) {
+  const [filter, setFilter] = useState<TrendFilter>('all');
+
   if (loading || data.length === 0) {
     return (
       <div
@@ -387,7 +391,7 @@ function TrendChart({ data, loading }: TrendChartProps) {
     );
   }
 
-  // Custom tooltip
+  // Custom tooltip - adapts to current filter
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) => {
     if (!active || !payload || !payload.length) return null;
 
@@ -407,20 +411,44 @@ function TrendChart({ data, loading }: TrendChartProps) {
           {label}
         </p>
         <div className="space-y-1 text-xs">
-          <div className="flex justify-between gap-4">
-            <span style={{ color: 'var(--christmas-green)' }}>HVAC:</span>
-            <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(hvac)}</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span style={{ color: 'var(--christmas-gold)' }}>Plumbing:</span>
-            <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(plumbing)}</span>
-          </div>
-          <div className="flex justify-between gap-4 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Total:</span>
-            <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(total)}</span>
-          </div>
+          {(filter === 'all' || filter === 'hvac') && (
+            <div className="flex justify-between gap-4">
+              <span style={{ color: 'var(--christmas-green)' }}>HVAC:</span>
+              <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(hvac)}</span>
+            </div>
+          )}
+          {(filter === 'all' || filter === 'plumbing') && (
+            <div className="flex justify-between gap-4">
+              <span style={{ color: 'var(--christmas-gold)' }}>Plumbing:</span>
+              <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(plumbing)}</span>
+            </div>
+          )}
+          {filter === 'all' && (
+            <div className="flex justify-between gap-4 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Total:</span>
+              <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(total)}</span>
+            </div>
+          )}
         </div>
       </div>
+    );
+  };
+
+  // Filter button component
+  const FilterButton = ({ value, label, color }: { value: TrendFilter; label: string; color?: string }) => {
+    const isActive = filter === value;
+    return (
+      <button
+        onClick={() => setFilter(value)}
+        className="flex items-center gap-1.5 px-2 py-1 rounded transition-all"
+        style={{
+          backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+          opacity: isActive ? 1 : 0.6,
+        }}
+      >
+        {color && <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />}
+        <span style={{ color: isActive ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>{label}</span>
+      </button>
     );
   };
 
@@ -436,15 +464,10 @@ function TrendChart({ data, loading }: TrendChartProps) {
         <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           18 Month Trend
         </h3>
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--christmas-green)' }} />
-            <span style={{ color: 'var(--text-muted)' }}>HVAC</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--christmas-gold)' }} />
-            <span style={{ color: 'var(--text-muted)' }}>Plumbing</span>
-          </div>
+        <div className="flex items-center gap-1 text-xs">
+          <FilterButton value="all" label="All" />
+          <FilterButton value="hvac" label="HVAC" color="var(--christmas-green)" />
+          <FilterButton value="plumbing" label="Plumbing" color="var(--christmas-gold)" />
         </div>
       </div>
 
@@ -456,8 +479,7 @@ function TrendChart({ data, loading }: TrendChartProps) {
               axisLine={false}
               tickLine={false}
               tick={{ fill: 'var(--text-muted)', fontSize: 9 }}
-              interval="preserveStartEnd"
-              minTickGap={20}
+              interval={1}
             />
             <YAxis
               axisLine={false}
@@ -474,18 +496,22 @@ function TrendChart({ data, loading }: TrendChartProps) {
               strokeOpacity={0.5}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-            <Bar
-              dataKey="hvacRevenue"
-              stackId="revenue"
-              fill="#346643"
-              radius={[0, 0, 0, 0]}
-            />
-            <Bar
-              dataKey="plumbingRevenue"
-              stackId="revenue"
-              fill="#B8956B"
-              radius={[4, 4, 0, 0]}
-            />
+            {(filter === 'all' || filter === 'hvac') && (
+              <Bar
+                dataKey="hvacRevenue"
+                stackId="revenue"
+                fill="#346643"
+                radius={filter === 'hvac' ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+              />
+            )}
+            {(filter === 'all' || filter === 'plumbing') && (
+              <Bar
+                dataKey="plumbingRevenue"
+                stackId="revenue"
+                fill="#B8956B"
+                radius={[4, 4, 0, 0]}
+              />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -957,8 +983,8 @@ export default function DashboardPage() {
       {/* 18 Month Trend Chart */}
       <TrendChart data={monthlyTrend} loading={loading} />
 
-      {/* Section Divider - Daily Metrics */}
-      <SectionDivider label="Daily Metrics" />
+      {/* Section Divider - Pacing Metrics */}
+      <SectionDivider label="Pacing Metrics" />
 
       {/* Revenue Cards - 4 columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
