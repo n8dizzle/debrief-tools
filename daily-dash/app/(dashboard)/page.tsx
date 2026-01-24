@@ -1,14 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from 'recharts';
+
+// Department revenue breakdown
+interface DepartmentRevenue {
+  revenue: number;
+  completedRevenue: number;
+  nonJobRevenue: number;
+  adjRevenue: number;
+}
 
 // Trade metrics for a single time period
 interface TradeMetrics {
   revenue: number;
+  completedRevenue: number;
+  nonJobRevenue: number;
+  adjRevenue: number;
   departments?: {
-    install: number;
-    service: number;
-    maintenance: number;
+    install: DepartmentRevenue;
+    service: DepartmentRevenue;
+    maintenance: DepartmentRevenue;
   };
 }
 
@@ -34,6 +54,14 @@ interface PlumbingTargets {
   annual: number;
 }
 
+// Plumbing metrics (no department breakdown)
+interface PlumbingMetrics {
+  revenue: number;
+  completedRevenue: number;
+  nonJobRevenue: number;
+  adjRevenue: number;
+}
+
 // All trade data across time periods
 interface TradeData {
   hvac: {
@@ -45,13 +73,23 @@ interface TradeData {
     targets?: HVACTargets;
   };
   plumbing: {
-    today: { revenue: number };
-    wtd: { revenue: number };
-    mtd: { revenue: number };
-    qtd: { revenue: number };
-    ytd: { revenue: number };
+    today: PlumbingMetrics;
+    wtd: PlumbingMetrics;
+    mtd: PlumbingMetrics;
+    qtd: PlumbingMetrics;
+    ytd: PlumbingMetrics;
     targets?: PlumbingTargets;
   };
+}
+
+// Monthly trend data for chart
+interface MonthlyTrendData {
+  month: string;
+  label: string;
+  hvacRevenue: number;
+  plumbingRevenue: number;
+  totalRevenue: number;
+  goal: number;
 }
 
 interface PacingData {
@@ -70,49 +108,37 @@ interface PacingData {
   quarter: number;
   ytdRevenue: number;
   annualTarget: number;
-  expectedAnnualPacingPercent: number; // Seasonal weighted expected YTD %
+  expectedAnnualPacingPercent: number;
   pacingPercent: number;
   businessDaysRemaining: number;
   businessDaysElapsed: number;
   businessDaysInMonth: number;
   trades?: TradeData;
+  monthlyTrend?: MonthlyTrendData[];
 }
 
 // Business hours: Mon-Sat 8am-6pm (10 hours per day)
 const BUSINESS_START_HOUR = 8;
 const BUSINESS_END_HOUR = 18;
-const BUSINESS_HOURS_PER_DAY = BUSINESS_END_HOUR - BUSINESS_START_HOUR; // 10 hours
+const BUSINESS_HOURS_PER_DAY = BUSINESS_END_HOUR - BUSINESS_START_HOUR;
 
-// Calculate what percentage of the business day has elapsed
 function getDailyPacingPercent(): number {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-
-  // Sunday is not a business day
+  const dayOfWeek = now.getDay();
   if (dayOfWeek === 0) return 0;
-
   const currentHour = now.getHours() + now.getMinutes() / 60;
-
   if (currentHour < BUSINESS_START_HOUR) return 0;
   if (currentHour >= BUSINESS_END_HOUR) return 100;
-
   const hoursElapsed = currentHour - BUSINESS_START_HOUR;
   return Math.round((hoursElapsed / BUSINESS_HOURS_PER_DAY) * 100);
 }
 
-// Calculate what percentage of the business week has elapsed (Mon-Sat)
 function getWeeklyPacingPercent(): number {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-
-  // Sunday - week hasn't started yet for business purposes
+  const dayOfWeek = now.getDay();
   if (dayOfWeek === 0) return 0;
-
-  // Mon=1 -> day 1, Tue=2 -> day 2, ..., Sat=6 -> day 6
   const businessDayOfWeek = dayOfWeek;
-  const totalBusinessDaysInWeek = 6; // Mon-Sat
-
-  // Calculate partial day progress
+  const totalBusinessDaysInWeek = 6;
   const currentHour = now.getHours() + now.getMinutes() / 60;
   let dayProgress = 0;
   if (currentHour >= BUSINESS_END_HOUR) {
@@ -120,22 +146,15 @@ function getWeeklyPacingPercent(): number {
   } else if (currentHour >= BUSINESS_START_HOUR) {
     dayProgress = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
   }
-
-  // Days completed + partial current day
   const daysCompleted = businessDayOfWeek - 1;
   const totalProgress = (daysCompleted + dayProgress) / totalBusinessDaysInWeek;
-
   return Math.round(totalProgress * 100);
 }
 
-// Calculate what percentage of the business month has elapsed
 function getMonthlyPacingPercent(businessDaysElapsed: number, businessDaysInMonth: number): number {
   if (businessDaysInMonth <= 0) return 0;
-
   const now = new Date();
   const dayOfWeek = now.getDay();
-
-  // Add partial day progress if it's a business day (Mon-Sat)
   let partialDay = 0;
   if (dayOfWeek >= 1 && dayOfWeek <= 6) {
     const currentHour = now.getHours() + now.getMinutes() / 60;
@@ -145,64 +164,26 @@ function getMonthlyPacingPercent(businessDaysElapsed: number, businessDaysInMont
       partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
     }
   }
-
-  // businessDaysElapsed from API is full days completed, add partial
   const totalElapsed = businessDaysElapsed + partialDay;
   return Math.round((totalElapsed / businessDaysInMonth) * 100);
-}
-
-// Calculate what percentage of the business quarter has elapsed
-function getQuarterlyPacingPercent(businessDaysElapsed: number, businessDaysInMonth: number, quarter: number): number {
-  // Estimate ~22 business days per month, 66 per quarter
-  const estimatedBusinessDaysInQuarter = 66;
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1; // 1-12
-  const quarterStartMonth = (quarter - 1) * 3 + 1;
-  const monthsIntoQuarter = currentMonth - quarterStartMonth;
-
-  // Calculate total business days elapsed in quarter
-  // Previous months in quarter (estimate 22 days each) + current month progress
-  const previousMonthsDays = monthsIntoQuarter * 22;
-  const currentMonthProgress = businessDaysElapsed;
-
-  const now2 = new Date();
-  const dayOfWeek = now2.getDay();
-  let partialDay = 0;
-  if (dayOfWeek >= 1 && dayOfWeek <= 6) {
-    const currentHour = now2.getHours() + now2.getMinutes() / 60;
-    if (currentHour >= BUSINESS_END_HOUR) {
-      partialDay = 1;
-    } else if (currentHour >= BUSINESS_START_HOUR) {
-      partialDay = (currentHour - BUSINESS_START_HOUR) / BUSINESS_HOURS_PER_DAY;
-    }
-  }
-
-  const totalElapsed = previousMonthsDays + currentMonthProgress + partialDay;
-  return Math.round((totalElapsed / estimatedBusinessDaysInQuarter) * 100);
-}
-
-interface KPIData {
-  slug: string;
-  name: string;
-  actual: number | null;
-  target: number | null;
-  percent_to_goal: number | null;
-}
-
-interface DepartmentData {
-  name: string;
-  slug: string;
-  kpis: KPIData[];
 }
 
 interface DashboardData {
   date: string;
   pacing?: PacingData;
-  departments?: DepartmentData[];
 }
 
-
 function formatCurrency(value: number): string {
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+function formatCurrencyCompact(value: number): string {
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  }
+  if (value >= 1000) {
+    return `$${(value / 1000).toFixed(1)}K`;
+  }
   return `$${Math.round(value).toLocaleString()}`;
 }
 
@@ -213,7 +194,6 @@ function getStatusColor(pacing: number): string {
   return '#EF4444';
 }
 
-// Helper to get date in YYYY-MM-DD format using local time (not UTC)
 function getLocalDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -231,24 +211,388 @@ function getTodayDateString(): string {
   return getLocalDateString(new Date());
 }
 
-// Format currency in compact form (e.g., $38.9K)
-function formatCurrencyCompact(value: number): string {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`;
-  }
-  return `$${Math.round(value).toLocaleString()}`;
+// ============================================
+// ANNUAL BANNER COMPONENT
+// ============================================
+interface AnnualBannerProps {
+  revenue: number;
+  target: number;
+  expectedPercent: number;
+  loading?: boolean;
 }
 
-// Mini Trade Card Component - compact version for trade sections
+function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBannerProps) {
+  const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
+  const isAheadOfPace = percentage >= expectedPercent;
+  const statusColor = getStatusColor(percentage);
+  const year = new Date().getFullYear();
+
+  return (
+    <div
+      className="p-3 sm:p-4 rounded-xl mb-6"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid rgba(52, 102, 67, 0.3)',
+      }}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          {year} Annual Progress
+        </h2>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="text-base sm:text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            {loading ? '...' : formatCurrencyCompact(revenue)} / {formatCurrencyCompact(target)}
+          </span>
+          <span
+            className="text-sm font-semibold px-2 py-0.5 rounded"
+            style={{
+              backgroundColor: `${statusColor}15`,
+              color: statusColor,
+            }}
+          >
+            {loading ? '...' : `${percentage}%`}
+          </span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div
+        className="relative h-2 rounded-full overflow-visible mb-2"
+        style={{ backgroundColor: 'var(--bg-card)' }}
+      >
+        <div
+          className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${Math.min(percentage, 100)}%`,
+            backgroundColor: statusColor,
+          }}
+        />
+        {expectedPercent > 0 && !loading && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 transition-all duration-300"
+            style={{
+              left: `${Math.min(expectedPercent, 100)}%`,
+              backgroundColor: 'var(--christmas-cream)',
+              opacity: 0.9,
+            }}
+          />
+        )}
+      </div>
+
+      {/* Pacing indicator */}
+      {expectedPercent > 0 && !loading && (
+        <div className="flex items-center justify-end gap-2">
+          <span
+            className="text-xs"
+            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+          >
+            {isAheadOfPace ? '▲ Ahead of pace' : '▼ Behind pace'}
+          </span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Expected: {expectedPercent}%
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// SECTION DIVIDER COMPONENT
+// ============================================
+interface SectionDividerProps {
+  label: string;
+}
+
+function SectionDivider({ label }: SectionDividerProps) {
+  return (
+    <div className="flex items-center gap-4 my-6">
+      <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle), transparent)' }} />
+      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </span>
+      <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle), transparent)' }} />
+    </div>
+  );
+}
+
+// ============================================
+// TREND CHART COMPONENT
+// ============================================
+interface TrendChartProps {
+  data: MonthlyTrendData[];
+  loading?: boolean;
+}
+
+function TrendChart({ data, loading }: TrendChartProps) {
+  if (loading || data.length === 0) {
+    return (
+      <div
+        className="p-4 sm:p-5 rounded-xl mb-6"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            18 Month Trend
+          </h3>
+        </div>
+        <div className="h-48 sm:h-64 flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+          {loading ? 'Loading trend data...' : 'No trend data available'}
+        </div>
+      </div>
+    );
+  }
+
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) => {
+    if (!active || !payload || !payload.length) return null;
+
+    const hvac = payload.find(p => p.dataKey === 'hvacRevenue')?.value || 0;
+    const plumbing = payload.find(p => p.dataKey === 'plumbingRevenue')?.value || 0;
+    const total = hvac + plumbing;
+
+    return (
+      <div
+        className="p-3 rounded-lg shadow-lg"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
+          {label}
+        </p>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--christmas-green)' }}>HVAC:</span>
+            <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(hvac)}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--christmas-gold)' }}>Plumbing:</span>
+            <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(plumbing)}</span>
+          </div>
+          <div className="flex justify-between gap-4 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Total:</span>
+            <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(total)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="p-4 sm:p-5 rounded-xl mb-6"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          18 Month Trend
+        </h3>
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--christmas-green)' }} />
+            <span style={{ color: 'var(--text-muted)' }}>HVAC</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--christmas-gold)' }} />
+            <span style={{ color: 'var(--text-muted)' }}>Plumbing</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-48 sm:h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 5, left: 0, bottom: 0 }}>
+            <XAxis
+              dataKey="label"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: 'var(--text-muted)', fontSize: 9 }}
+              interval="preserveStartEnd"
+              minTickGap={20}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: 'var(--text-muted)', fontSize: 9 }}
+              tickFormatter={(value) => formatCurrencyCompact(value)}
+              width={45}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+            <ReferenceLine
+              y={0}
+              stroke="var(--border-subtle)"
+            />
+            <Bar
+              dataKey="hvacRevenue"
+              stackId="revenue"
+              fill="#346643"
+              radius={[0, 0, 0, 0]}
+            />
+            <Bar
+              dataKey="plumbingRevenue"
+              stackId="revenue"
+              fill="#B8956B"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// REVENUE CARD COMPONENT (for daily metrics)
+// ============================================
+interface RevenueCardProps {
+  label: string;
+  revenue: number;
+  sales?: number;
+  target: number;
+  loading?: boolean;
+  accentColor: 'green' | 'blue' | 'gold' | 'purple';
+  expectedPacing?: number;
+}
+
+function RevenueCard({ label, revenue, sales, target, loading, accentColor, expectedPacing }: RevenueCardProps) {
+  const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
+  const statusColor = getStatusColor(percentage);
+  const isAheadOfPace = expectedPacing !== undefined && percentage >= expectedPacing;
+
+  const accentColors = {
+    green: { border: 'rgba(52, 102, 67, 0.3)' },
+    blue: { border: 'rgba(59, 130, 246, 0.3)' },
+    gold: { border: 'rgba(184, 149, 107, 0.3)' },
+    purple: { border: 'rgba(139, 92, 246, 0.3)' },
+  };
+
+  const colors = accentColors[accentColor];
+  const hasSales = sales !== undefined && sales > 0;
+
+  return (
+    <div
+      className="relative p-4 sm:p-5 rounded-xl transition-all hover:scale-[1.01]"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: `1px solid ${colors.border}`,
+      }}
+    >
+      {/* Percentage Badge */}
+      <div
+        className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2 py-0.5 rounded-full text-xs font-semibold"
+        style={{
+          backgroundColor: `${statusColor}15`,
+          color: statusColor,
+        }}
+      >
+        {loading ? '...' : `${percentage}%`}
+      </div>
+
+      {/* Label */}
+      <p className="text-xs sm:text-sm font-medium mb-3 sm:mb-4 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </p>
+
+      {/* Revenue / Sales Display */}
+      {hasSales ? (
+        <>
+          <div className="flex flex-col sm:flex-row sm:items-center mb-3 gap-2 sm:gap-0">
+            <div className="flex-1 min-w-0">
+              <span className="text-lg sm:text-xl font-bold block truncate" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrencyCompact(revenue)}
+              </span>
+              <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Revenue
+              </span>
+            </div>
+            <div
+              className="hidden sm:block w-px h-8 mx-2 flex-shrink-0"
+              style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }}
+            />
+            <div className="flex-1 min-w-0">
+              <span className="text-lg sm:text-xl font-bold block truncate" style={{ color: 'var(--christmas-gold)' }}>
+                {loading ? '...' : formatCurrencyCompact(sales)}
+              </span>
+              <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Sales
+              </span>
+            </div>
+          </div>
+          <div
+            className="h-px w-full mb-2"
+            style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }}
+          />
+        </>
+      ) : (
+        <p className="text-2xl font-bold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          {loading ? '...' : formatCurrency(revenue)}
+        </p>
+      )}
+
+      {/* Target */}
+      <p className="text-xs mb-2 truncate" style={{ color: 'var(--text-muted)' }}>
+        of {formatCurrencyCompact(target)} target
+      </p>
+
+      {/* Progress Bar */}
+      <div
+        className="relative h-1.5 rounded-full overflow-visible"
+        style={{ backgroundColor: 'var(--bg-card)' }}
+      >
+        <div
+          className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${Math.min(percentage, 100)}%`,
+            backgroundColor: statusColor,
+          }}
+        />
+        {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-all duration-300"
+            style={{
+              left: `${Math.min(expectedPacing, 100)}%`,
+              backgroundColor: 'var(--christmas-cream)',
+              opacity: 0.9,
+            }}
+          />
+        )}
+      </div>
+
+      {/* Pacing indicator */}
+      {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
+        <div className="flex items-center justify-between mt-2 gap-1">
+          <span
+            className="text-[10px] whitespace-nowrap"
+            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+          >
+            {isAheadOfPace ? '▲ Ahead' : '▼ Behind'}
+          </span>
+          <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+            {expectedPacing}% exp
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// MINI TRADE CARD COMPONENT (for trade sections)
+// ============================================
 interface MiniTradeCardProps {
   label: string;
   revenue: number;
   target?: number;
   loading?: boolean;
-  accentColor: string; // hex color
+  accentColor: string;
   expectedPacing?: number;
 }
 
@@ -259,10 +603,9 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
 
   return (
     <div
-      className="p-4 rounded-lg"
+      className="p-3 sm:p-4 rounded-lg"
       style={{ backgroundColor: 'var(--bg-card)' }}
     >
-      {/* Label and percentage */}
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
           {label}
@@ -280,19 +623,16 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
         )}
       </div>
 
-      {/* Revenue */}
       <p className="text-xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
         {loading ? '...' : formatCurrencyCompact(revenue)}
       </p>
 
-      {/* Target */}
       {target && target > 0 && (
         <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
           of {formatCurrencyCompact(target)}
         </p>
       )}
 
-      {/* Progress bar */}
       {percentage !== null && (
         <div
           className="relative h-1 rounded-full overflow-visible"
@@ -318,7 +658,6 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
         </div>
       )}
 
-      {/* Pacing indicator */}
       {expectedPacing !== undefined && expectedPacing > 0 && percentage !== null && !loading && (
         <div className="flex items-center justify-between mt-1.5">
           <span
@@ -333,151 +672,9 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
   );
 }
 
-// Revenue Card Component
-interface RevenueCardProps {
-  label: string;
-  revenue: number;
-  sales?: number; // Optional sales amount
-  target: number;
-  loading?: boolean;
-  accentColor: 'green' | 'blue' | 'gold' | 'purple';
-  expectedPacing?: number; // Where we should be based on time elapsed (0-100)
-}
-
-function RevenueCard({ label, revenue, sales, target, loading, accentColor, expectedPacing }: RevenueCardProps) {
-  const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
-  const statusColor = getStatusColor(percentage);
-
-  // Determine if we're ahead or behind pace
-  const isAheadOfPace = expectedPacing !== undefined && percentage >= expectedPacing;
-
-  const accentColors = {
-    green: { border: 'rgba(52, 102, 67, 0.3)' },
-    blue: { border: 'rgba(59, 130, 246, 0.3)' },
-    gold: { border: 'rgba(184, 149, 107, 0.3)' },
-    purple: { border: 'rgba(139, 92, 246, 0.3)' },
-  };
-
-  const colors = accentColors[accentColor];
-  const hasSales = sales !== undefined && sales > 0;
-
-  return (
-    <div
-      className="relative p-5 rounded-xl transition-all hover:scale-[1.01]"
-      style={{
-        backgroundColor: 'var(--bg-secondary)',
-        border: `1px solid ${colors.border}`,
-      }}
-    >
-      {/* Percentage Badge */}
-      <div
-        className="absolute top-4 right-4 px-2 py-0.5 rounded-full text-xs font-semibold"
-        style={{
-          backgroundColor: `${statusColor}15`,
-          color: statusColor,
-        }}
-      >
-        {loading ? '...' : `${percentage}%`}
-      </div>
-
-      {/* Label */}
-      <p className="text-sm font-medium mb-4 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-        {label}
-      </p>
-
-      {/* Revenue / Sales Display */}
-      {hasSales ? (
-        <>
-          {/* Revenue and Sales with vertical divider */}
-          <div className="flex items-center mb-4">
-            {/* Revenue column */}
-            <div className="flex-1">
-              <span className="text-2xl font-bold block" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrencyCompact(revenue)}
-              </span>
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Revenue
-              </span>
-            </div>
-            {/* Vertical divider */}
-            <div
-              className="w-px h-10 mx-4"
-              style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }}
-            />
-            {/* Sales column */}
-            <div className="flex-1">
-              <span className="text-2xl font-bold block" style={{ color: 'var(--christmas-gold)' }}>
-                {loading ? '...' : formatCurrencyCompact(sales)}
-              </span>
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Sales
-              </span>
-            </div>
-          </div>
-          {/* Horizontal separator */}
-          <div
-            className="h-px w-full mb-3"
-            style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }}
-          />
-        </>
-      ) : (
-        /* Original revenue-only display */
-        <p className="text-2xl font-bold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-          {loading ? '...' : formatCurrency(revenue)}
-        </p>
-      )}
-
-      {/* Target */}
-      <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-        of {formatCurrency(target)} target
-      </p>
-
-      {/* Progress Bar with Pacing Marker */}
-      <div
-        className="relative h-1.5 rounded-full overflow-visible"
-        style={{ backgroundColor: 'var(--bg-card)' }}
-      >
-        {/* Actual Progress */}
-        <div
-          className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${Math.min(percentage, 100)}%`,
-            backgroundColor: statusColor,
-          }}
-        />
-
-        {/* Expected Pacing Marker */}
-        {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-all duration-300"
-            style={{
-              left: `${Math.min(expectedPacing, 100)}%`,
-              backgroundColor: 'var(--christmas-cream)',
-              opacity: 0.9,
-            }}
-            title={`Expected: ${expectedPacing}%`}
-          />
-        )}
-      </div>
-
-      {/* Pacing indicator text */}
-      {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
-        <div className="flex items-center justify-between mt-2">
-          <span
-            className="text-xs"
-            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
-          >
-            {isAheadOfPace ? '▲ Ahead of pace' : '▼ Behind pace'}
-          </span>
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Expected: {expectedPacing}%
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
+// ============================================
+// MAIN DASHBOARD PAGE
+// ============================================
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState('');
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
@@ -486,7 +683,6 @@ export default function DashboardPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
-  // Fetch dashboard data
   const fetchData = async () => {
     try {
       const res = await fetch(`/api/huddle?date=${selectedDate}`);
@@ -501,7 +697,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Sync data from ServiceTitan
   const handleSync = async () => {
     setIsSyncing(true);
     try {
@@ -530,14 +725,12 @@ export default function DashboardPage() {
       day: 'numeric',
     };
     setCurrentDate(now.toLocaleDateString('en-US', options));
-
     fetchData();
-
     const interval = setInterval(fetchData, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [selectedDate]);
 
-  // Use real data from API, with fallback defaults
+  // Extract data from API response
   const pacing = dashData?.pacing;
   const todayRevenue = pacing?.todayRevenue || 0;
   const todaySales = pacing?.todaySales || 0;
@@ -553,67 +746,58 @@ export default function DashboardPage() {
   const quarterlyTarget = pacing?.quarterlyTarget || 2565000;
   const currentQuarter = pacing?.quarter || Math.floor((new Date().getMonth()) / 3) + 1;
   const ytdRevenue = pacing?.ytdRevenue || 0;
-  const annualTarget = pacing?.annualTarget || 10260000; // ~$855K * 12
+  const annualTarget = pacing?.annualTarget || 10260000;
 
   // Trade data
   const trades = pacing?.trades;
   const hvacToday = trades?.hvac?.today?.revenue || 0;
   const hvacWtd = trades?.hvac?.wtd?.revenue || 0;
   const hvacMtd = trades?.hvac?.mtd?.revenue || 0;
-  const hvacQtd = trades?.hvac?.qtd?.revenue || 0;
-  const hvacYtd = trades?.hvac?.ytd?.revenue || 0;
-
-  const hvacInstallMtd = trades?.hvac?.mtd?.departments?.install || 0;
-  const hvacServiceMtd = trades?.hvac?.mtd?.departments?.service || 0;
-  const hvacMaintenanceMtd = trades?.hvac?.mtd?.departments?.maintenance || 0;
-
+  const hvacInstallMtd = trades?.hvac?.mtd?.departments?.install?.revenue || 0;
+  const hvacServiceMtd = trades?.hvac?.mtd?.departments?.service?.revenue || 0;
+  const hvacMaintenanceMtd = trades?.hvac?.mtd?.departments?.maintenance?.revenue || 0;
   const plumbingToday = trades?.plumbing?.today?.revenue || 0;
   const plumbingWtd = trades?.plumbing?.wtd?.revenue || 0;
   const plumbingMtd = trades?.plumbing?.mtd?.revenue || 0;
-  const plumbingQtd = trades?.plumbing?.qtd?.revenue || 0;
-  const plumbingYtd = trades?.plumbing?.ytd?.revenue || 0;
 
-  // Trade targets from API
+  // Trade targets
   const hvacTargets = trades?.hvac?.targets;
   const plumbingTargets = trades?.plumbing?.targets;
 
-  // Calculate pacing percentages
+  // Pacing percentages
   const dailyPacing = getDailyPacingPercent();
   const weeklyPacing = getWeeklyPacingPercent();
   const monthlyPacing = getMonthlyPacingPercent(
     pacing?.businessDaysElapsed || 0,
     pacing?.businessDaysInMonth || 22
   );
-  const quarterlyPacing = getQuarterlyPacingPercent(
-    pacing?.businessDaysElapsed || 0,
-    pacing?.businessDaysInMonth || 22,
-    currentQuarter
-  );
-  const annualPacing = pacing?.expectedAnnualPacingPercent || 0;
+
+  // Monthly trend data
+  const monthlyTrend = pacing?.monthlyTrend || [];
 
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col gap-4 mb-6">
         <div>
           <h1
-            className="text-3xl font-bold tracking-tight"
+            className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight"
             style={{ color: 'var(--christmas-cream)' }}
           >
-            Christmas Air Conditioning & Plumbing
+            <span className="hidden sm:inline">Christmas Air Conditioning & Plumbing</span>
+            <span className="sm:hidden">Christmas Air</span>
           </h1>
-          <p className="text-lg mt-1" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-sm sm:text-lg mt-1" style={{ color: 'var(--text-secondary)' }}>
             Daily Huddle Dashboard
           </p>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-3">
-          {/* Date Toggle */}
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => setSelectedDate(getYesterdayDateString())}
-              className="px-3 py-1.5 text-sm rounded-lg transition-colors"
+              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg transition-colors"
               style={{
                 backgroundColor: selectedDate === getYesterdayDateString() ? 'var(--christmas-green)' : 'var(--bg-card)',
                 color: selectedDate === getYesterdayDateString() ? 'var(--christmas-cream)' : 'var(--text-secondary)',
@@ -624,7 +808,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setSelectedDate(getTodayDateString())}
-              className="px-3 py-1.5 text-sm rounded-lg transition-colors"
+              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg transition-colors"
               style={{
                 backgroundColor: selectedDate === getTodayDateString() ? 'var(--christmas-green)' : 'var(--bg-card)',
                 color: selectedDate === getTodayDateString() ? 'var(--christmas-cream)' : 'var(--text-secondary)',
@@ -635,18 +819,16 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Sync Status */}
           {lastSync && (
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            <span className="hidden sm:inline text-xs" style={{ color: 'var(--text-muted)' }}>
               Synced: {lastSync}
             </span>
           )}
 
-          {/* Sync Button */}
           <button
             onClick={handleSync}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors"
             style={{
               backgroundColor: 'var(--christmas-gold)',
               color: 'var(--bg-primary)',
@@ -666,12 +848,11 @@ export default function DashboardPage() {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            {isSyncing ? 'Syncing...' : 'Sync'}
+            <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
           </button>
 
-          {/* Date Display */}
           <div
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg"
+            className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-lg"
             style={{
               backgroundColor: 'var(--bg-card)',
               border: '1px solid var(--border-subtle)',
@@ -697,8 +878,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Revenue Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      {/* Annual Progress Banner */}
+      <AnnualBanner
+        revenue={ytdRevenue}
+        target={annualTarget}
+        expectedPercent={pacing?.expectedAnnualPacingPercent || 0}
+        loading={loading}
+      />
+
+      {/* 18 Month Trend Chart */}
+      <TrendChart data={monthlyTrend} loading={loading} />
+
+      {/* Section Divider - Daily Metrics */}
+      <SectionDivider label="Daily Metrics" />
+
+      {/* Revenue Cards - 4 columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <RevenueCard
           label="Today"
           revenue={todayRevenue}
@@ -706,7 +901,7 @@ export default function DashboardPage() {
           target={dailyTarget}
           loading={loading}
           accentColor="green"
-          expectedPacing={getDailyPacingPercent()}
+          expectedPacing={dailyPacing}
         />
         <RevenueCard
           label="This Week"
@@ -715,7 +910,7 @@ export default function DashboardPage() {
           target={weeklyTarget}
           loading={loading}
           accentColor="blue"
-          expectedPacing={getWeeklyPacingPercent()}
+          expectedPacing={weeklyPacing}
         />
         <RevenueCard
           label="This Month"
@@ -724,10 +919,7 @@ export default function DashboardPage() {
           target={monthlyTarget}
           loading={loading}
           accentColor="gold"
-          expectedPacing={getMonthlyPacingPercent(
-            pacing?.businessDaysElapsed || 0,
-            pacing?.businessDaysInMonth || 22
-          )}
+          expectedPacing={monthlyPacing}
         />
         <RevenueCard
           label="This Quarter"
@@ -736,51 +928,44 @@ export default function DashboardPage() {
           target={quarterlyTarget}
           loading={loading}
           accentColor="purple"
-          expectedPacing={getQuarterlyPacingPercent(
-            pacing?.businessDaysElapsed || 0,
-            pacing?.businessDaysInMonth || 22,
-            currentQuarter
-          )}
         />
       </div>
 
-      {/* Annual Revenue Card - Full Width */}
-      <div className="mb-8">
-        <RevenueCard
-          label="This Year"
-          revenue={ytdRevenue}
-          target={annualTarget}
-          loading={loading}
-          accentColor="green"
-          expectedPacing={pacing?.expectedAnnualPacingPercent || 0}
-        />
-      </div>
+      {/* Section Divider - By Trade */}
+      <SectionDivider label="By Trade" />
 
       {/* HVAC Trade Section */}
       <div
-        className="p-5 rounded-xl mb-4"
+        className="p-4 sm:p-5 rounded-xl mb-4"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid rgba(59, 130, 246, 0.3)',
         }}
       >
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-5">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              HVAC
+            </h3>
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-            HVAC
-          </h3>
+          <div className="text-right">
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>MTD: </span>
+            <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {loading ? '...' : formatCurrencyCompact(hvacMtd)}
+            </span>
+          </div>
         </div>
 
-        {/* Time Period Cards Row */}
-        <div className="grid grid-cols-5 gap-3 mb-5">
+        {/* Time Period Cards - Today, Week, Month only */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <MiniTradeCard
             label="Today"
             revenue={hvacToday}
@@ -805,22 +990,6 @@ export default function DashboardPage() {
             accentColor="#3B82F6"
             expectedPacing={monthlyPacing}
           />
-          <MiniTradeCard
-            label="Quarter"
-            revenue={hvacQtd}
-            target={hvacTargets?.quarterly || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={quarterlyPacing}
-          />
-          <MiniTradeCard
-            label="Year"
-            revenue={hvacYtd}
-            target={hvacTargets?.annual || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={annualPacing}
-          />
         </div>
 
         {/* Separator */}
@@ -831,8 +1000,8 @@ export default function DashboardPage() {
           Departments (MTD)
         </p>
 
-        {/* HVAC Departments: Install, Service, Maintenance */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* HVAC Departments */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MiniTradeCard
             label="Install"
             revenue={hvacInstallMtd}
@@ -862,29 +1031,36 @@ export default function DashboardPage() {
 
       {/* Plumbing Trade Section */}
       <div
-        className="p-5 rounded-xl mb-8"
+        className="p-4 sm:p-5 rounded-xl mb-8"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid rgba(139, 92, 246, 0.3)',
         }}
       >
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-5">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)' }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-            </svg>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Plumbing
+            </h3>
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-            Plumbing
-          </h3>
+          <div className="text-right">
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>MTD: </span>
+            <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {loading ? '...' : formatCurrencyCompact(plumbingMtd)}
+            </span>
+          </div>
         </div>
 
-        {/* Time Period Cards Row */}
-        <div className="grid grid-cols-5 gap-3">
+        {/* Time Period Cards - Today, Week, Month only */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MiniTradeCard
             label="Today"
             revenue={plumbingToday}
@@ -909,25 +1085,8 @@ export default function DashboardPage() {
             accentColor="#8B5CF6"
             expectedPacing={monthlyPacing}
           />
-          <MiniTradeCard
-            label="Quarter"
-            revenue={plumbingQtd}
-            target={plumbingTargets?.quarterly || 0}
-            loading={loading}
-            accentColor="#8B5CF6"
-            expectedPacing={quarterlyPacing}
-          />
-          <MiniTradeCard
-            label="Year"
-            revenue={plumbingYtd}
-            target={plumbingTargets?.annual || 0}
-            loading={loading}
-            accentColor="#8B5CF6"
-            expectedPacing={annualPacing}
-          />
         </div>
       </div>
-
     </div>
   );
 }

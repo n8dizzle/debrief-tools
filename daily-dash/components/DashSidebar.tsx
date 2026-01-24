@@ -2,6 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+
+interface DashSidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
 
 const overviewLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
@@ -68,7 +74,7 @@ function NavIcon({ type }: { type: string }) {
   return icons[type] || icons.home;
 }
 
-export default function DashSidebar() {
+export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -78,14 +84,48 @@ export default function DashSidebar() {
     return pathname.startsWith(href);
   };
 
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    if (onClose) {
+      onClose();
+    }
+  }, [pathname]);
+
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   return (
-    <aside
-      className="fixed left-0 top-0 h-screen w-64 flex flex-col"
-      style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)' }}
-    >
-      {/* Logo Section */}
-      <div className="p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <Link href="/" className="flex items-center gap-3">
+    <>
+      {/* Mobile backdrop overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`
+          fixed left-0 top-0 h-screen w-64 flex flex-col z-50
+          transition-transform duration-300 ease-in-out
+          md:translate-x-0
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+        style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)' }}
+      >
+        {/* Logo Section */}
+        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+          <Link href="/" className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: 'var(--christmas-green)' }}
@@ -103,7 +143,18 @@ export default function DashSidebar() {
             </div>
           </div>
         </Link>
-      </div>
+
+          {/* Mobile close button */}
+          <button
+            onClick={onClose}
+            className="md:hidden p-2 rounded-lg transition-colors hover:bg-white/10"
+            aria-label="Close sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4">
@@ -180,6 +231,7 @@ export default function DashSidebar() {
           <span className="text-sm">Back to Portal</span>
         </a>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
