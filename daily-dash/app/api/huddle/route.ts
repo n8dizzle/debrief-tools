@@ -198,157 +198,67 @@ export async function GET(request: NextRequest) {
     const plumbingMonthlyTarget = deptTargets['Plumbing']?.monthly || 0;
     const plumbingDailyTarget = deptTargets['Plumbing']?.daily || 0;
 
-    // Get business days for this month (column is 'total_days', not 'business_days')
-    const { data: businessDaysData } = await supabase
-      .from('dash_business_days')
-      .select('*')
-      .eq('year', year)
-      .eq('month', month)
-      .single();
-
-    // Get holidays for this year
-    const { data: holidaysData } = await supabase
-      .from('dash_holidays')
-      .select('date')
-      .eq('year', year);
-
-    const holidays = holidaysData?.map(h => h.date) || [];
-    const businessDaysInMonth = businessDaysData?.total_days || 22;
-    const monthlyTargetValue = monthlyTarget?.target_value || 855000; // Default to Jan TOTAL target
-
-    // Calculate daily target
-    const dailyTarget = businessDaysInMonth > 0 ? monthlyTargetValue / businessDaysInMonth : 0;
-
-    // Calculate weekly target based on business days in week
-    const totalWeekBusinessDays = getTotalBusinessDaysInWeek(selectedDate, holidays);
-    const weeklyTarget = dailyTarget * totalWeekBusinessDays;
-
-    // Get MTD revenue (sum of total-revenue for the month)
-    // Using total-revenue to match ServiceTitan's "Total Revenue" = Completed + Non-Job + Adj
+    // Calculate date ranges for batch queries
     const firstOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
-    const { data: mtdSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', firstOfMonth)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-revenue');
-
-    const mtdRevenue = mtdSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
-
-    // Get MTD sales (sum of total-sales for the month)
-    const { data: mtdSalesSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', firstOfMonth)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-sales');
-
-    const mtdSales = mtdSalesSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
-
-    // Get week-to-date revenue (Monday to selected date)
     const dayOfWeek = selectedDate.getDay();
     const monday = new Date(selectedDate);
     monday.setDate(selectedDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
     const mondayStr = monday.toISOString().split('T')[0];
-
-    const { data: wtdSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', mondayStr)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-revenue');
-
-    const wtdRevenue = wtdSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
-
-    // Get week-to-date sales
-    const { data: wtdSalesSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', mondayStr)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-sales');
-
-    const wtdSales = wtdSalesSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
-
-    // Calculate quarterly data
     const quarter = Math.floor((month - 1) / 3) + 1;
     const quarterStartMonth = (quarter - 1) * 3 + 1;
     const quarterEndMonth = quarter * 3;
     const quarterStartDate = new Date(year, quarterStartMonth - 1, 1).toISOString().split('T')[0];
-
-    // Get quarterly target (sum of 3 months)
-    const { data: quarterlyTargets } = await supabase
-      .from('dash_monthly_targets')
-      .select('target_value')
-      .eq('year', year)
-      .gte('month', quarterStartMonth)
-      .lte('month', quarterEndMonth)
-      .eq('department', 'TOTAL')
-      .eq('target_type', 'revenue');
-
-    const quarterlyTargetValue = quarterlyTargets?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
-
-    // Get QTD revenue
-    const { data: qtdSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', quarterStartDate)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-revenue');
-
-    const qtdRevenue = qtdSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
-
-    // Get QTD sales
-    const { data: qtdSalesSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', quarterStartDate)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-sales');
-
-    const qtdSales = qtdSalesSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
-
-    // Get YTD (year-to-date) revenue
     const yearStartDate = `${year}-01-01`;
-    const { data: ytdSnapshots } = await supabase
-      .from('huddle_snapshots')
-      .select('actual_value, huddle_kpis!inner(slug)')
-      .gte('snapshot_date', yearStartDate)
-      .lte('snapshot_date', date)
-      .eq('huddle_kpis.slug', 'total-revenue');
 
-    const ytdRevenue = ytdSnapshots?.reduce((sum, s) => {
-      const snap = s as unknown as { actual_value: number };
-      return sum + (Number(snap.actual_value) || 0);
-    }, 0) || 0;
+    // BATCH 2: Business days, holidays, revenue/sales snapshots, and targets - run in parallel
+    const [
+      businessDaysResult, holidaysResult,
+      mtdRevenueResult, mtdSalesResult,
+      wtdRevenueResult, wtdSalesResult,
+      qtdRevenueResult, qtdSalesResult,
+      ytdRevenueResult, annualTargetsResult, quarterlyTargetsResult,
+    ] = await Promise.all([
+      supabase.from('dash_business_days').select('*').eq('year', year).eq('month', month).single(),
+      supabase.from('dash_holidays').select('date').eq('year', year),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', firstOfMonth).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', firstOfMonth).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-sales'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', mondayStr).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', mondayStr).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-sales'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', quarterStartDate).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', quarterStartDate).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-sales'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', yearStartDate).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('dash_monthly_targets').select('target_value, month').eq('year', year).eq('department', 'TOTAL').eq('target_type', 'revenue').order('month'),
+      supabase.from('dash_monthly_targets').select('target_value').eq('year', year).gte('month', quarterStartMonth).lte('month', quarterEndMonth).eq('department', 'TOTAL').eq('target_type', 'revenue'),
+    ]);
 
-    // Get annual target (sum of all 12 months) with month info for pacing calculation
-    const { data: annualTargets } = await supabase
-      .from('dash_monthly_targets')
-      .select('target_value, month')
-      .eq('year', year)
-      .eq('department', 'TOTAL')
-      .eq('target_type', 'revenue')
-      .order('month');
+    // Unpack batch results
+    const businessDaysData = businessDaysResult.data;
+    const holidaysData = holidaysResult.data;
+    const holidays = holidaysData?.map(h => h.date) || [];
+    const businessDaysInMonth = businessDaysData?.total_days || 22;
+    const monthlyTargetValue = monthlyTarget?.target_value || 855000;
 
+    // Calculate daily/weekly targets
+    const dailyTarget = businessDaysInMonth > 0 ? monthlyTargetValue / businessDaysInMonth : 0;
+    const totalWeekBusinessDays = getTotalBusinessDaysInWeek(selectedDate, holidays);
+    const weeklyTarget = dailyTarget * totalWeekBusinessDays;
+
+    // Helper to sum snapshot values
+    const sumSnapshots = (data: unknown): number => {
+      if (!data || !Array.isArray(data)) return 0;
+      return data.reduce((sum, s) => sum + (Number((s as { actual_value: number }).actual_value) || 0), 0);
+    };
+
+    const mtdRevenue = sumSnapshots(mtdRevenueResult.data);
+    const mtdSales = sumSnapshots(mtdSalesResult.data);
+    const wtdRevenue = sumSnapshots(wtdRevenueResult.data);
+    const wtdSales = sumSnapshots(wtdSalesResult.data);
+    const qtdRevenue = sumSnapshots(qtdRevenueResult.data);
+    const qtdSales = sumSnapshots(qtdSalesResult.data);
+    const ytdRevenue = sumSnapshots(ytdRevenueResult.data);
+
+    const annualTargets = annualTargetsResult.data;
+    const quarterlyTargetValue = quarterlyTargetsResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
     const annualTargetValue = annualTargets?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
 
     // Today's revenue from snapshot - use total-revenue to match ST's "Total Revenue"
@@ -407,47 +317,18 @@ export async function GET(request: NextRequest) {
     const hvacWeeklyTarget = hvacDailyTarget * totalWeekBusinessDays;
     const plumbingWeeklyTarget = plumbingDailyTarget * totalWeekBusinessDays;
 
-    // Get quarterly targets (sum of 3 months for HVAC and Plumbing)
-    const { data: hvacQuarterlyTargetsData } = await supabase
-      .from('dash_monthly_targets')
-      .select('target_value, department')
-      .eq('year', year)
-      .gte('month', quarterStartMonth)
-      .lte('month', quarterEndMonth)
-      .eq('target_type', 'revenue')
-      .in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']);
+    // BATCH 3: Trade targets - quarterly and annual for HVAC and Plumbing
+    const [hvacQtrResult, plumbingQtrResult, hvacAnnualResult, plumbingAnnualResult] = await Promise.all([
+      supabase.from('dash_monthly_targets').select('target_value, department').eq('year', year).gte('month', quarterStartMonth).lte('month', quarterEndMonth).eq('target_type', 'revenue').in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']),
+      supabase.from('dash_monthly_targets').select('target_value').eq('year', year).gte('month', quarterStartMonth).lte('month', quarterEndMonth).eq('target_type', 'revenue').eq('department', 'Plumbing'),
+      supabase.from('dash_monthly_targets').select('target_value').eq('year', year).eq('target_type', 'revenue').in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']),
+      supabase.from('dash_monthly_targets').select('target_value').eq('year', year).eq('target_type', 'revenue').eq('department', 'Plumbing'),
+    ]);
 
-    const hvacQuarterlyTarget = hvacQuarterlyTargetsData?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
-
-    const { data: plumbingQuarterlyTargetsData } = await supabase
-      .from('dash_monthly_targets')
-      .select('target_value')
-      .eq('year', year)
-      .gte('month', quarterStartMonth)
-      .lte('month', quarterEndMonth)
-      .eq('target_type', 'revenue')
-      .eq('department', 'Plumbing');
-
-    const plumbingQuarterlyTarget = plumbingQuarterlyTargetsData?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
-
-    // Get annual targets
-    const { data: hvacAnnualTargetsData } = await supabase
-      .from('dash_monthly_targets')
-      .select('target_value')
-      .eq('year', year)
-      .eq('target_type', 'revenue')
-      .in('department', ['HVAC Install', 'HVAC Service', 'HVAC Maintenance']);
-
-    const hvacAnnualTarget = hvacAnnualTargetsData?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
-
-    const { data: plumbingAnnualTargetsData } = await supabase
-      .from('dash_monthly_targets')
-      .select('target_value')
-      .eq('year', year)
-      .eq('target_type', 'revenue')
-      .eq('department', 'Plumbing');
-
-    const plumbingAnnualTarget = plumbingAnnualTargetsData?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+    const hvacQuarterlyTarget = hvacQtrResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+    const plumbingQuarterlyTarget = plumbingQtrResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+    const hvacAnnualTarget = hvacAnnualResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
+    const plumbingAnnualTarget = plumbingAnnualResult.data?.reduce((sum, t) => sum + Number(t.target_value), 0) || 0;
 
     // Type for department revenue breakdown
     interface DeptRevenue {
