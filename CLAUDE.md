@@ -8,7 +8,58 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 23, 2026) - Dashboard Redesign
+## Recent Updates (Jan 23, 2026) - Trade Revenue & Targets Fix
+
+### Daily Dash - Fixed Trade Revenue Calculation
+
+**Problem**: Trade cards (HVAC/Plumbing) were showing incorrect revenue because:
+1. `getTradeMetrics` was returning only Completed Revenue, not Total Revenue
+2. Target department names didn't match API queries (lowercase vs Pascal Case)
+
+**ServiceTitan's Formula**:
+```
+Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
+```
+
+#### Changes Made
+
+1. **`lib/servicetitan.ts`** - Fixed `getTradeMetrics()`:
+   ```typescript
+   // Before: revenue = completedRevenue (wrong)
+   // After:  revenue = completedRevenue + nonJobRevenue + adjRevenue (correct)
+   ```
+   - Now matches ServiceTitan's "Total Revenue" exactly
+   - Applies to HVAC, Plumbing, and all HVAC departments
+
+2. **`app/api/targets/fix/route.ts`** - Fixed department names:
+   - Changed from: `'hvac-install'`, `'plumbing'` (lowercase/hyphenated)
+   - Changed to: `'HVAC Install'`, `'Plumbing'` (Pascal Case, matches API)
+   - Daily targets now calculated from monthly ÷ business days
+   - Cleans up old incorrect department entries
+
+3. **`app/(dashboard)/settings/page.tsx`** - Dynamic target calculation:
+   - Daily/weekly targets calculated from monthly targets
+   - Business days: `[22, 19, 22, 22, 21, 22, 23, 21, 21, 23, 19, 23]`
+
+#### To Apply Fix
+
+1. Deploy changes to production
+2. Go to **Settings** page
+3. Click **"Fix Targets"** to update department names
+4. Click **"Sync 30 Days"** under Trade Revenue Sync to refresh historical data
+
+#### Expected January 2026 Targets (after fix)
+| Department | Monthly | Daily |
+|------------|---------|-------|
+| HVAC Install | $569,000 | $25,864 |
+| HVAC Service | $124,000 | $5,636 |
+| HVAC Maintenance | $31,000 | $1,409 |
+| Plumbing | $130,000 | $5,909 |
+| **TOTAL** | **$855,000** | **$38,864** |
+
+---
+
+## Previous Updates (Jan 23, 2026) - Dashboard Redesign
 
 ### Daily Dash - Dashboard Layout Redesign
 
