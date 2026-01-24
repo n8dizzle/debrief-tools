@@ -127,10 +127,35 @@ curl -X POST "https://dash.christmasair.com/api/huddle/backfill" \
 ```
 
 #### Dashboard Layout
-- **4 time-period cards**: Today, This Week, This Month, This Quarter
-- **Annual card** (full width): This Year with YTD revenue vs annual target
-- **HVAC section** (3/4 width): Mini-cards for Today/Week/Month/Quarter (placeholder - needs dept revenue data)
-- **Plumbing section** (1/4 width): Mini-cards for Today/Month (placeholder - needs dept revenue data)
+```
+┌────────────┬────────────┬────────────┬────────────┐
+│   TODAY    │  THIS WEEK │ THIS MONTH │THIS QUARTER│  (Revenue + Sales cards)
+└────────────┴────────────┴────────────┴────────────┘
+┌────────────────────────────────────────────────────┐
+│                    THIS YEAR                       │  (Annual revenue card)
+└────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  HVAC                                              │
+│  ┌─────┬─────┬─────┬─────┬─────┐                  │
+│  │Today│Week │Month│Qtr  │Year │  Time periods    │
+│  └─────┴─────┴─────┴─────┴─────┘                  │
+│  ┌──────────┬──────────┬──────────┐               │
+│  │ Install  │ Service  │Maintenance│  Departments │
+│  └──────────┴──────────┴──────────┘               │
+└────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  PLUMBING                                          │
+│  ┌─────┬─────┬─────┬─────┬─────┐                  │
+│  │Today│Week │Month│Qtr  │Year │  Time periods    │
+│  └─────┴─────┴─────┴─────┴─────┘                  │
+└────────────────────────────────────────────────────┘
+```
+
+**Trade sections** (redesigned Jan 23, 2026):
+- **HVAC**: 5 time-period mini-cards + 3 department cards (Install, Service, Maintenance)
+- **Plumbing**: 5 time-period mini-cards (no sub-departments)
+- Removed Department Summary table (redundant with trade sections)
+- Placeholder $0 values - needs trade-specific revenue data wired up
 
 #### Middleware Fix for Cron Auth
 Added bypass for cron endpoints in `middleware.ts`:
@@ -320,8 +345,10 @@ See `DEPLOYMENT_STATUS.md` for full details.
 - Planned for Vercel at portal.christmasair.com
 - Simple tools/links intranet
 
-### Daily Dash - NOT DEPLOYED
-- Planned for Vercel at dash.christmasair.com
+### Daily Dash - DEPLOYED
+- **URL**: https://dash.christmasair.com
+- **Host**: Vercel
+- **Deploy**: `cd daily-dash && vercel --prod`
 - Pacing, huddle, reviews dashboards
 
 ## Key Information
@@ -363,7 +390,7 @@ curl -X POST http://localhost:8000/api/sync  # Trigger sync
 ## DNS (Namecheap)
 - debrief.christmasair.com -> A record -> 64.225.12.86
 - portal.christmasair.com -> Not configured yet
-- dash.christmasair.com -> Not configured yet
+- dash.christmasair.com -> CNAME -> Vercel (configured)
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
