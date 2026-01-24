@@ -7,32 +7,30 @@ import { getServiceTitanClient } from './lib/servicetitan';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-async function backfillDecember() {
-  console.log('Backfilling December 2025 trade data...\n');
-
-  if (!supabaseKey) {
-    console.error('SUPABASE_SERVICE_ROLE_KEY not set!');
-    return;
-  }
-
+async function fixDecember() {
   const supabase = createClient(supabaseUrl, supabaseKey);
   const stClient = getServiceTitanClient();
 
-  if (!stClient.isConfigured()) {
-    console.log('ServiceTitan not configured');
+  // Step 1: Delete all December 2025 data
+  console.log('Deleting existing December 2025 data...');
+  const { error: deleteError } = await supabase
+    .from('trade_daily_snapshots')
+    .delete()
+    .gte('snapshot_date', '2025-12-01')
+    .lte('snapshot_date', '2025-12-31');
+
+  if (deleteError) {
+    console.error('Delete error:', deleteError);
     return;
   }
+  console.log('Deleted existing data.\n');
 
-  // All December 2025 dates
-  const dates: string[] = [];
+  // Step 2: Re-insert December data
+  console.log('Re-inserting December 2025 data...\n');
+
   for (let d = 1; d <= 31; d++) {
-    dates.push('2025-12-' + String(d).padStart(2, '0'));
-  }
+    const syncDate = '2025-12-' + String(d).padStart(2, '0');
 
-  let successCount = 0;
-  let errorCount = 0;
-
-  for (const syncDate of dates) {
     try {
       const metrics = await stClient.getTradeMetrics(syncDate);
 
@@ -84,31 +82,44 @@ async function backfillDecember() {
         },
       ];
 
-      const { error: upsertError } = await supabase
+      // Use insert instead of upsert
+      const { error: insertError } = await supabase
         .from('trade_daily_snapshots')
-        .upsert(rows, { onConflict: 'snapshot_date,trade,department' });
+        .insert(rows);
 
-      if (upsertError) {
-        console.log('✗ ' + syncDate + ': ' + upsertError.message);
-        errorCount++;
+      if (insertError) {
+        console.log('✗ ' + syncDate + ': ' + insertError.message);
       } else {
         const hvacRev = (metrics.hvac.revenue / 1000).toFixed(1);
         const plumbRev = (metrics.plumbing.revenue / 1000).toFixed(1);
         console.log('✓ ' + syncDate + ': HVAC $' + hvacRev + 'K, Plumbing $' + plumbRev + 'K');
-        successCount++;
       }
 
       await new Promise(r => setTimeout(r, 200));
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      console.log('✗ ' + syncDate + ': ' + errorMsg);
-      errorCount++;
+      console.log('✗ ' + syncDate + ': ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   }
 
-  console.log('\n=== Summary ===');
-  console.log('Success: ' + successCount);
-  console.log('Errors: ' + errorCount);
+  // Step 3: Verify totals
+  console.log('\n=== Verifying totals ===');
+  const { data: verifyData } = await supabase
+    .from('trade_daily_snapshots')
+    .select('trade, revenue')
+    .gte('snapshot_date', '2025-12-01')
+    .lte('snapshot_date', '2025-12-31')
+    .is('department', null);
+
+  let hvacTotal = 0;
+  let plumbingTotal = 0;
+  for (const snap of verifyData || []) {
+    if (snap.trade === 'hvac') hvacTotal += Number(snap.revenue) || 0;
+    else if (snap.trade === 'plumbing') plumbingTotal += Number(snap.revenue) || 0;
+  }
+
+  console.log('HVAC: $' + hvacTotal.toLocaleString());
+  console.log('Plumbing: $' + plumbingTotal.toLocaleString());
+  console.log('Total: $' + (hvacTotal + plumbingTotal).toLocaleString());
 }
 
-backfillDecember().catch(console.error);
+fixDecember().catch(console.error);
