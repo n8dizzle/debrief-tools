@@ -2,6 +2,34 @@
 
 import { useState, useEffect } from 'react';
 
+// Trade metrics for a single time period
+interface TradeMetrics {
+  revenue: number;
+  departments?: {
+    install: number;
+    service: number;
+    maintenance: number;
+  };
+}
+
+// All trade data across time periods
+interface TradeData {
+  hvac: {
+    today: TradeMetrics;
+    wtd: TradeMetrics;
+    mtd: TradeMetrics;
+    qtd: TradeMetrics;
+    ytd: TradeMetrics;
+  };
+  plumbing: {
+    today: { revenue: number };
+    wtd: { revenue: number };
+    mtd: { revenue: number };
+    qtd: { revenue: number };
+    ytd: { revenue: number };
+  };
+}
+
 interface PacingData {
   todayRevenue: number;
   todaySales: number;
@@ -23,6 +51,7 @@ interface PacingData {
   businessDaysRemaining: number;
   businessDaysElapsed: number;
   businessDaysInMonth: number;
+  trades?: TradeData;
 }
 
 // Business hours: Mon-Sat 8am-6pm (10 hours per day)
@@ -187,6 +216,97 @@ function formatCurrencyCompact(value: number): string {
     return `$${(value / 1000).toFixed(1)}K`;
   }
   return `$${Math.round(value).toLocaleString()}`;
+}
+
+// Mini Trade Card Component - compact version for trade sections
+interface MiniTradeCardProps {
+  label: string;
+  revenue: number;
+  target?: number;
+  loading?: boolean;
+  accentColor: string; // hex color
+  expectedPacing?: number;
+}
+
+function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedPacing }: MiniTradeCardProps) {
+  const percentage = target && target > 0 ? Math.round((revenue / target) * 100) : null;
+  const statusColor = percentage !== null ? getStatusColor(percentage) : accentColor;
+  const isAheadOfPace = expectedPacing !== undefined && percentage !== null && percentage >= expectedPacing;
+
+  return (
+    <div
+      className="p-4 rounded-lg"
+      style={{ backgroundColor: 'var(--bg-card)' }}
+    >
+      {/* Label and percentage */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </p>
+        {percentage !== null && (
+          <span
+            className="text-xs font-semibold px-1.5 py-0.5 rounded"
+            style={{
+              backgroundColor: `${statusColor}15`,
+              color: statusColor,
+            }}
+          >
+            {loading ? '...' : `${percentage}%`}
+          </span>
+        )}
+      </div>
+
+      {/* Revenue */}
+      <p className="text-xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+        {loading ? '...' : formatCurrencyCompact(revenue)}
+      </p>
+
+      {/* Target */}
+      {target && target > 0 && (
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+          of {formatCurrencyCompact(target)}
+        </p>
+      )}
+
+      {/* Progress bar */}
+      {percentage !== null && (
+        <div
+          className="relative h-1 rounded-full overflow-visible"
+          style={{ backgroundColor: 'var(--bg-secondary)' }}
+        >
+          <div
+            className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(percentage, 100)}%`,
+              backgroundColor: statusColor,
+            }}
+          />
+          {expectedPacing !== undefined && expectedPacing > 0 && !loading && (
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-0.5 h-2 transition-all duration-300"
+              style={{
+                left: `${Math.min(expectedPacing, 100)}%`,
+                backgroundColor: 'var(--christmas-cream)',
+                opacity: 0.8,
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Pacing indicator */}
+      {expectedPacing !== undefined && expectedPacing > 0 && percentage !== null && !loading && (
+        <div className="flex items-center justify-between mt-1.5">
+          <span
+            className="text-[10px]"
+            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+          >
+            {isAheadOfPace ? '▲ Ahead' : '▼ Behind'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Revenue Card Component
@@ -411,6 +531,38 @@ export default function DashboardPage() {
   const ytdRevenue = pacing?.ytdRevenue || 0;
   const annualTarget = pacing?.annualTarget || 10260000; // ~$855K * 12
 
+  // Trade data
+  const trades = pacing?.trades;
+  const hvacToday = trades?.hvac?.today?.revenue || 0;
+  const hvacWtd = trades?.hvac?.wtd?.revenue || 0;
+  const hvacMtd = trades?.hvac?.mtd?.revenue || 0;
+  const hvacQtd = trades?.hvac?.qtd?.revenue || 0;
+  const hvacYtd = trades?.hvac?.ytd?.revenue || 0;
+
+  const hvacInstallMtd = trades?.hvac?.mtd?.departments?.install || 0;
+  const hvacServiceMtd = trades?.hvac?.mtd?.departments?.service || 0;
+  const hvacMaintenanceMtd = trades?.hvac?.mtd?.departments?.maintenance || 0;
+
+  const plumbingToday = trades?.plumbing?.today?.revenue || 0;
+  const plumbingWtd = trades?.plumbing?.wtd?.revenue || 0;
+  const plumbingMtd = trades?.plumbing?.mtd?.revenue || 0;
+  const plumbingQtd = trades?.plumbing?.qtd?.revenue || 0;
+  const plumbingYtd = trades?.plumbing?.ytd?.revenue || 0;
+
+  // Calculate pacing percentages
+  const dailyPacing = getDailyPacingPercent();
+  const weeklyPacing = getWeeklyPacingPercent();
+  const monthlyPacing = getMonthlyPacingPercent(
+    pacing?.businessDaysElapsed || 0,
+    pacing?.businessDaysInMonth || 22
+  );
+  const quarterlyPacing = getQuarterlyPacingPercent(
+    pacing?.businessDaysElapsed || 0,
+    pacing?.businessDaysInMonth || 22,
+    currentQuarter
+  );
+  const annualPacing = pacing?.expectedAnnualPacingPercent || 0;
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -599,28 +751,48 @@ export default function DashboardPage() {
           </h3>
         </div>
 
-        {/* Time Period Metrics Row */}
+        {/* Time Period Cards Row */}
         <div className="grid grid-cols-5 gap-3 mb-5">
-          {[
-            { label: 'Today', value: 0 },
-            { label: 'Week', value: 0 },
-            { label: 'Month', value: 0 },
-            { label: 'Quarter', value: 0 },
-            { label: 'Year', value: 0 },
-          ].map((period, idx) => (
-            <div
-              key={period.label}
-              className="text-center py-3 px-2 rounded-lg"
-              style={{ backgroundColor: 'var(--bg-card)' }}
-            >
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
-                {period.label}
-              </p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrencyCompact(period.value)}
-              </p>
-            </div>
-          ))}
+          <MiniTradeCard
+            label="Today"
+            revenue={hvacToday}
+            target={dailyTarget * 0.85} // ~85% of company is HVAC
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={dailyPacing}
+          />
+          <MiniTradeCard
+            label="Week"
+            revenue={hvacWtd}
+            target={weeklyTarget * 0.85}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={weeklyPacing}
+          />
+          <MiniTradeCard
+            label="Month"
+            revenue={hvacMtd}
+            target={monthlyTarget * 0.85}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={monthlyPacing}
+          />
+          <MiniTradeCard
+            label="Quarter"
+            revenue={hvacQtd}
+            target={quarterlyTarget * 0.85}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={quarterlyPacing}
+          />
+          <MiniTradeCard
+            label="Year"
+            revenue={hvacYtd}
+            target={annualTarget * 0.85}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={annualPacing}
+          />
         </div>
 
         {/* Separator */}
@@ -628,32 +800,35 @@ export default function DashboardPage() {
 
         {/* Department Label */}
         <p className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-          Departments
+          Departments (MTD)
         </p>
 
         {/* HVAC Departments: Install, Service, Maintenance */}
         <div className="grid grid-cols-3 gap-3">
-          {[
-            { name: 'Install', mtd: 0, target: 569000 },
-            { name: 'Service', mtd: 0, target: 124000 },
-            { name: 'Maintenance', mtd: 0, target: 31000 },
-          ].map((dept) => (
-            <div
-              key={dept.name}
-              className="p-3 rounded-lg"
-              style={{ backgroundColor: 'var(--bg-card)' }}
-            >
-              <p className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
-                {dept.name}
-              </p>
-              <p className="text-xl font-bold mb-1" style={{ color: '#3B82F6' }}>
-                {loading ? '...' : formatCurrencyCompact(dept.mtd)}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                of {formatCurrencyCompact(dept.target)} target
-              </p>
-            </div>
-          ))}
+          <MiniTradeCard
+            label="Install"
+            revenue={hvacInstallMtd}
+            target={569000}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={monthlyPacing}
+          />
+          <MiniTradeCard
+            label="Service"
+            revenue={hvacServiceMtd}
+            target={124000}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={monthlyPacing}
+          />
+          <MiniTradeCard
+            label="Maintenance"
+            revenue={hvacMaintenanceMtd}
+            target={31000}
+            loading={loading}
+            accentColor="#3B82F6"
+            expectedPacing={monthlyPacing}
+          />
         </div>
       </div>
 
@@ -680,28 +855,48 @@ export default function DashboardPage() {
           </h3>
         </div>
 
-        {/* Time Period Metrics Row */}
+        {/* Time Period Cards Row */}
         <div className="grid grid-cols-5 gap-3">
-          {[
-            { label: 'Today', value: 0 },
-            { label: 'Week', value: 0 },
-            { label: 'Month', value: 0 },
-            { label: 'Quarter', value: 0 },
-            { label: 'Year', value: 0 },
-          ].map((period) => (
-            <div
-              key={period.label}
-              className="text-center py-3 px-2 rounded-lg"
-              style={{ backgroundColor: 'var(--bg-card)' }}
-            >
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
-                {period.label}
-              </p>
-              <p className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                {loading ? '...' : formatCurrencyCompact(period.value)}
-              </p>
-            </div>
-          ))}
+          <MiniTradeCard
+            label="Today"
+            revenue={plumbingToday}
+            target={dailyTarget * 0.15} // ~15% of company is Plumbing
+            loading={loading}
+            accentColor="#8B5CF6"
+            expectedPacing={dailyPacing}
+          />
+          <MiniTradeCard
+            label="Week"
+            revenue={plumbingWtd}
+            target={weeklyTarget * 0.15}
+            loading={loading}
+            accentColor="#8B5CF6"
+            expectedPacing={weeklyPacing}
+          />
+          <MiniTradeCard
+            label="Month"
+            revenue={plumbingMtd}
+            target={monthlyTarget * 0.15}
+            loading={loading}
+            accentColor="#8B5CF6"
+            expectedPacing={monthlyPacing}
+          />
+          <MiniTradeCard
+            label="Quarter"
+            revenue={plumbingQtd}
+            target={quarterlyTarget * 0.15}
+            loading={loading}
+            accentColor="#8B5CF6"
+            expectedPacing={quarterlyPacing}
+          />
+          <MiniTradeCard
+            label="Year"
+            revenue={plumbingYtd}
+            target={annualTarget * 0.15}
+            loading={loading}
+            accentColor="#8B5CF6"
+            expectedPacing={annualPacing}
+          />
         </div>
       </div>
 

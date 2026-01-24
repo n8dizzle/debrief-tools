@@ -10,6 +10,7 @@ import {
   HuddleSnapshot,
 } from '@/lib/supabase';
 import { getStatusFromPercentage, getTodayDateString } from '@/lib/huddle-utils';
+import { getServiceTitanClient, TradeName, HVACDepartment } from '@/lib/servicetitan';
 
 // Helper to get business days in the current week up to the given date
 function getBusinessDaysInWeekForDate(date: Date, holidays: string[]): number {
@@ -394,6 +395,58 @@ export async function GET(request: NextRequest) {
     // Business days remaining in month
     const businessDaysRemaining = businessDaysInMonth - daysElapsedInMonth;
 
+    // Fetch trade-level metrics from ServiceTitan
+    const stClient = getServiceTitanClient();
+    let tradeData = {
+      hvac: {
+        today: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
+        wtd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
+        mtd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
+        qtd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
+        ytd: { revenue: 0, departments: { install: 0, service: 0, maintenance: 0 } },
+      },
+      plumbing: {
+        today: { revenue: 0 },
+        wtd: { revenue: 0 },
+        mtd: { revenue: 0 },
+        qtd: { revenue: 0 },
+        ytd: { revenue: 0 },
+      },
+    };
+
+    if (stClient.isConfigured()) {
+      try {
+        // Fetch trade metrics for each time period in parallel
+        const [todayMetrics, wtdMetrics, mtdMetrics, qtdMetrics, ytdMetrics] = await Promise.all([
+          stClient.getTradeMetrics(date),
+          stClient.getTradeMetrics(mondayStr, date),
+          stClient.getTradeMetrics(firstOfMonth, date),
+          stClient.getTradeMetrics(quarterStartDate, date),
+          stClient.getTradeMetrics(yearStartDate, date),
+        ]);
+
+        tradeData = {
+          hvac: {
+            today: todayMetrics.hvac,
+            wtd: wtdMetrics.hvac,
+            mtd: mtdMetrics.hvac,
+            qtd: qtdMetrics.hvac,
+            ytd: ytdMetrics.hvac,
+          },
+          plumbing: {
+            today: todayMetrics.plumbing,
+            wtd: wtdMetrics.plumbing,
+            mtd: mtdMetrics.plumbing,
+            qtd: qtdMetrics.plumbing,
+            ytd: ytdMetrics.plumbing,
+          },
+        };
+      } catch (tradeError) {
+        console.error('Error fetching trade metrics:', tradeError);
+        // Continue with zero values if trade data fails
+      }
+    }
+
     // Pacing data object
     const pacingData = {
       todayRevenue,
@@ -416,6 +469,8 @@ export async function GET(request: NextRequest) {
       businessDaysRemaining,
       businessDaysElapsed: daysElapsedInMonth,
       businessDaysInMonth,
+      // Trade data
+      trades: tradeData,
     };
 
     // Build response

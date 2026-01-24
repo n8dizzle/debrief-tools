@@ -70,6 +70,44 @@ interface STPagedResponse<T> {
   hasMore: boolean;
 }
 
+interface STBusinessUnit {
+  id: number;
+  name: string;
+  active: boolean;
+}
+
+// Trade types for filtering
+export type TradeName = 'HVAC' | 'Plumbing';
+
+// HVAC department types
+export type HVACDepartment = 'Install' | 'Service' | 'Maintenance';
+
+// Business units that belong to each trade (excluding HVAC - Sales which is for salespeople)
+const HVAC_BUSINESS_UNITS = [
+  'HVAC - Install',
+  'HVAC - Service',
+  'HVAC - Maintenance',
+  'HVAC - Commercial', // Counted as Service
+  'Mims - Service',    // Counted as Service
+];
+
+const PLUMBING_BUSINESS_UNITS = [
+  'Plumbing - Install',
+  'Plumbing - Service',
+  'Plumbing - Maintenance',
+  'Plumbing - Sales',
+  'Plumbing - Commercial',
+];
+
+// Map HVAC business unit names to department
+const HVAC_DEPT_MAPPING: Record<string, HVACDepartment> = {
+  'HVAC - Install': 'Install',
+  'HVAC - Service': 'Service',
+  'HVAC - Maintenance': 'Maintenance',
+  'HVAC - Commercial': 'Service', // Commercial counts as Service
+  'Mims - Service': 'Service',    // Mims counts as Service
+};
+
 export class ServiceTitanClient {
   private readonly BASE_URL = 'https://api.servicetitan.io';
   private readonly AUTH_URL = 'https://auth.servicetitan.io/connect/token';
@@ -81,6 +119,7 @@ export class ServiceTitanClient {
 
   private accessToken: string | null = null;
   private tokenExpiresAt: Date | null = null;
+  private businessUnitsCache: STBusinessUnit[] | null = null;
 
   constructor() {
     this.clientId = process.env.ST_CLIENT_ID || '';
@@ -163,6 +202,192 @@ export class ServiceTitanClient {
     }
 
     return response.json();
+  }
+
+  // ============================================
+  // BUSINESS UNIT METHODS
+  // ============================================
+
+  /**
+   * Get all business units (cached)
+   */
+  async getBusinessUnits(): Promise<STBusinessUnit[]> {
+    if (this.businessUnitsCache) {
+      return this.businessUnitsCache;
+    }
+
+    const response = await this.request<STPagedResponse<STBusinessUnit>>(
+      'GET',
+      `settings/v2/tenant/${this.tenantId}/business-units`,
+      { params: { pageSize: '100', active: 'true' } }
+    );
+
+    this.businessUnitsCache = response.data || [];
+    return this.businessUnitsCache;
+  }
+
+  /**
+   * Get business unit IDs for a specific trade (HVAC or Plumbing)
+   * HVAC excludes "HVAC - Sales" (salespeople, not technicians)
+   */
+  async getBusinessUnitIdsForTrade(trade: TradeName): Promise<number[]> {
+    const businessUnits = await this.getBusinessUnits();
+    const validNames = trade === 'HVAC' ? HVAC_BUSINESS_UNITS : PLUMBING_BUSINESS_UNITS;
+
+    return businessUnits
+      .filter(bu => validNames.includes(bu.name))
+      .map(bu => bu.id);
+  }
+
+  /**
+   * Get business unit IDs for a specific HVAC department
+   * - Install: HVAC - Install
+   * - Service: HVAC - Service + HVAC - Commercial + Mims - Service
+   * - Maintenance: HVAC - Maintenance
+   */
+  async getBusinessUnitIdsForHVACDepartment(department: HVACDepartment): Promise<number[]> {
+    const businessUnits = await this.getBusinessUnits();
+
+    return businessUnits
+      .filter(bu => HVAC_DEPT_MAPPING[bu.name] === department)
+      .map(bu => bu.id);
+  }
+
+  // ============================================
+  // TRADE-LEVEL METRICS
+  // ============================================
+
+  /**
+   * Get revenue for a trade (HVAC or Plumbing) for a date range
+   * Revenue = sum of job.total for completed jobs in that trade's business units
+   * @param startDate - Start date (inclusive) in YYYY-MM-DD format
+   * @param endDate - End date (inclusive) in YYYY-MM-DD format, defaults to startDate
+   */
+  async getTradeRevenue(startDate: string, trade: TradeName, endDate?: string): Promise<number> {
+    const effectiveEndDate = endDate || startDate;
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
+    const businessUnitIds = await this.getBusinessUnitIdsForTrade(trade);
+
+    if (businessUnitIds.length === 0) return 0;
+
+    // Fetch all completed jobs for the date range
+    const jobs = await this.getCompletedJobs(startDate, dayAfterEnd);
+
+    // Filter to jobs in this trade's business units
+    const tradeJobs = jobs.filter(job => businessUnitIds.includes(job.businessUnitId));
+
+    return tradeJobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
+  }
+
+  /**
+   * Get sales for a trade (HVAC or Plumbing) for a date range
+   * Sales = sum of sold estimate subtotals where the estimate's job is in that trade's business units
+   * @param startDate - Start date (inclusive) in YYYY-MM-DD format
+   * @param endDate - End date (inclusive) in YYYY-MM-DD format, defaults to startDate
+   */
+  async getTradeSales(startDate: string, trade: TradeName, endDate?: string): Promise<number> {
+    const effectiveEndDate = endDate || startDate;
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
+    const businessUnitIds = await this.getBusinessUnitIdsForTrade(trade);
+
+    if (businessUnitIds.length === 0) return 0;
+
+    // Fetch sold estimates for the date range
+    const estimates = await this.getSoldEstimates(startDate, dayAfterEnd);
+
+    // Get job IDs from estimates that have jobs
+    const jobIds = estimates
+      .filter(est => est.jobId)
+      .map(est => est.jobId!);
+
+    if (jobIds.length === 0) {
+      // No jobs - sum all estimates (they might be standalone)
+      return estimates.reduce((sum, est) => sum + (Number(est.subtotal) || 0), 0);
+    }
+
+    // Fetch jobs to get their business units
+    const jobs = await this.getCompletedJobs(startDate, dayAfterEnd);
+    const tradeJobIds = new Set(
+      jobs
+        .filter(job => businessUnitIds.includes(job.businessUnitId))
+        .map(job => job.id)
+    );
+
+    // Sum estimates whose jobs are in this trade
+    // Also include estimates without jobs (standalone estimates)
+    return estimates
+      .filter(est => !est.jobId || tradeJobIds.has(est.jobId))
+      .reduce((sum, est) => sum + (Number(est.subtotal) || 0), 0);
+  }
+
+  /**
+   * Get revenue for an HVAC department for a date range
+   * @param startDate - Start date (inclusive) in YYYY-MM-DD format
+   * @param endDate - End date (inclusive) in YYYY-MM-DD format, defaults to startDate
+   */
+  async getHVACDepartmentRevenue(startDate: string, department: HVACDepartment, endDate?: string): Promise<number> {
+    const effectiveEndDate = endDate || startDate;
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
+    const businessUnitIds = await this.getBusinessUnitIdsForHVACDepartment(department);
+
+    if (businessUnitIds.length === 0) return 0;
+
+    const jobs = await this.getCompletedJobs(startDate, dayAfterEnd);
+    const deptJobs = jobs.filter(job => businessUnitIds.includes(job.businessUnitId));
+
+    return deptJobs.reduce((sum, job) => sum + (Number(job.total) || 0), 0);
+  }
+
+  /**
+   * Get all trade metrics for a date range (optimized to reduce API calls)
+   * Returns revenue for both HVAC and Plumbing, plus HVAC department breakdown
+   */
+  async getTradeMetrics(startDate: string, endDate?: string): Promise<{
+    hvac: {
+      revenue: number;
+      departments: {
+        install: number;
+        service: number;
+        maintenance: number;
+      };
+    };
+    plumbing: {
+      revenue: number;
+    };
+  }> {
+    const effectiveEndDate = endDate || startDate;
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
+
+    // Fetch business units once
+    const hvacBuIds = await this.getBusinessUnitIdsForTrade('HVAC');
+    const plumbingBuIds = await this.getBusinessUnitIdsForTrade('Plumbing');
+    const hvacInstallBuIds = await this.getBusinessUnitIdsForHVACDepartment('Install');
+    const hvacServiceBuIds = await this.getBusinessUnitIdsForHVACDepartment('Service');
+    const hvacMaintenanceBuIds = await this.getBusinessUnitIdsForHVACDepartment('Maintenance');
+
+    // Fetch all completed jobs once
+    const jobs = await this.getCompletedJobs(startDate, dayAfterEnd);
+
+    // Calculate totals by filtering
+    const hvacJobs = jobs.filter(j => hvacBuIds.includes(j.businessUnitId));
+    const plumbingJobs = jobs.filter(j => plumbingBuIds.includes(j.businessUnitId));
+    const hvacInstallJobs = jobs.filter(j => hvacInstallBuIds.includes(j.businessUnitId));
+    const hvacServiceJobs = jobs.filter(j => hvacServiceBuIds.includes(j.businessUnitId));
+    const hvacMaintenanceJobs = jobs.filter(j => hvacMaintenanceBuIds.includes(j.businessUnitId));
+
+    return {
+      hvac: {
+        revenue: hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+        departments: {
+          install: hvacInstallJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+          service: hvacServiceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+          maintenance: hvacMaintenanceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+        },
+      },
+      plumbing: {
+        revenue: plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
+      },
+    };
   }
 
   // ============================================
