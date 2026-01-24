@@ -36,6 +36,32 @@ interface STInvoice {
   createdOn?: string;
 }
 
+interface STEstimateItem {
+  id: number;
+  sku?: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+interface STEstimate {
+  id: number;
+  jobId?: number;
+  name?: string;
+  status: {
+    name: string;
+    value: number;
+  };
+  summary?: string;
+  subtotal: number;
+  total: number;
+  soldOn?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  items?: STEstimateItem[];
+}
+
 interface STPagedResponse<T> {
   data: T[];
   page: number;
@@ -476,6 +502,48 @@ export class ServiceTitanClient {
       revenue: plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0),
       jobsRan: plumbingJobs.length,
     };
+  }
+
+  // ============================================
+  // ESTIMATES / SALES METHODS
+  // ============================================
+
+  /**
+   * Get sold estimates for a date range
+   * "Sold" status in ServiceTitan = status.value of 3
+   */
+  async getSoldEstimates(
+    soldOnOrAfter: string,
+    soldBefore?: string
+  ): Promise<STEstimate[]> {
+    const params: Record<string, string> = {
+      soldOnOrAfter: `${soldOnOrAfter}T00:00:00Z`,
+      pageSize: '200',
+      status: 'Sold', // Only get sold estimates
+    };
+
+    if (soldBefore) {
+      params.soldBefore = `${soldBefore}T00:00:00Z`;
+    }
+
+    const response = await this.request<STPagedResponse<STEstimate>>(
+      'GET',
+      `sales/v2/tenant/${this.tenantId}/estimates`,
+      { params }
+    );
+
+    return response.data || [];
+  }
+
+  /**
+   * Get total sales (sum of sold estimate subtotals) for a date
+   * Matches ServiceTitan's "Total Sales" metric
+   */
+  async getTotalSales(date: string): Promise<number> {
+    const nextDay = this.getNextDay(date);
+    const estimates = await this.getSoldEstimates(date, nextDay);
+    // Sum subtotals (before tax) to match ST's "Total Sales" definition
+    return estimates.reduce((sum, est) => sum + (Number(est.subtotal) || 0), 0);
   }
 
   // ============================================

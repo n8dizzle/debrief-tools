@@ -131,6 +131,10 @@ export async function POST(request: NextRequest) {
             const totalRev = await stClient.getTotalRevenue(date);
             actualValue = totalRev.totalRevenue;
             break;
+          case 'total-sales':
+            // Sum of sold estimate subtotals (matches ST's "Total Sales")
+            actualValue = await stClient.getTotalSales(date);
+            break;
 
           // HVAC Service
           case 'service-jobs-completed':

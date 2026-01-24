@@ -232,6 +232,19 @@ export async function GET(request: NextRequest) {
       return sum + (Number(snap.actual_value) || 0);
     }, 0) || 0;
 
+    // Get MTD sales (sum of total-sales for the month)
+    const { data: mtdSalesSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value, huddle_kpis!inner(slug)')
+      .gte('snapshot_date', firstOfMonth)
+      .lte('snapshot_date', date)
+      .eq('huddle_kpis.slug', 'total-sales');
+
+    const mtdSales = mtdSalesSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
+
     // Get week-to-date revenue (Monday to selected date)
     const dayOfWeek = selectedDate.getDay();
     const monday = new Date(selectedDate);
@@ -246,6 +259,19 @@ export async function GET(request: NextRequest) {
       .eq('huddle_kpis.slug', 'total-revenue');
 
     const wtdRevenue = wtdSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
+
+    // Get week-to-date sales
+    const { data: wtdSalesSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value, huddle_kpis!inner(slug)')
+      .gte('snapshot_date', mondayStr)
+      .lte('snapshot_date', date)
+      .eq('huddle_kpis.slug', 'total-sales');
+
+    const wtdSales = wtdSalesSnapshots?.reduce((sum, s) => {
       const snap = s as unknown as { actual_value: number };
       return sum + (Number(snap.actual_value) || 0);
     }, 0) || 0;
@@ -281,6 +307,19 @@ export async function GET(request: NextRequest) {
       return sum + (Number(snap.actual_value) || 0);
     }, 0) || 0;
 
+    // Get QTD sales
+    const { data: qtdSalesSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value, huddle_kpis!inner(slug)')
+      .gte('snapshot_date', quarterStartDate)
+      .lte('snapshot_date', date)
+      .eq('huddle_kpis.slug', 'total-sales');
+
+    const qtdSales = qtdSalesSnapshots?.reduce((sum, s) => {
+      const snap = s as unknown as { actual_value: number };
+      return sum + (Number(snap.actual_value) || 0);
+    }, 0) || 0;
+
     // Get YTD (year-to-date) revenue
     const yearStartDate = `${year}-01-01`;
     const { data: ytdSnapshots } = await supabase
@@ -308,10 +347,18 @@ export async function GET(request: NextRequest) {
 
     // Today's revenue from snapshot - use total-revenue to match ST's "Total Revenue"
     // Note: actual_value is stored as numeric in Postgres, which Supabase returns as string
+    // Today's revenue from snapshot
     const totalRevenueKpi = kpis?.find(k => k.slug === 'total-revenue');
     const todaySnapshot = totalRevenueKpi ? snapshotMap.get(totalRevenueKpi.id) : undefined;
     const todayRevenue = todaySnapshot?.actual_value
       ? parseFloat(String(todaySnapshot.actual_value))
+      : 0;
+
+    // Today's sales from snapshot
+    const totalSalesKpi = kpis?.find(k => k.slug === 'total-sales');
+    const todaySalesSnapshot = totalSalesKpi ? snapshotMap.get(totalSalesKpi.id) : undefined;
+    const todaySales = todaySalesSnapshot?.actual_value
+      ? parseFloat(String(todaySalesSnapshot.actual_value))
       : 0;
 
     // Calculate pacing percentage
@@ -350,12 +397,16 @@ export async function GET(request: NextRequest) {
     // Pacing data object
     const pacingData = {
       todayRevenue,
+      todaySales,
       dailyTarget,
       wtdRevenue,
+      wtdSales,
       weeklyTarget,
       mtdRevenue,
+      mtdSales,
       monthlyTarget: monthlyTargetValue,
       qtdRevenue,
+      qtdSales,
       quarterlyTarget: quarterlyTargetValue,
       quarter,
       ytdRevenue,

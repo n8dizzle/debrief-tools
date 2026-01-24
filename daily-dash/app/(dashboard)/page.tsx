@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react';
 
 interface PacingData {
   todayRevenue: number;
+  todaySales: number;
   dailyTarget: number;
   wtdRevenue: number;
+  wtdSales: number;
   weeklyTarget: number;
   mtdRevenue: number;
+  mtdSales: number;
   monthlyTarget: number;
   qtdRevenue: number;
+  qtdSales: number;
   quarterlyTarget: number;
   quarter: number;
   ytdRevenue: number;
@@ -192,17 +196,29 @@ function getTodayDateString(): string {
   return getLocalDateString(new Date());
 }
 
+// Format currency in compact form (e.g., $38.9K)
+function formatCurrencyCompact(value: number): string {
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  }
+  if (value >= 1000) {
+    return `$${(value / 1000).toFixed(1)}K`;
+  }
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
 // Revenue Card Component
 interface RevenueCardProps {
   label: string;
   revenue: number;
+  sales?: number; // Optional sales amount
   target: number;
   loading?: boolean;
   accentColor: 'green' | 'blue' | 'gold' | 'purple';
   expectedPacing?: number; // Where we should be based on time elapsed (0-100)
 }
 
-function RevenueCard({ label, revenue, target, loading, accentColor, expectedPacing }: RevenueCardProps) {
+function RevenueCard({ label, revenue, sales, target, loading, accentColor, expectedPacing }: RevenueCardProps) {
   const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const statusColor = getStatusColor(percentage);
 
@@ -217,6 +233,7 @@ function RevenueCard({ label, revenue, target, loading, accentColor, expectedPac
   };
 
   const colors = accentColors[accentColor];
+  const hasSales = sales !== undefined && sales > 0;
 
   return (
     <div
@@ -242,10 +259,30 @@ function RevenueCard({ label, revenue, target, loading, accentColor, expectedPac
         {label}
       </p>
 
-      {/* Revenue */}
-      <p className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-        {loading ? '...' : formatCurrency(revenue)}
-      </p>
+      {/* Revenue / Sales Display */}
+      {hasSales ? (
+        <>
+          {/* Combined Revenue / Sales with labels */}
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {loading ? '...' : formatCurrencyCompact(revenue)}
+            </span>
+            <span className="text-lg" style={{ color: 'var(--text-muted)' }}>/</span>
+            <span className="text-2xl font-bold" style={{ color: 'var(--christmas-gold)' }}>
+              {loading ? '...' : formatCurrencyCompact(sales)}
+            </span>
+          </div>
+          {/* Labels */}
+          <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+            revenue / sales
+          </p>
+        </>
+      ) : (
+        /* Original revenue-only display */
+        <p className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+          {loading ? '...' : formatCurrency(revenue)}
+        </p>
+      )}
 
       {/* Target */}
       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -360,12 +397,16 @@ export default function DashboardPage() {
   // Use real data from API, with fallback defaults
   const pacing = dashData?.pacing;
   const todayRevenue = pacing?.todayRevenue || 0;
+  const todaySales = pacing?.todaySales || 0;
   const dailyTarget = pacing?.dailyTarget || 38864;
   const weekRevenue = pacing?.wtdRevenue || 0;
+  const weekSales = pacing?.wtdSales || 0;
   const weeklyTarget = pacing?.weeklyTarget || 194318;
   const mtdRevenue = pacing?.mtdRevenue || 0;
+  const mtdSales = pacing?.mtdSales || 0;
   const monthlyTarget = pacing?.monthlyTarget || 855000;
   const qtdRevenue = pacing?.qtdRevenue || 0;
+  const qtdSales = pacing?.qtdSales || 0;
   const quarterlyTarget = pacing?.quarterlyTarget || 2565000;
   const currentQuarter = pacing?.quarter || Math.floor((new Date().getMonth()) / 3) + 1;
   const ytdRevenue = pacing?.ytdRevenue || 0;
@@ -509,6 +550,7 @@ export default function DashboardPage() {
         <RevenueCard
           label="Today"
           revenue={todayRevenue}
+          sales={todaySales}
           target={dailyTarget}
           loading={loading}
           accentColor="green"
@@ -517,6 +559,7 @@ export default function DashboardPage() {
         <RevenueCard
           label="This Week"
           revenue={weekRevenue}
+          sales={weekSales}
           target={weeklyTarget}
           loading={loading}
           accentColor="blue"
@@ -525,6 +568,7 @@ export default function DashboardPage() {
         <RevenueCard
           label="This Month"
           revenue={mtdRevenue}
+          sales={mtdSales}
           target={monthlyTarget}
           loading={loading}
           accentColor="gold"
@@ -536,6 +580,7 @@ export default function DashboardPage() {
         <RevenueCard
           label="This Quarter"
           revenue={qtdRevenue}
+          sales={qtdSales}
           target={quarterlyTarget}
           loading={loading}
           accentColor="purple"
