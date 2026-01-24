@@ -22,6 +22,16 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 - Falls back to direct ServiceTitan API if cache incomplete
 - Improves dashboard load times
 
+#### API Performance Optimization
+**Problem**: Dashboard was slow due to ~25 sequential Supabase queries in `/api/huddle`.
+
+**Solution**: Batched queries into 3 parallel Promise.all() groups:
+- **BATCH 1**: Core huddle data (5 queries) - departments, kpis, snapshots, targets, notes
+- **BATCH 2**: Revenue/sales and targets (11 queries) - business days, holidays, MTD/WTD/QTD/YTD snapshots, annual/quarterly targets
+- **BATCH 3**: Trade targets (4 queries) - HVAC/Plumbing quarterly and annual targets
+
+**Result**: Reduced sequential queries from ~25 to 3 parallel batches.
+
 #### December Data Fix
 **Problem**: Dec 2024 and Dec 2025 showed identical values (Recharts merged them).
 **Fix**: Month labels now include year: `"DEC '24"`, `"DEC '25"`
