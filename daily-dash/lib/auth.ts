@@ -76,6 +76,7 @@ export const authOptions: NextAuthOptions = {
                 role,
                 department_id,
                 is_active,
+                permissions,
                 portal_departments(id, name, slug)
               `)
               .eq("email", email as string)
@@ -89,6 +90,7 @@ export const authOptions: NextAuthOptions = {
               token.departmentId = userProfile.department_id;
               token.department = userProfile.portal_departments as any;
               token.isActive = userProfile.is_active;
+              token.permissions = userProfile.permissions || null;
             }
           }
         }
@@ -105,6 +107,7 @@ export const authOptions: NextAuthOptions = {
         session.user.departmentId = token.departmentId as string | null;
         session.user.department = token.department as any;
         session.user.isActive = token.isActive as boolean;
+        session.user.permissions = token.permissions || null;
       }
       return session;
     },

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { hasPermission, type UserPermissions, type UserRole } from '@/lib/permissions';
 
 /**
  * GET /api/auth/me
@@ -18,7 +19,7 @@ export async function GET() {
   try {
     const { data: userData, error: userError } = await supabase
       .from('portal_users')
-      .select('id, email, name, role, can_reply_reviews')
+      .select('id, email, name, role, permissions')
       .eq('email', session.user.email)
       .single();
 
@@ -28,16 +29,22 @@ export async function GET() {
         email: session.user.email,
         name: session.user.name,
         role: (session.user as { role?: string }).role || 'employee',
+        permissions: {},
         can_reply_reviews: false,
       });
     }
+
+    const role = userData.role as UserRole;
+    const permissions = (userData.permissions || {}) as UserPermissions;
 
     return NextResponse.json({
       id: userData.id,
       email: userData.email,
       name: userData.name,
       role: userData.role,
-      can_reply_reviews: userData.can_reply_reviews || false,
+      permissions: permissions,
+      // Backwards compatibility: compute can_reply_reviews from new permission system
+      can_reply_reviews: hasPermission(role, permissions, 'daily_dash', 'can_reply_reviews'),
     });
   } catch (error) {
     console.error('Error fetching user:', error);

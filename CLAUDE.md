@@ -8,7 +8,81 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 
-## Recent Updates (Jan 24, 2026) - Saturday Half Business Day
+## Recent Updates (Jan 24, 2026) - User Permission System
+
+### Daily Dash - Centralized User & Permission Management
+
+Added a centralized permission system for managing user access across all Christmas Air internal tools.
+
+#### Database Changes
+- Added `permissions` JSONB column to `portal_users` table
+- GIN index for efficient permission queries
+
+#### Permission Structure
+```json
+{
+  "daily_dash": {
+    "can_edit_targets": true,
+    "can_reply_reviews": true,
+    "can_edit_huddle_notes": true,
+    "can_sync_data": true
+  },
+  "internal_portal": {
+    "can_manage_tools": true
+  },
+  "debrief_qa": {
+    "can_view_all_jobs": true
+  }
+}
+```
+
+#### Role Hierarchy
+| Role | Permission Behavior |
+|------|---------------------|
+| Owner | All permissions automatically granted |
+| Manager | Only explicitly granted permissions |
+| Employee | Only explicitly granted permissions |
+
+#### New Files
+- `lib/permissions.ts` - Permission types, `hasPermission()` utility, `APP_PERMISSIONS` definitions
+- `app/api/users/route.ts` - GET (list users), POST (create user) - owner-only
+- `app/api/users/[id]/route.ts` - GET, PATCH, DELETE individual user - owner-only
+- `app/(dashboard)/users/page.tsx` - User management UI with permission toggles
+
+#### UI Changes
+- **Profile dropdown** added to sidebar (bottom, above "Back to Portal")
+  - Shows user avatar, name, and role
+  - Links: Settings, Manage Users (owner-only), Sign Out
+- **Settings** removed from main sidebar nav (now in profile dropdown)
+- **Users page** at `/users` - owner-only, manages all users and permissions
+
+#### Permission Check Usage
+```typescript
+import { hasPermission } from '@/lib/permissions';
+
+// In API routes or components
+const canReply = hasPermission(
+  session.user.role,
+  session.user.permissions,
+  'daily_dash',
+  'can_reply_reviews'
+);
+```
+
+#### Adding New App Permissions
+1. Add interface to `lib/permissions.ts`:
+```typescript
+export interface NewAppPermissions {
+  can_do_thing?: boolean;
+}
+```
+2. Add to `UserPermissions` interface
+3. Add to `APP_PERMISSIONS` array for UI
+4. No database migration needed (JSONB handles new keys)
+
+---
+
+## Previous Updates (Jan 24, 2026) - Saturday Half Business Day
 
 ### Daily Dash - Saturday = 0.5 Business Day
 

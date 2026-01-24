@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 
 interface DashSidebarProps {
   isOpen?: boolean;
@@ -15,7 +16,6 @@ const overviewLinks = [
   { href: '/huddle', label: 'Daily Huddle', icon: 'clipboard' },
   { href: '/huddle/history', label: 'History', icon: 'calendar' },
   { href: '/reviews', label: 'Reviews', icon: 'star' },
-  { href: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 const departmentLinks = [
@@ -69,6 +69,21 @@ function NavIcon({ type }: { type: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
+    users: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    logout: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+      </svg>
+    ),
+    chevron: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    ),
   };
 
   return icons[type] || icons.home;
@@ -76,6 +91,9 @@ function NavIcon({ type }: { type: string }) {
 
 export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const isActive = (href: string) => {
     if (href === '/') {
@@ -83,6 +101,24 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
     }
     return pathname.startsWith(href);
   };
+
+  const isOwner = session?.user?.role === 'owner';
+
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close profile menu on route change
+  useEffect(() => {
+    setProfileMenuOpen(false);
+  }, [pathname]);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -220,15 +256,91 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
         </div>
       </nav>
 
+      {/* Profile Section */}
+      <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }} ref={profileMenuRef}>
+        <div className="relative">
+          {/* Profile Button */}
+          <button
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-white/5"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {/* Avatar */}
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+              style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+            >
+              {session?.user?.name?.charAt(0)?.toUpperCase() || session?.user?.email?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <div className="text-sm font-medium truncate" style={{ color: 'var(--christmas-cream)' }}>
+                {session?.user?.name || session?.user?.email?.split('@')[0] || 'User'}
+              </div>
+              <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                {session?.user?.role === 'owner' ? 'Owner' : session?.user?.role === 'manager' ? 'Manager' : 'Employee'}
+              </div>
+            </div>
+            <div
+              className={`transition-transform duration-200 ${profileMenuOpen ? 'rotate-180' : ''}`}
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <NavIcon type="chevron" />
+            </div>
+          </button>
+
+          {/* Dropdown Menu */}
+          {profileMenuOpen && (
+            <div
+              className="absolute bottom-full left-0 right-0 mb-2 rounded-lg overflow-hidden shadow-lg"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <Link
+                href="/settings"
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <NavIcon type="settings" />
+                <span className="text-sm">Settings</span>
+              </Link>
+
+              {isOwner && (
+                <Link
+                  href="/users"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <NavIcon type="users" />
+                  <span className="text-sm">Manage Users</span>
+                </Link>
+              )}
+
+              <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+                  style={{ color: '#ef4444' }}
+                >
+                  <NavIcon type="logout" />
+                  <span className="text-sm">Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Back to Portal */}
-      <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="px-4 pb-4">
         <a
           href="https://portal.christmasair.com"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-white/5"
+          style={{ color: 'var(--text-muted)' }}
         >
           <NavIcon type="arrow" />
-          <span className="text-sm">Back to Portal</span>
+          <span className="text-xs">Back to Portal</span>
         </a>
       </div>
       </aside>

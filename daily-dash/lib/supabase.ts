@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { UserPermissions } from './permissions';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -40,6 +41,7 @@ export interface PortalUser {
   updated_at: string;
   last_login_at: string | null;
   created_by: string | null;
+  permissions: UserPermissions | null;
   // Joined data
   department?: Department;
 }
