@@ -845,40 +845,88 @@ export async function GET(request: NextRequest) {
       current.setMonth(current.getMonth() + 1);
     }
 
-    // Fetch trade revenue for each month from ServiceTitan (in parallel for speed)
-    if (stClient.isConfigured()) {
-      try {
-        const fetchTasks = monthlyTrend.map(async (monthData) => {
-          const [yearStr, monthStr] = monthData.month.split('-');
-          const yr = parseInt(yearStr);
-          const mo = parseInt(monthStr);
+    // Fetch trend revenue from Supabase cache (much faster than 18 ServiceTitan API calls)
+    // Only fetch current month from ServiceTitan for live data
+    const currentMonthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
 
-          // Calculate first and last day of the month
-          const firstOfMonth = new Date(yr, mo - 1, 1);
-          const lastOfMonth = new Date(yr, mo, 0);
+    try {
+      // Get cached daily snapshots and aggregate by month
+      const { data: trendSnapshots } = await supabase
+        .from('trade_daily_snapshots')
+        .select('snapshot_date, trade, revenue')
+        .gte('snapshot_date', trendStartStr)
+        .lte('snapshot_date', date)
+        .is('department', null); // Only trade-level aggregates
 
-          // Don't fetch future months
-          if (firstOfMonth > selectedDate) return;
+      if (trendSnapshots && trendSnapshots.length > 0) {
+        // Group by month and sum revenue
+        const monthlyRevenue: Record<string, { hvac: number; plumbing: number }> = {};
 
-          // For current month, use selected date as end
-          const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
+        for (const snap of trendSnapshots) {
+          const snapDate = typeof snap.snapshot_date === 'string'
+            ? snap.snapshot_date
+            : new Date(snap.snapshot_date).toISOString().split('T')[0];
+          const monthKey = snapDate.substring(0, 7); // "YYYY-MM"
 
-          const startStr = firstOfMonth.toISOString().split('T')[0];
-          const endStr = endDate.toISOString().split('T')[0];
-
-          try {
-            const metrics = await stClient.getTradeMetrics(startStr, endStr);
-            monthData.hvacRevenue = metrics.hvac.revenue;
-            monthData.plumbingRevenue = metrics.plumbing.revenue;
-            monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
-          } catch (err) {
-            console.error(`Error fetching trend data for ${monthData.month}:`, err);
+          if (!monthlyRevenue[monthKey]) {
+            monthlyRevenue[monthKey] = { hvac: 0, plumbing: 0 };
           }
-        });
 
-        await Promise.all(fetchTasks);
-      } catch (trendError) {
-        console.error('Error fetching trend data:', trendError);
+          const revenue = Number(snap.revenue) || 0;
+          if (snap.trade === 'hvac') {
+            monthlyRevenue[monthKey].hvac += revenue;
+          } else if (snap.trade === 'plumbing') {
+            monthlyRevenue[monthKey].plumbing += revenue;
+          }
+        }
+
+        // Update monthlyTrend with cached values
+        for (const monthData of monthlyTrend) {
+          const cached = monthlyRevenue[monthData.month];
+          if (cached) {
+            monthData.hvacRevenue = cached.hvac;
+            monthData.plumbingRevenue = cached.plumbing;
+            monthData.totalRevenue = cached.hvac + cached.plumbing;
+          }
+        }
+      }
+
+      // For current month, use live ServiceTitan data (already fetched above)
+      const currentMonthData = monthlyTrend.find(m => m.month === currentMonthKey);
+      if (currentMonthData && tradeData) {
+        currentMonthData.hvacRevenue = tradeData.hvac.mtd.revenue;
+        currentMonthData.plumbingRevenue = tradeData.plumbing.mtd.revenue;
+        currentMonthData.totalRevenue = tradeData.hvac.mtd.revenue + tradeData.plumbing.mtd.revenue;
+      }
+    } catch (trendError) {
+      console.error('Error fetching trend data from cache:', trendError);
+
+      // Fallback: fetch from ServiceTitan if cache fails
+      if (stClient.isConfigured()) {
+        try {
+          const fetchTasks = monthlyTrend.map(async (monthData) => {
+            const [yearStr, monthStr] = monthData.month.split('-');
+            const yr = parseInt(yearStr);
+            const mo = parseInt(monthStr);
+            const firstOfMonth = new Date(yr, mo - 1, 1);
+            const lastOfMonth = new Date(yr, mo, 0);
+            if (firstOfMonth > selectedDate) return;
+            const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
+            const startStr = firstOfMonth.toISOString().split('T')[0];
+            const endStr = endDate.toISOString().split('T')[0];
+            try {
+              const metrics = await stClient.getTradeMetrics(startStr, endStr);
+              monthData.hvacRevenue = metrics.hvac.revenue;
+              monthData.plumbingRevenue = metrics.plumbing.revenue;
+              monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
+            } catch (err) {
+              console.error(`Error fetching trend data for ${monthData.month}:`, err);
+            }
+          });
+          await Promise.all(fetchTasks);
+        } catch (fallbackError) {
+          console.error('Fallback trend fetch also failed:', fallbackError);
+        }
       }
     }
 
