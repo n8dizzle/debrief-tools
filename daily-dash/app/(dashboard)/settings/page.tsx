@@ -30,26 +30,41 @@ const sheetMappings = {
   },
 };
 
-// Daily Revenue Targets from spreadsheet
+// Business days per month (2026)
+const businessDaysPerMonth = [22, 19, 22, 22, 21, 22, 23, 21, 21, 23, 19, 23];
+
+// Monthly revenue targets (in dollars)
+const MONTHLY_TARGETS = {
+  'HVAC Install': [569000, 429000, 633000, 858000, 1230000, 1450000, 1430000, 1470000, 805000, 708000, 574000, 574000],
+  'HVAC Service': [124000, 94000, 139000, 188000, 270000, 317000, 312000, 322000, 176000, 155000, 126000, 126000],
+  'HVAC Maintenance': [31000, 23000, 35000, 47000, 68000, 79000, 78000, 80000, 44000, 39000, 31000, 31000],
+  'Plumbing': [130000, 156000, 156000, 156000, 156000, 156000, 183000, 183000, 183000, 209000, 209000, 209000],
+  'TOTAL': [855000, 703000, 963000, 1250000, 1730000, 2000000, 2000000, 2050000, 1210000, 1110000, 940000, 940000],
+};
+
+// Calculate daily targets from monthly / business days
+const calcDaily = (monthly: number[], days: number[]) => monthly.map((m, i) => Math.round(m / days[i]));
+const calcWeekly = (daily: number[]) => daily.map(d => d * 5);
+const formatCurrency = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(0)}K`.replace(/\.0K$/, 'K') : `$${n.toLocaleString()}`;
+const formatCurrencyFull = (n: number) => `$${n.toLocaleString()}`;
+
+// Daily Revenue Targets (calculated from monthly / business days)
 const dailyRevenueTargets = [
-  { name: 'HVAC Install', values: ['$24,199', '$19,509', '$26,377', '$35,766', '$54,841', '$60,355', '$59,461', '$62,552', '$34,988', '$28,905', '$27,335', '$23,919', '$38,321'] },
-  { name: 'HVAC Service', values: ['$5,297', '$4,270', '$5,774', '$7,829', '$12,004', '$13,211', '$13,015', '$13,692', '$7,659', '$6,327', '$5,983', '$5,236', '$8,388'] },
-  { name: 'HVAC Maint.', values: ['$1,324', '$1,068', '$1,443', '$1,957', '$3,001', '$3,303', '$3,254', '$3,423', '$1,915', '$1,582', '$1,496', '$1,309', '$2,097'] },
-  { name: 'Plumbing', values: ['$5,548', '$7,111', '$6,519', '$6,519', '$6,953', '$6,519', '$7,605', '$7,767', '$7,936', '$8,514', '$9,933', '$8,692', '$7,450'] },
-  { name: 'TOTAL', values: ['$36,368', '$31,958', '$40,113', '$52,071', '$76,800', '$83,388', '$83,335', '$87,435', '$52,498', '$45,328', '$44,748', '$39,155', '$56,256'], isTotal: true },
+  { name: 'HVAC Install', values: [...calcDaily(MONTHLY_TARGETS['HVAC Install'], businessDaysPerMonth).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Install'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)))] },
+  { name: 'HVAC Service', values: [...calcDaily(MONTHLY_TARGETS['HVAC Service'], businessDaysPerMonth).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Service'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)))] },
+  { name: 'HVAC Maint.', values: [...calcDaily(MONTHLY_TARGETS['HVAC Maintenance'], businessDaysPerMonth).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Maintenance'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)))] },
+  { name: 'Plumbing', values: [...calcDaily(MONTHLY_TARGETS['Plumbing'], businessDaysPerMonth).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['Plumbing'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)))] },
+  { name: 'TOTAL', values: [...calcDaily(MONTHLY_TARGETS['TOTAL'], businessDaysPerMonth).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['TOTAL'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)))], isTotal: true },
 ];
 
 // Weekly Revenue Targets (Daily × 5 business days)
 const weeklyRevenueTargets = [
-  { name: 'HVAC Install', values: ['$120,995', '$97,545', '$131,885', '$178,830', '$274,205', '$301,775', '$297,305', '$312,760', '$174,940', '$144,525', '$136,675', '$119,595', '$191,605'] },
-  { name: 'HVAC Service', values: ['$26,485', '$21,350', '$28,870', '$39,145', '$60,020', '$66,055', '$65,075', '$68,460', '$38,295', '$31,635', '$29,915', '$26,180', '$41,940'] },
-  { name: 'HVAC Maint.', values: ['$6,620', '$5,340', '$7,215', '$9,785', '$15,005', '$16,515', '$16,270', '$17,115', '$9,575', '$7,910', '$7,480', '$6,545', '$10,485'] },
-  { name: 'Plumbing', values: ['$27,740', '$35,555', '$32,595', '$32,595', '$34,765', '$32,595', '$38,025', '$38,835', '$39,680', '$42,570', '$49,665', '$43,460', '$37,250'] },
-  { name: 'TOTAL', values: ['$181,840', '$159,790', '$200,565', '$260,355', '$384,000', '$416,940', '$416,675', '$437,175', '$262,490', '$226,640', '$223,740', '$195,775', '$281,280'], isTotal: true },
+  { name: 'HVAC Install', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Install'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Install'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
+  { name: 'HVAC Service', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Service'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Service'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
+  { name: 'HVAC Maint.', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['HVAC Maintenance'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['HVAC Maintenance'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
+  { name: 'Plumbing', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['Plumbing'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['Plumbing'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)] },
+  { name: 'TOTAL', values: [...calcWeekly(calcDaily(MONTHLY_TARGETS['TOTAL'], businessDaysPerMonth)).map(formatCurrencyFull), formatCurrencyFull(Math.round(MONTHLY_TARGETS['TOTAL'].reduce((a, b) => a + b, 0) / businessDaysPerMonth.reduce((a, b) => a + b, 0)) * 5)], isTotal: true },
 ];
-
-// Business days per month
-const businessDaysPerMonth = [22, 20, 22, 22, 21, 22, 22, 21, 21, 22, 20, 22];
 
 // Review Targets from spreadsheet
 const reviewTargets = {

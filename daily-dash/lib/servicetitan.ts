@@ -582,32 +582,37 @@ export class ServiceTitanClient {
     const hvacInstallNonJobRevenue = 0;
     const hvacServiceNonJobRevenue = 0;
 
-    // For trade-level metrics, use completedRevenue as the main revenue
-    // ServiceTitan doesn't attribute non-job revenue to specific trades
+    // Calculate Total Revenue = Completed + Non-Job + Adj (matches ServiceTitan "Total Revenue")
+    const hvacTotalRevenue = hvacCompletedRevenue + hvacNonJobRevenue + hvacAdjRevenue;
+    const plumbingTotalRevenue = plumbingCompletedRevenue + plumbingNonJobRevenue + plumbingAdjRevenue;
+    const hvacInstallTotalRevenue = hvacInstallCompletedRevenue + hvacInstallNonJobRevenue + hvacInstallAdjRevenue;
+    const hvacServiceTotalRevenue = hvacServiceCompletedRevenue + hvacServiceNonJobRevenue + hvacServiceAdjRevenue;
+    const hvacMaintenanceTotalRevenue = hvacMaintenanceCompletedRevenue + hvacMaintenanceNonJobRevenue + hvacMaintenanceAdjRevenue;
+
     return {
       hvac: {
         completedRevenue: hvacCompletedRevenue,
         nonJobRevenue: hvacNonJobRevenue,
         adjRevenue: hvacAdjRevenue,
-        revenue: hvacCompletedRevenue, // Use completed only - matches ST trade breakdown
+        revenue: hvacTotalRevenue, // Total Revenue = Completed + Non-Job + Adj
         departments: {
           install: {
             completedRevenue: hvacInstallCompletedRevenue,
             nonJobRevenue: hvacInstallNonJobRevenue,
             adjRevenue: hvacInstallAdjRevenue,
-            revenue: hvacInstallCompletedRevenue,
+            revenue: hvacInstallTotalRevenue,
           },
           service: {
             completedRevenue: hvacServiceCompletedRevenue,
             nonJobRevenue: hvacServiceNonJobRevenue,
             adjRevenue: hvacServiceAdjRevenue,
-            revenue: hvacServiceCompletedRevenue,
+            revenue: hvacServiceTotalRevenue,
           },
           maintenance: {
             completedRevenue: hvacMaintenanceCompletedRevenue,
             nonJobRevenue: hvacMaintenanceNonJobRevenue,
             adjRevenue: hvacMaintenanceAdjRevenue,
-            revenue: hvacMaintenanceCompletedRevenue,
+            revenue: hvacMaintenanceTotalRevenue,
           },
         },
       },
@@ -615,7 +620,7 @@ export class ServiceTitanClient {
         completedRevenue: plumbingCompletedRevenue,
         nonJobRevenue: plumbingNonJobRevenue,
         adjRevenue: plumbingAdjRevenue,
-        revenue: plumbingCompletedRevenue, // Use completed only - matches ST trade breakdown
+        revenue: plumbingTotalRevenue, // Total Revenue = Completed + Non-Job + Adj
       },
     };
   }
