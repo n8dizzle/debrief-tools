@@ -12,6 +12,28 @@ interface TradeMetrics {
   };
 }
 
+// Trade targets
+interface HVACTargets {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  quarterly: number;
+  annual: number;
+  departments: {
+    install: number;
+    service: number;
+    maintenance: number;
+  };
+}
+
+interface PlumbingTargets {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  quarterly: number;
+  annual: number;
+}
+
 // All trade data across time periods
 interface TradeData {
   hvac: {
@@ -20,6 +42,7 @@ interface TradeData {
     mtd: TradeMetrics;
     qtd: TradeMetrics;
     ytd: TradeMetrics;
+    targets?: HVACTargets;
   };
   plumbing: {
     today: { revenue: number };
@@ -27,6 +50,7 @@ interface TradeData {
     mtd: { revenue: number };
     qtd: { revenue: number };
     ytd: { revenue: number };
+    targets?: PlumbingTargets;
   };
 }
 
@@ -549,6 +573,10 @@ export default function DashboardPage() {
   const plumbingQtd = trades?.plumbing?.qtd?.revenue || 0;
   const plumbingYtd = trades?.plumbing?.ytd?.revenue || 0;
 
+  // Trade targets from API
+  const hvacTargets = trades?.hvac?.targets;
+  const plumbingTargets = trades?.plumbing?.targets;
+
   // Calculate pacing percentages
   const dailyPacing = getDailyPacingPercent();
   const weeklyPacing = getWeeklyPacingPercent();
@@ -756,7 +784,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Today"
             revenue={hvacToday}
-            target={dailyTarget * 0.85} // ~85% of company is HVAC
+            target={hvacTargets?.daily || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={dailyPacing}
@@ -764,7 +792,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Week"
             revenue={hvacWtd}
-            target={weeklyTarget * 0.85}
+            target={hvacTargets?.weekly || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={weeklyPacing}
@@ -772,7 +800,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Month"
             revenue={hvacMtd}
-            target={monthlyTarget * 0.85}
+            target={hvacTargets?.monthly || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={monthlyPacing}
@@ -780,7 +808,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Quarter"
             revenue={hvacQtd}
-            target={quarterlyTarget * 0.85}
+            target={hvacTargets?.quarterly || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={quarterlyPacing}
@@ -788,7 +816,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Year"
             revenue={hvacYtd}
-            target={annualTarget * 0.85}
+            target={hvacTargets?.annual || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={annualPacing}
@@ -808,7 +836,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Install"
             revenue={hvacInstallMtd}
-            target={569000}
+            target={hvacTargets?.departments?.install || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={monthlyPacing}
@@ -816,7 +844,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Service"
             revenue={hvacServiceMtd}
-            target={124000}
+            target={hvacTargets?.departments?.service || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={monthlyPacing}
@@ -824,7 +852,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Maintenance"
             revenue={hvacMaintenanceMtd}
-            target={31000}
+            target={hvacTargets?.departments?.maintenance || 0}
             loading={loading}
             accentColor="#3B82F6"
             expectedPacing={monthlyPacing}
@@ -860,7 +888,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Today"
             revenue={plumbingToday}
-            target={dailyTarget * 0.15} // ~15% of company is Plumbing
+            target={plumbingTargets?.daily || 0}
             loading={loading}
             accentColor="#8B5CF6"
             expectedPacing={dailyPacing}
@@ -868,7 +896,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Week"
             revenue={plumbingWtd}
-            target={weeklyTarget * 0.15}
+            target={plumbingTargets?.weekly || 0}
             loading={loading}
             accentColor="#8B5CF6"
             expectedPacing={weeklyPacing}
@@ -876,7 +904,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Month"
             revenue={plumbingMtd}
-            target={monthlyTarget * 0.15}
+            target={plumbingTargets?.monthly || 0}
             loading={loading}
             accentColor="#8B5CF6"
             expectedPacing={monthlyPacing}
@@ -884,7 +912,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Quarter"
             revenue={plumbingQtd}
-            target={quarterlyTarget * 0.15}
+            target={plumbingTargets?.quarterly || 0}
             loading={loading}
             accentColor="#8B5CF6"
             expectedPacing={quarterlyPacing}
@@ -892,7 +920,7 @@ export default function DashboardPage() {
           <MiniTradeCard
             label="Year"
             revenue={plumbingYtd}
-            target={annualTarget * 0.15}
+            target={plumbingTargets?.annual || 0}
             loading={loading}
             accentColor="#8B5CF6"
             expectedPacing={annualPacing}
