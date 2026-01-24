@@ -262,20 +262,27 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
       {/* Revenue / Sales Display */}
       {hasSales ? (
         <>
-          {/* Combined Revenue / Sales with labels */}
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-              {loading ? '...' : formatCurrencyCompact(revenue)}
-            </span>
-            <span className="text-lg" style={{ color: 'var(--text-muted)' }}>/</span>
-            <span className="text-2xl font-bold" style={{ color: 'var(--christmas-gold)' }}>
-              {loading ? '...' : formatCurrencyCompact(sales)}
-            </span>
+          {/* Revenue and Sales side by side with labels underneath */}
+          <div className="flex items-start gap-4 mb-1">
+            {/* Revenue column */}
+            <div className="text-center">
+              <span className="text-2xl font-bold block" style={{ color: 'var(--christmas-cream)' }}>
+                {loading ? '...' : formatCurrencyCompact(revenue)}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Revenue
+              </span>
+            </div>
+            {/* Sales column */}
+            <div className="text-center">
+              <span className="text-2xl font-bold block" style={{ color: 'var(--christmas-gold)' }}>
+                {loading ? '...' : formatCurrencyCompact(sales)}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Sales
+              </span>
+            </div>
           </div>
-          {/* Labels */}
-          <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
-            revenue / sales
-          </p>
         </>
       ) : (
         /* Original revenue-only display */
