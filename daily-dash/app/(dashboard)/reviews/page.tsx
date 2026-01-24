@@ -93,8 +93,12 @@ interface UserPermissions {
 
 interface LeaderboardEntry {
   name: string;
-  count: number;
-  five_star_count: number;
+  wtd: number;
+  mtd: number;
+  ytd: number;
+  five_star_wtd: number;
+  five_star_mtd: number;
+  five_star_ytd: number;
 }
 
 // Period presets
@@ -684,125 +688,89 @@ function GoalProgress({
 }
 
 function LocationsTable({ locations }: { locations: LocationStats[] }) {
-  const [showAllModal, setShowAllModal] = useState(false);
-  const displayLocations = locations.slice(0, 5);
-  const hasMore = locations.length > 5;
-
-  const renderTable = (data: LocationStats[]) => (
-    <table className="w-full">
-      <thead>
-        <tr className="text-xs" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
-          <th className="text-left py-2 px-4 font-medium">Location</th>
-          <th className="text-right py-2 px-4 font-medium">Rating</th>
-          <th className="text-right py-2 px-4 font-medium">Period</th>
-          <th className="text-right py-2 px-4 font-medium">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((location, index) => {
-          const changePercent = location.period_change_percent;
-          const isPositive = changePercent !== null && changePercent > 0;
-          const isNegative = changePercent !== null && changePercent < 0;
-
-          return (
-            <tr
-              key={location.id}
-              className="transition-colors hover:opacity-80"
-              style={{
-                borderBottom: index < data.length - 1 ? '1px solid rgba(212, 197, 169, 0.1)' : 'none',
-              }}
-            >
-              <td className="py-2.5 px-4">
-                <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{location.short_name}</span>
-              </td>
-              <td className="py-2.5 px-4 text-right">
-                <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>{location.average_rating.toFixed(1)} ★</span>
-              </td>
-              <td className="py-2.5 px-4 text-right">
-                <span className="text-sm font-medium" style={{ color: 'var(--christmas-green)' }}>{location.reviews_this_period}</span>
-                {changePercent !== null && (
-                  <span
-                    className="text-xs ml-1"
-                    style={{
-                      color: isPositive ? 'var(--christmas-green)' : isNegative ? '#EF4444' : 'var(--text-muted)'
-                    }}
-                  >
-                    {isPositive ? '+' : ''}{Math.round(changePercent)}%
-                  </span>
-                )}
-              </td>
-              <td className="py-2.5 px-4 text-right">
-                <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{location.total_reviews.toLocaleString()}</span>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-
   return (
-    <>
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
-      >
-        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>By Location</h3>
-          {hasMore && (
-            <button
-              onClick={() => setShowAllModal(true)}
-              className="text-xs transition-colors hover:opacity-80"
-              style={{ color: 'var(--christmas-gold)' }}
-            >
-              View all {locations.length} →
-            </button>
-          )}
-        </div>
-        <div className="overflow-x-auto">
-          {renderTable(displayLocations)}
-        </div>
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+    >
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>By Location</h3>
       </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="text-xs" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+              <th className="text-left py-2 px-4 font-medium">Location</th>
+              <th className="text-right py-2 px-4 font-medium">Rating</th>
+              <th className="text-right py-2 px-4 font-medium">Period</th>
+              <th className="text-right py-2 px-4 font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {locations.map((location, index) => {
+              const changePercent = location.period_change_percent;
+              const isPositive = changePercent !== null && changePercent > 0;
+              const isNegative = changePercent !== null && changePercent < 0;
 
-      {/* Full List Modal */}
-      {showAllModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => setShowAllModal(false)}
-          />
-          <div
-            className="relative w-full max-w-lg max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
-            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
-          >
-            <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-                All Locations ({locations.length})
-              </h3>
-              <button
-                onClick={() => setShowAllModal(false)}
-                className="p-2 rounded-lg transition-colors hover:bg-white/10"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              {renderTable(locations)}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+              return (
+                <tr
+                  key={location.id}
+                  className="transition-colors hover:opacity-80"
+                  style={{
+                    borderBottom: index < locations.length - 1 ? '1px solid rgba(212, 197, 169, 0.1)' : 'none',
+                  }}
+                >
+                  <td className="py-2 px-4">
+                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{location.short_name}</span>
+                  </td>
+                  <td className="py-2 px-4 text-right">
+                    <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>{location.average_rating.toFixed(1)} ★</span>
+                  </td>
+                  <td className="py-2 px-4 text-right">
+                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-green)' }}>{location.reviews_this_period}</span>
+                    {changePercent !== null && (
+                      <span
+                        className="text-xs ml-1"
+                        style={{
+                          color: isPositive ? 'var(--christmas-green)' : isNegative ? '#EF4444' : 'var(--text-muted)'
+                        }}
+                      >
+                        {isPositive ? '+' : ''}{Math.round(changePercent)}%
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-right">
+                    <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{location.total_reviews.toLocaleString()}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
-function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loading: boolean }) {
+type SortField = 'wtd' | 'mtd' | 'ytd';
+
+function Leaderboard({
+  entries,
+  loading,
+  showWtd = true,
+  showMtd = true,
+}: {
+  entries: LeaderboardEntry[];
+  loading: boolean;
+  showWtd?: boolean;
+  showMtd?: boolean;
+}) {
+  const [sortBy, setSortBy] = useState<SortField>('ytd');
   const [showAllModal, setShowAllModal] = useState(false);
-  const displayEntries = entries.slice(0, 5);
-  const hasMore = entries.length > 5;
+
+  const sortedEntries = [...entries].sort((a, b) => b[sortBy] - a[sortBy]);
+  const displayEntries = sortedEntries.slice(0, 5);
+  const hasMore = sortedEntries.length > 5;
 
   if (loading) {
     return (
@@ -838,13 +806,49 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
     );
   }
 
+  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+    <button
+      onClick={() => setSortBy(field)}
+      className="px-2 py-1 text-xs font-medium rounded transition-colors"
+      style={{
+        backgroundColor: sortBy === field ? 'var(--christmas-green)' : 'transparent',
+        color: sortBy === field ? 'var(--christmas-cream)' : 'var(--text-muted)',
+      }}
+    >
+      {label}
+    </button>
+  );
+
   const renderTable = (data: LeaderboardEntry[]) => (
     <table className="w-full">
       <thead>
         <tr className="text-xs" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
-          <th className="text-left py-2 px-4 font-medium">Team Member</th>
-          <th className="text-right py-2 px-4 font-medium">5★</th>
-          <th className="text-right py-2 px-4 font-medium">Total</th>
+          <th className="text-left py-2 px-4 font-medium">Name</th>
+          {showWtd && (
+            <th
+              className="text-right py-2 px-3 font-medium cursor-pointer hover:opacity-80"
+              style={{ color: sortBy === 'wtd' ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
+              onClick={() => setSortBy('wtd')}
+            >
+              WTD {sortBy === 'wtd' && '▼'}
+            </th>
+          )}
+          {showMtd && (
+            <th
+              className="text-right py-2 px-3 font-medium cursor-pointer hover:opacity-80"
+              style={{ color: sortBy === 'mtd' ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
+              onClick={() => setSortBy('mtd')}
+            >
+              MTD {sortBy === 'mtd' && '▼'}
+            </th>
+          )}
+          <th
+            className="text-right py-2 px-3 font-medium cursor-pointer hover:opacity-80"
+            style={{ color: sortBy === 'ytd' ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
+            onClick={() => setSortBy('ytd')}
+          >
+            YTD {sortBy === 'ytd' && '▼'}
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -859,13 +863,24 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
             <td className="py-2.5 px-4">
               <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
             </td>
-            <td className="py-2.5 px-4 text-right">
-              <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>
-                {entry.five_star_count > 0 ? entry.five_star_count : '-'}
+            {showWtd && (
+              <td className="py-2.5 px-3 text-right">
+                <span className="text-sm" style={{ color: sortBy === 'wtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                  {entry.wtd > 0 ? entry.wtd : '-'}
+                </span>
+              </td>
+            )}
+            {showMtd && (
+              <td className="py-2.5 px-3 text-right">
+                <span className="text-sm" style={{ color: sortBy === 'mtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                  {entry.mtd > 0 ? entry.mtd : '-'}
+                </span>
+              </td>
+            )}
+            <td className="py-2.5 px-3 text-right">
+              <span className="text-sm font-medium" style={{ color: sortBy === 'ytd' ? 'var(--christmas-green)' : 'var(--text-secondary)' }}>
+                {entry.ytd}
               </span>
-            </td>
-            <td className="py-2.5 px-4 text-right">
-              <span className="text-sm font-medium" style={{ color: 'var(--christmas-green)' }}>{entry.count}</span>
             </td>
           </tr>
         ))}
@@ -881,15 +896,17 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
       >
         <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
-          {hasMore && (
-            <button
-              onClick={() => setShowAllModal(true)}
-              className="text-xs transition-colors hover:opacity-80"
-              style={{ color: 'var(--christmas-gold)' }}
-            >
-              View all {entries.length} →
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {hasMore && (
+              <button
+                onClick={() => setShowAllModal(true)}
+                className="text-xs transition-colors hover:opacity-80"
+                style={{ color: 'var(--christmas-gold)' }}
+              >
+                View all {sortedEntries.length} →
+              </button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto">
           {renderTable(displayEntries)}
@@ -904,12 +921,12 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
             onClick={() => setShowAllModal(false)}
           />
           <div
-            className="relative w-full max-w-lg max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
+            className="relative w-full max-w-xl max-h-[80vh] overflow-hidden rounded-xl flex flex-col"
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
             <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-                All Team Members ({entries.length})
+                All Team Members ({sortedEntries.length})
               </h3>
               <button
                 onClick={() => setShowAllModal(false)}
@@ -922,7 +939,7 @@ function Leaderboard({ entries, loading }: { entries: LeaderboardEntry[]; loadin
               </button>
             </div>
             <div className="overflow-y-auto flex-1">
-              {renderTable(entries)}
+              {renderTable(sortedEntries)}
             </div>
           </div>
         </div>
@@ -1494,6 +1511,8 @@ export default function ReviewsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [showWtd, setShowWtd] = useState(true);
+  const [showMtd, setShowMtd] = useState(true);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({ canReplyReviews: false });
   const [syncingTeam, setSyncingTeam] = useState(false);
   const [teamMemberCount, setTeamMemberCount] = useState<number | null>(null);
@@ -1658,6 +1677,7 @@ export default function ReviewsPage() {
       setLeaderboardLoading(true);
       try {
         const params = new URLSearchParams({
+          period,
           startDate: periodDates.start.toISOString(),
           endDate: periodDates.end.toISOString(),
         });
@@ -1667,6 +1687,8 @@ export default function ReviewsPage() {
         if (response.ok) {
           const data = await response.json();
           setLeaderboard(data.leaderboard || []);
+          setShowWtd(data.showWtd !== false);
+          setShowMtd(data.showMtd !== false);
         }
       } catch (error) {
         console.error('Failed to fetch leaderboard:', error);
@@ -1676,7 +1698,7 @@ export default function ReviewsPage() {
     }
 
     fetchLeaderboard();
-  }, [periodDates.start, periodDates.end]);
+  }, [period, periodDates.start, periodDates.end]);
 
   // Fetch reviews with caching
   useEffect(() => {
@@ -1997,7 +2019,7 @@ export default function ReviewsPage() {
 
       {/* Leaderboard and Locations Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Leaderboard entries={leaderboard} loading={leaderboardLoading} />
+        <Leaderboard entries={leaderboard} loading={leaderboardLoading} showWtd={showWtd} showMtd={showMtd} />
         <LocationsTable locations={[...stats.locations].sort((a, b) => b.total_reviews - a.total_reviews)} />
       </div>
 
