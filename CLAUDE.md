@@ -42,7 +42,28 @@ Shows where revenue should be based on elapsed business time:
 - **Weekly pacing**: Based on business days elapsed (Mon-Sat = 6 days)
 - **Monthly pacing**: Based on business days elapsed vs total in month
 - **Quarterly pacing**: Based on business days elapsed in quarter
-- **Annual pacing**: Uses actual monthly target weights (not equal 1/12 distribution)
+- **Annual pacing**: Uses seasonal monthly target weights (calculated server-side)
+
+#### Annual Pacing Calculation (Fixed Jan 23, 2026)
+**Problem**: Previous calculation only worked for January - it didn't sum prior months' targets.
+
+**Solution**: Moved calculation to server-side API (`/api/huddle/route.ts`) where all monthly targets are available.
+
+**Formula**:
+```
+Expected YTD = Sum of completed months' targets (100%) + Current month's target × (business days elapsed / total business days)
+```
+
+**Example for July 15th** (halfway through July):
+- Jan-Jun targets complete: $855K + $703K + $963K + $1.25M + $1.73M + $2M = $7.5M
+- July prorated (50%): $2M × 0.5 = $1M
+- Expected YTD: $8.5M
+- As % of annual ($15.75M): **54%** (not 58% from equal 7/12 weights)
+
+**Code locations**:
+- Server calculation: `daily-dash/app/api/huddle/route.ts` - `expectedAnnualPacingPercent`
+- Frontend usage: `daily-dash/app/(dashboard)/page.tsx` - `pacing?.expectedAnnualPacingPercent`
+- Monthly targets: `dash_monthly_targets` table with seasonal weights from Google Sheet
 
 #### Dashboard Layout
 - **4 time-period cards**: Today, This Week, This Month, This Quarter
