@@ -9,7 +9,49 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 4. **Marketing Hub** (`/marketing-hub`) - LIVE at https://marketing.christmasair.com
 
-## Recent Updates (Jan 24, 2026) - Marketing Hub GBP Performance Dashboard
+## Recent Updates (Jan 25, 2026) - Local Service Ads (LSA) Integration
+
+### Marketing Hub - LSA Dashboard
+
+Added Local Service Ads page to Marketing Hub with Google Ads API integration.
+
+**URL**: https://marketing.christmasair.com/lsa
+
+#### Features
+- **Performance Overview Cards**: Total Leads, Total Spend, Impressions, Conversion Rate
+- **Lead Type Breakdown**: Phone calls, Messages, Bookings
+- **Lead Status Breakdown**: New, Booked, Active, etc.
+- **Recent Leads Table**: Sortable list of all leads with details
+- **Period Selector**: 7d, 30d, 90d filtering
+
+#### New Files
+| File | Purpose |
+|------|---------|
+| `lib/google-ads.ts` | Google Ads API client for LSA data |
+| `app/api/lsa/leads/route.ts` | GET leads with date filtering |
+| `app/api/lsa/performance/route.ts` | GET performance metrics |
+| `app/(dashboard)/lsa/page.tsx` | LSA dashboard UI |
+
+#### Google Ads API Integration
+Uses `google-ads-api` npm package to query:
+- `local_services_lead` - Lead data (phone calls, messages, bookings)
+- Campaign performance for `LOCAL_SERVICES` channel type
+
+#### Environment Variables (Vercel)
+```bash
+GOOGLE_ADS_DEVELOPER_TOKEN=xxx
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=xxx
+GOOGLE_ADS_CLIENT_ID=xxx
+GOOGLE_ADS_CLIENT_SECRET=xxx
+GOOGLE_ADS_REFRESH_TOKEN=xxx
+```
+
+#### Permission Required
+- `can_view_analytics` in `marketing_hub` permissions
+
+---
+
+## Previous Updates (Jan 24, 2026) - Marketing Hub GBP Performance Dashboard
 
 ### Marketing Hub - GBP Performance Insights
 
