@@ -7,7 +7,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
-4. **Marketing Hub** (`/marketing-hub`) - LIVE at https://marketing-hub-nu.vercel.app
+4. **Marketing Hub** (`/marketing-hub`) - LIVE at https://marketing.christmasair.com
 
 ## Recent Updates (Jan 24, 2026) - Marketing Hub Launch
 
@@ -15,7 +15,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 
 Created a new Marketing Hub application to consolidate all marketing operations for Christmas Air. GBP posting feature migrated from Daily Dash.
 
-**URL**: https://marketing-hub-nu.vercel.app
+**URL**: https://marketing.christmasair.com
 **Port**: 3002 (local development)
 
 #### Features
@@ -86,7 +86,7 @@ export interface MarketingHubPermissions {
 #### Environment Variables
 Same as Daily Dash, plus GBP credentials:
 ```bash
-NEXTAUTH_URL=https://marketing-hub-nu.vercel.app
+NEXTAUTH_URL=https://marketing.christmasair.com
 GOOGLE_BUSINESS_CLIENT_ID=
 GOOGLE_BUSINESS_CLIENT_SECRET=
 GOOGLE_BUSINESS_REFRESH_TOKEN=
@@ -94,7 +94,7 @@ GOOGLE_BUSINESS_REFRESH_TOKEN=
 
 #### Google OAuth Setup
 Add callback URL to Google Cloud Console:
-- `https://marketing-hub-nu.vercel.app/api/auth/callback/google`
+- `https://marketing.christmasair.com/api/auth/callback/google`
 
 ---
 
