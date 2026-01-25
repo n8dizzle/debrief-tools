@@ -7,8 +7,98 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
 2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
+4. **Marketing Hub** (`/marketing-hub`) - LIVE at https://marketing-hub-nu.vercel.app
 
-## Recent Updates (Jan 24, 2026) - Reviews Page Enhancements
+## Recent Updates (Jan 24, 2026) - Marketing Hub Launch
+
+### Marketing Hub - NEW APP DEPLOYED
+
+Created a new Marketing Hub application to consolidate all marketing operations for Christmas Air. GBP posting feature migrated from Daily Dash.
+
+**URL**: https://marketing-hub-nu.vercel.app
+**Port**: 3002 (local development)
+
+#### Features
+- **GBP Posts**: Create, edit, and publish posts to all 8 Google Business Profile locations
+- **Media Library**: Upload and manage images for GBP posts
+- **Task Management**: Track daily/weekly/monthly marketing tasks
+
+#### Database Tables
+- `marketing_tasks` - Marketing task tracking with recurrence support
+
+```sql
+CREATE TABLE marketing_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  task_type TEXT NOT NULL CHECK (task_type IN ('daily', 'weekly', 'monthly', 'one_time')),
+  category TEXT CHECK (category IN ('social', 'gbp', 'reviews', 'reporting', 'other')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'skipped')),
+  due_date DATE,
+  recurrence_day INTEGER,
+  assigned_to UUID REFERENCES portal_users(id),
+  completed_at TIMESTAMPTZ,
+  completed_by UUID REFERENCES portal_users(id),
+  notes TEXT,
+  created_by UUID REFERENCES portal_users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### New Permission Group: `marketing_hub`
+```typescript
+export interface MarketingHubPermissions {
+  can_manage_gbp_posts?: boolean;
+  can_view_analytics?: boolean;
+  can_view_social?: boolean;
+  can_manage_tasks?: boolean;
+  can_sync_data?: boolean;
+}
+```
+
+#### API Routes
+| Route | Methods | Purpose |
+|-------|---------|---------|
+| `/api/tasks` | GET, POST | List/create marketing tasks |
+| `/api/tasks/[id]` | GET, PATCH, DELETE | Get/update/delete task |
+| `/api/gbp/posts` | GET, POST | List posts, create draft |
+| `/api/gbp/posts/[id]` | GET, PATCH, DELETE | Get/update/delete post |
+| `/api/gbp/posts/[id]/publish` | POST | Publish to all locations |
+| `/api/gbp/media` | GET, POST | List/upload media |
+| `/api/gbp/media/[id]` | GET, DELETE | Get/delete media |
+| `/api/gbp/locations` | GET | List configured GBP locations |
+
+#### UI Pages
+| Page | Purpose |
+|------|---------|
+| `/` | Dashboard overview |
+| `/posts` | GBP posts list with status |
+| `/posts/new` | Post composer form |
+| `/posts/[id]` | Post detail/status view |
+| `/tasks` | Marketing task management |
+
+#### Migration from Daily Dash
+- GBP posting feature moved from Daily Dash to Marketing Hub
+- Removed from Daily Dash: `/posts`, `/api/gbp/*`, `PostComposer.tsx`, `MediaPicker.tsx`, `google-business.ts`
+- Permission namespace changed from `daily_dash.can_manage_gbp_posts` to `marketing_hub.can_manage_gbp_posts`
+
+#### Environment Variables
+Same as Daily Dash, plus GBP credentials:
+```bash
+NEXTAUTH_URL=https://marketing-hub-nu.vercel.app
+GOOGLE_BUSINESS_CLIENT_ID=
+GOOGLE_BUSINESS_CLIENT_SECRET=
+GOOGLE_BUSINESS_REFRESH_TOKEN=
+```
+
+#### Google OAuth Setup
+Add callback URL to Google Cloud Console:
+- `https://marketing-hub-nu.vercel.app/api/auth/callback/google`
+
+---
+
+## Previous Updates (Jan 24, 2026) - Reviews Page Enhancements
 
 ### Daily Dash - Reviews Page UI & Features
 
@@ -71,9 +161,11 @@ const periodDates = useMemo(() =>
 
 ## Previous Updates (Jan 24, 2026) - Google Business Profile Post Management
 
-### Daily Dash - GBP Post Management
+### ~~Daily Dash~~ → Marketing Hub - GBP Post Management
 
-Added ability to create and publish posts (Updates, Offers, Events) to all 8 Christmas Air Google Business Profile locations from Daily Dash.
+> **Note**: This feature has been migrated from Daily Dash to Marketing Hub as of Jan 24, 2026.
+
+Added ability to create and publish posts (Updates, Offers, Events) to all 8 Christmas Air Google Business Profile locations.
 
 #### Database Changes (Migration Required)
 Run the SQL migration at `daily-dash/migrations/001_gbp_posts_tables.sql`:
