@@ -5,6 +5,10 @@ import { getServerSupabase } from "@/lib/supabase";
 // Allowed email domains - add your company domain(s)
 const ALLOWED_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || "christmasair.com").split(",");
 
+// Check if we're in production (on christmasair.com domain)
+const isProduction = process.env.NODE_ENV === 'production' &&
+  process.env.NEXTAUTH_URL?.includes('christmasair.com');
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -12,6 +16,37 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  // Share session cookie across all christmasair.com subdomains
+  cookies: isProduction ? {
+    sessionToken: {
+      name: '__Secure-next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: '.christmasair.com',
+      },
+    },
+    callbackUrl: {
+      name: '__Secure-next-auth.callback-url',
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: '.christmasair.com',
+      },
+    },
+    csrfToken: {
+      name: '__Host-next-auth.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+      },
+    },
+  } : undefined,
   callbacks: {
     async signIn({ user }) {
       try {
