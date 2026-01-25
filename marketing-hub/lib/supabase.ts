@@ -144,3 +144,23 @@ export interface MarketingTask {
   completed_by_user?: PortalUser;
   created_by_user?: PortalUser;
 }
+
+// ============================================
+// GBP INSIGHTS CACHE TYPES
+// ============================================
+
+export interface GBPInsightsCache {
+  id: string;
+  location_id: string;
+  date: string;
+  views_maps: number;
+  views_search: number;
+  website_clicks: number;
+  phone_calls: number;
+  direction_requests: number;
+  bookings: number;
+  fetched_at: string;
+  created_at: string;
+  // Joined data
+  location?: GoogleLocation;
+}

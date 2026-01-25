@@ -9,7 +9,60 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 3. **Daily Dash** (`/daily-dash`) - LIVE at https://dash.christmasair.com
 4. **Marketing Hub** (`/marketing-hub`) - LIVE at https://marketing.christmasair.com
 
-## Recent Updates (Jan 24, 2026) - Marketing Hub Launch
+## Recent Updates (Jan 24, 2026) - Marketing Hub GBP Performance Dashboard
+
+### Marketing Hub - GBP Performance Insights
+
+Added real GBP performance metrics to the Marketing Hub dashboard.
+
+#### New Features
+- **GBP Performance Stats**: Views, Website Clicks, Phone Calls from all 8 locations
+- **Location Comparison Chart**: Horizontal bar chart comparing all locations
+  - Toggle between metrics: Views | Calls | Clicks | Directions
+  - Period selector: 7d | 30d | 90d
+  - Sorted by highest performer
+- **Real Tasks Due Today**: Pulls pending tasks from database
+- **Recent Activity**: Shows published GBP posts
+- **Sync Data Button**: Refresh all metrics from Google API
+
+#### New Database Table
+```sql
+CREATE TABLE gbp_insights_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  location_id UUID NOT NULL REFERENCES google_locations(id),
+  date DATE NOT NULL,
+  views_maps INTEGER DEFAULT 0,
+  views_search INTEGER DEFAULT 0,
+  website_clicks INTEGER DEFAULT 0,
+  phone_calls INTEGER DEFAULT 0,
+  direction_requests INTEGER DEFAULT 0,
+  bookings INTEGER DEFAULT 0,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(location_id, date)
+);
+```
+
+#### New API Route
+| Route | Methods | Purpose |
+|-------|---------|---------|
+| `/api/gbp/insights` | GET | Fetch GBP performance metrics |
+
+**Query params:**
+- `period`: 7d | 30d | 90d (default: 30d)
+- `refresh`: true - Force refresh from Google API
+
+#### New Components
+- `LocationComparisonChart.tsx` - Recharts horizontal bar chart
+
+#### Google API Used
+- Business Profile Performance API (`businessprofileperformance.googleapis.com`)
+- Metrics: `BUSINESS_IMPRESSIONS_*`, `CALL_CLICKS`, `WEBSITE_CLICKS`, `BUSINESS_DIRECTION_REQUESTS`
+
+**Note**: Data has 2-3 day delay from Google.
+
+---
+
+## Previous Updates (Jan 24, 2026) - Marketing Hub Launch
 
 ### Marketing Hub - NEW APP DEPLOYED
 

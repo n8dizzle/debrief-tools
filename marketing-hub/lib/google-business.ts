@@ -127,6 +127,78 @@ const STAR_RATING_MAP: Record<string, number> = {
   'FIVE': 5,
 };
 
+// ============================================
+// GBP INSIGHTS/PERFORMANCE TYPES
+// ============================================
+
+export type InsightMetric =
+  | 'BUSINESS_IMPRESSIONS_DESKTOP_MAPS'
+  | 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH'
+  | 'BUSINESS_IMPRESSIONS_MOBILE_MAPS'
+  | 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH'
+  | 'BUSINESS_CONVERSATIONS'
+  | 'BUSINESS_DIRECTION_REQUESTS'
+  | 'CALL_CLICKS'
+  | 'WEBSITE_CLICKS'
+  | 'BUSINESS_BOOKINGS'
+  | 'BUSINESS_FOOD_ORDERS'
+  | 'BUSINESS_FOOD_MENU_CLICKS';
+
+export interface DailyMetricValue {
+  date: { year: number; month: number; day: number };
+  value?: string;
+}
+
+export interface TimeSeries {
+  datedValues: DailyMetricValue[];
+}
+
+export interface DailyMetricTimeSeries {
+  dailyMetric: InsightMetric;
+  timeSeries: TimeSeries;
+}
+
+export interface InsightsResponse {
+  multiDailyMetricTimeSeries?: DailyMetricTimeSeries[];
+  nextPageToken?: string;
+}
+
+// Aggregated insights for dashboard display
+export interface LocationInsights {
+  locationId: string;
+  locationName: string;
+  period: { start: string; end: string };
+  viewsMaps: number;
+  viewsSearch: number;
+  totalViews: number;
+  websiteClicks: number;
+  phoneCalls: number;
+  directionRequests: number;
+  bookings: number;
+}
+
+export interface AggregatedInsights {
+  period: { start: string; end: string };
+  previousPeriod: { start: string; end: string };
+  current: {
+    totalViews: number;
+    viewsMaps: number;
+    viewsSearch: number;
+    websiteClicks: number;
+    phoneCalls: number;
+    directionRequests: number;
+  };
+  previous: {
+    totalViews: number;
+    viewsMaps: number;
+    viewsSearch: number;
+    websiteClicks: number;
+    phoneCalls: number;
+    directionRequests: number;
+  };
+  byLocation: LocationInsights[];
+}
+
 export function starRatingToNumber(rating: string): number {
   return STAR_RATING_MAP[rating] || 0;
 }
@@ -612,6 +684,259 @@ export class GoogleBusinessClient {
     }
 
     return response.json();
+  }
+
+  // ============================================
+  // INSIGHTS/PERFORMANCE METHODS
+  // ============================================
+
+  /**
+   * Get performance insights for a specific location
+   * Uses the Business Profile Performance API
+   * @param locationName - Full location name (e.g., "locations/12345678901234567")
+   * @param startDate - Start date in YYYY-MM-DD format
+   * @param endDate - End date in YYYY-MM-DD format
+   * @returns Daily metric time series for the location
+   */
+  async getLocationInsights(
+    locationName: string,
+    startDate: string,
+    endDate: string
+  ): Promise<InsightsResponse> {
+    if (!this.oauth2Client) {
+      throw new Error('Google Business client not configured');
+    }
+
+    const accessToken = await this.oauth2Client.getAccessToken();
+
+    // Parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Build the request body for fetchMultiDailyMetricsTimeSeries
+    const requestBody = {
+      dailyRange: {
+        startDate: {
+          year: start.getFullYear(),
+          month: start.getMonth() + 1,
+          day: start.getDate(),
+        },
+        endDate: {
+          year: end.getFullYear(),
+          month: end.getMonth() + 1,
+          day: end.getDate(),
+        },
+      },
+      dailyMetrics: [
+        'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
+        'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+        'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+        'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
+        'CALL_CLICKS',
+        'WEBSITE_CLICKS',
+        'BUSINESS_DIRECTION_REQUESTS',
+        'BUSINESS_BOOKINGS',
+      ],
+    };
+
+    // Use the Business Profile Performance API
+    const response = await fetch(
+      `https://businessprofileperformance.googleapis.com/v1/${locationName}:fetchMultiDailyMetricsTimeSeries`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to fetch location insights: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Aggregate insights from a single location's response
+   * @param insights - Raw insights response from API
+   * @param locationId - Database location ID
+   * @param locationName - Display name of location
+   * @param period - Date range for the insights
+   */
+  aggregateLocationInsights(
+    insights: InsightsResponse,
+    locationId: string,
+    locationName: string,
+    period: { start: string; end: string }
+  ): LocationInsights {
+    let viewsMaps = 0;
+    let viewsSearch = 0;
+    let websiteClicks = 0;
+    let phoneCalls = 0;
+    let directionRequests = 0;
+    let bookings = 0;
+
+    if (insights.multiDailyMetricTimeSeries) {
+      for (const series of insights.multiDailyMetricTimeSeries) {
+        const total = series.timeSeries?.datedValues?.reduce((sum, dv) => {
+          return sum + parseInt(dv.value || '0', 10);
+        }, 0) || 0;
+
+        switch (series.dailyMetric) {
+          case 'BUSINESS_IMPRESSIONS_DESKTOP_MAPS':
+          case 'BUSINESS_IMPRESSIONS_MOBILE_MAPS':
+            viewsMaps += total;
+            break;
+          case 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH':
+          case 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH':
+            viewsSearch += total;
+            break;
+          case 'WEBSITE_CLICKS':
+            websiteClicks += total;
+            break;
+          case 'CALL_CLICKS':
+            phoneCalls += total;
+            break;
+          case 'BUSINESS_DIRECTION_REQUESTS':
+            directionRequests += total;
+            break;
+          case 'BUSINESS_BOOKINGS':
+            bookings += total;
+            break;
+        }
+      }
+    }
+
+    return {
+      locationId,
+      locationName,
+      period,
+      viewsMaps,
+      viewsSearch,
+      totalViews: viewsMaps + viewsSearch,
+      websiteClicks,
+      phoneCalls,
+      directionRequests,
+      bookings,
+    };
+  }
+
+  /**
+   * Get insights for multiple locations and aggregate them
+   * @param locations - Array of location objects with googleLocationId and name
+   * @param days - Number of days to fetch (default 30)
+   * @returns Aggregated insights across all locations
+   */
+  async getMultiLocationInsights(
+    locations: Array<{
+      id: string;
+      name: string;
+      google_location_id: string;
+    }>,
+    days: number = 30
+  ): Promise<AggregatedInsights> {
+    const endDate = new Date();
+    // Account for 2-3 day data delay from Google
+    endDate.setDate(endDate.getDate() - 3);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - days + 1);
+
+    // Previous period for comparison
+    const prevEndDate = new Date(startDate);
+    prevEndDate.setDate(prevEndDate.getDate() - 1);
+    const prevStartDate = new Date(prevEndDate);
+    prevStartDate.setDate(prevStartDate.getDate() - days + 1);
+
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+    const currentPeriod = { start: formatDate(startDate), end: formatDate(endDate) };
+    const previousPeriod = { start: formatDate(prevStartDate), end: formatDate(prevEndDate) };
+
+    // Fetch current period for all locations in parallel
+    const currentPromises = locations.map(async (loc) => {
+      try {
+        const insights = await this.getLocationInsights(
+          loc.google_location_id,
+          currentPeriod.start,
+          currentPeriod.end
+        );
+        return this.aggregateLocationInsights(insights, loc.id, loc.name, currentPeriod);
+      } catch (error) {
+        console.error(`Failed to fetch insights for ${loc.name}:`, error);
+        // Return zeros for failed locations
+        return {
+          locationId: loc.id,
+          locationName: loc.name,
+          period: currentPeriod,
+          viewsMaps: 0,
+          viewsSearch: 0,
+          totalViews: 0,
+          websiteClicks: 0,
+          phoneCalls: 0,
+          directionRequests: 0,
+          bookings: 0,
+        };
+      }
+    });
+
+    // Fetch previous period for comparison (aggregate only, not per-location)
+    const previousPromises = locations.map(async (loc) => {
+      try {
+        const insights = await this.getLocationInsights(
+          loc.google_location_id,
+          previousPeriod.start,
+          previousPeriod.end
+        );
+        return this.aggregateLocationInsights(insights, loc.id, loc.name, previousPeriod);
+      } catch {
+        return null;
+      }
+    });
+
+    const [currentResults, previousResults] = await Promise.all([
+      Promise.all(currentPromises),
+      Promise.all(previousPromises),
+    ]);
+
+    // Aggregate totals
+    const current = currentResults.reduce(
+      (acc, loc) => ({
+        totalViews: acc.totalViews + loc.totalViews,
+        viewsMaps: acc.viewsMaps + loc.viewsMaps,
+        viewsSearch: acc.viewsSearch + loc.viewsSearch,
+        websiteClicks: acc.websiteClicks + loc.websiteClicks,
+        phoneCalls: acc.phoneCalls + loc.phoneCalls,
+        directionRequests: acc.directionRequests + loc.directionRequests,
+      }),
+      { totalViews: 0, viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 }
+    );
+
+    const previous = previousResults.reduce(
+      (acc, loc) => {
+        if (!loc) return acc;
+        return {
+          totalViews: acc.totalViews + loc.totalViews,
+          viewsMaps: acc.viewsMaps + loc.viewsMaps,
+          viewsSearch: acc.viewsSearch + loc.viewsSearch,
+          websiteClicks: acc.websiteClicks + loc.websiteClicks,
+          phoneCalls: acc.phoneCalls + loc.phoneCalls,
+          directionRequests: acc.directionRequests + loc.directionRequests,
+        };
+      },
+      { totalViews: 0, viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 }
+    );
+
+    return {
+      period: currentPeriod,
+      previousPeriod,
+      current,
+      previous,
+      byLocation: currentResults,
+    };
   }
 }
 
