@@ -740,9 +740,11 @@ export class GoogleBusinessClient {
     };
 
     // Use the Business Profile Performance API
-    const response = await fetch(
-      `https://businessprofileperformance.googleapis.com/v1/${locationName}:fetchMultiDailyMetricsTimeSeries`,
-      {
+    const url = `https://businessprofileperformance.googleapis.com/v1/${locationName}:fetchMultiDailyMetricsTimeSeries`;
+    console.log(`[GBP Insights] Fetching from: ${url}`);
+    console.log(`[GBP Insights] Date range: ${startDate} to ${endDate}`);
+
+    const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken.token}`,
@@ -754,10 +756,13 @@ export class GoogleBusinessClient {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Failed to fetch location insights: ${error}`);
+      console.error(`[GBP Insights] API Error (${response.status}): ${error}`);
+      throw new Error(`Failed to fetch location insights (${response.status}): ${error}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`[GBP Insights] Got data for ${locationName}:`, JSON.stringify(data).slice(0, 200));
+    return data;
   }
 
   /**
