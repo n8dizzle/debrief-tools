@@ -5,7 +5,7 @@
  * - Daily Dash
  * - Internal Portal
  * - Debrief QA
- * - Future apps (just add new interface)
+ * - Marketing Hub
  *
  * JSONB stored in portal_users.permissions column
  */

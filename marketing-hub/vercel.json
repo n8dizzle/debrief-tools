@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/analytics/sync",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/gbp/insights/sync",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/social/sync",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

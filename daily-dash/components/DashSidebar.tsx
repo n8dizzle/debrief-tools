@@ -16,7 +16,6 @@ const overviewLinks = [
   { href: '/huddle', label: 'Daily Huddle', icon: 'clipboard' },
   { href: '/huddle/history', label: 'History', icon: 'calendar' },
   { href: '/reviews', label: 'Reviews', icon: 'star' },
-  { href: '/posts', label: 'Posts', icon: 'megaphone' },
 ];
 
 const departmentLinks = [
