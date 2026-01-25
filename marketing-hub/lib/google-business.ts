@@ -692,7 +692,7 @@ export class GoogleBusinessClient {
 
   /**
    * Get performance insights for a specific location
-   * Uses the Business Profile Performance API
+   * Uses the Business Profile Performance API (getDailyMetricsTimeSeries endpoint)
    * @param locationName - Full location name (e.g., "locations/12345678901234567")
    * @param startDate - Start date in YYYY-MM-DD format
    * @param endDate - End date in YYYY-MM-DD format
@@ -713,56 +713,63 @@ export class GoogleBusinessClient {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Build the request body for fetchMultiDailyMetricsTimeSeries
-    const requestBody = {
-      dailyRange: {
-        startDate: {
-          year: start.getFullYear(),
-          month: start.getMonth() + 1,
-          day: start.getDate(),
-        },
-        endDate: {
-          year: end.getFullYear(),
-          month: end.getMonth() + 1,
-          day: end.getDate(),
-        },
-      },
-      dailyMetrics: [
-        'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
-        'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
-        'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
-        'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
-        'CALL_CLICKS',
-        'WEBSITE_CLICKS',
-        'BUSINESS_DIRECTION_REQUESTS',
-        'BUSINESS_BOOKINGS',
-      ],
-    };
+    // Metrics to fetch
+    const metrics: InsightMetric[] = [
+      'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
+      'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+      'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+      'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
+      'CALL_CLICKS',
+      'WEBSITE_CLICKS',
+      'BUSINESS_DIRECTION_REQUESTS',
+    ];
 
-    // Use the Business Profile Performance API
-    const url = `https://businessprofileperformance.googleapis.com/v1/${locationName}:fetchMultiDailyMetricsTimeSeries`;
-    console.log(`[GBP Insights] Fetching from: ${url}`);
+    console.log(`[GBP Insights] Fetching ${metrics.length} metrics for ${locationName}`);
     console.log(`[GBP Insights] Date range: ${startDate} to ${endDate}`);
 
-    const response = await fetch(url, {
-        method: 'POST',
+    // Use getDailyMetricsTimeSeries (GET endpoint) for each metric
+    // This endpoint works, unlike fetchMultiDailyMetricsTimeSeries which returns 404
+    const metricPromises = metrics.map(async (metric) => {
+      const params = new URLSearchParams({
+        'dailyMetric': metric,
+        'dailyRange.startDate.year': start.getFullYear().toString(),
+        'dailyRange.startDate.month': (start.getMonth() + 1).toString(),
+        'dailyRange.startDate.day': start.getDate().toString(),
+        'dailyRange.endDate.year': end.getFullYear().toString(),
+        'dailyRange.endDate.month': (end.getMonth() + 1).toString(),
+        'dailyRange.endDate.day': end.getDate().toString(),
+      });
+
+      const url = `https://businessprofileperformance.googleapis.com/v1/${locationName}:getDailyMetricsTimeSeries?${params}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken.token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[GBP Insights] API Error for ${metric} (${response.status}): ${error}`);
+        // Return empty time series for failed metrics
+        return { dailyMetric: metric, timeSeries: { datedValues: [] } };
       }
-    );
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[GBP Insights] API Error (${response.status}): ${error}`);
-      throw new Error(`Failed to fetch location insights (${response.status}): ${error}`);
-    }
+      const data = await response.json();
+      return {
+        dailyMetric: metric,
+        timeSeries: data.timeSeries || { datedValues: [] },
+      };
+    });
 
-    const data = await response.json();
-    console.log(`[GBP Insights] Got data for ${locationName}:`, JSON.stringify(data).slice(0, 200));
-    return data;
+    const results = await Promise.all(metricPromises);
+
+    console.log(`[GBP Insights] Got data for ${locationName}: ${results.length} metrics`);
+
+    return {
+      multiDailyMetricTimeSeries: results as DailyMetricTimeSeries[],
+    };
   }
 
   /**
