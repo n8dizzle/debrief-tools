@@ -22,6 +22,7 @@ export interface LSALead {
     creditState: string;
     creditStateLastUpdateDateTime?: string;
   };
+  customerId?: string; // Which account the lead came from
 }
 
 export interface LSALeadConversation {
@@ -93,7 +94,7 @@ class GoogleAdsClient {
     return this.initialized && this.client !== null;
   }
 
-  private getCustomer() {
+  private getCustomer(customerId?: string) {
     if (!this.client) {
       throw new Error('Google Ads client not configured');
     }
@@ -105,8 +106,11 @@ class GoogleAdsClient {
       throw new Error('Missing login customer ID or refresh token');
     }
 
+    // Use the specified customerId or fall back to login customer ID
+    const targetCustomerId = customerId || loginCustomerId;
+
     return this.client.Customer({
-      customer_id: loginCustomerId,
+      customer_id: targetCustomerId,
       login_customer_id: loginCustomerId,
       refresh_token: refreshToken,
     });
@@ -135,62 +139,88 @@ class GoogleAdsClient {
   }
 
   /**
-   * Get LSA leads for a date range
+   * Get LSA leads for a date range from all accessible accounts
    */
   async getLSALeads(
     startDate: string,
     endDate: string,
     customerId?: string
   ): Promise<LSALead[]> {
-    const customer = this.getCustomer();
-    const targetCustomerId = customerId || process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+    // If a specific customer ID is provided, only query that one
+    const customerIds = customerId
+      ? [customerId]
+      : await this.getAccessibleCustomers();
 
-    try {
-      const query = `
-        SELECT
-          local_services_lead.id,
-          local_services_lead.lead_type,
-          local_services_lead.category_id,
-          local_services_lead.service_id,
-          local_services_lead.contact_details.phone_number,
-          local_services_lead.contact_details.consumer_phone_number,
-          local_services_lead.lead_status,
-          local_services_lead.creation_date_time,
-          local_services_lead.locale,
-          local_services_lead.lead_charged,
-          local_services_lead.credit_details.credit_state,
-          local_services_lead.credit_details.credit_state_last_update_date_time
-        FROM local_services_lead
-        WHERE local_services_lead.creation_date_time >= '${startDate}'
-          AND local_services_lead.creation_date_time <= '${endDate}'
-        ORDER BY local_services_lead.creation_date_time DESC
-        LIMIT 1000
-      `;
+    const allLeads: LSALead[] = [];
+    const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
 
-      const response = await customer.query(query);
+    for (const cid of customerIds) {
+      // Skip the manager account itself (it doesn't have leads)
+      if (cid === loginCustomerId) continue;
 
-      return response.map((row: any) => ({
-        id: row.local_services_lead?.id?.toString() || '',
-        leadType: row.local_services_lead?.lead_type || '',
-        categoryId: row.local_services_lead?.category_id || '',
-        serviceName: row.local_services_lead?.service_id || '',
-        contactDetails: {
-          phoneNumber: row.local_services_lead?.contact_details?.phone_number || '',
-          consumerPhoneNumber: row.local_services_lead?.contact_details?.consumer_phone_number || '',
-        },
-        leadStatus: row.local_services_lead?.lead_status || '',
-        creationDateTime: row.local_services_lead?.creation_date_time || '',
-        locale: row.local_services_lead?.locale || '',
-        leadCharged: row.local_services_lead?.lead_charged || false,
-        creditDetails: row.local_services_lead?.credit_details ? {
-          creditState: row.local_services_lead.credit_details.credit_state || '',
-          creditStateLastUpdateDateTime: row.local_services_lead.credit_details.credit_state_last_update_date_time || '',
-        } : undefined,
-      }));
-    } catch (error) {
-      console.error('Error fetching LSA leads:', error);
-      throw error;
+      try {
+        const customer = this.getCustomer(cid);
+        const query = `
+          SELECT
+            local_services_lead.id,
+            local_services_lead.lead_type,
+            local_services_lead.category_id,
+            local_services_lead.service_id,
+            local_services_lead.contact_details.phone_number,
+            local_services_lead.contact_details.consumer_phone_number,
+            local_services_lead.lead_status,
+            local_services_lead.creation_date_time,
+            local_services_lead.locale,
+            local_services_lead.lead_charged,
+            local_services_lead.credit_details.credit_state,
+            local_services_lead.credit_details.credit_state_last_update_date_time
+          FROM local_services_lead
+          WHERE local_services_lead.creation_date_time >= '${startDate}'
+            AND local_services_lead.creation_date_time <= '${endDate}'
+          ORDER BY local_services_lead.creation_date_time DESC
+          LIMIT 500
+        `;
+
+        const response = await customer.query(query);
+
+        const leads = response.map((row: any) => ({
+          id: row.local_services_lead?.id?.toString() || '',
+          leadType: row.local_services_lead?.lead_type || '',
+          categoryId: row.local_services_lead?.category_id || '',
+          serviceName: row.local_services_lead?.service_id || '',
+          contactDetails: {
+            phoneNumber: row.local_services_lead?.contact_details?.phone_number || '',
+            consumerPhoneNumber: row.local_services_lead?.contact_details?.consumer_phone_number || '',
+          },
+          leadStatus: row.local_services_lead?.lead_status || '',
+          creationDateTime: row.local_services_lead?.creation_date_time || '',
+          locale: row.local_services_lead?.locale || '',
+          leadCharged: row.local_services_lead?.lead_charged || false,
+          creditDetails: row.local_services_lead?.credit_details ? {
+            creditState: row.local_services_lead.credit_details.credit_state || '',
+            creditStateLastUpdateDateTime: row.local_services_lead.credit_details.credit_state_last_update_date_time || '',
+          } : undefined,
+          customerId: cid, // Track which account the lead came from
+        }));
+
+        allLeads.push(...leads);
+      } catch (error: any) {
+        // Some accounts may not have LSA - that's expected
+        // Only log if it's not a "no LSA" error
+        if (!error.message?.includes('local_services_lead') &&
+            !error.message?.includes('UNIMPLEMENTED') &&
+            !error.message?.includes('is not available')) {
+          console.error(`Error fetching LSA leads for customer ${cid}:`, error.message);
+        }
+      }
     }
+
+    // Sort all leads by creation date, newest first
+    allLeads.sort((a, b) =>
+      new Date(b.creationDateTime).getTime() - new Date(a.creationDateTime).getTime()
+    );
+
+    return allLeads;
   }
 
   /**
@@ -236,75 +266,84 @@ class GoogleAdsClient {
   }
 
   /**
-   * Get LSA performance metrics
+   * Get LSA performance metrics from all accessible accounts
    */
   async getLSAPerformance(
     startDate: string,
     endDate: string
   ): Promise<LSAPerformance[]> {
-    const customer = this.getCustomer();
+    const customerIds = await this.getAccessibleCustomers();
+    const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+    const performanceMap = new Map<string, LSAPerformance>();
 
-    try {
-      // Get campaign performance for Local Services campaigns
-      const query = `
-        SELECT
-          customer.id,
-          customer.descriptive_name,
-          campaign.id,
-          campaign.name,
-          campaign.advertising_channel_type,
-          metrics.impressions,
-          metrics.clicks,
-          metrics.cost_micros,
-          metrics.all_conversions,
-          metrics.phone_calls
-        FROM campaign
-        WHERE campaign.advertising_channel_type = 'LOCAL_SERVICES'
-          AND segments.date >= '${startDate}'
-          AND segments.date <= '${endDate}'
-      `;
+    for (const cid of customerIds) {
+      // Skip the manager account itself
+      if (cid === loginCustomerId) continue;
 
-      const response = await customer.query(query);
+      try {
+        const customer = this.getCustomer(cid);
+        // Get campaign performance for Local Services campaigns
+        const query = `
+          SELECT
+            customer.id,
+            customer.descriptive_name,
+            campaign.id,
+            campaign.name,
+            campaign.advertising_channel_type,
+            metrics.impressions,
+            metrics.clicks,
+            metrics.cost_micros,
+            metrics.all_conversions,
+            metrics.phone_calls
+          FROM campaign
+          WHERE campaign.advertising_channel_type = 'LOCAL_SERVICES'
+            AND segments.date >= '${startDate}'
+            AND segments.date <= '${endDate}'
+        `;
 
-      // Aggregate by customer
-      const performanceMap = new Map<string, LSAPerformance>();
+        const response = await customer.query(query);
 
-      for (const row of response) {
-        const customerId = row.customer?.id?.toString() || '';
-        const existing = performanceMap.get(customerId) || {
-          customerId,
-          customerName: row.customer?.descriptive_name || '',
-          impressions: 0,
-          clicks: 0,
-          totalLeads: 0,
-          chargedLeads: 0,
-          cost: 0,
-          costPerLead: 0,
-          messageLeads: 0,
-          phoneLeads: 0,
-          period: `${startDate} to ${endDate}`,
-        };
+        // Aggregate by customer
+        for (const row of response) {
+          const customerId = row.customer?.id?.toString() || '';
+          const existing = performanceMap.get(customerId) || {
+            customerId,
+            customerName: row.customer?.descriptive_name || '',
+            impressions: 0,
+            clicks: 0,
+            totalLeads: 0,
+            chargedLeads: 0,
+            cost: 0,
+            costPerLead: 0,
+            messageLeads: 0,
+            phoneLeads: 0,
+            period: `${startDate} to ${endDate}`,
+          };
 
-        existing.impressions += Number(row.metrics?.impressions || 0);
-        existing.clicks += Number(row.metrics?.clicks || 0);
-        existing.cost += Number(row.metrics?.cost_micros || 0) / 1000000; // Convert micros to dollars
-        existing.phoneLeads += Number(row.metrics?.phone_calls || 0);
-        existing.totalLeads += Number(row.metrics?.all_conversions || 0);
+          existing.impressions += Number(row.metrics?.impressions || 0);
+          existing.clicks += Number(row.metrics?.clicks || 0);
+          existing.cost += Number(row.metrics?.cost_micros || 0) / 1000000; // Convert micros to dollars
+          existing.phoneLeads += Number(row.metrics?.phone_calls || 0);
+          existing.totalLeads += Number(row.metrics?.all_conversions || 0);
 
-        performanceMap.set(customerId, existing);
+          performanceMap.set(customerId, existing);
+        }
+      } catch (error: any) {
+        // Some accounts may not have LSA campaigns - that's expected
+        if (!error.message?.includes('LOCAL_SERVICES') &&
+            !error.message?.includes('UNIMPLEMENTED')) {
+          console.error(`Error fetching LSA performance for customer ${cid}:`, error.message);
+        }
       }
-
-      // Calculate cost per lead
-      const results = Array.from(performanceMap.values());
-      for (const perf of results) {
-        perf.costPerLead = perf.totalLeads > 0 ? perf.cost / perf.totalLeads : 0;
-      }
-
-      return results;
-    } catch (error) {
-      console.error('Error fetching LSA performance:', error);
-      throw error;
     }
+
+    // Calculate cost per lead
+    const results = Array.from(performanceMap.values());
+    for (const perf of results) {
+      perf.costPerLead = perf.totalLeads > 0 ? perf.cost / perf.totalLeads : 0;
+    }
+
+    return results;
   }
 
   /**
