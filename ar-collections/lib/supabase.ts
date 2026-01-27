@@ -106,7 +106,7 @@ export interface ARInvoice {
   id: string;
   st_invoice_id: number;
   invoice_number: string;
-  customer_id: string;
+  customer_id: string | null;
   customer_name: string;
   invoice_total: number;
   balance: number;
@@ -121,6 +121,10 @@ export interface ARInvoice {
   business_unit_name: string | null;
   job_type: ARJobType;
   customer_type: ARCustomerType;
+  st_job_id: number | null;
+  job_number: string | null;
+  technician_name: string | null;
+  has_inhouse_financing: boolean;
   synced_at: string;
   created_at: string;
   updated_at: string;
@@ -352,6 +356,8 @@ export interface ARDashboardStats {
   };
   install_total: number;
   service_total: number;
+  residential_total: number;
+  commercial_total: number;
   top_balances: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   recent_activity: ARCollectionNote[];
 }
@@ -374,4 +380,70 @@ export interface ARSyncStatus {
   is_syncing: boolean;
   data_completeness: number;
   missing_dates: string[];
+}
+
+// ============================================
+// AR SYNC HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Get the last successful sync date from ar_sync_log
+ * Returns null if no successful sync has ever run
+ */
+export async function getLastSuccessfulSyncDate(): Promise<string | null> {
+  const supabase = getServerSupabase();
+
+  const { data, error } = await supabase
+    .from('ar_sync_log')
+    .select('completed_at')
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data.completed_at;
+}
+
+/**
+ * Get all open invoice ST IDs for balance re-checking during incremental sync
+ * Only returns invoices with real ST IDs (> 0)
+ */
+export async function getOpenInvoiceStIds(): Promise<number[]> {
+  const supabase = getServerSupabase();
+
+  const { data, error } = await supabase
+    .from('ar_invoices')
+    .select('st_invoice_id')
+    .gt('balance', 0)
+    .gt('st_invoice_id', 0);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data
+    .map((inv) => inv.st_invoice_id)
+    .filter((id): id is number => id !== null && id > 0);
+}
+
+/**
+ * Check if we have any real invoices (not fake Report 249 data)
+ */
+export async function hasRealInvoices(): Promise<boolean> {
+  const supabase = getServerSupabase();
+
+  const { count, error } = await supabase
+    .from('ar_invoices')
+    .select('*', { count: 'exact', head: true })
+    .gt('st_invoice_id', 0);
+
+  if (error) {
+    return false;
+  }
+
+  return (count ?? 0) > 0;
 }

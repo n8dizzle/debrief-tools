@@ -58,6 +58,12 @@ export async function GET(request: NextRequest) {
     const service_total = invoices?.filter(inv => inv.job_type === 'service')
       .reduce((sum, inv) => sum + Number(inv.balance), 0) || 0;
 
+    // Calculate residential vs commercial totals
+    const residential_total = invoices?.filter(inv => inv.customer_type === 'residential')
+      .reduce((sum, inv) => sum + Number(inv.balance), 0) || 0;
+    const commercial_total = invoices?.filter(inv => inv.customer_type === 'commercial')
+      .reduce((sum, inv) => sum + Number(inv.balance), 0) || 0;
+
     // Calculate average DSO
     const avg_dso = invoices ? calculateAverageDSO(invoices.map(inv => ({
       days_outstanding: inv.days_outstanding
@@ -87,6 +93,8 @@ export async function GET(request: NextRequest) {
       aging_buckets,
       install_total,
       service_total,
+      residential_total,
+      commercial_total,
       top_balances,
       recent_activity: recentNotes || [],
     };

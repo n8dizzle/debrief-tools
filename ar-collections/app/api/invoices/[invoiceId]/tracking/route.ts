@@ -6,7 +6,7 @@ import { getTodayDateString } from '@/lib/ar-utils';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { invoiceId: string } }
+  { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { invoiceId } = params;
+    const { invoiceId } = await params;
     const body = await request.json();
     const supabase = getServerSupabase();
 

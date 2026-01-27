@@ -142,6 +142,11 @@ a:hover {
   color: #f87171;
 }
 
+.badge-financing {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
 /* Card styles */
 .card {
   background: var(--bg-card);

@@ -60,6 +60,8 @@ export default function DashboardPage() {
     aging_buckets: { current: 0, bucket_30: 0, bucket_60: 0, bucket_90_plus: 0 },
     install_total: 0,
     service_total: 0,
+    residential_total: 0,
+    commercial_total: 0,
     top_balances: [],
     recent_activity: [],
   };
@@ -194,6 +196,43 @@ export default function DashboardPage() {
               <Link href="/invoices/service" className="text-sm hover:underline">
                 View Service AR →
               </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Residential vs Commercial */}
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          Residential vs Commercial
+        </h2>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#8b5cf6' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>Residential</span>
+            </div>
+            <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {formatCurrency(displayStats.residential_total)}
+            </div>
+            <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              {displayStats.total_outstanding > 0
+                ? `${((displayStats.residential_total / displayStats.total_outstanding) * 100).toFixed(1)}%`
+                : '0%'} of total
+            </div>
+          </div>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>Commercial</span>
+            </div>
+            <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {formatCurrency(displayStats.commercial_total)}
+            </div>
+            <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              {displayStats.total_outstanding > 0
+                ? `${((displayStats.commercial_total / displayStats.total_outstanding) * 100).toFixed(1)}%`
+                : '0%'} of total
             </div>
           </div>
         </div>

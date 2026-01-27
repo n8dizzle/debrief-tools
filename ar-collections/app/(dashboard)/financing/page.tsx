@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/ar-utils';
 import { ARPaymentPlan, ARPaymentPlanMonth, PortalUser, ARCustomer } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
-interface PaymentPlanWithDetails extends ARPaymentPlan {
+interface PaymentPlanWithDetails extends Omit<ARPaymentPlan, 'owner'> {
   customer: ARCustomer;
   months: ARPaymentPlanMonth[];
   owner: PortalUser | null;

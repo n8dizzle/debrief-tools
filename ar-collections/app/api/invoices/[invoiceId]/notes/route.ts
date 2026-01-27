@@ -6,7 +6,7 @@ import { getInitials, getTodayDateString } from '@/lib/ar-utils';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { invoiceId: string } }
+  { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { invoiceId } = params;
+    const { invoiceId } = await params;
     const body = await request.json();
     const { content, note_type = 'call', contact_result, spoke_with, promised_amount, promised_date } = body;
 
@@ -72,7 +72,7 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { invoiceId: string } }
+  { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -80,7 +80,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { invoiceId } = params;
+    const { invoiceId } = await params;
     const supabase = getServerSupabase();
 
     const { data: notes, error } = await supabase
