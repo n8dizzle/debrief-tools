@@ -123,16 +123,20 @@ export async function POST(
         amountPaid = nextPayment.amount;
         paymentType = nextPayment.payment_type;
 
-        const paidDate = new Date(paymentDate);
         const dueDate = new Date(dueDateStr);
 
-        if (paidDate <= dueDate) {
-          status = 'paid';
+        if (paymentDate) {
+          const paidDate = new Date(paymentDate);
+          if (paidDate <= dueDate) {
+            status = 'paid';
+          } else {
+            status = 'late';
+          }
         } else {
-          status = 'late';
+          status = 'paid'; // Assume paid if payment exists but no date
         }
 
-        if (amountPaid < amount * 0.99) {
+        if (amountPaid !== null && amountPaid < amount * 0.99) {
           status = 'partial';
         }
       } else {

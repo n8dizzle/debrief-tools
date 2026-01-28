@@ -70,11 +70,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       schedule = generatePaymentSchedule(invoice.balance, monthlyAmount, dueDay, lastPaymentDate);
     }
 
+    // Get st_customer_id from ar_customers if we have a customer_id
+    let stCustomerId: number | null = null;
+    if (invoice.customer_id) {
+      const { data: customer } = await supabase
+        .from('ar_customers')
+        .select('st_customer_id')
+        .eq('id', invoice.customer_id)
+        .single();
+      stCustomerId = customer?.st_customer_id || null;
+    }
+
     const financingInvoice: FinancingInvoice = {
       id: invoice.id,
       st_invoice_id: invoice.st_invoice_id,
       invoice_number: invoice.invoice_number,
       customer_id: invoice.customer_id,
+      st_customer_id: stCustomerId,
       customer_name: invoice.customer_name,
       invoice_total: invoice.invoice_total,
       balance: invoice.balance,
@@ -89,6 +101,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       next_due_date: nextDueDate,
       projected_payoff_date: projectedPayoffDate,
       payments_remaining: paymentsRemaining,
+      schedule_status: null,
       payments: payments || [],
     };
 

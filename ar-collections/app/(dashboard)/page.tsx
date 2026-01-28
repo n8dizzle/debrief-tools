@@ -319,7 +319,7 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
                     labelLine={true}
                     style={{ cursor: 'pointer' }}
                     onClick={(data) => {
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Balance']}
+                    formatter={(value) => [formatCurrency(value as number ?? 0), 'Balance']}
                     contentStyle={{
                       backgroundColor: '#1a1a1a',
                       border: '1px solid #444',
