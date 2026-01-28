@@ -93,8 +93,8 @@ Common code shared across all Next.js apps:
 - Stored in `portal_audit_log` table
 
 **SSO Endpoints** - APIs for cross-app authentication
-- `POST /api/session/validate` - Validate user by email
-- `POST /api/sso/validate` - Decode NextAuth JWT for Python SSO
+- `POST /api/users/validate` - Validate user by email (used during Google OAuth callback)
+- `POST /api/sso/validate` - Decode NextAuth JWT for auto-login from portal session cookie
 
 ## SSO Architecture
 
@@ -140,7 +140,9 @@ Create local session → redirect to queue
 
 ### Database (Supabase)
 Key tables:
-- `portal_users` - User accounts with JSONB `permissions` column
+- `portal_users` - **Single source of truth** for all user accounts across all apps. JSONB `permissions` column for app-specific permissions.
+- `dispatchers` - Legacy debrief table (still exists but no longer used for auth - users validated against portal_users)
+- `portal_audit_log` - Tracks user/permission changes
 - `google_reviews` - Synced reviews with `team_members_mentioned`
 - `gbp_posts`, `gbp_post_locations`, `gbp_media` - Post management
 - `gbp_insights_cache` - Daily GBP metrics
@@ -256,9 +258,10 @@ cd marketing-hub && npm run dev    # http://localhost:3002
 ## Recent Changes Summary
 
 **Jan 28, 2026**:
+- **User Migration Complete** - Migrated all 19 users from debrief's `dispatchers` table to `portal_users`. Portal is now the single source of truth for all user management. Debrief validates users against portal on login via `/api/users/validate` endpoint.
 - SSO & Centralized Admin - Shared package for permissions, centralized user management in Internal Portal, true SSO for Python app (debrief-qa), audit logging
 - LSA Fix - Removed PII fields (phone numbers) from Google Ads API query that required special permissions; sync now working with 1,775+ leads
-- Vercel Config - Set Root Directory to `marketing-hub` for proper monorepo builds
+- Vercel Config - Fixed Marketing Hub by clearing Root Directory (was doubled path)
 
 **Jan 25-26, 2026**: LSA Dashboard - HVAC/Plumbing breakdown, location performance, cost-per-charged-lead metrics, sync to Supabase
 

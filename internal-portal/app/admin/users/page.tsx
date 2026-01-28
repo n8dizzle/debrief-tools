@@ -12,6 +12,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [filterDept, setFilterDept] = useState<string>("all");
   const [filterRole, setFilterRole] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("active");
 
   useEffect(() => {
     async function fetchData() {
@@ -33,6 +34,10 @@ export default function UsersPage() {
   const filteredUsers = users.filter((u) => {
     if (filterDept !== "all" && u.department_id !== filterDept) return false;
     if (filterRole !== "all" && u.role !== filterRole) return false;
+    if (filterStatus !== "all") {
+      if (filterStatus === "active" && !u.is_active) return false;
+      if (filterStatus === "inactive" && u.is_active) return false;
+    }
     return true;
   });
 
@@ -113,6 +118,25 @@ export default function UsersPage() {
             <option value="employee">Employee</option>
             <option value="manager">Manager</option>
             {isOwner && <option value="owner">Owner</option>}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+            Status
+          </label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 rounded-lg text-sm"
+            style={{
+              background: "var(--bg-card)",
+              color: "var(--christmas-cream)",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+            <option value="all">All Users</option>
           </select>
         </div>
       </div>

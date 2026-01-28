@@ -1,10 +1,10 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import ToolCard from "@/components/ToolCard";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Tool } from "@/lib/supabase";
 
@@ -163,46 +163,13 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center">
               {session?.user && (
-                <>
-                  {canAccessAdmin && (
-                    <Link
-                      href="/admin"
-                      className="text-sm px-3 py-1.5 rounded-md transition-colors"
-                      style={{
-                        color: 'var(--christmas-gold)',
-                        background: 'transparent'
-                      }}
-                    >
-                      Admin
-                    </Link>
-                  )}
-                  <span
-                    className="text-sm hidden sm:block"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    {session.user.email}
-                  </span>
-                  <button
-                    onClick={() => signOut()}
-                    className="text-sm px-3 py-1.5 rounded-md transition-colors"
-                    style={{
-                      color: 'var(--text-secondary)',
-                      background: 'var(--bg-card)'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-card-hover)';
-                      e.currentTarget.style.color = 'var(--christmas-cream)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-card)';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }}
-                  >
-                    Sign Out
-                  </button>
-                </>
+                <ProfileDropdown
+                  userName={session.user.name}
+                  userEmail={session.user.email}
+                  canAccessAdmin={canAccessAdmin}
+                />
               )}
             </div>
           </div>
