@@ -17,6 +17,19 @@ export function getServerSupabase() {
   return createClient(supabaseUrl, serviceRoleKey);
 }
 
+// Get portal user by email (server-side)
+export async function getPortalUser(email: string): Promise<PortalUser | null> {
+  const supabase = getServerSupabase();
+  const { data, error } = await supabase
+    .from("portal_users")
+    .select("*")
+    .eq("email", email.toLowerCase())
+    .single();
+
+  if (error || !data) return null;
+  return data as PortalUser;
+}
+
 // Types for our portal tables
 export interface Department {
   id: string;

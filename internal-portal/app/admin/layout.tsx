@@ -10,6 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: "home" },
   { name: "Users", href: "/admin/users", icon: "users" },
+  { name: "Departments", href: "/admin/departments", icon: "building", ownerOnly: true },
   { name: "Tools", href: "/admin/tools", icon: "tools", ownerOnly: true },
   { name: "Stats", href: "/admin/stats", icon: "chart" },
   { name: "Audit Log", href: "/admin/audit", icon: "clipboard", ownerOnly: true },
@@ -41,6 +42,11 @@ function NavIcon({ name }: { name: string }) {
     clipboard: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+    ),
+    building: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
       </svg>
     ),
   };

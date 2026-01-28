@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Department } from "@/lib/supabase";
+import { APP_PERMISSIONS, type UserPermissions } from "@/lib/permissions";
+
+interface Department {
+  id: string;
+  name: string;
+  default_permissions: UserPermissions;
+}
 
 export default function NewUserPage() {
   const router = useRouter();
@@ -18,6 +24,7 @@ export default function NewUserPage() {
     name: "",
     department_id: "",
     role: "employee",
+    permissions: {} as UserPermissions,
   });
 
   useEffect(() => {
@@ -29,7 +36,12 @@ export default function NewUserPage() {
           setDepartments(data);
           // Default to current user's department for managers
           if (!isOwner && currentUser?.departmentId) {
-            setFormData((prev) => ({ ...prev, department_id: currentUser.departmentId! }));
+            const dept = data.find((d: Department) => d.id === currentUser.departmentId);
+            setFormData((prev) => ({
+              ...prev,
+              department_id: currentUser.departmentId!,
+              permissions: dept?.default_permissions || {},
+            }));
           }
         }
       } catch (error) {
@@ -38,6 +50,37 @@ export default function NewUserPage() {
     }
     fetchDepartments();
   }, [isOwner, currentUser]);
+
+  // When department changes, apply default permissions
+  const handleDepartmentChange = (deptId: string) => {
+    const dept = departments.find((d) => d.id === deptId);
+    setFormData((prev) => ({
+      ...prev,
+      department_id: deptId,
+      permissions: dept?.default_permissions || {},
+    }));
+  };
+
+  const handlePermissionToggle = (app: string, permission: string) => {
+    setFormData((prev) => {
+      const newPermissions = { ...prev.permissions };
+      const appPerms = { ...(newPermissions[app as keyof UserPermissions] || {}) } as Record<string, boolean>;
+
+      if (appPerms[permission]) {
+        delete appPerms[permission];
+      } else {
+        appPerms[permission] = true;
+      }
+
+      if (Object.keys(appPerms).length === 0) {
+        delete newPermissions[app as keyof UserPermissions];
+      } else {
+        (newPermissions as Record<string, Record<string, boolean>>)[app] = appPerms;
+      }
+
+      return { ...prev, permissions: newPermissions };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,8 +106,14 @@ export default function NewUserPage() {
     setLoading(false);
   };
 
+  // Count total selected permissions
+  const permissionCount = Object.values(formData.permissions).reduce(
+    (total, appPerms) => total + Object.values(appPerms as Record<string, boolean>).filter(Boolean).length,
+    0
+  );
+
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8 max-w-3xl">
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -150,7 +199,7 @@ export default function NewUserPage() {
             <select
               required
               value={formData.department_id}
-              onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+              onChange={(e) => handleDepartmentChange(e.target.value)}
               disabled={!isOwner}
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
@@ -196,10 +245,91 @@ export default function NewUserPage() {
             </select>
             <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
               {isOwner
-                ? "Owners can manage all users and tools. Managers can manage their department."
+                ? "Owners have all permissions automatically."
                 : "Only owners can assign the Owner role."}
             </p>
           </div>
+
+          {/* Permissions Section */}
+          {formData.role !== "owner" && (
+            <div className="pt-6 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold" style={{ color: "var(--christmas-cream)" }}>
+                  App Permissions
+                </h3>
+                {permissionCount > 0 && (
+                  <span
+                    className="text-xs px-2 py-1 rounded"
+                    style={{ background: "rgba(93, 138, 102, 0.2)", color: "var(--christmas-green-light)" }}
+                  >
+                    {permissionCount} selected
+                  </span>
+                )}
+              </div>
+              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                {formData.department_id
+                  ? "Permissions auto-filled from department defaults. Adjust as needed."
+                  : "Select a department to auto-fill default permissions, or set them manually."}
+              </p>
+
+              <div className="space-y-6">
+                {APP_PERMISSIONS.map((group) => (
+                  <div key={group.app}>
+                    <div
+                      className="text-xs font-medium uppercase tracking-wider mb-2"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {group.label}
+                    </div>
+                    <div className="space-y-2">
+                      {group.permissions.map((perm) => {
+                        const isChecked =
+                          (formData.permissions[group.app as keyof UserPermissions] as Record<string, boolean>)?.[
+                            perm.key
+                          ] === true;
+
+                        return (
+                          <label
+                            key={perm.key}
+                            className="flex items-start gap-3 cursor-pointer p-2 rounded-lg transition-colors hover:bg-white/5"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handlePermissionToggle(group.app, perm.key)}
+                              className="w-4 h-4 rounded mt-0.5"
+                              style={{ accentColor: "var(--christmas-green)" }}
+                            />
+                            <div>
+                              <div className="text-sm" style={{ color: "var(--christmas-cream)" }}>
+                                {perm.label}
+                              </div>
+                              <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                                {perm.description}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {formData.role === "owner" && (
+            <div
+              className="p-3 rounded-lg text-sm"
+              style={{
+                background: "rgba(184, 149, 107, 0.1)",
+                border: "1px solid rgba(184, 149, 107, 0.3)",
+                color: "var(--christmas-gold)",
+              }}
+            >
+              Owners have full access to all features and settings across all apps.
+            </div>
+          )}
         </div>
 
         {/* Actions */}
