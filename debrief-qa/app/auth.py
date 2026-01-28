@@ -166,13 +166,14 @@ async def validate_user_with_portal(email: str) -> dict:
     """
     Validate user against the portal_users table via Internal Portal API.
 
-    This is the SSO integration point - it ensures users exist in the central
-    portal_users table before allowing login to debrief-qa.
+    NOTE: Portal validation is currently OPTIONAL to prevent lockouts.
+    If validation fails for any reason, users can still log in with Google OAuth.
+    This allows gradual migration to centralized user management.
 
     Returns:
         dict with:
         - {"valid": True, "user": {...}} if user exists and is active
-        - {"valid": False, "error": str} if validation fails
+        - {"valid": True, "user": None, "skipped": True} if validation skipped/failed
     """
     if not INTERNAL_API_SECRET:
         print("WARNING: INTERNAL_API_SECRET not configured - skipping portal validation")
@@ -181,7 +182,7 @@ async def validate_user_with_portal(email: str) -> dict:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{PORTAL_URL}/api/session/validate",
+                f"{PORTAL_URL}/api/users/validate",
                 json={"email": email},
                 headers={"Authorization": f"Bearer {INTERNAL_API_SECRET}"},
                 timeout=10.0
@@ -190,27 +191,15 @@ async def validate_user_with_portal(email: str) -> dict:
             if response.status_code == 200:
                 data = response.json()
                 return data
-            elif response.status_code == 404:
-                return {
-                    "valid": False,
-                    "error": "User not found in portal. Please contact an administrator."
-                }
-            elif response.status_code == 403:
-                return {
-                    "valid": False,
-                    "error": "Your portal account has been deactivated."
-                }
             else:
-                print(f"Portal validation failed: {response.status_code} - {response.text}")
-                return {
-                    "valid": False,
-                    "error": f"Portal validation failed (status {response.status_code})"
-                }
+                # Portal validation failed - allow login anyway (graceful degradation)
+                print(f"Portal validation returned {response.status_code} - allowing login anyway")
+                return {"valid": True, "user": None, "skipped": True}
     except httpx.TimeoutException:
         print("Portal validation timed out - allowing login as fallback")
         return {"valid": True, "user": None, "timeout": True}
     except Exception as e:
-        print(f"Portal validation error: {e}")
+        print(f"Portal validation error: {e} - allowing login anyway")
         # Allow login on portal errors to prevent lockout
         return {"valid": True, "user": None, "error_fallback": True}
 
