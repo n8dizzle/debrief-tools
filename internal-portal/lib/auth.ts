@@ -50,7 +50,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       try {
-        const email = user.email || "";
+        const email = (user.email || "").toLowerCase();
         const domain = email.split("@")[1];
 
         // Check domain first
@@ -101,7 +101,7 @@ export const authOptions: NextAuthOptions = {
       try {
         // On sign in or when session is updated, fetch user profile
         if (user?.email || trigger === "update") {
-          const email = user?.email || token.email;
+          const email = (user?.email || token.email as string)?.toLowerCase();
           if (email) {
             const supabase = getServerSupabase();
             const { data: userProfile, error } = await supabase
