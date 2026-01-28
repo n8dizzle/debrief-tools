@@ -1,307 +1,195 @@
+---
+description:
+alwaysApply: true
+---
+
 # Claude Code Context - Christmas Air Internal Tools
 
 ## Project Overview
 
 This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 
-1. **That's a Wrap** (`/debrief-qa`) - LIVE at https://debrief.christmasair.com
-2. **Internal Portal** (`/internal-portal`) - Simple intranet at portal.christmasair.com (not yet deployed)
-3. **Daily Dash** (`/daily-dash`) - Dashboard at dash.christmasair.com (not yet deployed)
-4. **AR Collections** (`/ar-collections`) - AR management at ar.christmasair.com (not yet deployed)
+| App | URL | Stack | Port |
+|-----|-----|-------|------|
+| **That's a Wrap** (`/debrief-qa`) | https://debrief.christmasair.com | Python/FastAPI | 8000 |
+| **Daily Dash** (`/daily-dash`) | https://dash.christmasair.com | Next.js | 3001 |
+| **Marketing Hub** (`/marketing-hub`) | https://marketing.christmasair.com | Next.js | 3002 |
+| **Internal Portal** (`/internal-portal`) | portal.christmasair.com (not deployed) | Next.js | 3000 |
 
-## Recent Updates (Jan 23, 2026)
+## Current Features (Jan 2026)
 
-### NEW: AR Collections App (`/ar-collections`) - Port 3002
-Complete accounts receivable collections management system.
+### Marketing Hub
 
-**Features:**
-- Dashboard with AR metrics (total outstanding, aging buckets, Install vs Service split)
-- Invoice lists with Install/Service tabs (mirrors existing spreadsheet workflow)
-- Collection workflow checkboxes: Day 1/2/3/7, Certified Letter, Closed
-- Job status tracking: QC Booked, Job Not Done, Financing Pending, etc.
-- Control bucket toggle: AR Collectible vs Not In Our Control
-- Customer management with payment history and notes
-- In-House Financing tracker with monthly payment checkboxes
-- Email/SMS templates and send history
-- Reports with aging breakdown and historical trends
-- ServiceTitan sync with automatic daily/hourly updates
+**GBP Posts** - Create and publish posts to all 8 Google Business Profile locations
+- Post types: Standard, Event, Offer
+- Media library with Supabase Storage
+- Per-location publish status tracking
 
-**Routes:**
-- `/` - Dashboard with AR metrics
-- `/invoices/install` - Install jobs AR table
-- `/invoices/service` - Service jobs AR table
-- `/invoices/[id]` - Invoice detail with workflow panel
-- `/customers` - Customer list
-- `/customers/[id]` - Customer detail
-- `/financing` - In-house payment plans
-- `/communications` - Email/SMS templates & history
-- `/reports` - Aging reports
-- `/settings` - Sync config
+**GBP Performance** - Dashboard with location metrics
+- Views, Clicks, Calls, Directions from Business Profile Performance API
+- Location comparison chart (bar chart)
+- Data cached in `gbp_insights_cache` table
+- Note: 2-3 day delay from Google
 
-**API Endpoints:**
-- `/api/dashboard` - AR metrics
-- `/api/invoices` - Invoice CRUD + filtering
-- `/api/invoices/[id]/tracking` - Workflow updates
-- `/api/invoices/[id]/notes` - Collection notes
-- `/api/customers` - Customer data
-- `/api/payment-plans` - In-house financing
-- `/api/communications/*` - Templates & history
-- `/api/sync` - Manual sync
-- `/api/cron/sync` - Vercel cron endpoint
-- `/api/reports/snapshots` - Historical data
+**LSA Dashboard** (`/lsa`) - Local Service Ads tracking
+- Performance cards: Total Leads, Spend, Cost/Charged Lead, Impressions
+- HVAC vs Plumbing breakdown with charge rates
+- Location Performance tab showing per-account metrics
+- All Leads tab with trade filter
+- Trade detection via `category_id` field (hvac/heating → HVAC, plumb/drain → Plumbing)
+- Key metric: Cost/Charged Lead (ignores free returning customer leads)
 
-**Role-Based Permissions:**
-| Action | Employee | Manager | Owner |
-|--------|----------|---------|-------|
-| View invoices | ✓ | ✓ | ✓ |
-| Update workflow | ✓ | ✓ | ✓ |
-| Add notes | ✓ | ✓ | ✓ |
-| Assign owner | ✗ | ✓ | ✓ |
-| Change control bucket | ✗ | ✓ | ✓ |
-| Mark written off | ✗ | ✗ | ✓ |
-| Run manual sync | ✗ | ✓ | ✓ |
-| Manage settings | ✗ | ✗ | ✓ |
+**Task Management** - Daily/weekly/monthly marketing tasks
 
-**Local Development:**
-```bash
-cd ar-collections && npm install && npm run dev  # http://localhost:3002
+### Daily Dash
+
+**Revenue Dashboard** - Pacing metrics with ServiceTitan integration
+- Today/Week/Month/Quarter/Year cards with revenue + sales
+- 18-month trend chart (HVAC green, Plumbing gold)
+- Trade breakdown: HVAC (Install/Service/Maintenance) and Plumbing
+- Pacing markers showing ahead/behind pace
+- Saturday = 0.5 business day, Sunday = 0
+
+**Revenue Formula**: `Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue`
+
+**Reviews Dashboard** - Google reviews with team mentions
+- Stats: total reviews, average rating, response rate
+- Team leaderboard by mentions
+- Photo/video indicators on reviews
+- Editable team mentions
+
+**Permissions System** - JSONB-based permissions per app
+- Roles: Owner (all perms), Manager, Employee
+- Check with `hasPermission(role, permissions, app, permission)`
+
+### That's a Wrap (Debrief QA)
+
+**Job QA Tool** - ServiceTitan job review for dispatchers
+- Auto QA suggestions based on ServiceTitan data
+- Equipment at Location banner (workaround: client-side filter due to API bug)
+- Invoice line items display
+- Financing context banners
+- Membership visit tracking ("Visit 1 of 2")
+- AI invoice review (Gemini Flash, ~$0.00015/review)
+- Happy Call tracking column
+
+## Key Technical Details
+
+### ServiceTitan Integration (Daily Dash)
+- No webhook access - uses polling via `/api/sync`
+- Business Unit mapping:
+  - HVAC: Install, Service (includes Commercial/Mims), Maintenance
+  - Plumbing: All plumbing business units combined
+
+### Google APIs Used
+| API | App | Purpose |
+|-----|-----|---------|
+| Business Profile | Marketing Hub, Daily Dash | GBP posts, reviews, performance metrics |
+| Google Ads | Marketing Hub | LSA leads and performance |
+
+### Database (Supabase)
+Key tables:
+- `portal_users` - User accounts with JSONB `permissions` column
+- `google_reviews` - Synced reviews with `team_members_mentioned`
+- `gbp_posts`, `gbp_post_locations`, `gbp_media` - Post management
+- `gbp_insights_cache` - Daily GBP metrics
+- `lsa_leads`, `lsa_daily_performance`, `lsa_accounts` - LSA data
+- `huddle_daily_snapshots`, `trade_daily_snapshots` - Revenue caching
+- `dash_monthly_targets`, `dash_quarterly_targets` - Target configuration
+- `marketing_tasks` - Task tracking
+
+### Permission Groups
+```typescript
+// daily_dash
+can_edit_targets, can_reply_reviews, can_edit_huddle_notes, can_sync_data
+
+// marketing_hub
+can_manage_gbp_posts, can_view_analytics, can_view_social, can_manage_tasks, can_sync_data
+
+// debrief_qa
+can_view_all_jobs
 ```
 
-**Database Migration:**
-Run `migrations/001_create_ar_tables.sql` in Supabase SQL Editor before first use.
+## Deployment
 
-**Deployment (Vercel):**
-1. Add environment variables (see `.env.example`)
-2. Deploy: `vercel --prod`
-3. Run initial sync via dashboard or API
+### That's a Wrap - DigitalOcean Droplet
+```bash
+# Deploy from Mac
+~/deploy-debrief.sh "commit message"
 
----
+# Server access
+ssh root@64.225.12.86
 
-### Split Internal Portal into Two Apps
-Separated the monolithic internal-portal into two independent Next.js applications:
+# Server paths
+/opt/debrief-qa/debrief-qa/     # App code
+/opt/debrief-qa/debrief-qa/.env # Credentials
 
-**Internal Portal** (`/internal-portal`) - Port 3000
-- Simple company intranet with tools/links
-- Routes: `/`, `/login`, `/preview`, `/admin/*`
-- API: `/api/auth/*`, `/api/tools/*`, `/api/users/*`, `/api/departments`, `/api/stats`
-- Deployment: portal.christmasair.com
+# Commands
+systemctl status debrief-qa
+systemctl restart debrief-qa
+journalctl -u debrief-qa -f
+```
 
-**Daily Dash** (`/daily-dash`) - Port 3001
-- Dashboard for daily operations tracking
-- Routes: `/`, `/pacing`, `/huddle`, `/huddle/history`, `/reviews`, `/settings`, `/[dept]`
-- API: `/api/huddle/*`, `/api/reviews/*`, `/api/targets/*`, `/api/departments`
-- Features organized in `/features/pacing/` and `/features/huddle/`
-- Deployment: dash.christmasair.com
+### Daily Dash & Marketing Hub - Vercel
+```bash
+cd daily-dash && vercel --prod
+cd marketing-hub && vercel --prod
+```
 
-**Local Development:**
+Cron jobs configured in `vercel.json`:
+- Daily 6am CT: Sync yesterday's final numbers
+- Hourly 8am-6pm Mon-Fri: Update today's running totals
+
+Backfill endpoint: `POST /api/huddle/backfill` (requires `CRON_SECRET` header)
+
+## Environment Variables
+
+### Daily Dash
+```
+NEXTAUTH_URL, NEXTAUTH_SECRET
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+SERVICETITAN_CLIENT_ID, SERVICETITAN_CLIENT_SECRET, SERVICETITAN_TENANT_ID, SERVICETITAN_APP_KEY
+CRON_SECRET
+```
+
+### Marketing Hub
+Same as Daily Dash plus:
+```
+GOOGLE_BUSINESS_CLIENT_ID, GOOGLE_BUSINESS_CLIENT_SECRET, GOOGLE_BUSINESS_REFRESH_TOKEN
+GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_LOGIN_CUSTOMER_ID
+GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_REFRESH_TOKEN
+```
+
+## DNS (Namecheap)
+- debrief.christmasair.com → A record → 64.225.12.86
+- dash.christmasair.com → CNAME → Vercel
+- marketing.christmasair.com → CNAME → Vercel
+
+## GitHub
+- Private repo: https://github.com/n8dizzle/debrief-tools
+- Deploy key configured on droplet
+
+## Local Development
 ```bash
 # Terminal 1 - Internal Portal
 cd internal-portal && npm run dev  # http://localhost:3000
 
 # Terminal 2 - Daily Dash
 cd daily-dash && npm run dev       # http://localhost:3001
+
+# Terminal 3 - Marketing Hub
+cd marketing-hub && npm run dev    # http://localhost:3002
 ```
 
-### Daily Dash - Daily Huddle Data Sync Architecture (NOT YET DEPLOYED)
-- **Problem Solved**: MTD/WTD numbers were incorrect because data sync was manual-only
-- **Automated Daily Sync** via Vercel Cron Jobs:
-  - Daily at 6am CT: Syncs yesterday's final numbers
-  - Hourly 8am-6pm Mon-Fri: Updates today's running totals
-- **Backfill Endpoint** (`/api/huddle/backfill`):
-  - Syncs historical data for any date range
-  - Rate-limited to avoid API throttling (500ms between dates)
-  - Skips dates that already have data (configurable)
-- **Sync Status Dashboard**:
-  - Shows data completeness percentage
-  - Warns when MTD data is incomplete
-  - One-click backfill button for owners
-  - Last sync timestamp indicator
-- **API Endpoints**:
-  - `POST /api/huddle/backfill` - Backfill date range
-  - `GET /api/huddle/backfill` - Check data completeness
-  - `GET /api/huddle/sync-status` - Get sync status
-- **Environment Variable**: `CRON_SECRET` for cron authentication
+## Recent Changes Summary
 
-### Deployment Checklist for Daily Dash
-```bash
-# 1. Add CRON_SECRET to Vercel environment variables
-# Generate with: openssl rand -hex 32
+**Jan 25-26, 2026**: LSA Dashboard - HVAC/Plumbing breakdown, location performance, cost-per-charged-lead metrics, sync to Supabase
 
-# 2. Deploy to Vercel (vercel.json configures cron jobs)
-vercel --prod
+**Jan 24, 2026**: Marketing Hub launch, GBP Performance dashboard, Reviews page enhancements (team mentions editing, photo/video indicators), User permissions system, Saturday = 0.5 business day
 
-# 3. After deploy, run initial backfill via curl or dashboard
-curl -X POST "https://dash.christmasair.com/api/huddle/backfill" \
-  -H "Authorization: Bearer $CRON_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"startDate": "2026-01-01", "endDate": "2026-01-22", "skipExisting": true}'
-```
+**Jan 23, 2026**: Daily Dash deployed, 18-month trend chart, trade-level revenue tracking, mobile responsive redesign, total sales on cards, revenue calculation fix
 
-## Previous Updates (Jan 17, 2026)
+**Jan 17, 2026**: Debrief-qa equipment/invoice banners, period toggle default change
 
-### That's a Wrap (debrief-qa) - Deployed
-- **Equipment at Location Banner** - Shows installed equipment on the ServiceTitan location record
-  - Displays near "Equipment Added to ST Location?" question
-  - Shows equipment name, serial number, install date, manufacturer/model
-  - Highlights items "Added Today" in green if install date matches job date
-  - Links to view location in ServiceTitan
-  - **Note:** ServiceTitan API ignores `locationId` filter - uses client-side filtering
-- **Invoice Line Items Banner** - Shows materials/equipment on the invoice
-  - Displays near "Materials & Equipment on Invoice" question
-  - Summary counts: Materials | Equipment | Services
-  - Collapsible list with item name, quantity, price
-  - Icons differentiate material vs equipment vs service
-  - Links to view invoice in ServiceTitan
-- **Dashboard Period Toggle** - Default changed from "today" to "this_month"
-  - Period toggle now shows even when no data available
-
-### ServiceTitan Equipment API Workaround
-The ServiceTitan `installed-equipment` API **ignores the `locationId` filter parameter** and returns equipment from ALL locations. Solution:
-1. Fetch up to 5,000 equipment items (10 pages × 500)
-2. Filter client-side by matching `eq.locationId == job.locationId`
-3. Store only equipment at the specific job's location
-
-### That's a Wrap (debrief-qa) - NOT YET DEPLOYED
-- **AI-Powered Invoice Review** - Uses Google Gemini Flash to analyze invoice summaries
-  - Scores invoice quality 1-10 with feedback notes
-  - Pre-fills invoice score slider with AI suggestion
-  - Blue "AI suggests" badges show suggested values
-  - Cost: ~$0.00015 per review
-- **Auto QA Suggestions** - Pre-selects form fields based on ServiceTitan data:
-  - Photos: Pass if photo_count > 0
-  - Payment: Pass if payment_collected
-  - Estimates: Pass if estimate_count > 0, N/A if not opportunity job
-  - Membership: Pass if membership_sold, N/A if customer has active membership
-  - Materials: Pass if materials/equipment on invoice
-- **New API Endpoint** - `/api/run-ai-reviews` to backfill AI reviews on existing tickets
-- **Environment Variable Required**: `GOOGLE_AI_API_KEY` for Gemini API
-
-### Deployment Steps for AI Review Feature
-```bash
-# 1. SSH to server
-ssh root@64.225.12.86
-
-# 2. Run migration to add new columns
-cd /opt/debrief-qa/debrief-qa
-python migrations/add_ai_review_columns.py
-
-# 3. Install new dependency
-pip install google-generativeai
-
-# 4. Add API key to .env
-echo "GOOGLE_AI_API_KEY=your-key-here" >> .env
-
-# 5. Restart app
-systemctl restart debrief-qa
-
-# 6. Backfill AI reviews on existing pending tickets
-curl -X POST "http://localhost:8000/api/run-ai-reviews?limit=100&status=pending"
-```
-
-## Previous Updates (Jan 8, 2025)
-
-### That's a Wrap (debrief-qa) - Deployed
-- **Membership Visit Tracking** - Shows visit count (e.g., "Visit 1 of 2") for tune-up jobs
-  - HVAC: 2 visits total (heat + cool counted together)
-  - Plumbing: 1 visit
-  - Shows if visit is FREE or PAYMENT NEEDED
-  - Displays visit type context (Hvac Heat, Hvac Cool, Plumbing)
-- **Membership Payment Info** - Shows in membership banner:
-  - Price + billing frequency (e.g., $150.00/annual)
-  - Last payment date + amount (e.g., Jun 21, 2024 - $150.00)
-- **Tune-up Detection** - `Maintenance` and `Maintenance Commercial` job types detected using season:
-  - Nov-Mar = heating tune-up
-  - Apr-Oct = cooling tune-up
-  - Explicit keywords (heat/cool) override season
-  - "Inspection" excluded (not a tune-up)
-
-## Previous Updates (Jan 7, 2025)
-
-### That's a Wrap (debrief-qa) - Deployed
-- **Happy Call column** on dispatcher dashboard - shows count of happy calls completed (marked Pass) with ratio vs total debriefs
-
-## Previous Updates (Jan 6, 2025)
-
-### That's a Wrap (debrief-qa) - Deployed
-- **Search bar** on queue page - filter by job #, customer name, or technician
-- **Financing context banners** - Synchrony, WellsFargo, Wisetack, Ally, Buydown with verification reminders
-- **Composite score** displayed in top right of debrief view
-- **Invoice score** added to grid, highlights red if below 7
-- **Auto-select Pass** for verified payments
-- **Check deposit status** - shows mobile deposit vs needs drop-off
-- **Payment method** visible in completed debrief view
-- Payment lookup improvements (customer ID filter, 90-day lookback, client-side filtering)
-
-### Daily Dash (daily-dash) - Not Deployed Yet
-- **Reviews dashboard** - Added recharts for data visualization
-- **API auth fix** - Added `credentials: 'include'` to fetch calls
-- **Stats API** - Extended types for daily counts and period tracking
-- Better error logging on API failures
-
-## Current Deployment Status
-
-See `DEPLOYMENT_STATUS.md` for full details.
-
-### That's a Wrap - PRODUCTION
-- **URL**: https://debrief.christmasair.com
-- **Server**: DigitalOcean Droplet (64.225.12.86)
-- **Deploy**: `~/deploy-debrief.sh "commit message"` from Mac
-
-### Internal Portal - NOT DEPLOYED
-- Planned for Vercel at portal.christmasair.com
-- Simple tools/links intranet
-
-### Daily Dash - NOT DEPLOYED
-- Planned for Vercel at dash.christmasair.com
-- Pacing, huddle, reviews dashboards
-
-## Key Information
-
-### ServiceTitan Integration
-- App uses ServiceTitan API to pull job data
-- **No webhook access** - uses polling via `/api/sync` endpoint
-- Cron job syncs every 5 minutes
-- Manual sync button on queue page
-
-### Server Access
-```bash
-ssh root@64.225.12.86
-```
-
-### Important Paths on Server
-```
-/opt/debrief-qa/debrief-qa/     # App code
-/opt/debrief-qa/debrief-qa/.env # Credentials (not in git)
-```
-
-### Useful Server Commands
-```bash
-systemctl status debrief-qa      # Check if running
-systemctl restart debrief-qa     # Restart app
-journalctl -u debrief-qa -f      # View logs
-curl -X POST http://localhost:8000/api/sync  # Trigger sync
-```
-
-## Development Notes
-
-- The repo root contains four projects as subfolders:
-  - `/debrief-qa` - Python/FastAPI (port 8000)
-  - `/internal-portal` - Next.js (port 3000)
-  - `/daily-dash` - Next.js (port 3001)
-  - `/ar-collections` - Next.js (port 3002)
-- Always test locally before deploying
-- Database: SQLite for debrief-qa (on server), Supabase for portal/dash/ar-collections
-
-### AR Collections - NOT DEPLOYED
-- Planned for Vercel at ar.christmasair.com
-- AR collections management
-
-## DNS (Namecheap)
-- debrief.christmasair.com -> A record -> 64.225.12.86
-- portal.christmasair.com -> Not configured yet
-- dash.christmasair.com -> Not configured yet
-- ar.christmasair.com -> Not configured yet
-
-## GitHub
-- Private repo: https://github.com/n8dizzle/debrief-tools
-- Deploy key configured on droplet for pulls
+**Jan 6-8, 2025**: Debrief-qa search, financing banners, membership tracking, happy call column

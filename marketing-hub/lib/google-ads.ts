@@ -139,27 +139,20 @@ class GoogleAdsClient {
   }
 
   /**
-   * Get LSA leads for a date range from all accessible accounts
+   * Get ALL LSA leads from all accessible accounts (no date filter)
+   * Use this for syncing to database
    */
-  async getLSALeads(
-    startDate: string,
-    endDate: string,
-    customerId?: string
-  ): Promise<LSALead[]> {
-    // If a specific customer ID is provided, only query that one
-    const customerIds = customerId
-      ? [customerId]
-      : await this.getAccessibleCustomers();
-
+  async getAllLSALeads(): Promise<LSALead[]> {
+    const customerIds = await this.getAccessibleCustomers();
     const allLeads: LSALead[] = [];
     const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
 
-    for (const cid of customerIds) {
-      // Skip the manager account itself (it doesn't have leads)
-      if (cid === loginCustomerId) continue;
+    console.log(`[LSA] Querying ${customerIds.length} customer accounts for ALL leads`);
 
+    for (const cid of customerIds) {
       try {
         const customer = this.getCustomer(cid);
+
         const query = `
           SELECT
             local_services_lead.id,
@@ -175,52 +168,148 @@ class GoogleAdsClient {
             local_services_lead.credit_details.credit_state,
             local_services_lead.credit_details.credit_state_last_update_date_time
           FROM local_services_lead
-          WHERE local_services_lead.creation_date_time >= '${startDate}'
-            AND local_services_lead.creation_date_time <= '${endDate}'
           ORDER BY local_services_lead.creation_date_time DESC
-          LIMIT 500
+          LIMIT 5000
         `;
 
         const response = await customer.query(query);
+        console.log(`[LSA] Customer ${cid}: Found ${response.length} leads`);
 
-        const leads = response.map((row: any) => ({
-          id: row.local_services_lead?.id?.toString() || '',
-          leadType: row.local_services_lead?.lead_type || '',
-          categoryId: row.local_services_lead?.category_id || '',
-          serviceName: row.local_services_lead?.service_id || '',
-          contactDetails: {
-            phoneNumber: row.local_services_lead?.contact_details?.phone_number || '',
-            consumerPhoneNumber: row.local_services_lead?.contact_details?.consumer_phone_number || '',
-          },
-          leadStatus: row.local_services_lead?.lead_status || '',
-          creationDateTime: row.local_services_lead?.creation_date_time || '',
-          locale: row.local_services_lead?.locale || '',
-          leadCharged: row.local_services_lead?.lead_charged || false,
-          creditDetails: row.local_services_lead?.credit_details ? {
-            creditState: row.local_services_lead.credit_details.credit_state || '',
-            creditStateLastUpdateDateTime: row.local_services_lead.credit_details.credit_state_last_update_date_time || '',
-          } : undefined,
-          customerId: cid, // Track which account the lead came from
-        }));
-
+        const leads = response.map((row: any) => this.mapLeadResponse(row, cid));
         allLeads.push(...leads);
       } catch (error: any) {
-        // Some accounts may not have LSA - that's expected
-        // Only log if it's not a "no LSA" error
-        if (!error.message?.includes('local_services_lead') &&
-            !error.message?.includes('UNIMPLEMENTED') &&
-            !error.message?.includes('is not available')) {
-          console.error(`Error fetching LSA leads for customer ${cid}:`, error.message);
-        }
+        console.log(`[LSA] Customer ${cid} error: ${error.message?.substring(0, 200)}`);
       }
     }
 
-    // Sort all leads by creation date, newest first
+    console.log(`[LSA] Total leads fetched: ${allLeads.length}`);
+
+    // Sort by creation date, newest first
     allLeads.sort((a, b) =>
       new Date(b.creationDateTime).getTime() - new Date(a.creationDateTime).getTime()
     );
 
     return allLeads;
+  }
+
+  /**
+   * Get LSA leads for a date range from all accessible accounts
+   */
+  async getLSALeads(
+    startDate: string,
+    endDate: string,
+    customerId?: string
+  ): Promise<LSALead[]> {
+    const customerIds = customerId
+      ? [customerId]
+      : await this.getAccessibleCustomers();
+
+    const allLeads: LSALead[] = [];
+
+    console.log(`[LSA] Querying for leads (${startDate} to ${endDate})`);
+
+    for (const cid of customerIds) {
+      try {
+        const customer = this.getCustomer(cid);
+
+        const query = `
+          SELECT
+            local_services_lead.id,
+            local_services_lead.lead_type,
+            local_services_lead.category_id,
+            local_services_lead.service_id,
+            local_services_lead.contact_details.phone_number,
+            local_services_lead.contact_details.consumer_phone_number,
+            local_services_lead.lead_status,
+            local_services_lead.creation_date_time,
+            local_services_lead.locale,
+            local_services_lead.lead_charged,
+            local_services_lead.credit_details.credit_state,
+            local_services_lead.credit_details.credit_state_last_update_date_time
+          FROM local_services_lead
+          ORDER BY local_services_lead.creation_date_time DESC
+          LIMIT 5000
+        `;
+
+        const response = await customer.query(query);
+        const leads = response.map((row: any) => this.mapLeadResponse(row, cid));
+        allLeads.push(...leads);
+      } catch (error: any) {
+        // Silent fail for accounts without LSA
+      }
+    }
+
+    // Filter by date client-side
+    const startDateTime = new Date(startDate + 'T00:00:00');
+    const endDateTime = new Date(endDate + 'T23:59:59');
+
+    const filteredLeads = allLeads.filter(lead => {
+      const leadDate = new Date(lead.creationDateTime);
+      return leadDate >= startDateTime && leadDate <= endDateTime;
+    });
+
+    filteredLeads.sort((a, b) =>
+      new Date(b.creationDateTime).getTime() - new Date(a.creationDateTime).getTime()
+    );
+
+    return filteredLeads;
+  }
+
+  private mapLeadResponse(row: any, customerId: string): LSALead {
+    return {
+      id: row.local_services_lead?.id?.toString() || '',
+      leadType: this.mapLeadType(row.local_services_lead?.lead_type),
+      categoryId: row.local_services_lead?.category_id || '',
+      serviceName: row.local_services_lead?.service_id || '',
+      contactDetails: {
+        phoneNumber: row.local_services_lead?.contact_details?.phone_number || '',
+        consumerPhoneNumber: row.local_services_lead?.contact_details?.consumer_phone_number || '',
+      },
+      leadStatus: this.mapLeadStatus(row.local_services_lead?.lead_status),
+      creationDateTime: row.local_services_lead?.creation_date_time || '',
+      locale: row.local_services_lead?.locale || '',
+      leadCharged: row.local_services_lead?.lead_charged || false,
+      creditDetails: row.local_services_lead?.credit_details ? {
+        creditState: row.local_services_lead.credit_details.credit_state || '',
+        creditStateLastUpdateDateTime: row.local_services_lead.credit_details.credit_state_last_update_date_time || '',
+      } : undefined,
+      customerId,
+    };
+  }
+
+  // Map numeric lead_type to string
+  private mapLeadType(type: number | string): string {
+    const types: Record<number, string> = {
+      0: 'UNSPECIFIED',
+      1: 'UNKNOWN',
+      2: 'MESSAGE',
+      3: 'PHONE_CALL',
+      4: 'BOOKING',
+    };
+    if (typeof type === 'number') {
+      return types[type] || 'UNKNOWN';
+    }
+    return type || 'UNKNOWN';
+  }
+
+  // Map numeric lead_status to string
+  private mapLeadStatus(status: number | string): string {
+    const statuses: Record<number, string> = {
+      0: 'UNSPECIFIED',
+      1: 'UNKNOWN',
+      2: 'NEW',
+      3: 'ACTIVE',
+      4: 'BOOKED',
+      5: 'DECLINED',
+      6: 'EXPIRED',
+      7: 'DISABLED',
+      8: 'CONSUMER_DECLINED',
+      9: 'WIPED_OUT',
+    };
+    if (typeof status === 'number') {
+      return statuses[status] || 'UNKNOWN';
+    }
+    return status || 'UNKNOWN';
   }
 
   /**
@@ -433,4 +522,47 @@ export function formatCreditState(state: string): string {
     'UNSPECIFIED': 'Unspecified',
   };
   return states[state] || state;
+}
+
+/**
+ * Categorize a lead as HVAC, Plumbing, or Other based on category_id
+ */
+export function getLeadTrade(categoryId: string): 'HVAC' | 'Plumbing' | 'Other' {
+  const lowerCategory = categoryId.toLowerCase();
+  if (lowerCategory.includes('hvac') ||
+      lowerCategory.includes('heating') ||
+      lowerCategory.includes('air_conditioning') ||
+      lowerCategory.includes('air-conditioning')) {
+    return 'HVAC';
+  }
+  if (lowerCategory.includes('plumb') ||
+      lowerCategory.includes('drain') ||
+      lowerCategory.includes('sewer') ||
+      lowerCategory.includes('water_heater')) {
+    return 'Plumbing';
+  }
+  return 'Other';
+}
+
+/**
+ * Format category ID to readable name
+ */
+export function formatCategoryId(categoryId: string): string {
+  if (!categoryId) return 'Unknown';
+
+  // Extract the readable part from xcat:service_area_business_hvac format
+  let name = categoryId
+    .replace('xcat:service_area_business_', '')
+    .replace('xcat:', '')
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ');
+
+  // Capitalize first letter of each word
+  name = name.replace(/\b\w/g, char => char.toUpperCase());
+
+  // Common replacements
+  name = name.replace(/Hvac/g, 'HVAC');
+  name = name.replace(/Ac /g, 'AC ');
+
+  return name;
 }

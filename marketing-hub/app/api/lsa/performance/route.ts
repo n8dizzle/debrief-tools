@@ -87,17 +87,31 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Cost per CHARGED lead (the accurate metric)
+    const costPerChargedLead = totals.chargedLeads > 0 ? totals.cost / totals.chargedLeads : 0;
+    // Also show cost per all leads for reference
     const avgCostPerLead = totals.totalLeads > 0 ? totals.cost / totals.totalLeads : 0;
     const clickThroughRate = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
     const conversionRate = totals.clicks > 0 ? (totals.totalLeads / totals.clicks) * 100 : 0;
+    const chargeRate = totals.totalLeads > 0 ? (totals.chargedLeads / totals.totalLeads) * 100 : 0;
+
+    // Enhance accounts with cost per charged lead
+    const enhancedAccounts = performance.map(acc => ({
+      ...acc,
+      costPerChargedLead: acc.chargedLeads > 0 ? acc.cost / acc.chargedLeads : 0,
+      chargeRate: acc.totalLeads > 0 ? (acc.chargedLeads / acc.totalLeads) * 100 : 0,
+    }));
 
     return NextResponse.json({
-      accounts: performance,
+      accounts: enhancedAccounts,
       totals: {
         ...totals,
+        costPerChargedLead,
         avgCostPerLead,
         clickThroughRate,
         conversionRate,
+        chargeRate,
+        nonChargedLeads: totals.totalLeads - totals.chargedLeads,
       },
       period,
       dateRange: { start: startDateStr, end: endDateStr },
