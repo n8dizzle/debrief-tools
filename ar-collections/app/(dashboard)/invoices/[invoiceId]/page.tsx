@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { formatCurrency, formatDate, formatNoteDate, getAgingBucketLabel, getInitials } from '@/lib/ar-utils';
-import { ARInvoiceWithTracking, ARCollectionNote, PortalUser } from '@/lib/supabase';
+import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
+import { ARInvoiceWithTracking, PortalUser } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 import { useSession } from 'next-auth/react';
+import QuickLogButtons from '@/components/QuickLogButtons';
+import ActivityTimeline from '@/components/ActivityTimeline';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -18,8 +20,6 @@ export default function InvoiceDetailPage() {
   const [owners, setOwners] = useState<PortalUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newNote, setNewNote] = useState('');
-  const [submittingNote, setSubmittingNote] = useState(false);
 
   const {
     canUpdateWorkflow,
@@ -79,30 +79,16 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function addNote() {
-    if (!newNote.trim() || !invoice || !session?.user) return;
-    setSubmittingNote(true);
+  async function refreshNotes() {
     try {
       const response = await fetch(`/api/invoices/${invoiceId}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          content: newNote,
-          note_type: 'call',
-        }),
       });
-      if (!response.ok) throw new Error('Failed to add note');
+      if (!response.ok) throw new Error('Failed to fetch notes');
       const data = await response.json();
-      setInvoice(prev => prev ? {
-        ...prev,
-        notes: [data.note, ...prev.notes],
-      } : null);
-      setNewNote('');
+      setInvoice(prev => prev ? { ...prev, notes: data.notes || [] } : null);
     } catch (err) {
-      console.error('Failed to add note:', err);
-    } finally {
-      setSubmittingNote(false);
+      console.error('Failed to refresh notes:', err);
     }
   }
 
@@ -311,63 +297,21 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Activity Timeline */}
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-              Collection Notes
-            </h2>
-
-            {/* Add Note */}
-            {canAddNotes && (
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="input flex-1"
-                    placeholder="Add a note..."
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                  />
-                  <button
-                    onClick={addNote}
-                    disabled={submittingNote || !newNote.trim()}
-                    className="btn btn-primary"
-                  >
-                    {submittingNote ? 'Adding...' : 'Add Note'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Notes List */}
-            <div className="space-y-3">
-              {invoice.notes.length === 0 ? (
-                <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>
-                  No notes yet
-                </div>
-              ) : (
-                invoice.notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="p-3 rounded-lg"
-                    style={{ backgroundColor: 'var(--bg-secondary)' }}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium" style={{ color: 'var(--christmas-green-light)' }}>
-                        {formatNoteDate(note.note_date)}-{note.author_initials}
-                      </span>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {note.note_type}
-                      </span>
-                    </div>
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      {note.content}
-                    </p>
-                  </div>
-                ))
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                Activity Timeline
+              </h2>
+              {canAddNotes && (
+                <QuickLogButtons
+                  invoiceId={invoiceId}
+                  onLogSaved={refreshNotes}
+                />
               )}
             </div>
+
+            <ActivityTimeline notes={invoice.notes} />
           </div>
         </div>
 

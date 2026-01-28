@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
 import { ARInvoice, ARInvoiceTracking, PortalUser } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
+import QuickLogButtons from '@/components/QuickLogButtons';
 
 interface InvoiceWithTracking extends ARInvoice {
   tracking: ARInvoiceTracking | null;
@@ -21,7 +22,7 @@ type FilterState = {
   inhouseFinancing: string;
 };
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'inhouse_financing';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'inhouse_financing' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -44,6 +45,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
   { id: 'days_outstanding', label: 'DSO', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
+  { id: 'actions', label: 'Log', sortable: false, minWidth: 80, defaultWidth: 90 },
 ];
 
 const STORAGE_KEY = 'ar-invoices-column-order';
@@ -479,6 +481,13 @@ export default function InvoicesPage() {
         return invoice.has_inhouse_financing ? (
           <span className="badge badge-financing" title="In-house Financing">💳</span>
         ) : null;
+      case 'actions':
+        return (
+          <QuickLogButtons
+            invoiceId={invoice.id}
+            compact
+          />
+        );
       default:
         return null;
     }
