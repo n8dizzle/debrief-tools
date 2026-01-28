@@ -19,9 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "@christmas-air/shared": ["../packages/shared/lib"],
-      "@christmas-air/shared/*": ["../packages/shared/lib/*"]
+      "@/*": ["./*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

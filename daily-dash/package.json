@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@christmas-air/shared": "*",
     "@google/generative-ai": "^0.24.1",
     "@slack/web-api": "^7.8.0",
     "@supabase/supabase-js": "^2.89.0",
