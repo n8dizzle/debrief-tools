@@ -7,6 +7,7 @@
  * - Debrief QA
  * - Marketing Hub
  * - Admin Panel
+ * - AR Collections
  *
  * JSONB stored in portal_users.permissions column
  */
@@ -45,6 +46,14 @@ export interface AdminPanelPermissions {
   can_view_audit_log?: boolean;
 }
 
+export interface ARCollectionsPermissions {
+  can_view_invoices?: boolean;
+  can_update_invoices?: boolean;
+  can_log_communications?: boolean;
+  can_view_reports?: boolean;
+  can_manage_settings?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -55,6 +64,7 @@ export interface UserPermissions {
   debrief_qa?: DebriefQAPermissions;
   marketing_hub?: MarketingHubPermissions;
   admin_panel?: AdminPanelPermissions;
+  ar_collections?: ARCollectionsPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -178,6 +188,37 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_spot_checks',
         label: 'Manage spot checks',
         description: 'Create and review spot checks',
+      },
+    ],
+  },
+  {
+    app: 'ar_collections',
+    label: 'AR Collections',
+    permissions: [
+      {
+        key: 'can_view_invoices',
+        label: 'View invoices',
+        description: 'Access AR invoices and aging reports',
+      },
+      {
+        key: 'can_update_invoices',
+        label: 'Update invoices',
+        description: 'Update invoice status, add notes, and manage collections',
+      },
+      {
+        key: 'can_log_communications',
+        label: 'Log communications',
+        description: 'Record customer communications and follow-ups',
+      },
+      {
+        key: 'can_view_reports',
+        label: 'View reports',
+        description: 'Access AR reports and analytics',
+      },
+      {
+        key: 'can_manage_settings',
+        label: 'Manage settings',
+        description: 'Configure AR collections settings',
       },
     ],
   },

@@ -15,6 +15,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Daily Dash** (`/daily-dash`) | https://dash.christmasair.com | Next.js | 3001 |
 | **Marketing Hub** (`/marketing-hub`) | https://marketing.christmasair.com | Next.js | 3002 |
 | **Internal Portal** (`/internal-portal`) | https://portal.christmasair.com | Next.js | 3000 |
+| **AR Collections** (`/ar-collections`) | TBD | Next.js | 3003 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -79,6 +80,17 @@ Common code shared across all Next.js apps:
 - Membership visit tracking ("Visit 1 of 2")
 - AI invoice review (Gemini Flash, ~$0.00015/review)
 - Happy Call tracking column
+
+### AR Collections
+
+**Accounts Receivable Management** - Track and collect outstanding invoices
+- Dashboard with aging summary and key metrics
+- Invoice list views (Install vs Service)
+- Communication logging for customer follow-ups
+- Financing tracking
+- Activity history
+- Reports and analytics
+- ServiceTitan integration for invoice data
 
 ### Internal Portal (Admin)
 
@@ -165,8 +177,8 @@ can_view_all_jobs, can_manage_users, can_manage_spot_checks
 // admin_panel
 can_manage_users, can_view_audit_log
 
-// ar_collections (future)
-can_view_ar_dashboard, can_manage_collections, can_export_reports, can_write_off_accounts
+// ar_collections
+can_view_invoices, can_update_invoices, can_log_communications, can_view_reports, can_manage_settings
 ```
 
 ## Deployment
