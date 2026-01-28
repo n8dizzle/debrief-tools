@@ -152,6 +152,16 @@ export async function POST(request: NextRequest) {
           // Extract payment date
           const paymentDate = payment.date ?? paymentAny.paidOn ?? paymentAny.createdOn;
 
+          // Extract payment type - handle both string and object formats
+          let paymentType = 'Unknown';
+          if (typeof paymentAny.type === 'string') {
+            paymentType = paymentAny.type;
+          } else if (paymentAny.type?.name) {
+            paymentType = paymentAny.type.name;
+          } else if (paymentAny.paymentType?.name) {
+            paymentType = paymentAny.paymentType.name;
+          }
+
           // Insert new payment
           const { error: paymentError } = await supabase
             .from('ar_payments')
@@ -160,7 +170,7 @@ export async function POST(request: NextRequest) {
               invoice_id: inv.id,
               customer_id: inv.customer_id,
               amount: amount,
-              payment_type: payment.type?.name ?? paymentAny.paymentType?.name ?? 'Unknown',
+              payment_type: paymentType,
               payment_date: paymentDate ? paymentDate.split('T')[0] : new Date().toISOString().split('T')[0],
             });
 

@@ -128,6 +128,24 @@ export async function GET(request: NextRequest) {
     }
     console.log(`Financing API: Grouped payments for ${paymentsByInvoice.size} invoices`);
 
+    // Fetch expected payment schedules for status indicators
+    const { data: scheduleData } = await supabase
+      .from('ar_financing_payments')
+      .select('invoice_id, status')
+      .in('invoice_id', invoiceIds);
+
+    // Build schedule status map
+    const scheduleStatusMap = new Map<string, { missed: number; late: number; pending: number; paid: number }>();
+    for (const entry of scheduleData || []) {
+      if (!entry.invoice_id) continue;
+      const existing = scheduleStatusMap.get(entry.invoice_id) || { missed: 0, late: 0, pending: 0, paid: 0 };
+      if (entry.status === 'missed') existing.missed++;
+      else if (entry.status === 'late') existing.late++;
+      else if (entry.status === 'pending') existing.pending++;
+      else if (entry.status === 'paid') existing.paid++;
+      scheduleStatusMap.set(entry.invoice_id, existing);
+    }
+
     // Build response with calculated fields
     const financingInvoices: FinancingInvoice[] = invoices.map((invoice) => {
       const tracking = trackingMap.get(invoice.id);
@@ -172,6 +190,7 @@ export async function GET(request: NextRequest) {
         next_due_date: nextDueDate,
         projected_payoff_date: projectedPayoffDate,
         payments_remaining: paymentsRemaining,
+        schedule_status: scheduleStatusMap.get(invoice.id) || null,
         payments: payments,
       };
     });

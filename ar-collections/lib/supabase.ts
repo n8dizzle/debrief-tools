@@ -123,8 +123,13 @@ export interface ARInvoice {
   customer_type: ARCustomerType;
   st_job_id: number | null;
   job_number: string | null;
+  st_job_status: string | null;
+  st_job_type_name: string | null;
+  has_membership: boolean;
   technician_name: string | null;
   has_inhouse_financing: boolean;
+  booking_payment_type: string | null;
+  next_appointment_date: string | null;
   synced_at: string;
   created_at: string;
   updated_at: string;
@@ -363,7 +368,14 @@ export interface ARDashboardStats {
   service_total: number;
   residential_total: number;
   commercial_total: number;
+  inhouse_financing_total: number;
+  inhouse_financing_count: number;
+  inhouse_financing_delinquent: number;
+  business_unit_totals: { name: string; total: number }[];
   top_balances: (ARInvoice & { tracking?: ARInvoiceTracking })[];
+  top_oldest: (ARInvoice & { tracking?: ARInvoiceTracking })[];
+  top_90_plus: (ARInvoice & { tracking?: ARInvoiceTracking })[];
+  top_recent: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   recent_activity: ARCollectionNote[];
 }
 
@@ -413,6 +425,13 @@ export interface FinancingInvoice {
   next_due_date: string | null;
   projected_payoff_date: string | null;
   payments_remaining: number;
+  // Schedule status counts
+  schedule_status: {
+    missed: number;
+    late: number;
+    pending: number;
+    paid: number;
+  } | null;
   // Nested data
   payments: ARPayment[];
 }
@@ -429,6 +448,23 @@ export interface PaymentSchedule {
   projected_payoff_date: string | null;
   payments_remaining: number;
   total_remaining: number;
+}
+
+export type FinancingPaymentStatus = 'pending' | 'paid' | 'missed' | 'late' | 'partial';
+
+export interface FinancingExpectedPayment {
+  id: string;
+  invoice_id: string;
+  due_date: string;
+  amount: number;
+  status: FinancingPaymentStatus;
+  payment_date: string | null;
+  st_payment_id: number | null;
+  amount_paid: number | null;
+  payment_type: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================

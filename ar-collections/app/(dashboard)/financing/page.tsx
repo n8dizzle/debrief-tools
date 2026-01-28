@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/ar-utils';
-import { FinancingInvoice } from '@/lib/supabase';
+import { FinancingInvoice, FinancingExpectedPayment } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 import {
   getPaymentProgress,
@@ -21,6 +21,9 @@ interface FinancingSummary {
   plans_with_settings: number;
 }
 
+type SortColumn = 'invoice_number' | 'invoice_date' | 'customer_name' | 'balance' | 'invoice_total' | 'financing_monthly_amount' | 'payments_made' | 'status' | 'next_due_date' | 'progress';
+type SortDirection = 'asc' | 'desc';
+
 export default function FinancingPage() {
   const [invoices, setInvoices] = useState<FinancingInvoice[]>([]);
   const [summary, setSummary] = useState<FinancingSummary | null>(null);
@@ -28,13 +31,22 @@ export default function FinancingPage() {
   const [filterStatus, setFilterStatus] = useState<string>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
+  const [expectedPayments, setExpectedPayments] = useState<Record<string, FinancingExpectedPayment[]>>({});
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('invoice_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { canUpdateWorkflow } = useARPermissions();
 
   useEffect(() => {
     fetchInvoices();
   }, [filterStatus]);
+
+  useEffect(() => {
+    if (expandedInvoice) {
+      fetchExpectedPayments(expandedInvoice);
+    }
+  }, [expandedInvoice]);
 
   async function fetchInvoices() {
     try {
@@ -60,6 +72,23 @@ export default function FinancingPage() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     fetchInvoices();
+  }
+
+  async function fetchExpectedPayments(invoiceId: string) {
+    try {
+      const response = await fetch(`/api/financing/${invoiceId}/schedule`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setExpectedPayments((prev) => ({
+          ...prev,
+          [invoiceId]: data.payments || [],
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching expected payments:', err);
+    }
   }
 
   async function syncPayments() {
@@ -97,15 +126,65 @@ export default function FinancingPage() {
     setExpandedInvoice(expandedInvoice === invoiceId ? null : invoiceId);
   }
 
-  // Filter invoices by search term (client-side for responsiveness)
-  const filteredInvoices = invoices.filter((inv) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      inv.invoice_number.toLowerCase().includes(search) ||
-      inv.customer_name.toLowerCase().includes(search)
-    );
-  });
+  function handleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  }
+
+  function getSortValue(invoice: FinancingInvoice, column: SortColumn): string | number {
+    switch (column) {
+      case 'invoice_number':
+        return invoice.invoice_number;
+      case 'invoice_date':
+        return invoice.invoice_date || '';
+      case 'customer_name':
+        return invoice.customer_name.toLowerCase();
+      case 'balance':
+        return invoice.balance;
+      case 'invoice_total':
+        return invoice.invoice_total;
+      case 'financing_monthly_amount':
+        return invoice.financing_monthly_amount || 0;
+      case 'payments_made':
+        return invoice.payments_made;
+      case 'status':
+        return invoice.schedule_status?.missed || 0;
+      case 'next_due_date':
+        return invoice.next_due_date || 'zzzz'; // Sort empty dates to end
+      case 'progress':
+        return getPaymentProgress(invoice.invoice_total, invoice.balance);
+      default:
+        return '';
+    }
+  }
+
+  // Filter and sort invoices (client-side for responsiveness)
+  const filteredInvoices = invoices
+    .filter((inv) => {
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        inv.invoice_number.toLowerCase().includes(search) ||
+        inv.customer_name.toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) => {
+      const aVal = getSortValue(a, sortColumn);
+      const bVal = getSortValue(b, sortColumn);
+
+      let comparison = 0;
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        comparison = aVal.localeCompare(bVal);
+      } else {
+        comparison = (aVal as number) - (bVal as number);
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
 
   if (loading) {
     return (
@@ -208,7 +287,7 @@ export default function FinancingPage() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="card">
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Total Outstanding</div>
-            <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--status-error)' }}>
+            <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: '#f97316' }}>
               {formatCurrency(summary.total_outstanding)}
             </div>
           </div>
@@ -242,6 +321,46 @@ export default function FinancingPage() {
         </div>
       )}
 
+      {/* Delinquent Summary */}
+      {(() => {
+        const delinquentInvoices = filteredInvoices.filter(inv => inv.schedule_status?.missed && inv.schedule_status.missed > 0);
+        const totalMissedPayments = delinquentInvoices.reduce((sum, inv) => sum + (inv.schedule_status?.missed || 0), 0);
+        // Calculate delinquent amount: missed payments × monthly amount for each invoice
+        const delinquentAmount = delinquentInvoices.reduce((sum, inv) => {
+          const missedCount = inv.schedule_status?.missed || 0;
+          const monthlyAmount = inv.financing_monthly_amount || 0;
+          return sum + (missedCount * monthlyAmount);
+        }, 0);
+
+        if (delinquentInvoices.length === 0) return null;
+
+        return (
+          <div
+            className="p-4 rounded-lg flex items-center justify-between"
+            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="var(--status-error)" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <div className="font-semibold" style={{ color: 'var(--status-error)' }}>
+                  {delinquentInvoices.length} Delinquent {delinquentInvoices.length === 1 ? 'Account' : 'Accounts'}
+                </div>
+                <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {totalMissedPayments} missed {totalMissedPayments === 1 ? 'payment' : 'payments'} totaling {formatCurrency(delinquentAmount)} delinquent
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Invoices Table */}
       <div className="card p-0 overflow-hidden">
         <div className="overflow-x-auto">
@@ -249,21 +368,182 @@ export default function FinancingPage() {
             <thead>
               <tr>
                 <th></th>
-                <th>Invoice #</th>
-                <th>Customer</th>
-                <th>Invoice Date</th>
-                <th className="text-right">Balance</th>
-                <th className="text-right">Original</th>
-                <th className="text-right">Monthly</th>
-                <th className="text-center">Paid</th>
-                <th>Next Due</th>
-                <th>Progress</th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('invoice_number')}
+                >
+                  <div className="flex items-center gap-1">
+                    Invoice #
+                    {sortColumn === 'invoice_number' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('invoice_date')}
+                >
+                  <div className="flex items-center gap-1">
+                    Invoice Date
+                    {sortColumn === 'invoice_date' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('customer_name')}
+                >
+                  <div className="flex items-center gap-1">
+                    Customer
+                    {sortColumn === 'customer_name' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('balance')}
+                >
+                  <div className="flex items-center gap-1">
+                    Balance
+                    {sortColumn === 'balance' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('invoice_total')}
+                >
+                  <div className="flex items-center gap-1">
+                    Original
+                    {sortColumn === 'invoice_total' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('financing_monthly_amount')}
+                >
+                  <div className="flex items-center gap-1">
+                    Monthly
+                    {sortColumn === 'financing_monthly_amount' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('payments_made')}
+                >
+                  <div className="flex items-center gap-1">
+                    Paid
+                    {sortColumn === 'payments_made' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-1">
+                    Status
+                    {sortColumn === 'status' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('next_due_date')}
+                >
+                  <div className="flex items-center gap-1">
+                    Next Due
+                    {sortColumn === 'next_due_date' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="cursor-pointer hover:bg-opacity-80 select-none"
+                  onClick={() => handleSort('progress')}
+                >
+                  <div className="flex items-center gap-1">
+                    Progress
+                    {sortColumn === 'progress' && (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        {sortDirection === 'asc' ? (
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                    )}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={11} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
                     No financing plans found
                   </td>
                 </tr>
@@ -278,9 +558,8 @@ export default function FinancingPage() {
                   const isOverdue = daysUntil !== null && daysUntil < 0;
 
                   return (
-                    <>
+                    <Fragment key={invoice.id}>
                       <tr
-                        key={invoice.id}
                         className="cursor-pointer hover:bg-opacity-50"
                         onClick={() => toggleExpand(invoice.id)}
                         style={{ backgroundColor: isExpanded ? 'var(--bg-secondary)' : undefined }}
@@ -319,6 +598,9 @@ export default function FinancingPage() {
                             </a>
                           </div>
                         </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>
+                          {formatDate(invoice.invoice_date)}
+                        </td>
                         <td>
                           <div className="flex items-center gap-2">
                             <span>{invoice.customer_name}</span>
@@ -338,16 +620,13 @@ export default function FinancingPage() {
                             )}
                           </div>
                         </td>
-                        <td style={{ color: 'var(--text-secondary)' }}>
-                          {formatDate(invoice.invoice_date)}
-                        </td>
-                        <td className="text-right font-medium tabular-nums" style={{ color: 'var(--status-error)' }}>
+                        <td className="font-medium tabular-nums" style={{ color: '#f97316' }}>
                           {formatCurrency(invoice.balance)}
                         </td>
-                        <td className="text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        <td className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                           {formatCurrency(invoice.invoice_total)}
                         </td>
-                        <td className="text-right tabular-nums">
+                        <td className="tabular-nums">
                           {invoice.financing_monthly_amount
                             ? formatCurrency(invoice.financing_monthly_amount)
                             : (
@@ -356,7 +635,7 @@ export default function FinancingPage() {
                               </span>
                             )}
                         </td>
-                        <td className="text-center">
+                        <td>
                           <span
                             className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-sm"
                             style={{
@@ -370,6 +649,36 @@ export default function FinancingPage() {
                           >
                             {invoice.payments_made}
                           </span>
+                        </td>
+                        <td>
+                          {invoice.schedule_status ? (
+                            invoice.schedule_status.missed > 0 ? (
+                              <span
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                style={{
+                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                  color: 'var(--status-error)',
+                                }}
+                                title={`${invoice.schedule_status.missed} missed payment(s)`}
+                              >
+                                Delinquent ({invoice.schedule_status.missed})
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                style={{
+                                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                                  color: 'var(--christmas-green)',
+                                }}
+                              >
+                                Current
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                              —
+                            </span>
+                          )}
                         </td>
                         <td>
                           {invoice.next_due_date ? (
@@ -403,9 +712,7 @@ export default function FinancingPage() {
                                   className="h-full rounded-full transition-all"
                                   style={{
                                     width: `${progress}%`,
-                                    backgroundColor: progress === 100
-                                      ? 'var(--christmas-green)'
-                                      : 'var(--christmas-red)',
+                                    backgroundColor: 'var(--christmas-green)',
                                   }}
                                 />
                               </div>
@@ -417,8 +724,8 @@ export default function FinancingPage() {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr key={`${invoice.id}-expanded`}>
-                          <td colSpan={10} style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <tr>
+                          <td colSpan={11} style={{ backgroundColor: 'var(--bg-secondary)' }}>
                             <div className="p-4">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Payment Settings */}
@@ -470,10 +777,10 @@ export default function FinancingPage() {
                                   </div>
                                 </div>
 
-                                {/* Payment History */}
+                                {/* Payment History from ST */}
                                 <div>
                                   <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
-                                    Payment History
+                                    ServiceTitan Payments
                                   </h4>
                                   <PaymentHistory
                                     payments={invoice.payments}
@@ -483,6 +790,48 @@ export default function FinancingPage() {
                                   />
                                 </div>
                               </div>
+
+                              {/* Payment Schedule Summary */}
+                              {hasSettings && (
+                                <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                                      Payment Schedule
+                                    </h4>
+                                    <Link
+                                      href={`/invoices/${invoice.id}#schedule`}
+                                      className="btn btn-secondary btn-sm"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      View Full Schedule
+                                    </Link>
+                                  </div>
+                                  {expectedPayments[invoice.id]?.length > 0 ? (
+                                    <div className="flex gap-4 mt-2 text-sm">
+                                      <span style={{ color: 'var(--christmas-green)' }}>
+                                        {expectedPayments[invoice.id].filter(p => p.status === 'paid').length} Paid
+                                      </span>
+                                      {expectedPayments[invoice.id].filter(p => p.status === 'late').length > 0 && (
+                                        <span style={{ color: 'var(--status-warning)' }}>
+                                          {expectedPayments[invoice.id].filter(p => p.status === 'late').length} Late
+                                        </span>
+                                      )}
+                                      {expectedPayments[invoice.id].filter(p => p.status === 'missed').length > 0 && (
+                                        <span style={{ color: 'var(--status-error)' }}>
+                                          {expectedPayments[invoice.id].filter(p => p.status === 'missed').length} Missed
+                                        </span>
+                                      )}
+                                      <span style={{ color: 'var(--text-muted)' }}>
+                                        {expectedPayments[invoice.id].filter(p => p.status === 'pending').length} Pending
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
+                                      No schedule generated yet. <Link href={`/invoices/${invoice.id}#schedule`} className="underline" onClick={(e) => e.stopPropagation()}>Generate schedule</Link>
+                                    </p>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Notes */}
                               {invoice.financing_notes && (
@@ -499,7 +848,7 @@ export default function FinancingPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })
               )}

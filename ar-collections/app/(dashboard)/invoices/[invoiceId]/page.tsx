@@ -4,13 +4,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
-import { ARInvoiceWithTracking, PortalUser, FinancingInvoice, PaymentSchedule as PaymentScheduleType } from '@/lib/supabase';
+import { ARInvoiceWithTracking, PortalUser, FinancingInvoice, FinancingExpectedPayment } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 import { useSession } from 'next-auth/react';
 import QuickLogButtons from '@/components/QuickLogButtons';
 import ActivityTimeline from '@/components/ActivityTimeline';
-import PaymentHistory from '@/components/PaymentHistory';
-import PaymentSchedule from '@/components/PaymentSchedule';
+import ExpectedPaymentSchedule from '@/components/ExpectedPaymentSchedule';
 import { formatDueDay, getPaymentProgress } from '@/lib/financing-utils';
 
 export default function InvoiceDetailPage() {
@@ -26,7 +25,7 @@ export default function InvoiceDetailPage() {
 
   // Financing state
   const [financingData, setFinancingData] = useState<FinancingInvoice | null>(null);
-  const [financingSchedule, setFinancingSchedule] = useState<PaymentScheduleType | null>(null);
+  const [expectedPayments, setExpectedPayments] = useState<FinancingExpectedPayment[]>([]);
   const [financingEditing, setFinancingEditing] = useState(false);
   const [financingForm, setFinancingForm] = useState({
     monthly_amount: '',
@@ -52,6 +51,7 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     if (invoice?.has_inhouse_financing) {
       fetchFinancingData();
+      fetchExpectedPayments();
     }
   }, [invoice?.has_inhouse_financing, invoiceId]);
 
@@ -78,7 +78,6 @@ export default function InvoiceDetailPage() {
       if (!response.ok) return;
       const data = await response.json();
       setFinancingData(data.invoice);
-      setFinancingSchedule(data.schedule);
 
       // Initialize form with existing data
       if (data.invoice) {
@@ -114,6 +113,19 @@ export default function InvoiceDetailPage() {
       fetchFinancingData();
     } catch (err) {
       console.error('Failed to save financing settings:', err);
+    }
+  }
+
+  async function fetchExpectedPayments() {
+    try {
+      const response = await fetch(`/api/financing/${invoiceId}/schedule`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setExpectedPayments(data.payments || []);
+    } catch (err) {
+      console.error('Failed to fetch expected payments:', err);
     }
   }
 
@@ -201,11 +213,37 @@ export default function InvoiceDetailPage() {
               </svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                Invoice #{invoice.invoice_number}
-              </h1>
-              <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                  Invoice #{invoice.invoice_number}
+                </h1>
+                <a
+                  href={`https://go.servicetitan.com/#/Invoice/${invoice.st_invoice_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="opacity-50 hover:opacity-100 transition-opacity"
+                  title="Open in ServiceTitan"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+              <p className="mt-1 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                 {invoice.customer_name}
+                {(invoice as any).st_customer_id > 0 && (
+                  <a
+                    href={`https://go.servicetitan.com/#/Customer/${(invoice as any).st_customer_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="opacity-50 hover:opacity-100 transition-opacity"
+                    title="Open Customer in ServiceTitan"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                )}
               </p>
             </div>
           </div>
@@ -249,6 +287,89 @@ export default function InvoiceDetailPage() {
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Days Outstanding</div>
                 <div style={{ color: 'var(--text-secondary)' }}>{invoice.days_outstanding} days</div>
               </div>
+            </div>
+          </div>
+
+          {/* Job Details */}
+          <div className="card">
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              Job Details
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Job Number</div>
+                <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  {invoice.job_number || '-'}
+                  {invoice.job_number && (
+                    <a
+                      href={`https://go.servicetitan.com/#/Job/Index/${invoice.job_number}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="opacity-50 hover:opacity-100 transition-opacity"
+                      title="Open Job in ServiceTitan"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Business Unit</div>
+                <div style={{ color: 'var(--text-secondary)' }}>{invoice.business_unit_name || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Job Type</div>
+                <div style={{ color: 'var(--text-secondary)' }}>{invoice.st_job_type_name || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>ST Job Status</div>
+                <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  <span>{invoice.st_job_status?.toLowerCase() === 'completed' ? '✅' : '⚠️'}</span>
+                  <span>{invoice.st_job_status || 'Unknown'}</span>
+                </div>
+              </div>
+            </div>
+            {/* Second row - Booking Payment Type & Next Appointment */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Booked Payment Type</div>
+                <div style={{ color: 'var(--text-secondary)' }}>{(invoice as any).booking_payment_type || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Next Appointment</div>
+                {(invoice as any).next_appointment_date ? (
+                  <div style={{
+                    color: new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString()
+                      ? 'var(--christmas-green)'
+                      : 'var(--text-secondary)',
+                    fontWeight: new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString() ? 600 : 400,
+                  }}>
+                    {new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString()
+                      ? '📅 Today'
+                      : formatDate((invoice as any).next_appointment_date)}
+                  </div>
+                ) : (
+                  <div style={{ color: 'var(--text-secondary)' }}>-</div>
+                )}
+              </div>
+            </div>
+            {/* Flags row */}
+            <div className="flex items-center gap-3 mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              {invoice.has_inhouse_financing && (
+                <span className="badge badge-financing flex items-center gap-1">
+                  💳 In-House Financing
+                </span>
+              )}
+              {invoice.has_membership && (
+                <span className="badge flex items-center gap-1" style={{ backgroundColor: 'rgba(147, 51, 234, 0.2)', color: '#a78bfa' }}>
+                  🎫 Membership
+                </span>
+              )}
+              {!invoice.has_inhouse_financing && !invoice.has_membership && (
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No special flags</span>
+              )}
             </div>
           </div>
 
@@ -528,27 +649,19 @@ export default function InvoiceDetailPage() {
                     </div>
                   </div>
 
-                  {/* Two columns: Payment History and Upcoming Schedule */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                  {/* Payment Schedule Tracker */}
+                  {(financingData.financing_monthly_amount && financingData.financing_due_day) && (
+                    <div id="schedule">
                       <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
-                        Payment History
+                        Payment Schedule
                       </h3>
-                      <PaymentHistory
-                        payments={financingData.payments}
-                        invoiceTotal={invoice.invoice_total}
-                        dueDay={financingData.financing_due_day}
+                      <ExpectedPaymentSchedule
+                        invoiceId={invoiceId}
+                        payments={expectedPayments}
+                        onUpdate={fetchExpectedPayments}
                       />
                     </div>
-                    {financingSchedule && (
-                      <div>
-                        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
-                          Upcoming Payments
-                        </h3>
-                        <PaymentSchedule schedule={financingSchedule} />
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Notes */}
                   {financingData.financing_notes && (

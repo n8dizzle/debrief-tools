@@ -25,6 +25,23 @@ export interface STJob {
   tagTypeIds?: number[];
   type?: { name?: string };
   lastAppointmentId?: number;
+  membershipId?: number | null;
+}
+
+export interface STAppointment {
+  id: number;
+  jobId: number;
+  start?: string;
+  end?: string;
+  arrivalWindowStart?: string;
+  arrivalWindowEnd?: string;
+  status?: string;
+  // Payment type collected at booking
+  paymentType?: string;
+  paymentMethod?: string;
+  // Other potential fields
+  specialInstructions?: string;
+  summary?: string;
 }
 
 export interface STInvoice {
@@ -601,6 +618,74 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Get appointment details by ID
+   */
+  async getAppointment(appointmentId: number): Promise<STAppointment | null> {
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/appointments/${appointmentId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get appointment ${appointmentId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get appointments for a job
+   */
+  async getJobAppointments(jobId: number): Promise<STAppointment[]> {
+    try {
+      const response = await this.request<STPagedResponse<STAppointment>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/appointments`,
+        { params: { jobId: jobId.toString(), pageSize: '50' } }
+      );
+      return response.data || [];
+    } catch (error) {
+      console.error(`Failed to get appointments for job ${jobId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get booking details by ID
+   */
+  async getBooking(bookingId: number): Promise<any | null> {
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `crm/v2/tenant/${this.tenantId}/bookings/${bookingId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get booking ${bookingId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get bookings for a customer (to find payment type)
+   */
+  async getCustomerBookings(customerId: number): Promise<any[]> {
+    try {
+      const response = await this.request<STPagedResponse<any>>(
+        'GET',
+        `crm/v2/tenant/${this.tenantId}/bookings`,
+        { params: { customerId: customerId.toString(), pageSize: '50' } }
+      );
+      return response.data || [];
+    } catch (error) {
+      console.error(`Failed to get bookings for customer ${customerId}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Post a note to a job in ServiceTitan
    * Used for syncing AR collection notes back to ST
    */
@@ -668,16 +753,53 @@ export class ServiceTitanClient {
    */
   static readonly IN_HOUSE_FINANCING_TAG_ID = 158479256;
 
+  // Cache for job types to avoid repeated API calls
+  private jobTypesCache: Map<number, string> | null = null;
+
   /**
-   * Check which job numbers have the In-house Financing tag
-   * Returns a Set of job numbers that have the tag
+   * Get all job types and build a lookup map
    */
-  async getJobsWithInhouseFinancing(jobNumbers: string[]): Promise<Set<string>> {
-    const inhouseJobNumbers = new Set<string>();
-    if (jobNumbers.length === 0) return inhouseJobNumbers;
+  async getJobTypes(): Promise<Map<number, string>> {
+    if (this.jobTypesCache) {
+      return this.jobTypesCache;
+    }
+
+    try {
+      const response = await this.request<STPagedResponse<{
+        id: number;
+        name: string;
+      }>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/job-types`,
+        { params: { pageSize: '200' } }
+      );
+
+      const jobTypeMap = new Map<number, string>();
+      for (const jt of response.data || []) {
+        jobTypeMap.set(jt.id, jt.name);
+      }
+      console.log(`Fetched ${jobTypeMap.size} job types`);
+      this.jobTypesCache = jobTypeMap;
+      return jobTypeMap;
+    } catch (error) {
+      console.error('Failed to fetch job types:', error);
+      return new Map();
+    }
+  }
+
+  /**
+   * Get job info for multiple job numbers
+   * Returns a map of job number -> { hasInhouseFinancing, jobStatus, jobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate }
+   */
+  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null }>> {
+    const jobInfoMap = new Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null }>();
+    if (jobNumbers.length === 0) return jobInfoMap;
+
+    // Fetch job types first for name lookup
+    const jobTypeMap = await this.getJobTypes();
 
     const uniqueJobNumbers = [...new Set(jobNumbers.filter(Boolean))];
-    console.log(`Checking ${uniqueJobNumbers.length} jobs for In-house Financing tag...`);
+    console.log(`Fetching info for ${uniqueJobNumbers.length} jobs...`);
 
     // Fetch jobs in batches by job number
     const batchSize = 50;
@@ -687,8 +809,66 @@ export class ServiceTitanClient {
       for (const jobNumber of batch) {
         try {
           const job = await this.getJobByNumber(jobNumber);
-          if (job && job.tagTypeIds && job.tagTypeIds.includes(ServiceTitanClient.IN_HOUSE_FINANCING_TAG_ID)) {
-            inhouseJobNumbers.add(jobNumber);
+          if (job) {
+            const hasInhouseFinancing = job.tagTypeIds?.includes(ServiceTitanClient.IN_HOUSE_FINANCING_TAG_ID) || false;
+            // Look up job type name from ID
+            const jobTypeName = job.jobTypeId ? jobTypeMap.get(job.jobTypeId) || null : null;
+            // Check if job is tied to a membership
+            const hasMembership = job.membershipId != null && job.membershipId > 0;
+
+            // Get payment type from customFields array
+            // The field is: {"typeId": 174250392, "name": "Payment Type?", "value": "Cash/Check"}
+            const jobAny = job as any;
+            let bookingPaymentType: string | null = null;
+
+            if (Array.isArray(jobAny.customFields)) {
+              const paymentTypeField = jobAny.customFields.find(
+                (cf: any) => cf.name === 'Payment Type?' || cf.typeId === 174250392
+              );
+              if (paymentTypeField?.value) {
+                bookingPaymentType = paymentTypeField.value;
+              }
+            }
+
+            // Check for next scheduled appointment
+            let nextAppointmentDate: string | null = null;
+            try {
+              const appointments = await this.getJobAppointments(job.id);
+              const now = new Date();
+
+              // Log first job's appointment statuses for debugging
+              if (jobInfoMap.size === 0 && appointments.length > 0) {
+                console.log(`Job ${jobNumber} appointments:`, appointments.map((a: any) => ({
+                  status: a.status,
+                  start: a.start,
+                  isFuture: a.start ? new Date(a.start) > now : false
+                })));
+              }
+
+              // Find appointments that are scheduled (not done/canceled) or in the future
+              const futureAppts = appointments.filter((appt: any) => {
+                const apptStart = appt.start ? new Date(appt.start) : null;
+                const isScheduled = appt.status === 'Scheduled' || appt.status === 'Dispatched' || appt.status === 'Working';
+                const isFuture = apptStart && apptStart > now;
+                return isScheduled || isFuture;
+              });
+              // Get the earliest future appointment
+              if (futureAppts.length > 0) {
+                futureAppts.sort((a: any, b: any) => new Date(a.start).getTime() - new Date(b.start).getTime());
+                nextAppointmentDate = futureAppts[0].start || null;
+              }
+            } catch (e) {
+              // Skip appointment fetch failures
+            }
+
+            jobInfoMap.set(jobNumber, {
+              hasInhouseFinancing,
+              jobStatus: job.jobStatus || null,
+              jobTypeName,
+              hasMembership,
+              bookingPaymentType,
+              nextAppointmentDate,
+            });
           }
         } catch (error) {
           // Skip failures silently
@@ -701,7 +881,24 @@ export class ServiceTitanClient {
       }
     }
 
-    console.log(`Found ${inhouseJobNumbers.size} jobs with In-house Financing tag`);
+    const inhouseCount = Array.from(jobInfoMap.values()).filter(j => j.hasInhouseFinancing).length;
+    console.log(`Found ${inhouseCount} jobs with In-house Financing tag`);
+    return jobInfoMap;
+  }
+
+  /**
+   * Check which job numbers have the In-house Financing tag
+   * Returns a Set of job numbers that have the tag
+   * @deprecated Use getJobInfoBatch instead for more info
+   */
+  async getJobsWithInhouseFinancing(jobNumbers: string[]): Promise<Set<string>> {
+    const jobInfo = await this.getJobInfoBatch(jobNumbers);
+    const inhouseJobNumbers = new Set<string>();
+    for (const [jobNumber, info] of jobInfo) {
+      if (info.hasInhouseFinancing) {
+        inhouseJobNumbers.add(jobNumber);
+      }
+    }
     return inhouseJobNumbers;
   }
 

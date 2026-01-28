@@ -72,6 +72,20 @@ export function formatDate(date: string | Date): string {
 }
 
 /**
+ * Format date with time (e.g., "Jan 28, 2026 3:45 PM")
+ */
+export function formatDateTime(date: string | Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(date));
+}
+
+/**
  * Format date as MM/DD for notes (e.g., "1/20")
  */
 export function formatNoteDate(date: string | Date): string {

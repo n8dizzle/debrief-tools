@@ -30,6 +30,17 @@ export async function GET(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
+    // Get customer ST ID for linking
+    let stCustomerId = null;
+    if (invoice.customer_id) {
+      const { data: customer } = await supabase
+        .from('ar_customers')
+        .select('st_customer_id')
+        .eq('id', invoice.customer_id)
+        .single();
+      stCustomerId = customer?.st_customer_id || null;
+    }
+
     // Get notes for this invoice
     const { data: notes } = await supabase
       .from('ar_collection_notes')
@@ -46,6 +57,7 @@ export async function GET(
 
     return NextResponse.json({
       ...invoice,
+      st_customer_id: stCustomerId,
       notes: notes || [],
       payments: payments || [],
     });

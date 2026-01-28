@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
 import { ARInvoice, ARInvoiceTracking, PortalUser } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
@@ -19,10 +20,10 @@ type FilterState = {
   jobStatus: string;
   agingBucket: string;
   customerType: string;
-  inhouseFinancing: string;
+  stJobStatus: string;
 };
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'inhouse_financing' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_status' | 'st_job_type_name' | 'inhouse_financing' | 'has_membership' | 'booking_payment_type' | 'next_appointment_date' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -39,10 +40,15 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'invoice_number', label: 'Inv #', sortable: true, minWidth: 100, defaultWidth: 120 },
   { id: 'customer_name', label: 'Customer', sortable: true, minWidth: 120, defaultWidth: 180 },
   { id: 'business_unit_name', label: 'Business Unit', sortable: true, minWidth: 100, defaultWidth: 140 },
+  { id: 'st_job_type_name', label: 'Job Type', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'customer_type', label: 'R/C', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'inhouse_financing', label: 'IHF', sortable: true, minWidth: 40, defaultWidth: 50 },
+  { id: 'has_membership', label: 'Mbrshp', sortable: true, minWidth: 50, defaultWidth: 60 },
+  { id: 'booking_payment_type', label: 'Booked Pay', sortable: true, minWidth: 80, defaultWidth: 100 },
+  { id: 'next_appointment_date', label: 'Next Appt', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
+  { id: 'st_job_status', label: 'Job Done', sortable: true, minWidth: 70, defaultWidth: 80 },
   { id: 'days_outstanding', label: 'DSO', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
   { id: 'actions', label: 'Log', sortable: false, minWidth: 80, defaultWidth: 90 },
@@ -50,8 +56,10 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
 
 const STORAGE_KEY = 'ar-invoices-column-order';
 const WIDTH_STORAGE_KEY = 'ar-invoices-column-widths';
+const VISIBILITY_STORAGE_KEY = 'ar-invoices-column-visibility';
 
 export default function InvoicesPage() {
+  const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState<InvoiceWithTracking[]>([]);
   const [owners, setOwners] = useState<PortalUser[]>([]);
   const [businessUnits, setBusinessUnits] = useState<string[]>([]);
@@ -59,24 +67,41 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     search: '',
-    businessUnit: '',
+    businessUnit: searchParams.get('businessUnit') || '',
     owner: '',
     controlBucket: '',
     jobStatus: '',
-    agingBucket: '',
-    customerType: '',
-    inhouseFinancing: '',
+    agingBucket: searchParams.get('agingBucket') || '',
+    customerType: searchParams.get('customerType') || '',
+    stJobStatus: '',
   });
   const [sortField, setSortField] = useState<SortField>('balance');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const [excludeInhouseFinancing, setExcludeInhouseFinancing] = useState(true);
+  const columnPickerRef = useRef<HTMLDivElement>(null);
   const { canUpdateWorkflow, canAssignOwner } = useARPermissions();
+
+  // Close column picker when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (columnPickerRef.current && !columnPickerRef.current.contains(event.target as Node)) {
+        setShowColumnPicker(false);
+      }
+    }
+    if (showColumnPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showColumnPicker]);
 
   // Load column order and widths from localStorage on mount
   useEffect(() => {
@@ -99,6 +124,11 @@ export default function InvoicesPage() {
       if (savedWidths) {
         setColumnWidths(JSON.parse(savedWidths));
       }
+
+      const savedVisibility = localStorage.getItem(VISIBILITY_STORAGE_KEY);
+      if (savedVisibility) {
+        setColumnVisibility(JSON.parse(savedVisibility));
+      }
     } catch (e) {
       console.error('Failed to load column settings:', e);
     }
@@ -120,6 +150,30 @@ export default function InvoicesPage() {
     } catch (e) {
       console.error('Failed to save column widths:', e);
     }
+  }
+
+  // Save column visibility to localStorage
+  function saveColumnVisibility(visibility: Record<string, boolean>) {
+    try {
+      localStorage.setItem(VISIBILITY_STORAGE_KEY, JSON.stringify(visibility));
+    } catch (e) {
+      console.error('Failed to save column visibility:', e);
+    }
+  }
+
+  // Toggle column visibility
+  function toggleColumnVisibility(columnId: string) {
+    const newVisibility = {
+      ...columnVisibility,
+      [columnId]: columnVisibility[columnId] === false ? true : false,
+    };
+    setColumnVisibility(newVisibility);
+    saveColumnVisibility(newVisibility);
+  }
+
+  // Check if column is visible (default to true if not set)
+  function isColumnVisible(columnId: string): boolean {
+    return columnVisibility[columnId] !== false;
   }
 
   useEffect(() => {
@@ -310,10 +364,11 @@ export default function InvoicesPage() {
     if (filters.jobStatus && inv.tracking?.job_status !== filters.jobStatus) return false;
     if (filters.agingBucket && inv.aging_bucket !== filters.agingBucket) return false;
     if (filters.customerType && inv.customer_type !== filters.customerType) return false;
-    if (filters.inhouseFinancing) {
-      const hasIHF = inv.has_inhouse_financing === true;
-      if (filters.inhouseFinancing === 'yes' && !hasIHF) return false;
-      if (filters.inhouseFinancing === 'no' && hasIHF) return false;
+    if (excludeInhouseFinancing && inv.has_inhouse_financing) return false;
+    if (filters.stJobStatus) {
+      const jobStatus = (inv.st_job_status || '').toLowerCase();
+      if (filters.stJobStatus === 'incomplete' && jobStatus === 'completed') return false;
+      if (filters.stJobStatus === 'completed' && jobStatus !== 'completed') return false;
     }
     return true;
   });
@@ -340,6 +395,10 @@ export default function InvoicesPage() {
         aVal = (a.business_unit_name || '').toLowerCase();
         bVal = (b.business_unit_name || '').toLowerCase();
         break;
+      case 'st_job_type_name':
+        aVal = (a.st_job_type_name || '').toLowerCase();
+        bVal = (b.st_job_type_name || '').toLowerCase();
+        break;
       case 'balance':
         aVal = Number(a.balance);
         bVal = Number(b.balance);
@@ -360,6 +419,22 @@ export default function InvoicesPage() {
       case 'inhouse_financing':
         aVal = a.has_inhouse_financing ? 1 : 0;
         bVal = b.has_inhouse_financing ? 1 : 0;
+        break;
+      case 'has_membership':
+        aVal = a.has_membership ? 1 : 0;
+        bVal = b.has_membership ? 1 : 0;
+        break;
+      case 'booking_payment_type':
+        aVal = (a.booking_payment_type || '').toLowerCase();
+        bVal = (b.booking_payment_type || '').toLowerCase();
+        break;
+      case 'next_appointment_date':
+        aVal = a.next_appointment_date ? new Date(a.next_appointment_date).getTime() : 0;
+        bVal = b.next_appointment_date ? new Date(b.next_appointment_date).getTime() : 0;
+        break;
+      case 'st_job_status':
+        aVal = a.st_job_status?.toLowerCase() === 'completed' ? 1 : 0;
+        bVal = b.st_job_status?.toLowerCase() === 'completed' ? 1 : 0;
         break;
       default:
         return 0;
@@ -406,7 +481,7 @@ export default function InvoicesPage() {
       case 'invoice_number':
         return (
           <div className="flex items-center gap-1">
-            <Link href={`/invoices/${invoice.id}`} className="font-medium hover:underline whitespace-nowrap">
+            <Link href={`/invoices/${invoice.id}`} className="text-xs font-medium hover:underline whitespace-nowrap">
               {invoice.invoice_number}
             </Link>
             {invoice.st_invoice_id && invoice.st_invoice_id > 0 && (
@@ -426,10 +501,27 @@ export default function InvoicesPage() {
           </div>
         );
       case 'customer_name':
+        const stCustomerId = (invoice as any).st_customer_id;
         return (
-          <span className="truncate block" title={invoice.customer_name}>
-            {invoice.customer_name}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs truncate" title={invoice.customer_name}>
+              {invoice.customer_name}
+            </span>
+            {stCustomerId && stCustomerId > 0 && (
+              <a
+                href={`https://go.servicetitan.com/#/Customer/${stCustomerId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
+                title="Open Customer in ServiceTitan"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
+          </div>
         );
       case 'business_unit_name':
         return (
@@ -437,15 +529,21 @@ export default function InvoicesPage() {
             {invoice.business_unit_name || '-'}
           </span>
         );
+      case 'st_job_type_name':
+        return (
+          <span className="text-xs truncate block" title={invoice.st_job_type_name || ''}>
+            {invoice.st_job_type_name || '-'}
+          </span>
+        );
       case 'customer_type':
         return (
-          <span className={`badge ${invoice.customer_type === 'residential' ? 'badge-residential' : 'badge-commercial'}`}>
+          <span className={`text-xs badge ${invoice.customer_type === 'residential' ? 'badge-residential' : 'badge-commercial'}`}>
             {invoice.customer_type === 'residential' ? 'R' : 'C'}
           </span>
         );
       case 'balance':
         return (
-          <span className="font-medium whitespace-nowrap" style={{ color: 'var(--status-error)' }}>
+          <span className="text-xs font-medium whitespace-nowrap" style={{ color: 'var(--status-error)' }}>
             {formatCurrency(invoice.balance)}
           </span>
         );
@@ -469,18 +567,52 @@ export default function InvoicesPage() {
             <option value="financing_pending">Financing</option>
           </select>
         );
+      case 'st_job_status':
+        const isCompleted = invoice.st_job_status?.toLowerCase() === 'completed';
+        return (
+          <span className="text-xs" title={invoice.st_job_status || 'Unknown'}>
+            {isCompleted ? '✅' : '⚠️'}
+          </span>
+        );
       case 'days_outstanding':
         return <span className="text-xs">{invoice.days_outstanding}</span>;
       case 'aging_bucket':
         return (
-          <span className={`badge badge-${invoice.aging_bucket === '90+' ? '90' : invoice.aging_bucket}`}>
+          <span className={`text-xs badge badge-${invoice.aging_bucket === '90+' ? '90' : invoice.aging_bucket}`}>
             {getAgingBucketLabel(invoice.aging_bucket)}
           </span>
         );
       case 'inhouse_financing':
         return invoice.has_inhouse_financing ? (
-          <span className="badge badge-financing" title="In-house Financing">💳</span>
+          <span className="text-xs badge badge-financing" title="In-house Financing">💳</span>
         ) : null;
+      case 'has_membership':
+        return invoice.has_membership ? (
+          <span className="text-xs" title="Membership">🎫</span>
+        ) : null;
+      case 'booking_payment_type':
+        return (
+          <span className="text-xs truncate block" title={invoice.booking_payment_type || ''}>
+            {invoice.booking_payment_type || '-'}
+          </span>
+        );
+      case 'next_appointment_date':
+        if (!invoice.next_appointment_date) return <span className="text-xs">-</span>;
+        const apptDate = new Date(invoice.next_appointment_date);
+        const isToday = apptDate.toDateString() === new Date().toDateString();
+        const isPast = apptDate < new Date();
+        return (
+          <span
+            className="text-xs whitespace-nowrap"
+            style={{
+              color: isToday ? 'var(--christmas-green)' : isPast ? 'var(--text-muted)' : 'var(--text-secondary)',
+              fontWeight: isToday ? 600 : 400,
+            }}
+            title={apptDate.toLocaleString()}
+          >
+            {isToday ? '📅 Today' : formatDate(invoice.next_appointment_date)}
+          </span>
+        );
       case 'actions':
         return (
           <QuickLogButtons
@@ -513,22 +645,199 @@ export default function InvoicesPage() {
             {filteredInvoices.length} invoices · {formatCurrency(totalBalance)} outstanding
           </p>
         </div>
-        <button
-          className="btn btn-secondary text-xs"
-          onClick={() => {
-            setColumns(DEFAULT_COLUMNS);
-            setColumnWidths({});
-            saveColumnOrder(DEFAULT_COLUMNS);
-            localStorage.removeItem(WIDTH_STORAGE_KEY);
-          }}
-        >
-          Reset Columns
-        </button>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Exclude In-House Financing
+            </span>
+            <button
+              onClick={() => setExcludeInhouseFinancing(!excludeInhouseFinancing)}
+              className="relative w-11 h-6 rounded-full transition-colors"
+              style={{
+                backgroundColor: excludeInhouseFinancing ? 'var(--christmas-green)' : 'var(--bg-secondary)',
+              }}
+            >
+              <span
+                className="absolute top-1 left-1 w-4 h-4 rounded-full transition-transform"
+                style={{
+                  backgroundColor: 'var(--christmas-cream)',
+                  transform: excludeInhouseFinancing ? 'translateX(20px)' : 'translateX(0)',
+                }}
+              />
+            </button>
+          </label>
+          {/* Column Picker */}
+          <div className="relative" ref={columnPickerRef}>
+            <button
+              className="btn btn-secondary text-xs"
+              onClick={() => setShowColumnPicker(!showColumnPicker)}
+            >
+              Columns
+            </button>
+            {showColumnPicker && (
+              <div
+                className="absolute right-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-[200px]"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+              >
+                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Show/Hide Columns
+                </div>
+                <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                  {DEFAULT_COLUMNS.map((col) => (
+                    <label
+                      key={col.id}
+                      className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isColumnVisible(col.id)}
+                        onChange={() => toggleColumnVisibility(col.id)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        {col.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <button
+                    className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
+                    style={{ color: 'var(--text-muted)' }}
+                    onClick={() => {
+                      setColumnVisibility({});
+                      saveColumnVisibility({});
+                    }}
+                  >
+                    Show All
+                  </button>
+                  <button
+                    className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
+                    style={{ color: 'var(--text-muted)' }}
+                    onClick={() => {
+                      setColumns(DEFAULT_COLUMNS);
+                      setColumnWidths({});
+                      setColumnVisibility({});
+                      saveColumnOrder(DEFAULT_COLUMNS);
+                      localStorage.removeItem(WIDTH_STORAGE_KEY);
+                      localStorage.removeItem(VISIBILITY_STORAGE_KEY);
+                    }}
+                  >
+                    Reset All
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Filters */}
+      {/* Quick Chip Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Quick filters:</span>
+
+        {/* Customer Type Chips */}
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            customerType: prev.customerType === 'residential' ? '' : 'residential'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.customerType === 'residential' ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-secondary)',
+            color: filters.customerType === 'residential' ? '#f87171' : 'var(--text-secondary)',
+            border: filters.customerType === 'residential' ? '1px solid #f87171' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Residential
+        </button>
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            customerType: prev.customerType === 'commercial' ? '' : 'commercial'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.customerType === 'commercial' ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-secondary)',
+            color: filters.customerType === 'commercial' ? '#60a5fa' : 'var(--text-secondary)',
+            border: filters.customerType === 'commercial' ? '1px solid #60a5fa' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Commercial
+        </button>
+
+        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+
+        {/* Aging Bucket Chips */}
+        {[
+          { value: 'current', label: 'Current', color: '#4ade80' },
+          { value: '30', label: '31-60', color: '#fcd34d' },
+          { value: '60', label: '61-90', color: '#fb923c' },
+          { value: '90+', label: '90+', color: '#f87171' },
+        ].map((bucket) => (
+          <button
+            key={bucket.value}
+            onClick={() => setFilters(prev => ({
+              ...prev,
+              agingBucket: prev.agingBucket === bucket.value ? '' : bucket.value
+            }))}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+            style={{
+              backgroundColor: filters.agingBucket === bucket.value ? `${bucket.color}20` : 'var(--bg-secondary)',
+              color: filters.agingBucket === bucket.value ? bucket.color : 'var(--text-secondary)',
+              border: filters.agingBucket === bucket.value ? `1px solid ${bucket.color}` : '1px solid var(--border-subtle)',
+            }}
+          >
+            {bucket.label}
+          </button>
+        ))}
+
+        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+
+        {/* ST Job Status Chips */}
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            stJobStatus: prev.stJobStatus === 'incomplete' ? '' : 'incomplete'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.stJobStatus === 'incomplete' ? 'rgba(234, 179, 8, 0.2)' : 'var(--bg-secondary)',
+            color: filters.stJobStatus === 'incomplete' ? '#fcd34d' : 'var(--text-secondary)',
+            border: filters.stJobStatus === 'incomplete' ? '1px solid #fcd34d' : '1px solid var(--border-subtle)',
+          }}
+        >
+          ⚠️ Job Incomplete
+        </button>
+
+        {/* Clear All Filters */}
+        {(filters.customerType || filters.agingBucket || filters.stJobStatus || filters.businessUnit || filters.owner || filters.controlBucket || filters.jobStatus) && (
+          <button
+            onClick={() => setFilters({
+              search: filters.search,
+              businessUnit: '',
+              owner: '',
+              controlBucket: '',
+              jobStatus: '',
+              agingBucket: '',
+              customerType: '',
+              stJobStatus: '',
+            })}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-all ml-2"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            Clear All
+          </button>
+        )}
+      </div>
+
+      {/* Advanced Filters */}
       <div className="card">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
               Search
@@ -606,50 +915,6 @@ export default function InvoicesPage() {
               <option value="financing_pending">Financing Pending</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Aging
-            </label>
-            <select
-              className="select"
-              value={filters.agingBucket}
-              onChange={(e) => setFilters(prev => ({ ...prev, agingBucket: e.target.value }))}
-            >
-              <option value="">All</option>
-              <option value="current">Current</option>
-              <option value="30">31-60 Days</option>
-              <option value="60">61-90 Days</option>
-              <option value="90+">90+ Days</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              R/C
-            </label>
-            <select
-              className="select"
-              value={filters.customerType}
-              onChange={(e) => setFilters(prev => ({ ...prev, customerType: e.target.value }))}
-            >
-              <option value="">All</option>
-              <option value="residential">Residential</option>
-              <option value="commercial">Commercial</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              IHF
-            </label>
-            <select
-              className="select"
-              value={filters.inhouseFinancing}
-              onChange={(e) => setFilters(prev => ({ ...prev, inhouseFinancing: e.target.value }))}
-            >
-              <option value="">All</option>
-              <option value="yes">In-house</option>
-              <option value="no">No IHF</option>
-            </select>
-          </div>
         </div>
       </div>
 
@@ -659,7 +924,7 @@ export default function InvoicesPage() {
           <table className="ar-table" style={{ minWidth: 'max-content' }}>
             <thead>
               <tr>
-                {columns.map((column) => (
+                {columns.filter(col => isColumnVisible(col.id)).map((column) => (
                   <th
                     key={column.id}
                     draggable={!resizingColumn}
@@ -700,7 +965,7 @@ export default function InvoicesPage() {
             <tbody>
               {sortedInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={columns.filter(col => isColumnVisible(col.id)).length} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
                     No invoices found
                   </td>
                 </tr>
@@ -710,7 +975,7 @@ export default function InvoicesPage() {
                     key={invoice.id}
                     className={invoice.tracking?.closed ? 'row-closed' : ''}
                   >
-                    {columns.map((column) => (
+                    {columns.filter(col => isColumnVisible(col.id)).map((column) => (
                       <td
                         key={column.id}
                         style={{

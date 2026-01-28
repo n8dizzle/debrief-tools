@@ -46,8 +46,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });
     }
 
-    // Apply tracking filters client-side (since they're in a joined table)
-    let filteredInvoices = invoices || [];
+    // Fetch customer ST IDs for linking
+    const customerIds = [...new Set((invoices || []).map(inv => inv.customer_id).filter(Boolean))];
+    let customerMap = new Map<string, number>();
+
+    if (customerIds.length > 0) {
+      const { data: customers } = await supabase
+        .from('ar_customers')
+        .select('id, st_customer_id')
+        .in('id', customerIds);
+
+      for (const cust of customers || []) {
+        if (cust.st_customer_id) {
+          customerMap.set(cust.id, cust.st_customer_id);
+        }
+      }
+    }
+
+    // Merge customer ST IDs into invoices
+    let filteredInvoices = (invoices || []).map(inv => ({
+      ...inv,
+      st_customer_id: inv.customer_id ? customerMap.get(inv.customer_id) || null : null,
+    }));
     if (ownerId) {
       filteredInvoices = filteredInvoices.filter(inv =>
         inv.tracking?.owner_id === ownerId

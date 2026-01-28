@@ -110,10 +110,10 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Step 4: Check for In-house Financing tags on jobs
+      // Step 4: Fetch job info (In-house Financing tags and job status)
       const jobNumbers = arRows.map(r => r.jobNumber).filter((jn): jn is string => jn !== null);
-      console.log(`Checking ${jobNumbers.length} jobs for In-house Financing tag...`);
-      const inhouseFinancingJobs = await stClient.getJobsWithInhouseFinancing(jobNumbers);
+      console.log(`Fetching job info for ${jobNumbers.length} jobs...`);
+      const jobInfoMap = await stClient.getJobInfoBatch(jobNumbers);
 
       // Step 5: Get existing invoice IDs to track what's still open
       const { data: existingInvoices } = await supabase
@@ -139,9 +139,15 @@ export async function POST(request: NextRequest) {
           const stCustomer = customerMap.get(row.customerId) ?? null;
           const dbCustomerId = dbCustomerMap.get(row.customerId) ?? null;
           const existing = existingByStId.get(row.invoiceId);
-          const hasInhouseFinancing = row.jobNumber ? inhouseFinancingJobs.has(row.jobNumber) : false;
+          const jobInfo = row.jobNumber ? jobInfoMap.get(row.jobNumber) : null;
+          const hasInhouseFinancing = jobInfo?.hasInhouseFinancing || false;
+          const stJobStatus = jobInfo?.jobStatus || null;
+          const stJobTypeName = jobInfo?.jobTypeName || null;
+          const hasMembership = jobInfo?.hasMembership || false;
+          const bookingPaymentType = jobInfo?.bookingPaymentType || null;
+          const nextAppointmentDate = jobInfo?.nextAppointmentDate || null;
 
-          const wasCreated = await upsertInvoiceFromReport(supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing);
+          const wasCreated = await upsertInvoiceFromReport(supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing, stJobStatus, stJobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate);
 
           if (existing) {
             stats.invoicesUpdated++;
@@ -281,7 +287,12 @@ async function upsertInvoiceFromReport(
   row: ARReportRow,
   dbCustomerId: string | null,
   stCustomer: STCustomer | null,
-  hasInhouseFinancing: boolean = false
+  hasInhouseFinancing: boolean = false,
+  stJobStatus: string | null = null,
+  stJobTypeName: string | null = null,
+  hasMembership: boolean = false,
+  bookingPaymentType: string | null = null,
+  nextAppointmentDate: string | null = null
 ): Promise<boolean> {
   // Determine job type from business unit name
   const buName = (row.businessUnitName || '').toLowerCase();
@@ -343,6 +354,11 @@ async function upsertInvoiceFromReport(
     st_job_id: null, // Would need separate lookup
     job_number: row.jobNumber,
     has_inhouse_financing: hasInhouseFinancing,
+    st_job_status: stJobStatus,
+    st_job_type_name: stJobTypeName,
+    has_membership: hasMembership,
+    booking_payment_type: bookingPaymentType,
+    next_appointment_date: nextAppointmentDate,
     synced_at: new Date().toISOString(),
   };
 

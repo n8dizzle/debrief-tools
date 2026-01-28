@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatDate } from '@/lib/ar-utils';
+import { formatDateTime } from '@/lib/ar-utils';
 import { ARSyncLog } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
@@ -125,6 +125,7 @@ export default function SettingsPage() {
               <thead>
                 <tr>
                   <th>Started</th>
+                  <th>Duration</th>
                   <th>Type</th>
                   <th>Status</th>
                   <th>Processed</th>
@@ -134,9 +135,19 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {syncLogs.slice(0, 20).map((log) => (
+                {syncLogs.slice(0, 20).map((log) => {
+                  const duration = log.completed_at
+                    ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
+                    : null;
+                  const durationStr = duration !== null
+                    ? duration >= 60
+                      ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                      : `${duration}s`
+                    : '-';
+                  return (
                   <tr key={log.id}>
-                    <td className="text-sm">{formatDate(log.started_at)}</td>
+                    <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
+                    <td className="text-sm">{durationStr}</td>
                     <td className="capitalize">{log.sync_type}</td>
                     <td>
                       <span className={`badge badge-${log.status === 'completed' ? 'current' : log.status === 'failed' ? '90' : '30'}`}>
@@ -150,7 +161,8 @@ export default function SettingsPage() {
                       {log.errors ? log.errors.substring(0, 50) + '...' : '-'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
