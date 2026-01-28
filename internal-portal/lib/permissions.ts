@@ -7,7 +7,6 @@
  * - Debrief QA
  * - Marketing Hub
  * - Admin Panel
- * - AR Collections
  *
  * JSONB stored in portal_users.permissions column
  */
@@ -46,13 +45,6 @@ export interface AdminPanelPermissions {
   can_view_audit_log?: boolean;
 }
 
-export interface ARCollectionsPermissions {
-  can_view_ar_dashboard?: boolean;
-  can_manage_collections?: boolean;
-  can_export_reports?: boolean;
-  can_write_off_accounts?: boolean;
-}
-
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -63,7 +55,6 @@ export interface UserPermissions {
   debrief_qa?: DebriefQAPermissions;
   marketing_hub?: MarketingHubPermissions;
   admin_panel?: AdminPanelPermissions;
-  ar_collections?: ARCollectionsPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -155,32 +146,6 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_view_audit_log',
         label: 'View audit log',
         description: 'Access the audit trail of user and permission changes',
-      },
-    ],
-  },
-  {
-    app: 'ar_collections',
-    label: 'AR Collections',
-    permissions: [
-      {
-        key: 'can_view_ar_dashboard',
-        label: 'View AR dashboard',
-        description: 'Access accounts receivable dashboard and reports',
-      },
-      {
-        key: 'can_manage_collections',
-        label: 'Manage collections',
-        description: 'Update collection status and add notes',
-      },
-      {
-        key: 'can_export_reports',
-        label: 'Export reports',
-        description: 'Download AR reports and aging summaries',
-      },
-      {
-        key: 'can_write_off_accounts',
-        label: 'Write off accounts',
-        description: 'Mark accounts as written off or uncollectable',
       },
     ],
   },
