@@ -9,7 +9,6 @@ const overviewLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
   { href: '/invoices', label: 'Invoices', icon: 'invoice' },
   { href: '/activity', label: 'Activity', icon: 'activity' },
-  { href: '/customers', label: 'Customers', icon: 'users' },
   { href: '/financing', label: 'In-House Financing', icon: 'dollar' },
 ];
 
