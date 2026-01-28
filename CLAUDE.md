@@ -14,7 +14,13 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **That's a Wrap** (`/debrief-qa`) | https://debrief.christmasair.com | Python/FastAPI | 8000 |
 | **Daily Dash** (`/daily-dash`) | https://dash.christmasair.com | Next.js | 3001 |
 | **Marketing Hub** (`/marketing-hub`) | https://marketing.christmasair.com | Next.js | 3002 |
-| **Internal Portal** (`/internal-portal`) | portal.christmasair.com (not deployed) | Next.js | 3000 |
+| **Internal Portal** (`/internal-portal`) | https://portal.christmasair.com | Next.js | 3000 |
+
+### Shared Package (`/packages/shared`)
+Common code shared across all Next.js apps:
+- `@christmas-air/shared/permissions` - Permission types and utilities
+- `@christmas-air/shared/auth` - Auth configuration factory
+- `@christmas-air/shared/types` - Shared TypeScript types
 
 ## Current Features (Jan 2026)
 
@@ -73,6 +79,50 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 - AI invoice review (Gemini Flash, ~$0.00015/review)
 - Happy Call tracking column
 
+### Internal Portal (Admin)
+
+**User Management** (`/admin/users`) - Centralized user provisioning
+- Create, edit, deactivate users across all apps
+- Per-app permission toggles
+- Role assignment (Owner, Manager, Employee)
+- All apps link here for user management
+
+**Audit Log** (`/admin/audit`) - Track user/permission changes
+- Who changed what, when
+- Stored in `portal_audit_log` table
+
+**SSO Endpoints** - APIs for cross-app authentication
+- `POST /api/session/validate` - Validate user by email
+- `POST /api/sso/validate` - Decode NextAuth JWT for Python SSO
+
+## SSO Architecture
+
+All apps share authentication via NextAuth session cookie on `.christmasair.com`:
+
+1. **User logs into any Next.js app** → Session cookie created
+2. **User visits another Next.js app** → Same cookie, auto-authenticated
+3. **User visits Python app (debrief-qa)** → Cookie read, validated via Portal API, local session created
+
+### Python SSO Flow (debrief-qa)
+```
+User visits debrief.christmasair.com
+    ↓
+Check for __Secure-next-auth.session-token cookie
+    ↓
+Call portal.christmasair.com/api/sso/validate
+    ↓
+Portal decodes JWT, returns user info
+    ↓
+Auto-create local Dispatcher record if needed
+    ↓
+Create local session → redirect to queue
+```
+
+### User Provisioning
+1. Admin creates user in Portal (`/admin/users`)
+2. User can immediately access all apps via SSO
+3. Local records auto-created on first visit
+
 ## Key Technical Details
 
 ### ServiceTitan Integration (Daily Dash)
@@ -107,7 +157,13 @@ can_edit_targets, can_reply_reviews, can_edit_huddle_notes, can_sync_data
 can_manage_gbp_posts, can_view_analytics, can_view_social, can_manage_tasks, can_sync_data
 
 // debrief_qa
-can_view_all_jobs
+can_view_all_jobs, can_manage_users, can_manage_spot_checks
+
+// admin_panel
+can_manage_users, can_view_audit_log
+
+// ar_collections (future)
+can_view_ar_dashboard, can_manage_collections, can_export_reports, can_write_off_accounts
 ```
 
 ## Deployment
@@ -130,10 +186,11 @@ systemctl restart debrief-qa
 journalctl -u debrief-qa -f
 ```
 
-### Daily Dash & Marketing Hub - Vercel
+### Daily Dash, Marketing Hub & Internal Portal - Vercel
 ```bash
 cd daily-dash && vercel --prod
 cd marketing-hub && vercel --prod
+cd internal-portal && vercel --prod
 ```
 
 Cron jobs configured in `vercel.json`:
@@ -161,10 +218,23 @@ GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_LOGIN_CUSTOMER_ID
 GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_REFRESH_TOKEN
 ```
 
+### Internal Portal
+Same as Daily Dash plus:
+```
+INTERNAL_API_SECRET          # Shared secret for SSO API calls
+```
+
+### Debrief QA (Python)
+```
+PORTAL_URL=https://portal.christmasair.com
+INTERNAL_API_SECRET          # Same as Internal Portal
+```
+
 ## DNS (Namecheap)
 - debrief.christmasair.com → A record → 64.225.12.86
 - dash.christmasair.com → CNAME → Vercel
 - marketing.christmasair.com → CNAME → Vercel
+- portal.christmasair.com → CNAME → Vercel
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
@@ -183,6 +253,8 @@ cd marketing-hub && npm run dev    # http://localhost:3002
 ```
 
 ## Recent Changes Summary
+
+**Jan 28, 2026**: SSO & Centralized Admin - Shared package for permissions, centralized user management in Internal Portal, true SSO for Python app (debrief-qa), audit logging, removed duplicate user pages from Daily Dash
 
 **Jan 25-26, 2026**: LSA Dashboard - HVAC/Plumbing breakdown, location performance, cost-per-charged-lead metrics, sync to Supabase
 
