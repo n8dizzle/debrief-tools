@@ -265,3 +265,44 @@ a:hover {
 .row-closed:hover {
   background: rgba(34, 197, 94, 0.12);
 }
+
+/* Mobile responsive table wrapper */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile responsive utilities */
+@media (max-width: 1023px) {
+  /* Reduce padding on mobile */
+  .card {
+    padding: 1rem;
+  }
+
+  /* Make tables scrollable horizontally */
+  .ar-table {
+    min-width: 800px;
+  }
+
+  .ar-table th,
+  .ar-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  /* Stack stat cards on mobile */
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Even smaller padding on very small screens */
+  .card {
+    padding: 0.75rem;
+  }
+}
