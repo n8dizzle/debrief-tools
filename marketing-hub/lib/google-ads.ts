@@ -153,23 +153,21 @@ class GoogleAdsClient {
       try {
         const customer = this.getCustomer(cid);
 
+        // NOTE: Do NOT request contact_details (phone numbers) - requires special PII permissions
         const query = `
           SELECT
             local_services_lead.id,
             local_services_lead.lead_type,
             local_services_lead.category_id,
             local_services_lead.service_id,
-            local_services_lead.contact_details.phone_number,
-            local_services_lead.contact_details.consumer_phone_number,
-            local_services_lead.lead_status,
             local_services_lead.creation_date_time,
             local_services_lead.locale,
+            local_services_lead.lead_status,
             local_services_lead.lead_charged,
             local_services_lead.credit_details.credit_state,
-            local_services_lead.credit_details.credit_state_last_update_date_time
+            local_services_lead.lead_feedback_submitted
           FROM local_services_lead
           ORDER BY local_services_lead.creation_date_time DESC
-          LIMIT 5000
         `;
 
         const response = await customer.query(query);
@@ -212,23 +210,21 @@ class GoogleAdsClient {
       try {
         const customer = this.getCustomer(cid);
 
+        // NOTE: Do NOT request contact_details (phone numbers) - requires special PII permissions
         const query = `
           SELECT
             local_services_lead.id,
             local_services_lead.lead_type,
             local_services_lead.category_id,
             local_services_lead.service_id,
-            local_services_lead.contact_details.phone_number,
-            local_services_lead.contact_details.consumer_phone_number,
-            local_services_lead.lead_status,
             local_services_lead.creation_date_time,
             local_services_lead.locale,
+            local_services_lead.lead_status,
             local_services_lead.lead_charged,
             local_services_lead.credit_details.credit_state,
-            local_services_lead.credit_details.credit_state_last_update_date_time
+            local_services_lead.lead_feedback_submitted
           FROM local_services_lead
           ORDER BY local_services_lead.creation_date_time DESC
-          LIMIT 5000
         `;
 
         const response = await customer.query(query);
@@ -262,8 +258,9 @@ class GoogleAdsClient {
       categoryId: row.local_services_lead?.category_id || '',
       serviceName: row.local_services_lead?.service_id || '',
       contactDetails: {
-        phoneNumber: row.local_services_lead?.contact_details?.phone_number || '',
-        consumerPhoneNumber: row.local_services_lead?.contact_details?.consumer_phone_number || '',
+        // Phone numbers require PII permissions - not available without special access
+        phoneNumber: '',
+        consumerPhoneNumber: '',
       },
       leadStatus: this.mapLeadStatus(row.local_services_lead?.lead_status),
       creationDateTime: row.local_services_lead?.creation_date_time || '',
@@ -271,7 +268,7 @@ class GoogleAdsClient {
       leadCharged: row.local_services_lead?.lead_charged || false,
       creditDetails: row.local_services_lead?.credit_details ? {
         creditState: row.local_services_lead.credit_details.credit_state || '',
-        creditStateLastUpdateDateTime: row.local_services_lead.credit_details.credit_state_last_update_date_time || '',
+        creditStateLastUpdateDateTime: '',
       } : undefined,
       customerId,
     };
