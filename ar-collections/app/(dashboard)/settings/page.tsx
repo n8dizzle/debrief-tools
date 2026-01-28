@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatDateTime } from '@/lib/ar-utils';
-import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog } from '@/lib/supabase';
+import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog, ARJobStatusOption } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
 const DAY_OPTIONS = [
@@ -40,12 +40,25 @@ export default function SettingsPage() {
   const [slackMessage, setSlackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showWebhook, setShowWebhook] = useState(false);
 
+  // Job status management state
+  const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
+  const [jobStatusesLoading, setJobStatusesLoading] = useState(true);
+  const [newStatusKey, setNewStatusKey] = useState('');
+  const [newStatusLabel, setNewStatusLabel] = useState('');
+  const [addingStatus, setAddingStatus] = useState(false);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState('');
+  const [jobStatusMessage, setJobStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   useEffect(() => {
     fetchSyncLogs();
     if (canManageSettings) {
       fetchSlackSettings();
     }
-  }, [canManageSettings]);
+    if (isOwner) {
+      fetchJobStatuses();
+    }
+  }, [canManageSettings, isOwner]);
 
   async function fetchSyncLogs() {
     try {
@@ -138,6 +151,94 @@ export default function SettingsPage() {
     } finally {
       setSendingTest(false);
       setTimeout(() => setSlackMessage(null), 5000);
+    }
+  }
+
+  // Job status management functions
+  async function fetchJobStatuses() {
+    try {
+      const response = await fetch('/api/settings/job-statuses?includeInactive=true', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setJobStatuses(data.statuses || []);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    } finally {
+      setJobStatusesLoading(false);
+    }
+  }
+
+  async function addJobStatus() {
+    if (!newStatusLabel.trim()) return;
+    setAddingStatus(true);
+    setJobStatusMessage(null);
+    try {
+      const key = newStatusKey.trim() || newStatusLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const response = await fetch('/api/settings/job-statuses', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, label: newStatusLabel.trim() }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setJobStatuses(prev => [...prev, data.status]);
+        setNewStatusKey('');
+        setNewStatusLabel('');
+        setJobStatusMessage({ type: 'success', text: 'Status added' });
+      } else {
+        setJobStatusMessage({ type: 'error', text: data.error || 'Failed to add status' });
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setJobStatusMessage({ type: 'error', text: 'Failed to add status' });
+    } finally {
+      setAddingStatus(false);
+      setTimeout(() => setJobStatusMessage(null), 3000);
+    }
+  }
+
+  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean }) {
+    try {
+      const response = await fetch('/api/settings/job-statuses', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...updates }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setJobStatuses(prev => prev.map(s => s.id === id ? data.status : s));
+        setEditingStatusId(null);
+        setJobStatusMessage({ type: 'success', text: 'Status updated' });
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    }
+    setTimeout(() => setJobStatusMessage(null), 3000);
+  }
+
+  async function moveStatus(id: string, direction: 'up' | 'down') {
+    const currentIndex = jobStatuses.findIndex(s => s.id === id);
+    if (currentIndex === -1) return;
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= jobStatuses.length) return;
+
+    const newOrder = [...jobStatuses];
+    const [moved] = newOrder.splice(currentIndex, 1);
+    newOrder.splice(newIndex, 0, moved);
+    setJobStatuses(newOrder);
+
+    try {
+      await fetch('/api/settings/job-statuses', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reorder: newOrder.map(s => s.id) }),
+      });
+    } catch (err) {
+      console.error('Error:', err);
     }
   }
 
@@ -370,6 +471,189 @@ export default function SettingsPage() {
                 >
                   {sendingTest ? 'Sending...' : 'Send Test'}
                 </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Job Status Management - Owner Only */}
+      {isOwner && (
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Job Status Options
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Manage the dropdown options for job status on invoices.
+          </p>
+
+          {jobStatusMessage && (
+            <div
+              className="mb-4 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: jobStatusMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: jobStatusMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+              }}
+            >
+              {jobStatusMessage.text}
+            </div>
+          )}
+
+          {jobStatusesLoading ? (
+            <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
+          ) : (
+            <div className="space-y-4">
+              {/* Status List */}
+              <div className="space-y-2">
+                {jobStatuses.map((status, index) => (
+                  <div
+                    key={status.id}
+                    className="flex items-center gap-3 p-3 rounded-lg"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      opacity: status.is_active ? 1 : 0.5,
+                    }}
+                  >
+                    {/* Reorder buttons */}
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => moveStatus(status.id, 'up')}
+                        disabled={index === 0}
+                        className="p-0.5 rounded hover:bg-white/10 disabled:opacity-30"
+                        title="Move up"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => moveStatus(status.id, 'down')}
+                        disabled={index === jobStatuses.length - 1}
+                        className="p-0.5 rounded hover:bg-white/10 disabled:opacity-30"
+                        title="Move down"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Key */}
+                    <code className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                      {status.key}
+                    </code>
+
+                    {/* Label - editable */}
+                    <div className="flex-1">
+                      {editingStatusId === status.id ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingLabel}
+                            onChange={(e) => setEditingLabel(e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm rounded"
+                            style={{
+                              backgroundColor: 'var(--bg-tertiary)',
+                              color: 'var(--christmas-cream)',
+                              border: '1px solid var(--border-subtle)',
+                            }}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') updateJobStatus(status.id, { label: editingLabel });
+                              if (e.key === 'Escape') setEditingStatusId(null);
+                            }}
+                          />
+                          <button
+                            onClick={() => updateJobStatus(status.id, { label: editingLabel })}
+                            className="btn btn-primary btn-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingStatusId(null)}
+                            className="btn btn-secondary btn-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:underline"
+                          style={{ color: 'var(--christmas-cream)' }}
+                          onClick={() => {
+                            setEditingStatusId(status.id);
+                            setEditingLabel(status.label);
+                          }}
+                          title="Click to edit"
+                        >
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Active toggle */}
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={status.is_active}
+                        onChange={(e) => updateJobStatus(status.id, { is_active: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Status */}
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="font-medium mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                  Add New Status
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Label</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Payment Received"
+                      value={newStatusLabel}
+                      onChange={(e) => setNewStatusLabel(e.target.value)}
+                      className="w-full px-3 py-2 rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--christmas-cream)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newStatusLabel.trim()) addJobStatus();
+                      }}
+                    />
+                  </div>
+                  <div className="w-40">
+                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Key (optional)</label>
+                    <input
+                      type="text"
+                      placeholder="auto-generated"
+                      value={newStatusKey}
+                      onChange={(e) => setNewStatusKey(e.target.value)}
+                      className="w-full px-3 py-2 rounded"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--christmas-cream)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={addJobStatus}
+                      disabled={addingStatus || !newStatusLabel.trim()}
+                      className="btn btn-primary"
+                    >
+                      {addingStatus ? 'Adding...' : 'Add Status'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

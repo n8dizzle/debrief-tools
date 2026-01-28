@@ -375,6 +375,16 @@ export interface ARSlackSettings {
   slack_webhook_url: string;
 }
 
+export interface ARJobStatusOption {
+  id: string;
+  key: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================
 // AR API RESPONSE TYPES
 // ============================================

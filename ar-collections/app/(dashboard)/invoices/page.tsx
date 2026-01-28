@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
-import { ARInvoice, ARInvoiceTracking, PortalUser } from '@/lib/supabase';
+import { ARInvoice, ARInvoiceTracking, PortalUser, ARJobStatusOption } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 import QuickLogButtons from '@/components/QuickLogButtons';
 
@@ -23,7 +23,7 @@ type FilterState = {
   stJobStatus: string;
 };
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_status' | 'st_job_type_name' | 'inhouse_financing' | 'has_membership' | 'booking_payment_type' | 'next_appointment_date' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_status' | 'st_job_type_name' | 'inhouse_financing' | 'has_membership' | 'booking_payment_type' | 'next_appointment_date' | 'control_bucket' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -48,6 +48,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'next_appointment_date', label: 'Next Appt', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
+  { id: 'control_bucket', label: 'Control', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'st_job_status', label: 'Job Done', sortable: true, minWidth: 70, defaultWidth: 80 },
   { id: 'days_outstanding', label: 'DSO', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
@@ -87,8 +88,9 @@ export default function InvoicesPage() {
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
   const [excludeInhouseFinancing, setExcludeInhouseFinancing] = useState(true);
+  const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
   const columnPickerRef = useRef<HTMLDivElement>(null);
-  const { canUpdateWorkflow, canAssignOwner } = useARPermissions();
+  const { canUpdateWorkflow, canAssignOwner, canChangeControlBucket } = useARPermissions();
 
   // Close column picker when clicking outside
   useEffect(() => {
@@ -179,6 +181,7 @@ export default function InvoicesPage() {
   useEffect(() => {
     fetchInvoices();
     fetchOwners();
+    fetchJobStatuses();
   }, []);
 
   async function fetchInvoices() {
@@ -210,6 +213,19 @@ export default function InvoicesPage() {
       setOwners(data.users || []);
     } catch (err) {
       console.error('Failed to fetch owners:', err);
+    }
+  }
+
+  async function fetchJobStatuses() {
+    try {
+      const response = await fetch('/api/settings/job-statuses', {
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setJobStatuses(data.statuses || []);
+    } catch (err) {
+      console.error('Failed to fetch job statuses:', err);
     }
   }
 
@@ -436,6 +452,10 @@ export default function InvoicesPage() {
         aVal = a.st_job_status?.toLowerCase() === 'completed' ? 1 : 0;
         bVal = b.st_job_status?.toLowerCase() === 'completed' ? 1 : 0;
         break;
+      case 'control_bucket':
+        aVal = a.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
+        bVal = b.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
+        break;
       default:
         return 0;
     }
@@ -556,15 +576,9 @@ export default function InvoicesPage() {
             disabled={!canUpdateWorkflow}
           >
             <option value="">-</option>
-            <option value="qc_booked">QC Booked</option>
-            <option value="qc_completed">QC Complete</option>
-            <option value="job_not_done">Not Done</option>
-            <option value="need_clarification">Clarify</option>
-            <option value="construction">Construction</option>
-            <option value="tech_question">Tech Q</option>
-            <option value="emailed_customer">Emailed</option>
-            <option value="payment_promised">Promised</option>
-            <option value="financing_pending">Financing</option>
+            {jobStatuses.map(status => (
+              <option key={status.key} value={status.key}>{status.label}</option>
+            ))}
           </select>
         );
       case 'st_job_status':
@@ -572,6 +586,21 @@ export default function InvoicesPage() {
         return (
           <span className="text-xs" title={invoice.st_job_status || 'Unknown'}>
             {isCompleted ? '✅' : '⚠️'}
+          </span>
+        );
+      case 'control_bucket':
+        return canChangeControlBucket ? (
+          <select
+            className="select text-xs py-1"
+            value={invoice.tracking?.control_bucket || 'ar_collectible'}
+            onChange={(e) => updateTracking(invoice.id, 'control_bucket', e.target.value)}
+          >
+            <option value="ar_collectible">Collectible</option>
+            <option value="ar_not_in_our_control">Not In Control</option>
+          </select>
+        ) : (
+          <span className={`text-xs badge ${invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'badge-30' : 'badge-current'}`}>
+            {invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'Not In Control' : 'Collectible'}
           </span>
         );
       case 'days_outstanding':
@@ -904,15 +933,9 @@ export default function InvoicesPage() {
               onChange={(e) => setFilters(prev => ({ ...prev, jobStatus: e.target.value }))}
             >
               <option value="">All</option>
-              <option value="qc_booked">QC Booked</option>
-              <option value="qc_completed">QC Completed</option>
-              <option value="job_not_done">Job Not Done</option>
-              <option value="need_clarification">Need Clarification</option>
-              <option value="construction">Construction</option>
-              <option value="tech_question">Tech Question</option>
-              <option value="emailed_customer">Emailed Customer</option>
-              <option value="payment_promised">Payment Promised</option>
-              <option value="financing_pending">Financing Pending</option>
+              {jobStatuses.map(status => (
+                <option key={status.key} value={status.key}>{status.label}</option>
+              ))}
             </select>
           </div>
         </div>

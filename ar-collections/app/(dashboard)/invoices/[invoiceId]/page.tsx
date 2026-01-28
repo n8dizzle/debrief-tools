@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
-import { ARInvoiceWithTracking, PortalUser, FinancingInvoice, FinancingExpectedPayment } from '@/lib/supabase';
+import { ARInvoiceWithTracking, PortalUser, FinancingInvoice, FinancingExpectedPayment, ARJobStatusOption } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 import { useSession } from 'next-auth/react';
 import QuickLogButtons from '@/components/QuickLogButtons';
@@ -20,6 +20,7 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState<ARInvoiceWithTracking | null>(null);
   const [owners, setOwners] = useState<PortalUser[]>([]);
+  const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     fetchInvoice();
     fetchOwners();
+    fetchJobStatuses();
   }, [invoiceId]);
 
   // Fetch financing data when invoice is loaded and has in-house financing
@@ -139,6 +141,19 @@ export default function InvoiceDetailPage() {
       setOwners(data.users || []);
     } catch (err) {
       console.error('Failed to fetch owners:', err);
+    }
+  }
+
+  async function fetchJobStatuses() {
+    try {
+      const response = await fetch('/api/settings/job-statuses', {
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setJobStatuses(data.statuses || []);
+    } catch (err) {
+      console.error('Failed to fetch job statuses:', err);
     }
   }
 
@@ -370,119 +385,6 @@ export default function InvoiceDetailPage() {
               {!invoice.has_inhouse_financing && !invoice.has_membership && (
                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No special flags</span>
               )}
-            </div>
-          </div>
-
-          {/* Collection Workflow */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-              Collection Workflow
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={tracking?.day1_text_sent || false}
-                  onChange={(e) => updateTracking('day1_text_sent', e.target.checked)}
-                  disabled={!canUpdateWorkflow}
-                  className="w-5 h-5"
-                />
-                <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Day 1 - Text</div>
-                  {tracking?.day1_text_date && (
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(tracking.day1_text_date)}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={tracking?.day2_call_made || false}
-                  onChange={(e) => updateTracking('day2_call_made', e.target.checked)}
-                  disabled={!canUpdateWorkflow}
-                  className="w-5 h-5"
-                />
-                <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Day 2 - Call</div>
-                  {tracking?.day2_call_date && (
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(tracking.day2_call_date)}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={tracking?.day3_etc || false}
-                  onChange={(e) => updateTracking('day3_etc', e.target.checked)}
-                  disabled={!canUpdateWorkflow}
-                  className="w-5 h-5"
-                />
-                <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Day 3 - ETC</div>
-                  {tracking?.day3_etc_date && (
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(tracking.day3_etc_date)}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={tracking?.day7_etc || false}
-                  onChange={(e) => updateTracking('day7_etc', e.target.checked)}
-                  disabled={!canUpdateWorkflow}
-                  className="w-5 h-5"
-                />
-                <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Day 7 - ETC</div>
-                  {tracking?.day7_etc_date && (
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(tracking.day7_etc_date)}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={tracking?.certified_letter_sent || false}
-                  onChange={(e) => updateTracking('certified_letter_sent', e.target.checked)}
-                  disabled={!canUpdateWorkflow}
-                  className="w-5 h-5"
-                />
-                <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Certified Letter</div>
-                  {tracking?.certified_letter_date && (
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(tracking.certified_letter_date)}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer" style={{ backgroundColor: tracking?.closed ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={tracking?.closed || false}
-                  onChange={(e) => updateTracking('closed', e.target.checked)}
-                  disabled={!canUpdateWorkflow}
-                  className="w-5 h-5"
-                />
-                <div>
-                  <div className="font-medium" style={{ color: tracking?.closed ? 'var(--status-success)' : 'var(--christmas-cream)' }}>
-                    Closed
-                  </div>
-                  {tracking?.closed_date && (
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(tracking.closed_date)}
-                    </div>
-                  )}
-                </div>
-              </label>
             </div>
           </div>
 
@@ -747,16 +649,9 @@ export default function InvoiceDetailPage() {
                   disabled={!canUpdateWorkflow}
                 >
                   <option value="">Not Set</option>
-                  <option value="qc_booked">QC Booked</option>
-                  <option value="qc_completed">QC Completed</option>
-                  <option value="job_not_done">Job Not Done</option>
-                  <option value="need_clarification">Need Clarification</option>
-                  <option value="construction">Construction</option>
-                  <option value="tech_question">Tech Question</option>
-                  <option value="emailed_customer">Emailed Customer</option>
-                  <option value="called_customer">Called Customer</option>
-                  <option value="payment_promised">Payment Promised</option>
-                  <option value="financing_pending">Financing Pending</option>
+                  {jobStatuses.map(status => (
+                    <option key={status.key} value={status.key}>{status.label}</option>
+                  ))}
                 </select>
               </div>
               <div>
