@@ -5,6 +5,10 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Department, PortalUser } from "@/lib/supabase";
+import {
+  APP_PERMISSIONS,
+  type UserPermissions,
+} from "@/lib/permissions";
 
 export default function EditUserPage() {
   const router = useRouter();
@@ -24,6 +28,7 @@ export default function EditUserPage() {
     department_id: "",
     role: "employee",
     is_active: true,
+    permissions: {} as UserPermissions,
   });
 
   useEffect(() => {
@@ -42,6 +47,7 @@ export default function EditUserPage() {
             department_id: userData.department_id || "",
             role: userData.role,
             is_active: userData.is_active,
+            permissions: userData.permissions || {},
           });
         } else {
           setError("User not found");
@@ -98,6 +104,27 @@ export default function EditUserPage() {
     }
     setSaving(false);
     setShowDeleteConfirm(false);
+  };
+
+  const handlePermissionToggle = (app: string, permission: string) => {
+    setFormData((prev) => {
+      const newPermissions = { ...prev.permissions };
+      const appPerms = { ...(newPermissions[app as keyof UserPermissions] || {}) } as Record<string, boolean>;
+
+      if (appPerms[permission]) {
+        delete appPerms[permission];
+      } else {
+        appPerms[permission] = true;
+      }
+
+      if (Object.keys(appPerms).length === 0) {
+        delete newPermissions[app as keyof UserPermissions];
+      } else {
+        (newPermissions as Record<string, Record<string, boolean>>)[app] = appPerms;
+      }
+
+      return { ...prev, permissions: newPermissions };
+    });
   };
 
   if (loading) {
@@ -248,6 +275,75 @@ export default function EditUserPage() {
               Inactive users cannot log in to the portal
             </p>
           </div>
+
+          {/* Permissions */}
+          {formData.role !== "owner" && isOwner && (
+            <div className="pt-6 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+              <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--christmas-cream)" }}>
+                App Permissions
+              </h3>
+              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                Owners have all permissions. Grant specific permissions to managers and employees below.
+              </p>
+
+              <div className="space-y-6">
+                {APP_PERMISSIONS.map((group) => (
+                  <div key={group.app}>
+                    <div
+                      className="text-xs font-medium uppercase tracking-wider mb-2"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {group.label}
+                    </div>
+                    <div className="space-y-2">
+                      {group.permissions.map((perm) => {
+                        const isChecked =
+                          (formData.permissions[group.app as keyof UserPermissions] as Record<string, boolean>)?.[
+                            perm.key
+                          ] === true;
+
+                        return (
+                          <label
+                            key={perm.key}
+                            className="flex items-start gap-3 cursor-pointer p-2 rounded-lg transition-colors hover:bg-white/5"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handlePermissionToggle(group.app, perm.key)}
+                              className="w-4 h-4 rounded mt-0.5"
+                              style={{ accentColor: "var(--christmas-green)" }}
+                            />
+                            <div>
+                              <div className="text-sm" style={{ color: "var(--christmas-cream)" }}>
+                                {perm.label}
+                              </div>
+                              <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                                {perm.description}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {formData.role === "owner" && (
+            <div
+              className="p-3 rounded-lg text-sm"
+              style={{
+                background: "rgba(184, 149, 107, 0.1)",
+                border: "1px solid rgba(184, 149, 107, 0.3)",
+                color: "var(--christmas-gold)",
+              }}
+            >
+              Owners have full access to all features and settings across all apps.
+            </div>
+          )}
         </div>
 
         {/* Actions */}

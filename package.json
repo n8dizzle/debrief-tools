@@ -1,0 +1,20 @@
+{
+  "name": "christmas-air-tools",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "daily-dash",
+    "marketing-hub",
+    "internal-portal"
+  ],
+  "scripts": {
+    "dev:dash": "npm run dev --workspace=daily-dash",
+    "dev:marketing": "npm run dev --workspace=marketing-hub",
+    "dev:portal": "npm run dev --workspace=internal-portal",
+    "build:dash": "npm run build --workspace=daily-dash",
+    "build:marketing": "npm run build --workspace=marketing-hub",
+    "build:portal": "npm run build --workspace=internal-portal",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}

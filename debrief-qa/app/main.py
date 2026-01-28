@@ -36,7 +36,8 @@ from .webhook import verify_webhook_signature, process_webhook, manual_add_job
 from .auto_qa import calculate_auto_suggestions, format_suggestions_for_template
 from .auth import (
     oauth, get_current_user_optional, require_auth, require_roles,
-    is_admin, handle_google_callback, create_session, clear_session
+    is_admin, handle_google_callback, create_session, clear_session,
+    auto_login_from_portal, get_nextauth_session_token, PORTAL_URL
 )
 
 load_dotenv()
@@ -86,11 +87,21 @@ async def startup_event():
 # ----- Authentication Routes -----
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, error: str = None):
-    """Login page with Google sign-in button."""
+async def login_page(request: Request, error: str = None, db: Session = Depends(get_db)):
+    """Login page with Google sign-in button and SSO auto-login."""
     # If already logged in, redirect to queue
     if request.session.get("user_id"):
         return RedirectResponse(url="/queue", status_code=302)
+
+    # Try SSO auto-login from portal session
+    if not error:  # Don't try SSO if there's an error to display
+        session_token = get_nextauth_session_token(request)
+        if session_token:
+            sso_user = await auto_login_from_portal(request, db)
+            if sso_user:
+                # SSO successful - redirect to intended page or queue
+                next_url = request.session.pop("next", "/queue")
+                return RedirectResponse(url=next_url, status_code=302)
 
     error_messages = {
         "domain_error": "Only @christmasair.com emails are allowed.",
@@ -98,12 +109,14 @@ async def login_page(request: Request, error: str = None):
         "inactive": "Your account has been deactivated. Please contact an administrator.",
         "token_error": "Authentication failed. Please try again.",
         "userinfo_error": "Could not get your information from Google. Please try again.",
+        "portal_validation_failed": "Your account is not authorized in the portal. Please contact an administrator.",
     }
     error_text = error_messages.get(error, error)
 
     return templates.TemplateResponse("login.html", {
         "request": request,
-        "error": error_text
+        "error": error_text,
+        "portal_url": PORTAL_URL,  # For "Sign in via Portal" link
     })
 
 
@@ -160,7 +173,8 @@ async def admin_users_page(
         "active_page": "admin",
         "users": users,
         "error": error,
-        "success": success
+        "success": success,
+        "portal_admin_url": f"{PORTAL_URL}/admin/users",
     })
 
 
@@ -459,11 +473,20 @@ async def servicetitan_webhook(request: Request, db: Session = Depends(get_db)):
 # ----- HTML Pages -----
 
 @app.get("/")
-async def home(request: Request):
-    """Home page - redirect to queue or login."""
-    if not request.session.get("user_id"):
-        return RedirectResponse(url="/login", status_code=302)
-    return RedirectResponse(url="/queue", status_code=302)
+async def home(request: Request, db: Session = Depends(get_db)):
+    """Home page - redirect to queue or login, with SSO auto-login."""
+    # Check local session first
+    if request.session.get("user_id"):
+        return RedirectResponse(url="/queue", status_code=302)
+
+    # Try SSO auto-login
+    session_token = get_nextauth_session_token(request)
+    if session_token:
+        sso_user = await auto_login_from_portal(request, db)
+        if sso_user:
+            return RedirectResponse(url="/queue", status_code=302)
+
+    return RedirectResponse(url="/login", status_code=302)
 
 
 @app.get("/queue", response_class=HTMLResponse)

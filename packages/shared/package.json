@@ -1,0 +1,17 @@
+{
+  "name": "@christmas-air/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./lib/index.ts",
+  "types": "./lib/index.ts",
+  "exports": {
+    ".": "./lib/index.ts",
+    "./permissions": "./lib/permissions.ts",
+    "./auth": "./lib/auth.ts",
+    "./types": "./lib/types.ts"
+  },
+  "peerDependencies": {
+    "next-auth": "^4.24.0",
+    "@supabase/supabase-js": "^2.0.0"
+  }
+}

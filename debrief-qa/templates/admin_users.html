@@ -8,6 +8,32 @@
             <h1 class="text-2xl font-bold text-christmas-cream">User Management</h1>
             <p class="text-sm text-gray-500 mt-1">Add and manage team members who can access the system.</p>
         </div>
+        <a href="{{ portal_admin_url }}"
+           target="_blank"
+           class="bg-christmas-gold hover:bg-christmas-gold/80 text-dark-bg font-medium py-2 px-4 rounded-lg transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            Portal Admin
+        </a>
+    </div>
+
+    <!-- Portal SSO Notice -->
+    <div class="bg-christmas-gold/10 border border-christmas-gold/30 rounded-lg p-4">
+        <div class="flex gap-3">
+            <svg class="w-5 h-5 text-christmas-gold flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <p class="text-christmas-gold font-medium">Centralized User Management</p>
+                <p class="text-sm text-gray-400 mt-1">
+                    Users and permissions are now managed from the
+                    <a href="{{ portal_admin_url }}" target="_blank" class="text-christmas-gold hover:underline">Portal Admin Dashboard</a>.
+                    Users created there will automatically have access to this app via SSO.
+                    Local user management below is for legacy compatibility.
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- Add User Form -->

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerSupabase } from "@/lib/supabase";
+import { logAuditEvent, getClientIP } from "@/lib/audit";
+import type { UserPermissions } from "@/lib/permissions";
 
 // GET /api/users - Get users (filtered by role permissions)
 export async function GET(request: NextRequest) {
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, name, department_id, role } = body;
+    const { email, name, department_id, role, permissions } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -116,6 +118,7 @@ export async function POST(request: NextRequest) {
         name,
         department_id: department_id || (currentRole === "manager" ? currentDeptId : null),
         role: role || "employee",
+        permissions: (permissions as UserPermissions) || {},
         created_by: currentUserId,
       })
       .select(`
@@ -130,6 +133,16 @@ export async function POST(request: NextRequest) {
       }
       throw error;
     }
+
+    // Log audit event
+    await logAuditEvent({
+      actorId: currentUserId,
+      action: 'user.created',
+      targetType: 'user',
+      targetId: user.id,
+      newValue: { email: user.email, role: user.role },
+      ipAddress: getClientIP(request.headers),
+    });
 
     return NextResponse.json({
       ...user,

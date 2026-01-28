@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerSupabase } from "@/lib/supabase";
+import { logAuditEvent, getClientIP } from "@/lib/audit";
+import type { UserPermissions } from "@/lib/permissions";
 
 // GET /api/users/[id] - Get a single user
 export async function GET(
@@ -54,14 +56,14 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, department_id, role, is_active } = body;
+    const { name, department_id, role, is_active, permissions } = body;
 
     const supabase = getServerSupabase();
 
-    // First, get the user being updated
+    // First, get the user being updated (include current state for audit)
     const { data: targetUser } = await supabase
       .from("portal_users")
-      .select("department_id, role")
+      .select("department_id, role, is_active, permissions")
       .eq("id", params.id)
       .single();
 
@@ -87,6 +89,7 @@ export async function PATCH(
     if (department_id !== undefined) updateData.department_id = department_id;
     if (role !== undefined) updateData.role = role;
     if (is_active !== undefined) updateData.is_active = is_active;
+    if (permissions !== undefined) updateData.permissions = permissions as UserPermissions;
 
     const { data: user, error } = await supabase
       .from("portal_users")
@@ -99,6 +102,35 @@ export async function PATCH(
       .single();
 
     if (error) throw error;
+
+    // Determine audit action
+    let action: string = 'user.updated';
+    if (is_active !== undefined && is_active !== targetUser?.is_active) {
+      action = is_active ? 'user.reactivated' : 'user.deactivated';
+    } else if (role !== undefined && role !== targetUser?.role) {
+      action = 'role.changed';
+    } else if (permissions !== undefined) {
+      action = 'permission.changed';
+    }
+
+    // Log audit event
+    await logAuditEvent({
+      actorId: session.user.id,
+      action: action as any,
+      targetType: 'user',
+      targetId: params.id,
+      oldValue: {
+        role: targetUser?.role,
+        is_active: targetUser?.is_active,
+        permissions: targetUser?.permissions,
+      },
+      newValue: {
+        role: user.role,
+        is_active: user.is_active,
+        permissions: user.permissions,
+      },
+      ipAddress: getClientIP(request.headers),
+    });
 
     return NextResponse.json({
       ...user,
@@ -139,6 +171,17 @@ export async function DELETE(
       .eq("id", params.id);
 
     if (error) throw error;
+
+    // Log audit event
+    await logAuditEvent({
+      actorId: session.user.id,
+      action: 'user.deactivated',
+      targetType: 'user',
+      targetId: params.id,
+      oldValue: { is_active: true },
+      newValue: { is_active: false },
+      ipAddress: getClientIP(request.headers),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

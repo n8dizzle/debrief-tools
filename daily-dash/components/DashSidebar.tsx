@@ -312,14 +312,14 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
               </Link>
 
               {isOwner && (
-                <Link
-                  href="/users"
+                <a
+                  href="https://portal.christmasair.com/admin/users"
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   <NavIcon type="users" />
                   <span className="text-sm">Manage Users</span>
-                </Link>
+                </a>
               )}
 
               <div style={{ borderTop: '1px solid var(--border-subtle)' }}>

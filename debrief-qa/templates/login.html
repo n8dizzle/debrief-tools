@@ -58,10 +58,20 @@
                 <span>Sign in with Google</span>
             </a>
 
-            <div class="mt-6 text-center">
+            <div class="mt-6 text-center space-y-3">
                 <p class="text-xs text-gray-500">
                     Only @christmasair.com accounts are allowed.
                 </p>
+
+                {% if portal_url %}
+                <div class="border-t border-dark-border pt-4 mt-4">
+                    <p class="text-xs text-gray-500 mb-2">Already signed into the portal?</p>
+                    <a href="{{ portal_url }}"
+                       class="text-christmas-green-light hover:text-christmas-gold text-sm transition">
+                        Go to Portal →
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
 
