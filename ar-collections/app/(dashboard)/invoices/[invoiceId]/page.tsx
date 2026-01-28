@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
-import { ARInvoiceWithTracking, PortalUser } from '@/lib/supabase';
+import { ARInvoiceWithTracking, PortalUser, FinancingInvoice, PaymentSchedule as PaymentScheduleType } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 import { useSession } from 'next-auth/react';
 import QuickLogButtons from '@/components/QuickLogButtons';
 import ActivityTimeline from '@/components/ActivityTimeline';
+import PaymentHistory from '@/components/PaymentHistory';
+import PaymentSchedule from '@/components/PaymentSchedule';
+import { formatDueDay, getPaymentProgress } from '@/lib/financing-utils';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -20,6 +23,17 @@ export default function InvoiceDetailPage() {
   const [owners, setOwners] = useState<PortalUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Financing state
+  const [financingData, setFinancingData] = useState<FinancingInvoice | null>(null);
+  const [financingSchedule, setFinancingSchedule] = useState<PaymentScheduleType | null>(null);
+  const [financingEditing, setFinancingEditing] = useState(false);
+  const [financingForm, setFinancingForm] = useState({
+    monthly_amount: '',
+    due_day: '',
+    start_date: '',
+    notes: '',
+  });
 
   const {
     canUpdateWorkflow,
@@ -34,6 +48,13 @@ export default function InvoiceDetailPage() {
     fetchOwners();
   }, [invoiceId]);
 
+  // Fetch financing data when invoice is loaded and has in-house financing
+  useEffect(() => {
+    if (invoice?.has_inhouse_financing) {
+      fetchFinancingData();
+    }
+  }, [invoice?.has_inhouse_financing, invoiceId]);
+
   async function fetchInvoice() {
     try {
       const response = await fetch(`/api/invoices/${invoiceId}`, {
@@ -46,6 +67,53 @@ export default function InvoiceDetailPage() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchFinancingData() {
+    try {
+      const response = await fetch(`/api/financing/${invoiceId}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setFinancingData(data.invoice);
+      setFinancingSchedule(data.schedule);
+
+      // Initialize form with existing data
+      if (data.invoice) {
+        setFinancingForm({
+          monthly_amount: data.invoice.financing_monthly_amount?.toString() || '',
+          due_day: data.invoice.financing_due_day?.toString() || '',
+          start_date: data.invoice.financing_start_date || '',
+          notes: data.invoice.financing_notes || '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch financing data:', err);
+    }
+  }
+
+  async function saveFinancingSettings() {
+    try {
+      const response = await fetch(`/api/financing/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          financing_monthly_amount: financingForm.monthly_amount ? parseFloat(financingForm.monthly_amount) : null,
+          financing_due_day: financingForm.due_day ? parseInt(financingForm.due_day) : null,
+          financing_start_date: financingForm.start_date || null,
+          financing_notes: financingForm.notes || null,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save');
+
+      setFinancingEditing(false);
+      fetchFinancingData();
+    } catch (err) {
+      console.error('Failed to save financing settings:', err);
     }
   }
 
@@ -296,6 +364,222 @@ export default function InvoiceDetailPage() {
               </label>
             </div>
           </div>
+
+          {/* In-House Financing Section */}
+          {invoice.has_inhouse_financing && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                  In-House Financing
+                </h2>
+                {canUpdateWorkflow && !financingEditing && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setFinancingEditing(true)}
+                  >
+                    Edit Plan
+                  </button>
+                )}
+              </div>
+
+              {financingEditing ? (
+                // Edit mode
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                        Monthly Payment Amount
+                      </label>
+                      <input
+                        type="number"
+                        className="input"
+                        placeholder="e.g., 500"
+                        value={financingForm.monthly_amount}
+                        onChange={(e) => setFinancingForm(prev => ({ ...prev, monthly_amount: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                        Due Day of Month (1-28)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="28"
+                        className="input"
+                        placeholder="e.g., 15"
+                        value={financingForm.due_day}
+                        onChange={(e) => setFinancingForm(prev => ({ ...prev, due_day: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={financingForm.start_date}
+                      onChange={(e) => setFinancingForm(prev => ({ ...prev, start_date: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                      Notes
+                    </label>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      placeholder="Payment plan notes..."
+                      value={financingForm.notes}
+                      onChange={(e) => setFinancingForm(prev => ({ ...prev, notes: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={saveFinancingSettings}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setFinancingEditing(false);
+                        // Reset form to saved values
+                        if (financingData) {
+                          setFinancingForm({
+                            monthly_amount: financingData.financing_monthly_amount?.toString() || '',
+                            due_day: financingData.financing_due_day?.toString() || '',
+                            start_date: financingData.financing_start_date || '',
+                            notes: financingData.financing_notes || '',
+                          });
+                        }
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : financingData ? (
+                // View mode with data
+                <div className="space-y-6">
+                  {/* Plan Summary */}
+                  <div
+                    className="p-4 rounded-lg"
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
+                  >
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Monthly Payment</div>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                          {financingData.financing_monthly_amount
+                            ? formatCurrency(financingData.financing_monthly_amount)
+                            : 'Not set'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Due Day</div>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                          {financingData.financing_due_day
+                            ? formatDueDay(financingData.financing_due_day)
+                            : 'Not set'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Payments Made</div>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-green)' }}>
+                          {financingData.payments_made}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Projected Payoff</div>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                          {financingData.projected_payoff_date
+                            ? formatDate(financingData.projected_payoff_date)
+                            : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="mt-4">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {formatCurrency(invoice.amount_paid)} paid
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {formatCurrency(invoice.balance)} remaining
+                        </span>
+                      </div>
+                      <div
+                        className="h-3 rounded-full overflow-hidden"
+                        style={{ backgroundColor: 'var(--bg-card)' }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${getPaymentProgress(invoice.invoice_total, invoice.balance)}%`,
+                            backgroundColor: 'var(--christmas-green)',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Two columns: Payment History and Upcoming Schedule */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                        Payment History
+                      </h3>
+                      <PaymentHistory
+                        payments={financingData.payments}
+                        invoiceTotal={invoice.invoice_total}
+                        dueDay={financingData.financing_due_day}
+                      />
+                    </div>
+                    {financingSchedule && (
+                      <div>
+                        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                          Upcoming Payments
+                        </h3>
+                        <PaymentSchedule schedule={financingSchedule} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notes */}
+                  {financingData.financing_notes && (
+                    <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                        Notes
+                      </h3>
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        {financingData.financing_notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // No financing data yet
+                <div className="text-center py-6">
+                  <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                    This invoice is tagged for In-House Financing but no payment plan has been configured yet.
+                  </p>
+                  {canUpdateWorkflow && (
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => setFinancingEditing(true)}
+                    >
+                      Configure Payment Plan
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Activity Timeline */}
           <div className="card">

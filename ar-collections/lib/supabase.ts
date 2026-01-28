@@ -145,6 +145,11 @@ export interface ARInvoiceTracking {
   financing_type: ARFinancingType | null;
   financing_status: ARFinancingStatus | null;
   invoice_verified: boolean;
+  // In-house financing plan settings
+  financing_monthly_amount: number | null;
+  financing_due_day: number | null;
+  financing_start_date: string | null;
+  financing_notes: string | null;
   // Collection workflow
   day1_text_sent: boolean;
   day1_text_date: string | null;
@@ -380,6 +385,50 @@ export interface ARSyncStatus {
   is_syncing: boolean;
   data_completeness: number;
   missing_dates: string[];
+}
+
+// ============================================
+// IN-HOUSE FINANCING TYPES
+// ============================================
+
+export interface FinancingInvoice {
+  id: string;
+  st_invoice_id: number;
+  invoice_number: string;
+  customer_id: string | null;
+  st_customer_id: number | null;
+  customer_name: string;
+  invoice_total: number;
+  balance: number;
+  amount_paid: number;
+  invoice_date: string;
+  // Financing settings from tracking
+  financing_monthly_amount: number | null;
+  financing_due_day: number | null;
+  financing_start_date: string | null;
+  financing_notes: string | null;
+  // Calculated fields
+  payments_made: number;
+  last_payment_date: string | null;
+  next_due_date: string | null;
+  projected_payoff_date: string | null;
+  payments_remaining: number;
+  // Nested data
+  payments: ARPayment[];
+}
+
+export interface UpcomingPayment {
+  due_date: string;
+  amount: number;
+  is_overdue: boolean;
+  is_next: boolean;
+}
+
+export interface PaymentSchedule {
+  upcoming: UpcomingPayment[];
+  projected_payoff_date: string | null;
+  payments_remaining: number;
+  total_remaining: number;
 }
 
 // ============================================

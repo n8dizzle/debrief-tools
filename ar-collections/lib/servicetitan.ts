@@ -453,6 +453,23 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Get invoice by invoice number (searches invoices)
+   */
+  async getInvoiceByNumber(invoiceNumber: string): Promise<STInvoice | null> {
+    try {
+      const response = await this.request<STPagedResponse<STInvoice>>(
+        'GET',
+        `accounting/v2/tenant/${this.tenantId}/invoices`,
+        { params: { number: invoiceNumber, pageSize: '1' } }
+      );
+      return response.data?.[0] || null;
+    } catch (error) {
+      console.error(`Failed to get invoice by number ${invoiceNumber}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Get payments for a customer
    */
   async getCustomerPayments(

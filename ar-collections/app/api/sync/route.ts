@@ -12,6 +12,8 @@ interface SyncStats {
   customersProcessed: number;
   customersCreated: number;
   customersUpdated: number;
+  paymentsProcessed: number;
+  paymentsCreated: number;
   errors: string[];
 }
 
@@ -54,6 +56,8 @@ export async function POST(request: NextRequest) {
       customersProcessed: 0,
       customersCreated: 0,
       customersUpdated: 0,
+      paymentsProcessed: 0,
+      paymentsCreated: 0,
       errors: [],
     };
 
@@ -165,6 +169,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Note: Payment syncing moved to /api/financing/sync endpoint for on-demand refresh
+
       // Update sync log with success
       const totalAR = arRows.reduce((sum, r) => sum + r.netAmount, 0);
       await supabase
@@ -193,6 +199,10 @@ export async function POST(request: NextRequest) {
             processed: stats.customersProcessed,
             created: stats.customersCreated,
             updated: stats.customersUpdated,
+          },
+          payments: {
+            processed: stats.paymentsProcessed,
+            created: stats.paymentsCreated,
           },
         },
         errors: stats.errors.slice(0, 10),
