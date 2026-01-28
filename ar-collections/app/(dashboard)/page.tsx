@@ -83,29 +83,29 @@ export default function DashboardPage() {
     recent_activity: [],
   };
 
-  // Cohesive color palette for all charts
+  // Cohesive color palette for all charts - matches Daily Dash
   const COLORS = {
-    // Pie chart / Business units - cool to warm gradient
+    // Pie chart / Business units - Christmas Air brand colors
     chart: [
-      '#22c55e', // green
+      '#346643', // christmas green (HVAC)
+      '#B8956B', // christmas gold (Plumbing)
+      '#3B82F6', // blue
+      '#8B5CF6', // purple
       '#14b8a6', // teal
-      '#0ea5e9', // sky blue
-      '#6366f1', // indigo
-      '#a855f7', // purple
       '#f59e0b', // amber
       '#f97316', // orange
       '#ef4444', // red
     ],
     // Aging buckets - green to red severity scale
     aging: {
-      current: '#22c55e',    // green - good
-      days30: '#f59e0b',     // amber - warning
-      days60: '#f97316',     // orange - concern
-      days90: '#ef4444',     // red - critical
+      current: '#4ade80',    // green - good (matches Daily Dash)
+      days30: '#fcd34d',     // yellow - warning
+      days60: '#fb923c',     // orange - concern
+      days90: '#f87171',     // red - critical
     },
-    // Residential vs Commercial
-    residential: '#0ea5e9',  // sky blue
-    commercial: '#a855f7',   // purple
+    // Residential vs Commercial - matches pie chart colors
+    residential: '#346643',  // christmas green
+    commercial: '#B8956B',   // christmas gold/brown
   };
   const CHART_COLORS = COLORS.chart;
 
@@ -147,8 +147,14 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+        <div
+          className="p-4 sm:p-5 rounded-xl transition-all hover:scale-[1.01]"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(52, 102, 67, 0.3)',
+          }}
+        >
+          <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             Total Outstanding
           </div>
           <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
@@ -156,26 +162,44 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card">
-          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+        <div
+          className="p-4 sm:p-5 rounded-xl transition-all hover:scale-[1.01]"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+          }}
+        >
+          <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             AR Collectible
           </div>
-          <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--status-success)' }}>
+          <div className="mt-2 text-2xl font-bold" style={{ color: '#4ade80' }}>
             {formatCurrency(displayStats.ar_collectible)}
           </div>
         </div>
 
-        <div className="card">
-          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-            AR Not In Control
+        <div
+          className="p-4 sm:p-5 rounded-xl transition-all hover:scale-[1.01]"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(251, 146, 60, 0.3)',
+          }}
+        >
+          <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            Not In Control
           </div>
-          <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--status-warning)' }}>
+          <div className="mt-2 text-2xl font-bold" style={{ color: '#fb923c' }}>
             {formatCurrency(displayStats.ar_not_in_control)}
           </div>
         </div>
 
-        <div className="card">
-          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+        <div
+          className="p-4 sm:p-5 rounded-xl transition-all hover:scale-[1.01]"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             Average DSO
           </div>
           <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
@@ -185,8 +209,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Residential vs Commercial */}
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+      <div
+        className="p-4 sm:p-5 rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
           Residential vs Commercial
         </h2>
         {(() => {
@@ -254,8 +284,14 @@ export default function DashboardPage() {
       {/* Aging Buckets & Business Unit */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Aging Buckets */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <div
+          className="p-4 sm:p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
             Aging Breakdown
           </h2>
           <div className="space-y-4">
@@ -291,8 +327,14 @@ export default function DashboardPage() {
         </div>
 
         {/* AR by Business Unit */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <div
+          className="p-4 sm:p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
             AR by Business Unit
           </h2>
           {displayStats.business_unit_totals.length === 0 ? (
@@ -330,13 +372,13 @@ export default function DashboardPage() {
                   <Tooltip
                     formatter={(value) => [formatCurrency(value as number ?? 0), 'Balance']}
                     contentStyle={{
-                      backgroundColor: '#1a1a1a',
-                      border: '1px solid #444',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '8px',
                       padding: '8px 12px',
                     }}
-                    labelStyle={{ color: '#F5F0E1', fontWeight: 'bold', marginBottom: '4px' }}
-                    itemStyle={{ color: '#F5F0E1' }}
+                    labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                    itemStyle={{ color: 'var(--christmas-cream)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -346,9 +388,15 @@ export default function DashboardPage() {
       </div>
 
       {/* In-House Financing Summary */}
-      <div className="card">
+      <div
+        className="p-4 sm:p-5 rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+        }}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             In-House Financing
           </h2>
           <Link href="/financing" className="text-sm hover:underline" style={{ color: 'var(--christmas-green)' }}>
@@ -386,9 +434,15 @@ export default function DashboardPage() {
       {/* Top 5 Lists & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top 5 Lists */}
-        <div className="card">
+        <div
+          className="p-4 sm:p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
           <div className="mb-4">
-            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
               Top 5 Invoices
             </h2>
             <select
@@ -461,8 +515,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <div
+          className="p-4 sm:p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
             Recent Activity
           </h2>
           {displayStats.recent_activity.length === 0 ? (
