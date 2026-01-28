@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/sync",
       "schedule": "0 8-18 * * 1-5"
+    },
+    {
+      "path": "/api/cron/weekly-slack",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -350,6 +350,32 @@ export interface ARSMSSent {
 }
 
 // ============================================
+// SLACK SETTINGS TYPES
+// ============================================
+
+export interface ARSlackSetting {
+  id: string;
+  setting_key: string;
+  setting_value: string;
+  updated_at: string;
+}
+
+export interface ARSlackNotificationLog {
+  id: string;
+  notification_type: string;
+  sent_at: string;
+  status: string | null;
+  error_message: string | null;
+}
+
+export interface ARSlackSettings {
+  weekly_slack_enabled: boolean;
+  weekly_slack_day: number; // 0=Sunday, 1=Monday, etc.
+  weekly_slack_hour: number; // 0-23
+  slack_webhook_url: string;
+}
+
+// ============================================
 // AR API RESPONSE TYPES
 // ============================================
 
