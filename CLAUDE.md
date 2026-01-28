@@ -44,6 +44,7 @@ Common code shared across all Next.js apps:
 - All Leads tab with trade filter
 - Trade detection via `category_id` field (hvac/heating → HVAC, plumb/drain → Plumbing)
 - Key metric: Cost/Charged Lead (ignores free returning customer leads)
+- Note: Google Ads API query cannot include PII fields (phone numbers) without special permissions
 
 **Task Management** - Daily/weekly/monthly marketing tasks
 
@@ -254,7 +255,10 @@ cd marketing-hub && npm run dev    # http://localhost:3002
 
 ## Recent Changes Summary
 
-**Jan 28, 2026**: SSO & Centralized Admin - Shared package for permissions, centralized user management in Internal Portal, true SSO for Python app (debrief-qa), audit logging, removed duplicate user pages from Daily Dash
+**Jan 28, 2026**:
+- SSO & Centralized Admin - Shared package for permissions, centralized user management in Internal Portal, true SSO for Python app (debrief-qa), audit logging
+- LSA Fix - Removed PII fields (phone numbers) from Google Ads API query that required special permissions; sync now working with 1,775+ leads
+- Vercel Config - Set Root Directory to `marketing-hub` for proper monorepo builds
 
 **Jan 25-26, 2026**: LSA Dashboard - HVAC/Plumbing breakdown, location performance, cost-per-charged-lead metrics, sync to Supabase
 
