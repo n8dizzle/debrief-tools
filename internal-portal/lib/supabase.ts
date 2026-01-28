@@ -37,6 +37,7 @@ export interface PortalUser {
   updated_at: string;
   last_login_at: string | null;
   created_by: string | null;
+  permissions: Record<string, Record<string, boolean>> | null;
   // Joined data
   department?: Department;
 }

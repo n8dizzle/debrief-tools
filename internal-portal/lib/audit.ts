@@ -1,5 +1,12 @@
 import { getServerSupabase } from './supabase';
-import type { AuditAction } from '@christmas-air/shared/types';
+
+export type AuditAction =
+  | 'user.created'
+  | 'user.updated'
+  | 'user.deactivated'
+  | 'user.reactivated'
+  | 'permission.changed'
+  | 'role.changed';
 
 interface AuditLogParams {
   actorId: string | null;

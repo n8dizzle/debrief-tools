@@ -43,9 +43,9 @@ export async function GET() {
     }
 
     // Fetch actor and target user info
-    const actorIds = [...new Set(entries.filter((e) => e.actor_id).map((e) => e.actor_id))];
-    const targetIds = [...new Set(entries.filter((e) => e.target_type === 'user' && e.target_id).map((e) => e.target_id))];
-    const allUserIds = [...new Set([...actorIds, ...targetIds])];
+    const actorIds = Array.from(new Set(entries.filter((e) => e.actor_id).map((e) => e.actor_id)));
+    const targetIds = Array.from(new Set(entries.filter((e) => e.target_type === 'user' && e.target_id).map((e) => e.target_id)));
+    const allUserIds = Array.from(new Set([...actorIds, ...targetIds]));
 
     let usersMap: Record<string, { id: string; name: string | null; email: string }> = {};
 
