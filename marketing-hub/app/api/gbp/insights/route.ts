@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     const insights = await gbClient.getMultiLocationInsights(locationData, periodDays);
 
     // Cache the results (background, don't wait)
-    cacheInsightsData(supabase, insights, locations).catch(err => {
+    cacheInsightsData(supabase, insights, locations, startDateStr, endDateStr).catch(err => {
       console.error('Failed to cache insights:', err);
     });
 
@@ -282,16 +282,51 @@ function buildInsightsFromCache(
 }
 
 // Helper: Cache insights data to database
+// Note: This caches aggregate data per location for the queried period.
+// For proper daily caching, use the /api/gbp/insights/sync endpoint which
+// fetches raw daily time series data from the Google API.
 async function cacheInsightsData(
   supabase: ReturnType<typeof getServerSupabase>,
   insights: AggregatedInsights,
-  locations: Array<{ id: string }>
+  locations: Array<{ id: string; google_location_id: string; short_name?: string; name: string }>,
+  startDate: string,
+  endDate: string
 ): Promise<void> {
-  // For each location's daily data, we'd need to upsert
-  // Since we only have aggregated data from the API, we'll store the aggregate
-  // A more sophisticated implementation would store daily breakdowns
+  // The getMultiLocationInsights function only returns aggregated totals,
+  // not daily breakdowns. To properly cache daily data, we need to call
+  // getLocationInsights for each location and parse the time series.
+  //
+  // For now, trigger a background sync to populate daily data:
+  console.log(`[GBP Cache] Triggering background sync for ${locations.length} locations...`);
 
-  // For now, we skip detailed caching since the API returns aggregated data
-  // A production system would use the daily time series data to cache per-day values
-  console.log(`Caching insights for ${locations.length} locations...`);
+  // Fetch the CRON_SECRET from env to call the sync endpoint
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.warn('[GBP Cache] CRON_SECRET not configured, skipping background sync');
+    return;
+  }
+
+  // Get base URL from env or construct from request
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3002';
+
+  try {
+    // Call the sync endpoint in the background
+    const response = await fetch(`${baseUrl}/api/gbp/insights/sync`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cronSecret}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[GBP Cache] Background sync failed:', error);
+    } else {
+      const result = await response.json();
+      console.log(`[GBP Cache] Background sync complete: ${result.total_rows_upserted} rows upserted`);
+    }
+  } catch (err) {
+    console.error('[GBP Cache] Background sync error:', err);
+  }
 }
