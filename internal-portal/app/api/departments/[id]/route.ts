@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerSupabase, getPortalUser } from "@/lib/supabase";
 
-// GET /api/departments/[id] - Get a single department
+// GET /api/departments/[id] - Get a single department with its tool permissions
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -15,6 +15,8 @@ export async function GET(
     }
 
     const supabase = getServerSupabase();
+
+    // Fetch department
     const { data: department, error } = await supabase
       .from("portal_departments")
       .select("*")
@@ -25,7 +27,16 @@ export async function GET(
       return NextResponse.json({ error: "Department not found" }, { status: 404 });
     }
 
-    return NextResponse.json(department);
+    // Fetch tool permissions for this department
+    const { data: toolPermissions } = await supabase
+      .from("portal_tool_permissions")
+      .select("tool_id")
+      .eq("department_id", params.id);
+
+    return NextResponse.json({
+      ...department,
+      tool_ids: toolPermissions?.map((tp) => tp.tool_id) || [],
+    });
   } catch (error) {
     console.error("Error fetching department:", error);
     return NextResponse.json({ error: "Failed to fetch department" }, { status: 500 });
@@ -50,7 +61,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, description, default_permissions } = body;
+    const { name, description, default_permissions, tool_ids } = body;
 
     const updates: Record<string, unknown> = {};
     if (name !== undefined) {
@@ -61,25 +72,62 @@ export async function PATCH(
     if (default_permissions !== undefined) updates.default_permissions = default_permissions;
 
     const supabase = getServerSupabase();
-    const { data: department, error } = await supabase
-      .from("portal_departments")
-      .update(updates)
-      .eq("id", params.id)
-      .select()
-      .single();
 
-    if (error) {
-      if (error.code === "23505") {
-        return NextResponse.json({ error: "A department with this name already exists" }, { status: 400 });
+    // Update department details if there are any changes
+    let department;
+    if (Object.keys(updates).length > 0) {
+      const { data, error } = await supabase
+        .from("portal_departments")
+        .update(updates)
+        .eq("id", params.id)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === "23505") {
+          return NextResponse.json({ error: "A department with this name already exists" }, { status: 400 });
+        }
+        throw error;
       }
-      throw error;
+
+      if (!data) {
+        return NextResponse.json({ error: "Department not found" }, { status: 404 });
+      }
+      department = data;
+    } else {
+      // Just fetch the department if no updates
+      const { data } = await supabase
+        .from("portal_departments")
+        .select("*")
+        .eq("id", params.id)
+        .single();
+      department = data;
     }
 
-    if (!department) {
-      return NextResponse.json({ error: "Department not found" }, { status: 404 });
+    // Update tool permissions if provided
+    if (tool_ids !== undefined) {
+      // Delete existing permissions for this department
+      await supabase
+        .from("portal_tool_permissions")
+        .delete()
+        .eq("department_id", params.id);
+
+      // Insert new permissions
+      if (tool_ids.length > 0) {
+        const permissions = tool_ids.map((toolId: string) => ({
+          tool_id: toolId,
+          department_id: params.id,
+        }));
+
+        const { error: permError } = await supabase
+          .from("portal_tool_permissions")
+          .insert(permissions);
+
+        if (permError) throw permError;
+      }
     }
 
-    return NextResponse.json(department);
+    return NextResponse.json({ ...department, tool_ids: tool_ids || [] });
   } catch (error) {
     console.error("Error updating department:", error);
     return NextResponse.json({ error: "Failed to update department" }, { status: 500 });

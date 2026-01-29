@@ -12,7 +12,15 @@ interface Department {
   slug: string;
   description: string | null;
   default_permissions: UserPermissions;
+  tool_ids?: string[];
   created_at: string;
+}
+
+interface Tool {
+  id: string;
+  name: string;
+  section: string;
+  is_active: boolean;
 }
 
 export default function EditDepartmentPage() {
@@ -25,6 +33,8 @@ export default function EditDepartmentPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -33,26 +43,38 @@ export default function EditDepartmentPage() {
   });
 
   useEffect(() => {
-    async function fetchDepartment() {
+    async function fetchData() {
       try {
-        const res = await fetch(`/api/departments/${deptId}`);
-        if (res.ok) {
-          const dept: Department = await res.json();
+        // Fetch department and tools in parallel
+        const [deptRes, toolsRes] = await Promise.all([
+          fetch(`/api/departments/${deptId}`),
+          fetch("/api/tools?admin=true"),
+        ]);
+
+        if (deptRes.ok) {
+          const dept: Department = await deptRes.json();
           setFormData({
             name: dept.name,
             description: dept.description || "",
             default_permissions: dept.default_permissions || {},
           });
+          setSelectedTools(dept.tool_ids || []);
         } else {
           setError("Department not found");
         }
+
+        if (toolsRes.ok) {
+          const toolsData = await toolsRes.json();
+          // Only show active tools
+          setTools(toolsData.filter((t: Tool) => t.is_active));
+        }
       } catch (error) {
-        console.error("Failed to fetch department:", error);
+        console.error("Failed to fetch data:", error);
         setError("Failed to load department");
       }
       setLoading(false);
     }
-    fetchDepartment();
+    fetchData();
   }, [deptId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,7 +86,10 @@ export default function EditDepartmentPage() {
       const res = await fetch(`/api/departments/${deptId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          tool_ids: selectedTools,
+        }),
       });
 
       if (res.ok) {
@@ -116,6 +141,29 @@ export default function EditDepartmentPage() {
       return { ...prev, default_permissions: newPermissions };
     });
   };
+
+  const handleToolToggle = (toolId: string) => {
+    setSelectedTools((prev) =>
+      prev.includes(toolId)
+        ? prev.filter((id) => id !== toolId)
+        : [...prev, toolId]
+    );
+  };
+
+  const handleSelectAllTools = () => {
+    setSelectedTools(tools.map((t) => t.id));
+  };
+
+  const handleClearAllTools = () => {
+    setSelectedTools([]);
+  };
+
+  // Group tools by section
+  const toolsBySection = tools.reduce((acc: Record<string, Tool[]>, tool) => {
+    if (!acc[tool.section]) acc[tool.section] = [];
+    acc[tool.section].push(tool);
+    return acc;
+  }, {});
 
   if (loading) {
     return (
@@ -197,6 +245,84 @@ export default function EditDepartmentPage() {
                 border: "1px solid var(--border-subtle)",
               }}
             />
+          </div>
+
+          {/* Visible Tools */}
+          <div className="pt-6 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--christmas-cream)" }}>
+                Visible Tools
+              </h3>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAllTools}
+                  className="text-xs px-2 py-1 rounded"
+                  style={{ color: "var(--christmas-green-light)" }}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllTools}
+                  className="text-xs px-2 py-1 rounded"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+              Users in this department will see these tools on the portal home page.
+              {selectedTools.length > 0 && (
+                <span
+                  className="ml-2 px-2 py-0.5 rounded"
+                  style={{ background: "rgba(93, 138, 102, 0.2)", color: "var(--christmas-green-light)" }}
+                >
+                  {selectedTools.length} selected
+                </span>
+              )}
+            </p>
+
+            <div className="space-y-4">
+              {Object.entries(toolsBySection).map(([section, sectionTools]) => (
+                <div key={section}>
+                  <div
+                    className="text-xs font-medium uppercase tracking-wider mb-2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {section}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {sectionTools.map((tool) => (
+                      <label
+                        key={tool.id}
+                        className="flex items-center p-3 rounded-lg cursor-pointer transition-colors"
+                        style={{
+                          background: selectedTools.includes(tool.id)
+                            ? "rgba(34, 197, 94, 0.1)"
+                            : "var(--bg-primary)",
+                          border: `1px solid ${
+                            selectedTools.includes(tool.id)
+                              ? "var(--christmas-green)"
+                              : "var(--border-subtle)"
+                          }`,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedTools.includes(tool.id)}
+                          onChange={() => handleToolToggle(tool.id)}
+                          className="w-4 h-4 rounded mr-3"
+                          style={{ accentColor: "var(--christmas-green)" }}
+                        />
+                        <span style={{ color: "var(--christmas-cream)" }}>{tool.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Default Permissions */}
