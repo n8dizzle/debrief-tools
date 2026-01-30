@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
+import { LSADailyChart, LSADailyDataPoint } from '@/components/LSADailyChart';
 
 interface LSALead {
   id: string;
@@ -89,7 +91,12 @@ interface PerformanceTotals {
   chargeRate: number;
 }
 
-type Period = '7d' | '30d' | '90d';
+interface DailyData {
+  daily: LSADailyDataPoint[];
+  totals: { total: number; hvac: number; plumbing: number; charged: number };
+  avgPerDay: { total: number; hvac: number; plumbing: number; charged: number };
+}
+
 type TradeFilter = 'all' | 'hvac' | 'plumbing';
 
 interface SyncStatus {
@@ -104,35 +111,42 @@ interface SyncStatus {
 
 export default function LSAPage() {
   const { data: session } = useSession();
-  const [period, setPeriod] = useState<Period>('30d');
+
+  // Initialize with MTD (same as GBP page)
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const end = new Date();
+    const start = new Date(end.getFullYear(), end.getMonth(), 1);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
+    };
+  });
+
   const [leads, setLeads] = useState<LSALead[]>([]);
   const [summary, setSummary] = useState<LeadSummary | null>(null);
   const [tradeBreakdown, setTradeBreakdown] = useState<TradeBreakdown | null>(null);
   const [locationBreakdown, setLocationBreakdown] = useState<LocationBreakdown[]>([]);
   const [performanceAccounts, setPerformanceAccounts] = useState<PerformanceAccount[]>([]);
   const [performance, setPerformance] = useState<PerformanceTotals | null>(null);
+  const [dailyData, setDailyData] = useState<DailyData | null>(null);
+
   const [loading, setLoading] = useState(true);
+  const [dailyLoading, setDailyLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'locations' | 'leads'>('overview');
+  const [activeTab, setActiveTab] = useState<'locations' | 'leads'>('locations');
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>('all');
   const [dataSource, setDataSource] = useState<string>('');
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 
-  useEffect(() => {
-    fetchData();
-    fetchSyncStatus();
-  }, [period]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch leads and performance in parallel
       const [leadsRes, perfRes] = await Promise.all([
-        fetch(`/api/lsa/leads?period=${period}`, { credentials: 'include' }),
-        fetch(`/api/lsa/performance?period=${period}`, { credentials: 'include' }),
+        fetch(`/api/lsa/leads?start=${dateRange.start}&end=${dateRange.end}`, { credentials: 'include' }),
+        fetch(`/api/lsa/performance?start=${dateRange.start}&end=${dateRange.end}`, { credentials: 'include' }),
       ]);
 
       if (!leadsRes.ok) {
@@ -161,7 +175,22 @@ export default function LSAPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange]);
+
+  const fetchDailyData = useCallback(async () => {
+    setDailyLoading(true);
+    try {
+      const res = await fetch(`/api/lsa/leads/daily?start=${dateRange.start}&end=${dateRange.end}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch daily data');
+      const data = await res.json();
+      setDailyData(data);
+    } catch (err) {
+      console.error('Failed to fetch daily LSA data:', err);
+      setDailyData(null);
+    } finally {
+      setDailyLoading(false);
+    }
+  }, [dateRange]);
 
   const fetchSyncStatus = async () => {
     try {
@@ -174,6 +203,12 @@ export default function LSAPage() {
       console.error('Error fetching sync status:', err);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+    fetchDailyData();
+    fetchSyncStatus();
+  }, [fetchData, fetchDailyData]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -190,11 +225,8 @@ export default function LSAPage() {
         throw new Error(data.error || 'Sync failed');
       }
 
-      const result = await res.json();
-      console.log('Sync result:', result);
-
-      // Refresh data after sync
       await fetchData();
+      await fetchDailyData();
       await fetchSyncStatus();
     } catch (err: any) {
       console.error('Sync error:', err);
@@ -202,6 +234,10 @@ export default function LSAPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleDateChange = (range: DateRange) => {
+    setDateRange(range);
   };
 
   const formatCurrency = (amount: number) => {
@@ -295,13 +331,13 @@ export default function LSAPage() {
     const perfAccount = performanceAccounts.find(a => a.customerId === loc.customerId);
     return {
       ...loc,
-      customerName: perfAccount?.customerName || `Account ${loc.customerId.slice(-4)}`,
+      customerName: perfAccount?.customerName || loc.customerName || `Account ${loc.customerId.slice(-4)}`,
       cost: perfAccount?.cost || 0,
       costPerChargedLead: loc.charged > 0 && perfAccount ? perfAccount.cost / loc.charged : 0,
     };
   });
 
-  if (loading) {
+  if (loading && !dailyData) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
@@ -317,46 +353,42 @@ export default function LSAPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#E8DFC4]">Local Service Ads</h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            Local Service Ads
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Lead generation and performance tracking
             {dataSource && (
-              <span className="ml-2 text-xs">
-                (data from {dataSource === 'cache' ? 'Supabase' : 'Google Ads API'})
+              <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-muted)' }}>
+                {dataSource === 'cache' ? 'Cached' : 'Live'}
               </span>
             )}
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          {/* Period Selector */}
-          <div className="flex bg-[#1a2e1a] rounded-lg p-1">
-            {(['7d', '30d', '90d'] as Period[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  period === p
-                    ? 'bg-[#346643] text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : '90 Days'}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-3">
+          <DateRangePicker
+            value={dateRange}
+            onChange={handleDateChange}
+            dataDelay={0}
+          />
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="px-4 py-2 bg-[#B8956B] hover:bg-[#a07f5a] disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            style={{
+              backgroundColor: 'var(--christmas-gold)',
+              color: 'var(--dark-bg)',
+            }}
           >
             {syncing ? (
               <>
-                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
                 Syncing...
               </>
@@ -365,49 +397,12 @@ export default function LSAPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                 </svg>
-                Sync from Google
+                Sync
               </>
             )}
-          </button>
-          <button
-            onClick={fetchData}
-            className="px-4 py-2 bg-[#346643] hover:bg-[#3d7a4d] text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
           </button>
         </div>
       </div>
-
-      {/* Sync Status Banner */}
-      {syncStatus && (
-        <div className="bg-[#1a2e1a] rounded-lg p-3 flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4 text-gray-400">
-            <span>
-              <span className="text-[#E8DFC4] font-medium">{syncStatus.totalLeads}</span> leads synced
-            </span>
-            <span>·</span>
-            <span>
-              <span className="text-[#E8DFC4] font-medium">{syncStatus.totalAccounts}</span> accounts
-            </span>
-            {syncStatus.dateRange.earliest && (
-              <>
-                <span>·</span>
-                <span>
-                  Data: {new Date(syncStatus.dateRange.earliest).toLocaleDateString()} - {new Date(syncStatus.dateRange.latest || '').toLocaleDateString()}
-                </span>
-              </>
-            )}
-          </div>
-          {syncStatus.lastSyncedAt && (
-            <div className="text-gray-500 text-xs">
-              Last synced: {new Date(syncStatus.lastSyncedAt).toLocaleString()}
-            </div>
-          )}
-        </div>
-      )}
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
@@ -417,41 +412,122 @@ export default function LSAPage() {
 
       {/* Key Metrics Cards */}
       {performance && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Total Leads */}
-          <div className="bg-[#1a2e1a] rounded-lg p-4">
-            <div className="text-sm text-gray-400 mb-1">Total Leads</div>
-            <div className="text-2xl font-bold text-[#E8DFC4]">{formatNumber(performance.totalLeads)}</div>
-            <div className="text-xs text-gray-500 mt-1 flex gap-2">
-              <span className="text-green-400">{performance.chargedLeads} charged</span>
-              <span>·</span>
-              <span className="text-gray-400">{performance.nonChargedLeads} free</span>
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'var(--christmas-green)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Total Leads</div>
+                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                  {formatNumber(performance.totalLeads)}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span style={{ color: '#22c55e' }}>{performance.chargedLeads} charged</span>
+              <span className="mx-1">·</span>
+              <span>{performance.nonChargedLeads} free</span>
             </div>
           </div>
 
           {/* Total Spend */}
-          <div className="bg-[#1a2e1a] rounded-lg p-4">
-            <div className="text-sm text-gray-400 mb-1">Total Spend</div>
-            <div className="text-2xl font-bold text-[#E8DFC4]">{formatCurrency(performance.cost)}</div>
-            <div className="text-xs text-gray-500 mt-1">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'var(--christmas-green)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Total Spend</div>
+                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                  {formatCurrency(performance.cost)}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {formatPercent(performance.chargeRate)} charge rate
             </div>
           </div>
 
           {/* Cost Per Charged Lead */}
-          <div className="bg-[#1a2e1a] rounded-lg p-4">
-            <div className="text-sm text-gray-400 mb-1">Cost/Charged Lead</div>
-            <div className="text-2xl font-bold text-[#E8DFC4]">{formatCurrencyDecimal(performance.costPerChargedLead)}</div>
-            <div className="text-xs text-gray-500 mt-1">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'var(--christmas-green)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Cost/Charged Lead</div>
+                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                  {formatCurrencyDecimal(performance.costPerChargedLead)}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {formatCurrencyDecimal(performance.avgCostPerLead)} per all leads
             </div>
           </div>
 
-          {/* Conversion Rate */}
-          <div className="bg-[#1a2e1a] rounded-lg p-4">
-            <div className="text-sm text-gray-400 mb-1">Impressions</div>
-            <div className="text-2xl font-bold text-[#E8DFC4]">{formatNumber(performance.impressions)}</div>
-            <div className="text-xs text-gray-500 mt-1">
+          {/* Impressions */}
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'var(--christmas-green)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Impressions</div>
+                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                  {formatNumber(performance.impressions)}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {formatPercent(performance.clickThroughRate)} CTR
             </div>
           </div>
@@ -539,19 +615,18 @@ export default function LSAPage() {
         </div>
       )}
 
+      {/* Daily Chart */}
+      <LSADailyChart
+        data={dailyData?.daily || []}
+        totals={dailyData?.totals || { total: 0, hvac: 0, plumbing: 0, charged: 0 }}
+        avgPerDay={dailyData?.avgPerDay || { total: 0, hvac: 0, plumbing: 0, charged: 0 }}
+        isLoading={dailyLoading}
+        title="Daily Leads"
+      />
+
       {/* Tabs */}
       <div className="border-b border-[#2a3e2a]">
         <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'overview'
-                ? 'border-[#346643] text-[#E8DFC4]'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            Overview
-          </button>
           <button
             onClick={() => setActiveTab('locations')}
             className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -576,102 +651,6 @@ export default function LSAPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'overview' && summary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Lead Types Breakdown */}
-          <div className="bg-[#1a2e1a] rounded-lg p-5">
-            <h3 className="text-lg font-semibold text-[#E8DFC4] mb-4">Lead Types</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-[#E8DFC4] font-medium">Phone Calls</div>
-                    <div className="text-sm text-gray-400">Direct calls from ads</div>
-                  </div>
-                </div>
-                <div className="text-xl font-bold text-[#E8DFC4]">{summary.phoneLeads}</div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-[#E8DFC4] font-medium">Messages</div>
-                    <div className="text-sm text-gray-400">Chat inquiries</div>
-                  </div>
-                </div>
-                <div className="text-xl font-bold text-[#E8DFC4]">{summary.messageLeads}</div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-[#E8DFC4] font-medium">Bookings</div>
-                    <div className="text-sm text-gray-400">Direct bookings</div>
-                  </div>
-                </div>
-                <div className="text-xl font-bold text-[#E8DFC4]">{summary.bookingLeads}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Lead Status Breakdown */}
-          <div className="bg-[#1a2e1a] rounded-lg p-5">
-            <h3 className="text-lg font-semibold text-[#E8DFC4] mb-4">Charge Status</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <div>
-                    <span className="text-gray-300">Charged Leads</span>
-                    <div className="text-xs text-gray-500">New customers billed</div>
-                  </div>
-                </div>
-                <span className="text-[#E8DFC4] font-medium">{summary.chargedLeads}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-                  <div>
-                    <span className="text-gray-300">Non-Charged Leads</span>
-                    <div className="text-xs text-gray-500">Returning customers (free)</div>
-                  </div>
-                </div>
-                <span className="text-[#E8DFC4] font-medium">{summary.nonChargedLeads}</span>
-              </div>
-              <div className="border-t border-[#2a3e2a] pt-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-gray-300">New Status</span>
-                  </div>
-                  <span className="text-[#E8DFC4] font-medium">{summary.newLeads}</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                  <span className="text-gray-300">Booked Status</span>
-                </div>
-                <span className="text-[#E8DFC4] font-medium">{summary.bookedLeads}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {activeTab === 'locations' && (
         <div className="bg-[#1a2e1a] rounded-lg overflow-hidden">
           <div className="overflow-x-auto">

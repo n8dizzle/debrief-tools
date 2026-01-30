@@ -30,25 +30,38 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') || '30d';
+  const period = searchParams.get('period');
+  const startParam = searchParams.get('start');
+  const endParam = searchParams.get('end');
   const source = searchParams.get('source') || 'cache'; // 'cache' or 'live'
 
-  // Calculate date range
-  const endDate = new Date();
-  let startDate = new Date();
+  // Calculate date range - support both period and explicit start/end
+  let endDate: Date;
+  let startDate: Date;
 
-  switch (period) {
-    case '7d':
-      startDate.setDate(endDate.getDate() - 7);
-      break;
-    case '30d':
-      startDate.setDate(endDate.getDate() - 30);
-      break;
-    case '90d':
-      startDate.setDate(endDate.getDate() - 90);
-      break;
-    default:
-      startDate.setDate(endDate.getDate() - 30);
+  if (startParam && endParam) {
+    // Use explicit date range
+    startDate = new Date(startParam + 'T00:00:00');
+    endDate = new Date(endParam + 'T23:59:59');
+  } else {
+    // Use period-based range
+    endDate = new Date();
+    startDate = new Date();
+    const p = period || '30d';
+
+    switch (p) {
+      case '7d':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(endDate.getDate() - 30);
+    }
   }
 
   const startDateStr = startDate.toISOString();
@@ -102,7 +115,7 @@ export async function GET(request: NextRequest) {
           } : undefined,
         }));
 
-        return buildResponse(leads, period, startDateStr.split('T')[0], endDateStr.split('T')[0], 'cache');
+        return buildResponse(leads, period || 'custom', startDateStr.split('T')[0], endDateStr.split('T')[0], 'cache');
       }
 
       console.log('[LSA] No cached data found, falling back to live API');
@@ -148,7 +161,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return buildResponse(leads, period, startDateStr.split('T')[0], endDateStr.split('T')[0], 'live');
+    return buildResponse(leads, period || 'custom', startDateStr.split('T')[0], endDateStr.split('T')[0], 'live');
   } catch (error: any) {
     console.error('Failed to fetch LSA leads:', error);
     return NextResponse.json(
