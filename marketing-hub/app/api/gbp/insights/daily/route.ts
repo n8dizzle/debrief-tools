@@ -44,12 +44,14 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch daily data from cache
+    // Note: Supabase default limit is 1000 rows. For 8 locations × 365 days = 2920 rows
     const { data: dailyData, error } = await supabase
       .from('gbp_insights_cache')
       .select('date, views_maps, views_search, website_clicks, phone_calls, direction_requests, location:google_locations(short_name)')
       .gte('date', startDate)
       .lte('date', endDate)
-      .order('date', { ascending: true });
+      .order('date', { ascending: true })
+      .limit(5000);
 
     if (error) {
       console.error('Failed to fetch daily data:', error);
