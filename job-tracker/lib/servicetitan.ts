@@ -1,0 +1,310 @@
+/**
+ * ServiceTitan API client for Job Tracker.
+ * Simplified version focused on job and customer lookups.
+ */
+
+interface TokenResponse {
+  access_token: string;
+  expires_in: number;
+  token_type: string;
+}
+
+export interface STJob {
+  id: number;
+  jobNumber: string;
+  businessUnitId: number;
+  businessUnitName?: string;
+  jobTypeId: number;
+  jobTypeName?: string;
+  jobStatus: string;
+  customerId: number;
+  locationId: number;
+  completedOn?: string;
+  createdOn?: string;
+  scheduledOn?: string;
+  total?: number;
+  summary?: string;
+  type?: { name?: string };
+}
+
+export interface STCustomer {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  type?: string;
+  active?: boolean;
+}
+
+export interface STLocation {
+  id: number;
+  name?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+}
+
+interface STPagedResponse<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+}
+
+export class ServiceTitanClient {
+  private readonly BASE_URL = 'https://api.servicetitan.io';
+  private readonly AUTH_URL = 'https://auth.servicetitan.io/connect/token';
+
+  private clientId: string;
+  private clientSecret: string;
+  private tenantId: string;
+  private appKey: string;
+
+  private accessToken: string | null = null;
+  private tokenExpiresAt: Date | null = null;
+
+  constructor() {
+    this.clientId = process.env.ST_CLIENT_ID || '';
+    this.clientSecret = process.env.ST_CLIENT_SECRET || '';
+    this.tenantId = process.env.ST_TENANT_ID || '';
+    this.appKey = process.env.ST_APP_KEY || '';
+
+    if (!this.clientId || !this.clientSecret || !this.tenantId || !this.appKey) {
+      console.warn('ServiceTitan credentials not fully configured');
+    }
+  }
+
+  /**
+   * Get or refresh access token
+   */
+  private async getAccessToken(): Promise<string> {
+    // Return cached token if still valid
+    if (this.accessToken && this.tokenExpiresAt) {
+      const now = new Date();
+      const bufferTime = new Date(this.tokenExpiresAt.getTime() - 60000); // 1 min buffer
+      if (now < bufferTime) {
+        return this.accessToken;
+      }
+    }
+
+    // Request new token
+    const response = await fetch(this.AUTH_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get ST access token: ${response.status}`);
+    }
+
+    const data: TokenResponse = await response.json();
+    this.accessToken = data.access_token;
+    this.tokenExpiresAt = new Date(Date.now() + (data.expires_in || 900) * 1000);
+
+    return this.accessToken;
+  }
+
+  /**
+   * Make authenticated API request
+   */
+  private async request<T>(
+    method: string,
+    endpoint: string,
+    options: { params?: Record<string, string>; body?: unknown } = {}
+  ): Promise<T> {
+    const token = await this.getAccessToken();
+
+    let url = `${this.BASE_URL}/${endpoint}`;
+    if (options.params) {
+      const searchParams = new URLSearchParams(options.params);
+      url += `?${searchParams.toString()}`;
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'ST-App-Key': this.appKey,
+        'Content-Type': 'application/json',
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`ST API error ${response.status}: ${text.slice(0, 200)}`);
+    }
+
+    return response.json();
+  }
+
+  // ============================================
+  // JOB TRACKER METHODS
+  // ============================================
+
+  /**
+   * Get a job by ID
+   */
+  async getJob(jobId: number): Promise<STJob | null> {
+    try {
+      const response = await this.request<STJob>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get job ${jobId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get job by job number
+   */
+  async getJobByNumber(jobNumber: string): Promise<STJob | null> {
+    try {
+      const response = await this.request<STPagedResponse<STJob>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs`,
+        { params: { number: jobNumber, pageSize: '1' } }
+      );
+      return response.data?.[0] || null;
+    } catch (error) {
+      console.error(`Failed to get job by number ${jobNumber}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get customer by ID
+   */
+  async getCustomer(customerId: number): Promise<STCustomer | null> {
+    try {
+      const response = await this.request<STCustomer>(
+        'GET',
+        `crm/v2/tenant/${this.tenantId}/customers/${customerId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get customer ${customerId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get location by ID
+   */
+  async getLocation(locationId: number): Promise<STLocation | null> {
+    try {
+      const response = await this.request<STLocation>(
+        'GET',
+        `crm/v2/tenant/${this.tenantId}/locations/${locationId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get location ${locationId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get recently completed install jobs (for auto-tracker creation)
+   * Looks at jobs completed in the last N hours
+   */
+  async getRecentInstallJobs(hoursAgo: number = 24): Promise<STJob[]> {
+    const since = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+    const sinceStr = since.toISOString();
+
+    try {
+      // Install business unit IDs (adjust based on your ST configuration)
+      // Common patterns: HVAC Install, Plumbing Install
+      const response = await this.request<STPagedResponse<STJob>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs`,
+        {
+          params: {
+            completedOnOrAfter: sinceStr,
+            jobStatus: 'Completed',
+            pageSize: '100',
+          },
+        }
+      );
+
+      // Filter to install jobs by checking job type name
+      const installJobs = (response.data || []).filter(job => {
+        const typeName = job.type?.name?.toLowerCase() || '';
+        return typeName.includes('install');
+      });
+
+      return installJobs;
+    } catch (error) {
+      console.error('Failed to get recent install jobs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if client is configured
+   */
+  isConfigured(): boolean {
+    return !!(this.clientId && this.clientSecret && this.tenantId && this.appKey);
+  }
+}
+
+// Singleton instance
+let _client: ServiceTitanClient | null = null;
+
+export function getServiceTitanClient(): ServiceTitanClient {
+  if (!_client) {
+    _client = new ServiceTitanClient();
+  }
+  return _client;
+}
+
+/**
+ * Determine trade based on business unit or job type
+ */
+export function determineTrade(job: STJob): 'hvac' | 'plumbing' {
+  const typeName = job.type?.name?.toLowerCase() || '';
+  const buName = job.businessUnitName?.toLowerCase() || '';
+
+  if (typeName.includes('plumb') || buName.includes('plumb')) {
+    return 'plumbing';
+  }
+
+  return 'hvac'; // Default to HVAC
+}
+
+/**
+ * Determine job type from ST job
+ */
+export function determineJobType(job: STJob): 'install' | 'repair' | 'maintenance' | 'service' {
+  const typeName = job.type?.name?.toLowerCase() || '';
+
+  if (typeName.includes('install')) {
+    return 'install';
+  }
+  if (typeName.includes('maintenance') || typeName.includes('tune')) {
+    return 'maintenance';
+  }
+  if (typeName.includes('repair')) {
+    return 'repair';
+  }
+
+  return 'service'; // Default to service
+}
