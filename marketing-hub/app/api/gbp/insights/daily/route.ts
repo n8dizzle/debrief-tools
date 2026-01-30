@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch daily data' }, { status: 500 });
     }
 
+    console.log(`[GBP Daily] Query ${startDate} to ${endDate}: ${dailyData?.length || 0} rows returned`);
+
     // Aggregate by date (sum all locations per day) with per-location breakdown
     interface LocationBreakdown {
       name: string;
@@ -156,6 +158,7 @@ export async function GET(request: NextRequest) {
       avgPerDay,
       dateRange: { start: startDate, end: endDate },
       daysCount: daily.length,
+      _debug: { rawRowCount: dailyData?.length || 0 },
     });
   } catch (error) {
     console.error('Failed to fetch daily insights:', error);
