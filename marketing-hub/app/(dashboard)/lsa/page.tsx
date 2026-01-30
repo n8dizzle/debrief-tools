@@ -410,10 +410,10 @@ export default function LSAPage() {
         </div>
       )}
 
-      {/* Key Metrics Cards */}
-      {performance && (
+      {/* Key Metrics Cards - Use summary from leads API for accurate counts, performance API for spend/impressions */}
+      {(summary || performance) && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Total Leads */}
+          {/* Total Leads - from leads API (accurate) */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -433,18 +433,18 @@ export default function LSAPage() {
               <div className="min-w-0">
                 <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Total Leads</div>
                 <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                  {formatNumber(performance.totalLeads)}
+                  {formatNumber(summary?.totalLeads || 0)}
                 </div>
               </div>
             </div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              <span style={{ color: '#22c55e' }}>{performance.chargedLeads} charged</span>
+              <span style={{ color: '#22c55e' }}>{summary?.chargedLeads || 0} charged</span>
               <span className="mx-1">·</span>
-              <span>{performance.nonChargedLeads} free</span>
+              <span>{summary?.nonChargedLeads || 0} free</span>
             </div>
           </div>
 
-          {/* Total Spend */}
+          {/* Total Spend - from performance API */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -464,16 +464,18 @@ export default function LSAPage() {
               <div className="min-w-0">
                 <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Total Spend</div>
                 <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                  {formatCurrency(performance.cost)}
+                  {formatCurrency(performance?.cost || 0)}
                 </div>
               </div>
             </div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatPercent(performance.chargeRate)} charge rate
+              {summary && summary.totalLeads > 0
+                ? formatPercent((summary.chargedLeads / summary.totalLeads) * 100)
+                : '0.0%'} charge rate
             </div>
           </div>
 
-          {/* Cost Per Charged Lead */}
+          {/* Cost Per Charged Lead - calculated from both APIs */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -493,16 +495,24 @@ export default function LSAPage() {
               <div className="min-w-0">
                 <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Cost/Charged Lead</div>
                 <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                  {formatCurrencyDecimal(performance.costPerChargedLead)}
+                  {formatCurrencyDecimal(
+                    summary?.chargedLeads && performance?.cost
+                      ? performance.cost / summary.chargedLeads
+                      : 0
+                  )}
                 </div>
               </div>
             </div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatCurrencyDecimal(performance.avgCostPerLead)} per all leads
+              {formatCurrencyDecimal(
+                summary?.totalLeads && performance?.cost
+                  ? performance.cost / summary.totalLeads
+                  : 0
+              )} per all leads
             </div>
           </div>
 
-          {/* Impressions */}
+          {/* Impressions - from performance API */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -523,12 +533,12 @@ export default function LSAPage() {
               <div className="min-w-0">
                 <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Impressions</div>
                 <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                  {formatNumber(performance.impressions)}
+                  {formatNumber(performance?.impressions || 0)}
                 </div>
               </div>
             </div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatPercent(performance.clickThroughRate)} CTR
+              {formatPercent(performance?.clickThroughRate || 0)} CTR
             </div>
           </div>
         </div>
