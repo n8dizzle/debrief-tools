@@ -133,7 +133,7 @@ export function LocationSummaryTable({
   if (isLoading) {
     return (
       <div
-        className="rounded-xl p-5 w-fit"
+        className="rounded-xl p-5 w-fit h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -154,7 +154,7 @@ export function LocationSummaryTable({
   if (data.length === 0) {
     return (
       <div
-        className="rounded-xl p-5 w-fit"
+        className="rounded-xl p-5 w-fit h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -176,7 +176,7 @@ export function LocationSummaryTable({
 
   return (
     <div
-      className="rounded-xl p-5 w-fit"
+      className="rounded-xl p-5 w-fit h-full flex flex-col"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
@@ -186,7 +186,7 @@ export function LocationSummaryTable({
         Location Summary
       </h2>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto flex-1">
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>

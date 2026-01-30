@@ -328,7 +328,7 @@ export default function GBPPerformancePage() {
       </div>
 
       {/* Two-column layout for Chart and Table on large screens */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr,auto] gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr,auto] gap-6 items-stretch">
         {/* Daily Metrics Chart */}
         <DailyMetricsChart
           data={dailyData?.daily || []}

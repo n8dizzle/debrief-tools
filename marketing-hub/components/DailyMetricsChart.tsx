@@ -157,7 +157,7 @@ export function DailyMetricsChart({
   if (isLoading) {
     return (
       <div
-        className="rounded-xl p-5"
+        className="rounded-xl p-5 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -180,7 +180,7 @@ export function DailyMetricsChart({
   if (data.length === 0) {
     return (
       <div
-        className="rounded-xl p-5"
+        className="rounded-xl p-5 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -203,7 +203,7 @@ export function DailyMetricsChart({
 
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-5 h-full flex flex-col"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
@@ -246,7 +246,7 @@ export function DailyMetricsChart({
       </div>
 
       {/* Chart */}
-      <div className="h-64">
+      <div className="flex-1 min-h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
