@@ -53,7 +53,6 @@ function StatCard({
   title,
   value,
   change,
-  changeLabel,
   icon,
   isLoading,
 }: {
@@ -66,22 +65,36 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-xl p-5 transition-colors"
+      className="rounded-xl p-4 transition-colors"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-center gap-3 mb-2">
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center"
+          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: 'var(--christmas-green)', opacity: 0.9 }}
         >
           {icon}
         </div>
-        {change && !isLoading && change !== '--' && (
+        <div className="min-w-0">
+          <div className="text-xs font-medium truncate" style={{ color: 'var(--text-muted)' }}>
+            {title}
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            {isLoading ? (
+              <span className="inline-block w-12 h-6 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
+            ) : (
+              value
+            )}
+          </div>
+        </div>
+      </div>
+      {change && !isLoading && change !== '--' && (
+        <div className="flex items-center gap-1.5">
           <span
-            className="text-xs font-medium px-2 py-1 rounded-full"
+            className="text-xs font-medium px-1.5 py-0.5 rounded"
             style={{
               backgroundColor: change.startsWith('+') ? 'rgba(93, 138, 102, 0.2)' : 'rgba(139, 45, 50, 0.2)',
               color: change.startsWith('+') ? 'var(--christmas-green-light)' : '#c97878',
@@ -89,21 +102,9 @@ function StatCard({
           >
             {change}
           </span>
-        )}
-      </div>
-      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-        {isLoading ? (
-          <span className="inline-block w-16 h-7 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
-        ) : (
-          value
-        )}
-      </div>
-      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-        {title}
-      </div>
-      {changeLabel && (
-        <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          {changeLabel}
+          <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+            vs last year
+          </span>
         </div>
       )}
     </div>
@@ -248,8 +249,8 @@ export default function GBPPerformancePage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Stats Grid - 3 columns on medium, 6 on large */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard
           title="Phone Calls"
           value={insights ? formatNumber(insights.current.phoneCalls) : '--'}
@@ -326,50 +327,53 @@ export default function GBPPerformancePage() {
         />
       </div>
 
-      {/* Daily Metrics Chart */}
-      <DailyMetricsChart
-        data={dailyData?.daily || []}
-        totals={dailyData?.totals || { views: 0, clicks: 0, calls: 0, directions: 0 }}
-        avgPerDay={dailyData?.avgPerDay || { views: 0, clicks: 0, calls: 0, directions: 0 }}
-        isLoading={dailyLoading}
-        title="Daily Performance"
-      />
-
-      {/* Location Summary Table */}
-      {insightsError ? (
-        <div
-          className="rounded-xl p-5"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-            Location Summary
-          </h2>
-          <div className="text-center py-8">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="#c97878" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm" style={{ color: '#c97878' }}>{insightsError}</p>
-            <button
-              onClick={() => fetchInsights(true)}
-              className="mt-3 px-4 py-2 text-sm rounded-lg"
-              style={{
-                backgroundColor: 'var(--christmas-green)',
-                color: 'var(--christmas-cream)',
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      ) : (
-        <LocationSummaryTable
-          data={insights?.byLocation || []}
-          isLoading={insightsLoading}
+      {/* Two-column layout for Chart and Table on large screens */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr,auto] gap-6 items-start">
+        {/* Daily Metrics Chart */}
+        <DailyMetricsChart
+          data={dailyData?.daily || []}
+          totals={dailyData?.totals || { views: 0, clicks: 0, calls: 0, directions: 0 }}
+          avgPerDay={dailyData?.avgPerDay || { views: 0, clicks: 0, calls: 0, directions: 0 }}
+          isLoading={dailyLoading}
+          title="Daily Performance"
         />
-      )}
+
+        {/* Location Summary Table */}
+        {insightsError ? (
+          <div
+            className="rounded-xl p-5"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              Location Summary
+            </h2>
+            <div className="text-center py-8">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="#c97878" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-sm" style={{ color: '#c97878' }}>{insightsError}</p>
+              <button
+                onClick={() => fetchInsights(true)}
+                className="mt-3 px-4 py-2 text-sm rounded-lg"
+                style={{
+                  backgroundColor: 'var(--christmas-green)',
+                  color: 'var(--christmas-cream)',
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ) : (
+          <LocationSummaryTable
+            data={insights?.byLocation || []}
+            isLoading={insightsLoading}
+          />
+        )}
+      </div>
     </div>
   );
 }
