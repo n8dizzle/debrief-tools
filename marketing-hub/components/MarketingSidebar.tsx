@@ -14,7 +14,7 @@ const navLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
   { href: '/posts', label: 'GBP Posts', icon: 'megaphone' },
   { href: '/lsa', label: 'Local Service Ads', icon: 'phone' },
-  { href: '/performance', label: 'GBP Insights', icon: 'chart-bar' },
+  { href: '/gbp', label: 'GBP Insights', icon: 'chart-bar' },
   { href: '/analytics', label: 'Website Analytics', icon: 'globe' },
   { href: '/social', label: 'Social Media', icon: 'share' },
   { href: '/tasks', label: 'Tasks', icon: 'checklist' },

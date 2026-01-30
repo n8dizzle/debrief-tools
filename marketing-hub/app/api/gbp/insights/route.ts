@@ -10,7 +10,9 @@ import { hasPermission, UserPermissions } from '@/lib/permissions';
  * Fetch GBP performance insights for all locations
  *
  * Query params:
- * - period: 7d | 30d | 90d (default: 30d)
+ * - period: 7d | 30d | 90d (default: 30d) - OR use start/end dates
+ * - start: Start date (YYYY-MM-DD)
+ * - end: End date (YYYY-MM-DD)
  * - refresh: true - Force refresh from Google API (ignores cache)
  */
 export async function GET(request: NextRequest) {
@@ -36,9 +38,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const period = searchParams.get('period') || '30d';
   const forceRefresh = searchParams.get('refresh') === 'true';
-
-  // Parse period to days
-  const periodDays = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+  const startParam = searchParams.get('start');
+  const endParam = searchParams.get('end');
 
   const supabase = getServerSupabase();
   const gbClient = getGoogleBusinessClient();
@@ -92,30 +93,81 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Calculate date ranges
-    const endDate = new Date();
-    // Account for 2-3 day data delay from Google
-    endDate.setDate(endDate.getDate() - 3);
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - periodDays + 1);
-
+    // Calculate date ranges - use start/end params if provided, otherwise use period
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
-    const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
+
+    let startDateStr: string;
+    let endDateStr: string;
+    let periodDays: number;
+
+    if (startParam && endParam) {
+      // Use provided date range
+      startDateStr = startParam;
+      endDateStr = endParam;
+      periodDays = Math.ceil(
+        (new Date(endParam).getTime() - new Date(startParam).getTime()) / (1000 * 60 * 60 * 24)
+      ) + 1;
+    } else {
+      // Use period-based calculation
+      periodDays = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+      const endDate = new Date();
+      // Account for 2-3 day data delay from Google
+      endDate.setDate(endDate.getDate() - 3);
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - periodDays + 1);
+      startDateStr = formatDate(startDate);
+      endDateStr = formatDate(endDate);
+    }
+
+    // Calculate YoY date range (same period, previous year)
+    const yoyStartDate = new Date(startDateStr + 'T00:00:00');
+    yoyStartDate.setFullYear(yoyStartDate.getFullYear() - 1);
+    const yoyEndDate = new Date(endDateStr + 'T00:00:00');
+    yoyEndDate.setFullYear(yoyEndDate.getFullYear() - 1);
+    const yoyStartStr = formatDate(yoyStartDate);
+    const yoyEndStr = formatDate(yoyEndDate);
+
+    // Calculate YTD range (Jan 1 of current year to end date)
+    const ytdStart = `${new Date(endDateStr).getFullYear()}-01-01`;
+    const ytdEnd = endDateStr;
 
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
-      const { data: cachedData } = await supabase
-        .from('gbp_insights_cache')
-        .select('*, location:google_locations(*)')
-        .gte('date', startDateStr)
-        .lte('date', endDateStr);
+      // Fetch current period, YoY period, and YTD data in parallel
+      const [currentResult, yoyResult, ytdResult] = await Promise.all([
+        supabase
+          .from('gbp_insights_cache')
+          .select('*, location:google_locations(*)')
+          .gte('date', startDateStr)
+          .lte('date', endDateStr),
+        supabase
+          .from('gbp_insights_cache')
+          .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
+          .gte('date', yoyStartStr)
+          .lte('date', yoyEndStr),
+        supabase
+          .from('gbp_insights_cache')
+          .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
+          .gte('date', ytdStart)
+          .lte('date', ytdEnd),
+      ]);
+
+      const cachedData = currentResult.data;
+      const yoyData = yoyResult.data;
+      const ytdData = ytdResult.data;
 
       // If we have cached data covering most of the period, use it
       const expectedDays = periodDays * locations.length;
       if (cachedData && cachedData.length >= expectedDays * 0.8) {
-        // Build aggregated response from cache
-        const insights = buildInsightsFromCache(cachedData, locations, startDateStr, endDateStr);
+        // Build aggregated response from cache with YoY and YTD
+        const insights = buildInsightsFromCache(
+          cachedData,
+          locations,
+          startDateStr,
+          endDateStr,
+          yoyData || [],
+          ytdData || []
+        );
         return NextResponse.json({
           insights,
           cached: true,
@@ -179,6 +231,12 @@ export async function POST(request: NextRequest) {
   return GET(new NextRequest(url.toString(), { method: 'GET', headers: request.headers }));
 }
 
+// Helper: Calculate YoY percentage change
+function calcYoYChange(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? 100 : null;
+  return ((current - previous) / previous) * 100;
+}
+
 // Helper: Build insights from cached data
 function buildInsightsFromCache(
   cachedData: Array<{
@@ -194,9 +252,25 @@ function buildInsightsFromCache(
   }>,
   locations: Array<{ id: string; name: string; short_name: string }>,
   startDate: string,
-  endDate: string
+  endDate: string,
+  yoyData: Array<{
+    location_id: string;
+    views_maps: number;
+    views_search: number;
+    website_clicks: number;
+    phone_calls: number;
+    direction_requests: number;
+  }>,
+  ytdData: Array<{
+    location_id: string;
+    views_maps: number;
+    views_search: number;
+    website_clicks: number;
+    phone_calls: number;
+    direction_requests: number;
+  }>
 ): AggregatedInsights {
-  // Group by location
+  // Group current period by location
   const byLocationMap = new Map<string, {
     viewsMaps: number;
     viewsSearch: number;
@@ -204,6 +278,24 @@ function buildInsightsFromCache(
     phoneCalls: number;
     directionRequests: number;
     bookings: number;
+  }>();
+
+  // Group YoY data by location
+  const yoyByLocation = new Map<string, {
+    viewsMaps: number;
+    viewsSearch: number;
+    websiteClicks: number;
+    phoneCalls: number;
+    directionRequests: number;
+  }>();
+
+  // Group YTD data by location
+  const ytdByLocation = new Map<string, {
+    viewsMaps: number;
+    viewsSearch: number;
+    websiteClicks: number;
+    phoneCalls: number;
+    directionRequests: number;
   }>();
 
   for (const loc of locations) {
@@ -215,8 +307,23 @@ function buildInsightsFromCache(
       directionRequests: 0,
       bookings: 0,
     });
+    yoyByLocation.set(loc.id, {
+      viewsMaps: 0,
+      viewsSearch: 0,
+      websiteClicks: 0,
+      phoneCalls: 0,
+      directionRequests: 0,
+    });
+    ytdByLocation.set(loc.id, {
+      viewsMaps: 0,
+      viewsSearch: 0,
+      websiteClicks: 0,
+      phoneCalls: 0,
+      directionRequests: 0,
+    });
   }
 
+  // Aggregate current period
   for (const row of cachedData) {
     const existing = byLocationMap.get(row.location_id);
     if (existing) {
@@ -229,6 +336,30 @@ function buildInsightsFromCache(
     }
   }
 
+  // Aggregate YoY data
+  for (const row of yoyData) {
+    const existing = yoyByLocation.get(row.location_id);
+    if (existing) {
+      existing.viewsMaps += row.views_maps || 0;
+      existing.viewsSearch += row.views_search || 0;
+      existing.websiteClicks += row.website_clicks || 0;
+      existing.phoneCalls += row.phone_calls || 0;
+      existing.directionRequests += row.direction_requests || 0;
+    }
+  }
+
+  // Aggregate YTD data
+  for (const row of ytdData) {
+    const existing = ytdByLocation.get(row.location_id);
+    if (existing) {
+      existing.viewsMaps += row.views_maps || 0;
+      existing.viewsSearch += row.views_search || 0;
+      existing.websiteClicks += row.website_clicks || 0;
+      existing.phoneCalls += row.phone_calls || 0;
+      existing.directionRequests += row.direction_requests || 0;
+    }
+  }
+
   const byLocation = locations.map(loc => {
     const data = byLocationMap.get(loc.id) || {
       viewsMaps: 0,
@@ -238,17 +369,45 @@ function buildInsightsFromCache(
       directionRequests: 0,
       bookings: 0,
     };
+    const yoy = yoyByLocation.get(loc.id) || {
+      viewsMaps: 0,
+      viewsSearch: 0,
+      websiteClicks: 0,
+      phoneCalls: 0,
+      directionRequests: 0,
+    };
+    const ytd = ytdByLocation.get(loc.id) || {
+      viewsMaps: 0,
+      viewsSearch: 0,
+      websiteClicks: 0,
+      phoneCalls: 0,
+      directionRequests: 0,
+    };
+
+    const currentViews = data.viewsMaps + data.viewsSearch;
+    const yoyViews = yoy.viewsMaps + yoy.viewsSearch;
+
     return {
       locationId: loc.id,
       locationName: loc.short_name || loc.name,
       period: { start: startDate, end: endDate },
       viewsMaps: data.viewsMaps,
       viewsSearch: data.viewsSearch,
-      totalViews: data.viewsMaps + data.viewsSearch,
+      totalViews: currentViews,
       websiteClicks: data.websiteClicks,
       phoneCalls: data.phoneCalls,
       directionRequests: data.directionRequests,
       bookings: data.bookings,
+      // YoY percentage changes
+      callsYoY: calcYoYChange(data.phoneCalls, yoy.phoneCalls),
+      viewsYoY: calcYoYChange(currentViews, yoyViews),
+      clicksYoY: calcYoYChange(data.websiteClicks, yoy.websiteClicks),
+      directionsYoY: calcYoYChange(data.directionRequests, yoy.directionRequests),
+      // YTD totals
+      ytdCalls: ytd.phoneCalls,
+      ytdViews: ytd.viewsMaps + ytd.viewsSearch,
+      ytdClicks: ytd.websiteClicks,
+      ytdDirections: ytd.directionRequests,
     };
   });
 
@@ -264,19 +423,25 @@ function buildInsightsFromCache(
     { totalViews: 0, viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 }
   );
 
-  // For previous period, we'd need separate cached data - for now return zeros
+  // Calculate YoY totals for previous period comparison
+  type TotalsType = { totalViews: number; viewsMaps: number; viewsSearch: number; websiteClicks: number; phoneCalls: number; directionRequests: number };
+  const yoyTotals = Array.from(yoyByLocation.values()).reduce<TotalsType>(
+    (acc, loc) => ({
+      totalViews: acc.totalViews + loc.viewsMaps + loc.viewsSearch,
+      viewsMaps: acc.viewsMaps + loc.viewsMaps,
+      viewsSearch: acc.viewsSearch + loc.viewsSearch,
+      websiteClicks: acc.websiteClicks + loc.websiteClicks,
+      phoneCalls: acc.phoneCalls + loc.phoneCalls,
+      directionRequests: acc.directionRequests + loc.directionRequests,
+    }),
+    { totalViews: 0, viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 }
+  );
+
   return {
     period: { start: startDate, end: endDate },
     previousPeriod: { start: '', end: '' },
     current,
-    previous: {
-      totalViews: 0,
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    },
+    previous: yoyTotals, // Use YoY data as previous for the stat cards
     byLocation,
   };
 }
