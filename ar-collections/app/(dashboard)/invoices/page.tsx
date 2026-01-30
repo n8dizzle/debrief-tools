@@ -35,7 +35,7 @@ interface ColumnDef {
 }
 
 const DEFAULT_COLUMNS: ColumnDef[] = [
-  { id: 'owner', label: 'Owner', sortable: false, minWidth: 80, defaultWidth: 100 },
+  { id: 'owner', label: 'AR Owner', sortable: false, minWidth: 80, defaultWidth: 100 },
   { id: 'invoice_date', label: 'Date', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'invoice_number', label: 'Inv #', sortable: true, minWidth: 100, defaultWidth: 120 },
   { id: 'customer_name', label: 'Customer', sortable: true, minWidth: 120, defaultWidth: 180 },
@@ -896,14 +896,14 @@ export default function InvoicesPage() {
           </div>
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Owner
+              AR Owner
             </label>
             <select
               className="select"
               value={filters.owner}
               onChange={(e) => setFilters(prev => ({ ...prev, owner: e.target.value }))}
             >
-              <option value="">All Owners</option>
+              <option value="">All AR Owners</option>
               {owners.map(owner => (
                 <option key={owner.id} value={owner.id}>{owner.name}</option>
               ))}

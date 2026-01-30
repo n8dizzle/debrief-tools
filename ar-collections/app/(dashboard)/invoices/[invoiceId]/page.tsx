@@ -624,7 +624,7 @@ export default function InvoiceDetailPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Owner
+                  AR Owner
                 </label>
                 <select
                   className="select"

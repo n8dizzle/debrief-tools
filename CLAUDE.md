@@ -15,7 +15,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Daily Dash** (`/daily-dash`) | https://dash.christmasair.com | Next.js | 3001 |
 | **Marketing Hub** (`/marketing-hub`) | https://marketing.christmasair.com | Next.js | 3002 |
 | **Internal Portal** (`/internal-portal`) | https://portal.christmasair.com | Next.js | 3000 |
-| **AR Collections** (`/ar-collections`) | TBD | Next.js | 3003 |
+| **AR Collections** (`/ar-collections`) | https://ar.christmasair.com | Next.js | 3003 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:

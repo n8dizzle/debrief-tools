@@ -5,6 +5,8 @@ import { formatDateTime } from '@/lib/ar-utils';
 import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog, ARJobStatusOption } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
+type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'history' | 'admin';
+
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
   { value: 1, label: 'Monday' },
@@ -21,6 +23,7 @@ const HOUR_OPTIONS = Array.from({ length: 13 }, (_, i) => ({
 }));
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('sync');
   const [syncLogs, setSyncLogs] = useState<ARSyncLog[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -252,6 +255,17 @@ export default function SettingsPage() {
     );
   }
 
+  // Build tabs based on permissions
+  const tabs: { id: SettingsTab; label: string; show: boolean }[] = [
+    { id: 'sync', label: 'Data Sync', show: true },
+    { id: 'notifications', label: 'Notifications', show: canManageSettings },
+    { id: 'job-statuses', label: 'Job Statuses', show: isOwner },
+    { id: 'history', label: 'Sync History', show: true },
+    { id: 'admin', label: 'Admin', show: isOwner },
+  ];
+
+  const visibleTabs = tabs.filter(t => t.show);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -264,7 +278,25 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        {visibleTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: activeTab === tab.id ? 'var(--christmas-green)' : 'transparent',
+              color: activeTab === tab.id ? 'white' : 'var(--text-muted)',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Sync Settings */}
+      {activeTab === 'sync' && (
       <div className="card">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
           Data Sync
@@ -303,9 +335,10 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Weekly Slack Notification Settings */}
-      {canManageSettings && (
+      {activeTab === 'notifications' && canManageSettings && (
         <div className="card">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
             Weekly Slack Summary
@@ -478,7 +511,7 @@ export default function SettingsPage() {
       )}
 
       {/* Job Status Management - Owner Only */}
-      {isOwner && (
+      {activeTab === 'job-statuses' && isOwner && (
         <div className="card">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
             Job Status Options
@@ -502,123 +535,169 @@ export default function SettingsPage() {
           {jobStatusesLoading ? (
             <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
           ) : (
-            <div className="space-y-4">
-              {/* Status List */}
-              <div className="space-y-2">
-                {jobStatuses.map((status, index) => (
-                  <div
-                    key={status.id}
-                    className="flex items-center gap-3 p-3 rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      opacity: status.is_active ? 1 : 0.5,
-                    }}
-                  >
-                    {/* Reorder buttons */}
-                    <div className="flex flex-col gap-0.5">
-                      <button
-                        onClick={() => moveStatus(status.id, 'up')}
-                        disabled={index === 0}
-                        className="p-0.5 rounded hover:bg-white/10 disabled:opacity-30"
-                        title="Move up"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Status List */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* Active Statuses */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      Active ({jobStatuses.filter(s => s.is_active).length})
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {jobStatuses.filter(s => s.is_active).map((status, index) => (
+                      <div
+                        key={status.id}
+                        className="flex items-center gap-2 p-2 rounded-lg group"
+                        style={{ backgroundColor: 'var(--bg-secondary)' }}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => moveStatus(status.id, 'down')}
-                        disabled={index === jobStatuses.length - 1}
-                        className="p-0.5 rounded hover:bg-white/10 disabled:opacity-30"
-                        title="Move down"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Key */}
-                    <code className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                      {status.key}
-                    </code>
-
-                    {/* Label - editable */}
-                    <div className="flex-1">
-                      {editingStatusId === status.id ? (
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={editingLabel}
-                            onChange={(e) => setEditingLabel(e.target.value)}
-                            className="flex-1 px-2 py-1 text-sm rounded"
-                            style={{
-                              backgroundColor: 'var(--bg-tertiary)',
-                              color: 'var(--christmas-cream)',
-                              border: '1px solid var(--border-subtle)',
-                            }}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') updateJobStatus(status.id, { label: editingLabel });
-                              if (e.key === 'Escape') setEditingStatusId(null);
-                            }}
-                          />
+                        {/* Reorder buttons */}
+                        <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
                           <button
-                            onClick={() => updateJobStatus(status.id, { label: editingLabel })}
-                            className="btn btn-primary btn-sm"
+                            onClick={() => moveStatus(status.id, 'up')}
+                            disabled={index === 0}
+                            className="p-1 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move up"
                           >
-                            Save
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
                           </button>
                           <button
-                            onClick={() => setEditingStatusId(null)}
-                            className="btn btn-secondary btn-sm"
+                            onClick={() => moveStatus(status.id, 'down')}
+                            disabled={index === jobStatuses.filter(s => s.is_active).length - 1}
+                            className="p-1 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move down"
                           >
-                            Cancel
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </button>
                         </div>
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:underline"
-                          style={{ color: 'var(--christmas-cream)' }}
-                          onClick={() => {
-                            setEditingStatusId(status.id);
-                            setEditingLabel(status.label);
-                          }}
-                          title="Click to edit"
-                        >
-                          {status.label}
+
+                        {/* Position */}
+                        <span className="w-6 text-center text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+                          {index + 1}
                         </span>
-                      )}
-                    </div>
 
-                    {/* Active toggle */}
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={status.is_active}
-                        onChange={(e) => updateJobStatus(status.id, { is_active: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                    </label>
+                        {/* Label */}
+                        <div className="flex-1">
+                          {editingStatusId === status.id ? (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={editingLabel}
+                                onChange={(e) => setEditingLabel(e.target.value)}
+                                className="flex-1 px-2 py-1 text-sm rounded"
+                                style={{
+                                  backgroundColor: 'var(--bg-tertiary)',
+                                  color: 'var(--christmas-cream)',
+                                  border: '1px solid var(--christmas-green)',
+                                }}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') updateJobStatus(status.id, { label: editingLabel });
+                                  if (e.key === 'Escape') setEditingStatusId(null);
+                                }}
+                              />
+                              <button
+                                onClick={() => updateJobStatus(status.id, { label: editingLabel })}
+                                className="p-1 rounded hover:bg-green-500/20"
+                                title="Save"
+                              >
+                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setEditingStatusId(null)}
+                                className="p-1 rounded hover:bg-red-500/20"
+                                title="Cancel"
+                              >
+                                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--christmas-cream)' }}>{status.label}</span>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
+                          <button
+                            onClick={() => {
+                              setEditingStatusId(status.id);
+                              setEditingLabel(status.label);
+                            }}
+                            className="p-1 rounded hover:bg-white/10"
+                            title="Edit label"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => updateJobStatus(status.id, { is_active: false })}
+                            className="p-1 rounded hover:bg-red-500/20"
+                            title="Deactivate"
+                          >
+                            <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-
-              {/* Add New Status */}
-              <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <div className="font-medium mb-3" style={{ color: 'var(--christmas-cream)' }}>
-                  Add New Status
                 </div>
-                <div className="flex gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Label</label>
+
+                {/* Inactive Statuses */}
+                {jobStatuses.filter(s => !s.is_active).length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                        Inactive ({jobStatuses.filter(s => !s.is_active).length})
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {jobStatuses.filter(s => !s.is_active).map((status) => (
+                        <div
+                          key={status.id}
+                          className="flex items-center gap-2 p-2 rounded-lg group"
+                          style={{ backgroundColor: 'var(--bg-secondary)', opacity: 0.6 }}
+                        >
+                          <span className="w-14"></span>
+                          <span className="w-6"></span>
+                          <span className="flex-1" style={{ color: 'var(--text-muted)' }}>{status.label}</span>
+                          <button
+                            onClick={() => updateJobStatus(status.id, { is_active: true })}
+                            className="p-1 rounded hover:bg-green-500/20 opacity-50 group-hover:opacity-100"
+                            title="Reactivate"
+                          >
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add New Status */}
+                <div className="p-3 rounded-lg border-2 border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="e.g., Payment Received"
+                      placeholder="Add new status..."
                       value={newStatusLabel}
                       onChange={(e) => setNewStatusLabel(e.target.value)}
-                      className="w-full px-3 py-2 rounded"
+                      className="flex-1 px-3 py-2 rounded text-sm"
                       style={{
                         backgroundColor: 'var(--bg-tertiary)',
                         color: 'var(--christmas-cream)',
@@ -628,31 +707,86 @@ export default function SettingsPage() {
                         if (e.key === 'Enter' && newStatusLabel.trim()) addJobStatus();
                       }}
                     />
+                    <button
+                      onClick={addJobStatus}
+                      disabled={addingStatus || !newStatusLabel.trim()}
+                      className="btn btn-primary px-4"
+                    >
+                      {addingStatus ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                  <div className="w-40">
-                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Key (optional)</label>
-                    <input
-                      type="text"
-                      placeholder="auto-generated"
-                      value={newStatusKey}
-                      onChange={(e) => setNewStatusKey(e.target.value)}
-                      className="w-full px-3 py-2 rounded"
+                </div>
+              </div>
+
+              {/* Right: Preview */}
+              <div>
+                <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="text-sm font-medium mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                    Dropdown Preview
+                  </div>
+                  <div className="relative">
+                    <select
+                      className="w-full px-3 py-2 rounded text-sm appearance-none cursor-pointer"
                       style={{
                         backgroundColor: 'var(--bg-tertiary)',
                         color: 'var(--christmas-cream)',
                         border: '1px solid var(--border-subtle)',
                       }}
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={addJobStatus}
-                      disabled={addingStatus || !newStatusLabel.trim()}
-                      className="btn btn-primary"
+                      defaultValue=""
                     >
-                      {addingStatus ? 'Adding...' : 'Add Status'}
-                    </button>
+                      <option value="" disabled>Select status...</option>
+                      {jobStatuses.filter(s => s.is_active).map((status) => (
+                        <option key={status.id} value={status.key}>{status.label}</option>
+                      ))}
+                    </select>
+                    <svg
+                      className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
+                  <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+                    This is how the dropdown appears on invoice detail pages.
+                  </p>
+                </div>
+
+                {/* Tips */}
+                <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                    Tips
+                  </div>
+                  <ul className="text-xs space-y-2" style={{ color: 'var(--text-muted)' }}>
+                    <li className="flex gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                      Use arrows to reorder statuses
+                    </li>
+                    <li className="flex gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Click pencil to edit label
+                    </li>
+                    <li className="flex gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                      Deactivate to hide from dropdown
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -661,6 +795,7 @@ export default function SettingsPage() {
       )}
 
       {/* Sync History */}
+      {activeTab === 'history' && (
       <div className="card">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
           Sync History
@@ -720,9 +855,10 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Admin Only Settings */}
-      {isOwner && (
+      {activeTab === 'admin' && isOwner && (
         <div className="card">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
             Admin Settings
