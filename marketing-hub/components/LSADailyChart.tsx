@@ -262,7 +262,7 @@ export function LSADailyChart({
       </div>
 
       {/* Chart */}
-      <div className="flex-1 min-h-64">
+      <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
