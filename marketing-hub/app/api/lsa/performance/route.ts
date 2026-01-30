@@ -24,30 +24,43 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') || '30d';
+  const period = searchParams.get('period');
+  const startParam = searchParams.get('start');
+  const endParam = searchParams.get('end');
 
-  // Calculate date range
-  const endDate = new Date();
-  let startDate = new Date();
+  // Calculate date range - support both period and explicit start/end
+  let endDate: Date;
+  let startDate: Date;
 
-  switch (period) {
-    case '7d':
-      startDate.setDate(endDate.getDate() - 7);
-      break;
-    case '30d':
-      startDate.setDate(endDate.getDate() - 30);
-      break;
-    case '90d':
-      startDate.setDate(endDate.getDate() - 90);
-      break;
-    case 'mtd':
-      startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-      break;
-    case 'ytd':
-      startDate = new Date(endDate.getFullYear(), 0, 1);
-      break;
-    default:
-      startDate.setDate(endDate.getDate() - 30);
+  if (startParam && endParam) {
+    // Use explicit date range
+    startDate = new Date(startParam + 'T00:00:00');
+    endDate = new Date(endParam + 'T23:59:59');
+  } else {
+    // Use period-based range
+    endDate = new Date();
+    startDate = new Date();
+    const p = period || '30d';
+
+    switch (p) {
+      case '7d':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      case 'mtd':
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        break;
+      case 'ytd':
+        startDate = new Date(endDate.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate.setDate(endDate.getDate() - 30);
+    }
   }
 
   const startDateStr = startDate.toISOString().split('T')[0];
@@ -113,7 +126,7 @@ export async function GET(request: NextRequest) {
         chargeRate,
         nonChargedLeads: totals.totalLeads - totals.chargedLeads,
       },
-      period,
+      period: period || 'custom',
       dateRange: { start: startDateStr, end: endDateStr },
     });
   } catch (error: any) {
