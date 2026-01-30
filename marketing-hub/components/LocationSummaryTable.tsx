@@ -133,7 +133,7 @@ export function LocationSummaryTable({
   if (isLoading) {
     return (
       <div
-        className="rounded-xl p-5 max-w-4xl"
+        className="rounded-xl p-5 w-fit"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -154,7 +154,7 @@ export function LocationSummaryTable({
   if (data.length === 0) {
     return (
       <div
-        className="rounded-xl p-5 max-w-4xl"
+        className="rounded-xl p-5 w-fit"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -176,7 +176,7 @@ export function LocationSummaryTable({
 
   return (
     <div
-      className="rounded-xl p-5 max-w-4xl"
+      className="rounded-xl p-5 w-fit"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',

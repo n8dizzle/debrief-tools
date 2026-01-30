@@ -412,7 +412,7 @@ export function DateRangePicker({
       {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className="absolute top-full left-0 mt-2 rounded-xl shadow-2xl z-50 overflow-hidden"
+          className="absolute top-full right-0 mt-2 rounded-xl shadow-2xl z-50 overflow-hidden"
           style={{
             backgroundColor: '#151a15',
             border: '1px solid #2a352a',
