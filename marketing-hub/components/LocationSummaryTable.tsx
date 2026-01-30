@@ -37,23 +37,22 @@ function formatValue(value: number): string {
   return value.toLocaleString();
 }
 
-function formatYoY(value: number | null | undefined): string | null {
-  if (value === null || value === undefined) return null;
+function formatYoY(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
   const sign = value >= 0 ? '+' : '';
   return `${sign}${value.toFixed(0)}%`;
 }
 
-function YoYBadge({ value }: { value: number | null | undefined }) {
+function YoYCell({ value }: { value: number | null | undefined }) {
   const formatted = formatYoY(value);
-  if (!formatted) return null;
-
   const isPositive = value !== null && value !== undefined && value >= 0;
+  const hasValue = value !== null && value !== undefined;
 
   return (
     <span
-      className="text-[10px] font-medium ml-1"
+      className="text-sm tabular-nums"
       style={{
-        color: isPositive ? '#5d8a66' : '#c97878',
+        color: !hasValue ? 'var(--text-muted)' : isPositive ? '#5d8a66' : '#c97878',
       }}
     >
       {formatted}
@@ -114,13 +113,13 @@ export function LocationSummaryTable({
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
       return (
-        <svg className="w-3 h-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
         </svg>
       );
     }
     return (
-      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         {sortDirection === 'desc' ? (
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         ) : (
@@ -133,17 +132,17 @@ export function LocationSummaryTable({
   if (isLoading) {
     return (
       <div
-        className="rounded-xl p-5"
+        className="rounded-xl p-6"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
         }}
       >
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h2 className="text-xl font-semibold mb-5" style={{ color: 'var(--christmas-cream)' }}>
           Location Summary
         </h2>
         <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse text-sm" style={{ color: 'var(--text-muted)' }}>
+          <div className="animate-pulse text-base" style={{ color: 'var(--text-muted)' }}>
             Loading location data...
           </div>
         </div>
@@ -154,21 +153,21 @@ export function LocationSummaryTable({
   if (data.length === 0) {
     return (
       <div
-        className="rounded-xl p-5"
+        className="rounded-xl p-6"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
         }}
       >
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h2 className="text-xl font-semibold mb-5" style={{ color: 'var(--christmas-cream)' }}>
           Location Summary
         </h2>
         <div className="h-48 flex items-center justify-center flex-col gap-2">
-          <svg className="w-10 h-10 opacity-50" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
+          <svg className="w-12 h-12 opacity-50" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No location data available</p>
+          <p className="text-base" style={{ color: 'var(--text-muted)' }}>No location data available</p>
         </div>
       </div>
     );
@@ -176,80 +175,107 @@ export function LocationSummaryTable({
 
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-6"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+      <h2 className="text-xl font-semibold mb-5" style={{ color: 'var(--christmas-cream)' }}>
         Location Summary
       </h2>
 
-      <div className="overflow-x-auto flex-1">
+      <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <th className="text-left py-2.5 px-2">
+              {/* Location */}
+              <th className="text-left py-3 px-3">
                 <button
                   onClick={() => handleSort('locationName')}
-                  className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity"
+                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   Location
                   <SortIcon field="locationName" />
                 </button>
               </th>
-              <th className="text-right py-2.5 px-2">
+              {/* Calls */}
+              <th className="text-right py-3 px-3">
                 <button
                   onClick={() => handleSort('phoneCalls')}
-                  className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
+                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
                   style={{ color: sortField === 'phoneCalls' ? '#B8956B' : 'var(--text-muted)' }}
                 >
                   Calls
-                  {hasYoYData && <span className="text-[9px] opacity-60 ml-0.5">YoY</span>}
                   <SortIcon field="phoneCalls" />
                 </button>
               </th>
-              <th className="text-right py-2.5 px-2">
+              {hasYoYData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    YoY
+                  </span>
+                </th>
+              )}
+              {/* Views */}
+              <th className="text-right py-3 px-3">
                 <button
                   onClick={() => handleSort('totalViews')}
-                  className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
+                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   Views
-                  {hasYoYData && <span className="text-[9px] opacity-60 ml-0.5">YoY</span>}
                   <SortIcon field="totalViews" />
                 </button>
               </th>
-              <th className="text-right py-2.5 px-2">
+              {hasYoYData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    YoY
+                  </span>
+                </th>
+              )}
+              {/* Clicks */}
+              <th className="text-right py-3 px-3">
                 <button
                   onClick={() => handleSort('websiteClicks')}
-                  className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
+                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   Clicks
-                  {hasYoYData && <span className="text-[9px] opacity-60 ml-0.5">YoY</span>}
                   <SortIcon field="websiteClicks" />
                 </button>
               </th>
-              <th className="text-right py-2.5 px-2">
+              {hasYoYData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    YoY
+                  </span>
+                </th>
+              )}
+              {/* Directions */}
+              <th className="text-right py-3 px-3">
                 <button
                   onClick={() => handleSort('directionRequests')}
-                  className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
+                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   Dirs
-                  {hasYoYData && <span className="text-[9px] opacity-60 ml-0.5">YoY</span>}
                   <SortIcon field="directionRequests" />
                 </button>
               </th>
+              {hasYoYData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    YoY
+                  </span>
+                </th>
+              )}
+              {/* YTD Calls */}
               {hasYtdData && (
-                <th className="text-right py-2.5 px-2">
-                  <span
-                    className="text-[11px] font-semibold uppercase tracking-wider"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                <th className="text-right py-3 px-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     YTD Calls
                   </span>
                 </th>
@@ -265,38 +291,60 @@ export function LocationSummaryTable({
                   borderBottom: idx < sortedData.length - 1 ? '1px solid var(--border-subtle)' : undefined,
                 }}
               >
-                <td className="py-2.5 px-2">
-                  <span className="text-sm font-medium capitalize" style={{ color: 'var(--christmas-cream)' }}>
+                {/* Location Name */}
+                <td className="py-3.5 px-3">
+                  <span className="text-base font-medium capitalize" style={{ color: 'var(--christmas-cream)' }}>
                     {loc.locationName}
                   </span>
                 </td>
-                <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                  <span className="text-sm font-semibold tabular-nums" style={{ color: '#B8956B' }}>
+                {/* Calls */}
+                <td className="py-3.5 px-3 text-right">
+                  <span className="text-base font-semibold tabular-nums" style={{ color: '#B8956B' }}>
                     {formatValue(loc.phoneCalls)}
                   </span>
-                  {hasYoYData && <YoYBadge value={loc.callsYoY} />}
                 </td>
-                <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                  <span className="text-sm tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                {hasYoYData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.callsYoY} />
+                  </td>
+                )}
+                {/* Views */}
+                <td className="py-3.5 px-3 text-right">
+                  <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {formatValue(loc.totalViews)}
                   </span>
-                  {hasYoYData && <YoYBadge value={loc.viewsYoY} />}
                 </td>
-                <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                  <span className="text-sm tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                {hasYoYData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.viewsYoY} />
+                  </td>
+                )}
+                {/* Clicks */}
+                <td className="py-3.5 px-3 text-right">
+                  <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {formatValue(loc.websiteClicks)}
                   </span>
-                  {hasYoYData && <YoYBadge value={loc.clicksYoY} />}
                 </td>
-                <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                  <span className="text-sm tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                {hasYoYData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.clicksYoY} />
+                  </td>
+                )}
+                {/* Directions */}
+                <td className="py-3.5 px-3 text-right">
+                  <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {formatValue(loc.directionRequests)}
                   </span>
-                  {hasYoYData && <YoYBadge value={loc.directionsYoY} />}
                 </td>
+                {hasYoYData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.directionsYoY} />
+                  </td>
+                )}
+                {/* YTD Calls */}
                 {hasYtdData && (
-                  <td className="py-2.5 px-2 text-right">
-                    <span className="text-sm tabular-nums font-medium" style={{ color: '#6B9DB8' }}>
+                  <td className="py-3.5 px-3 text-right">
+                    <span className="text-base tabular-nums font-medium" style={{ color: '#6B9DB8' }}>
                       {formatValue(loc.ytdCalls || 0)}
                     </span>
                   </td>
@@ -306,34 +354,38 @@ export function LocationSummaryTable({
           </tbody>
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--border-subtle)' }}>
-              <td className="py-2.5 px-2">
-                <span className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <td className="py-3.5 px-3">
+                <span className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>
                   Total
                 </span>
               </td>
-              <td className="py-2.5 px-2 text-right">
-                <span className="text-sm font-bold tabular-nums" style={{ color: '#B8956B' }}>
+              <td className="py-3.5 px-3 text-right">
+                <span className="text-base font-bold tabular-nums" style={{ color: '#B8956B' }}>
                   {formatValue(totals.calls)}
                 </span>
               </td>
-              <td className="py-2.5 px-2 text-right">
-                <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              <td className="py-3.5 px-3 text-right">
+                <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.views)}
                 </span>
               </td>
-              <td className="py-2.5 px-2 text-right">
-                <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              <td className="py-3.5 px-3 text-right">
+                <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.clicks)}
                 </span>
               </td>
-              <td className="py-2.5 px-2 text-right">
-                <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              <td className="py-3.5 px-3 text-right">
+                <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.directions)}
                 </span>
               </td>
+              {hasYoYData && <td className="py-3.5 px-2"></td>}
               {hasYtdData && (
-                <td className="py-2.5 px-2 text-right">
-                  <span className="text-sm font-bold tabular-nums" style={{ color: '#6B9DB8' }}>
+                <td className="py-3.5 px-3 text-right">
+                  <span className="text-base font-bold tabular-nums" style={{ color: '#6B9DB8' }}>
                     {formatValue(totals.ytdCalls)}
                   </span>
                 </td>
@@ -344,7 +396,7 @@ export function LocationSummaryTable({
       </div>
 
       <div
-        className="mt-3 pt-2 text-[11px]"
+        className="mt-4 pt-3 text-xs"
         style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}
       >
         {data.length} locations &bull; Click headers to sort
