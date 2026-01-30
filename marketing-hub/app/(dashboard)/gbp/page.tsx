@@ -179,6 +179,15 @@ export default function GBPPerformancePage() {
   const handleSyncData = async () => {
     setIsSyncing(true);
     try {
+      // First, backfill cache for the current date range
+      const backfillRes = await fetch(
+        `/api/gbp/insights/backfill?start=${dateRange.start}&end=${dateRange.end}`,
+        { method: 'POST', credentials: 'include' }
+      );
+      if (!backfillRes.ok) {
+        console.error('Backfill failed:', await backfillRes.text());
+      }
+      // Then fetch fresh data
       await fetchInsights(true);
       await fetchDailyData();
     } finally {
