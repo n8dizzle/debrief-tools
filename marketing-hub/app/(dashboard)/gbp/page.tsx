@@ -327,53 +327,50 @@ export default function GBPPerformancePage() {
         />
       </div>
 
-      {/* Two-column layout for Chart and Table on large screens */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr,auto] gap-6 items-stretch">
-        {/* Daily Metrics Chart */}
-        <DailyMetricsChart
-          data={dailyData?.daily || []}
-          totals={dailyData?.totals || { views: 0, clicks: 0, calls: 0, directions: 0 }}
-          avgPerDay={dailyData?.avgPerDay || { views: 0, clicks: 0, calls: 0, directions: 0 }}
-          isLoading={dailyLoading}
-          title="Daily Performance"
-        />
+      {/* Daily Metrics Chart - Full Width */}
+      <DailyMetricsChart
+        data={dailyData?.daily || []}
+        totals={dailyData?.totals || { views: 0, clicks: 0, calls: 0, directions: 0 }}
+        avgPerDay={dailyData?.avgPerDay || { views: 0, clicks: 0, calls: 0, directions: 0 }}
+        isLoading={dailyLoading}
+        title="Daily Performance"
+      />
 
-        {/* Location Summary Table */}
-        {insightsError ? (
-          <div
-            className="rounded-xl p-5"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-              Location Summary
-            </h2>
-            <div className="text-center py-8">
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="#c97878" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <p className="text-sm" style={{ color: '#c97878' }}>{insightsError}</p>
-              <button
-                onClick={() => fetchInsights(true)}
-                className="mt-3 px-4 py-2 text-sm rounded-lg"
-                style={{
-                  backgroundColor: 'var(--christmas-green)',
-                  color: 'var(--christmas-cream)',
-                }}
-              >
-                Retry
-              </button>
-            </div>
+      {/* Location Summary Table */}
+      {insightsError ? (
+        <div
+          className="rounded-xl p-5"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Location Summary
+          </h2>
+          <div className="text-center py-8">
+            <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="#c97878" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="text-sm" style={{ color: '#c97878' }}>{insightsError}</p>
+            <button
+              onClick={() => fetchInsights(true)}
+              className="mt-3 px-4 py-2 text-sm rounded-lg"
+              style={{
+                backgroundColor: 'var(--christmas-green)',
+                color: 'var(--christmas-cream)',
+              }}
+            >
+              Retry
+            </button>
           </div>
-        ) : (
-          <LocationSummaryTable
-            data={insights?.byLocation || []}
-            isLoading={insightsLoading}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <LocationSummaryTable
+          data={insights?.byLocation || []}
+          isLoading={insightsLoading}
+        />
+      )}
     </div>
   );
 }
