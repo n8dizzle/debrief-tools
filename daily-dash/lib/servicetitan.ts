@@ -541,19 +541,25 @@ export class ServiceTitanClient {
 
     // Fetch invoices - use broader range to catch invoices created before but with invoiceDate in range
     // We filter by invoiceDate in the processing loop to match ST's revenue attribution
-    // Go back 180 days to catch invoices created earlier (e.g., equipment orders for install jobs)
-    const fetchStartDate = this.subtractDays(startDate, 180);
+    // Go back 60 days to catch invoices created earlier with invoiceDate in our target range
+    const fetchStartDate = this.subtractDays(startDate, 60);
     const invoices = await this.getInvoicesDateRange(fetchStartDate, dayAfterEnd);
 
-    // === Initialize Revenue Accumulators ===
-    // ST calculates Completed Revenue from INVOICE totals for completed jobs, not job.total
-    // This ensures our numbers match ServiceTitan exactly
-    let hvacCompletedRevenue = 0;
-    let plumbingCompletedRevenue = 0;
-    let hvacInstallCompletedRevenue = 0;
-    let hvacServiceCompletedRevenue = 0;
-    let hvacMaintenanceCompletedRevenue = 0;
+    // === Calculate Completed Revenue from job.total ===
+    // This matches ST's "Completed Revenue" = sum of job totals for completed jobs
+    const hvacJobs = jobs.filter(j => hvacBuIds.includes(j.businessUnitId));
+    const plumbingJobs = jobs.filter(j => plumbingBuIds.includes(j.businessUnitId));
+    const hvacInstallJobs = jobs.filter(j => hvacInstallBuIds.includes(j.businessUnitId));
+    const hvacServiceJobs = jobs.filter(j => hvacServiceBuIds.includes(j.businessUnitId));
+    const hvacMaintenanceJobs = jobs.filter(j => hvacMaintenanceBuIds.includes(j.businessUnitId));
 
+    const hvacCompletedRevenue = hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const plumbingCompletedRevenue = plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const hvacInstallCompletedRevenue = hvacInstallJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const hvacServiceCompletedRevenue = hvacServiceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+    const hvacMaintenanceCompletedRevenue = hvacMaintenanceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+
+    // === Initialize Non-Job and Adj Revenue Accumulators ===
     let hvacAdjRevenue = 0;
     let plumbingAdjRevenue = 0;
     let hvacInstallAdjRevenue = 0;
@@ -586,15 +592,18 @@ export class ServiceTitanClient {
       });
     }
 
-    // Process invoices according to ServiceTitan's revenue definitions:
-    // - Completed Revenue: invoices for jobs COMPLETED in the period (uses job completion date)
-    // - Non-Job Revenue: invoices NOT tied to a job (uses invoice date)
-    // - Adj Revenue: adjustment invoices added to jobs (uses invoice date)
+    // Process invoices for Non-Job and Adj Revenue only
+    // Completed Revenue comes from job.total above
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
-      const invDate = inv.invoiceDate?.split('T')[0];
 
-      // Determine business unit: prefer invoice.businessUnit, then lookup via job
+      // Filter by invoiceDate to match ST's revenue attribution for Non-Job and Adj
+      const invDate = inv.invoiceDate?.split('T')[0];
+      if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
+        continue; // Invoice date outside range
+      }
+
+      // Determine business unit
       let invoiceBuId: number | undefined;
       if (inv.businessUnit?.id) {
         invoiceBuId = inv.businessUnit.id;
@@ -602,16 +611,12 @@ export class ServiceTitanClient {
         invoiceBuId = allJobBuMap.get(inv.job.id);
       }
 
-      const isAdjustmentInvoice = inv.adjustmentToId != null;
+      const isAdjustmentInvoice = inv.adjustmentToId != null || total < 0;
       const hasJob = inv.job?.id != null;
-      const isCompletedJob = hasJob && completedJobIds.has(inv.job!.id);
 
       if (!hasJob) {
         // === NON-JOB REVENUE ===
-        // Invoices NOT tied to a job - use invoiceDate for attribution
-        if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
-          continue; // Invoice date outside range
-        }
+        // Invoices NOT tied to a job (memberships, counter sales, etc.)
         if (invoiceBuId) {
           if (hvacMaintenanceBuIds.includes(invoiceBuId)) {
             hvacMaintenanceNonJobRevenue += total;
@@ -625,40 +630,9 @@ export class ServiceTitanClient {
         } else {
           hvacMaintenanceNonJobRevenue += total;
         }
-      } else if (isCompletedJob) {
-        // === INVOICE FOR COMPLETED JOB ===
-        // Job was completed in our date range - attribute by job completion date
-        if (isAdjustmentInvoice) {
-          // Adjustment invoice - goes to Adj Revenue
-          if (invoiceBuId) {
-            if (hvacBuIds.includes(invoiceBuId)) {
-              hvacAdjRevenue += total;
-              if (hvacInstallBuIds.includes(invoiceBuId)) hvacInstallAdjRevenue += total;
-              else if (hvacServiceBuIds.includes(invoiceBuId)) hvacServiceAdjRevenue += total;
-              else if (hvacMaintenanceBuIds.includes(invoiceBuId)) hvacMaintenanceAdjRevenue += total;
-            } else if (plumbingBuIds.includes(invoiceBuId)) {
-              plumbingAdjRevenue += total;
-            }
-          }
-        } else {
-          // Regular invoice - goes to Completed Revenue
-          if (invoiceBuId) {
-            if (hvacBuIds.includes(invoiceBuId)) {
-              hvacCompletedRevenue += total;
-              if (hvacInstallBuIds.includes(invoiceBuId)) hvacInstallCompletedRevenue += total;
-              else if (hvacServiceBuIds.includes(invoiceBuId)) hvacServiceCompletedRevenue += total;
-              else if (hvacMaintenanceBuIds.includes(invoiceBuId)) hvacMaintenanceCompletedRevenue += total;
-            } else if (plumbingBuIds.includes(invoiceBuId)) {
-              plumbingCompletedRevenue += total;
-            }
-          }
-        }
-      } else if (hasJob && isAdjustmentInvoice) {
-        // === ADJ REVENUE FOR NON-COMPLETED JOB ===
-        // Adjustment for a job completed in a different period - use invoiceDate
-        if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
-          continue; // Invoice date outside range
-        }
+      } else if (isAdjustmentInvoice) {
+        // === ADJ REVENUE ===
+        // Adjustment invoices tied to jobs (refunds, credits)
         if (invoiceBuId) {
           if (hvacBuIds.includes(invoiceBuId)) {
             hvacAdjRevenue += total;
@@ -670,7 +644,7 @@ export class ServiceTitanClient {
           }
         }
       }
-      // Skip: positive invoices for jobs completed in other periods (not our responsibility)
+      // Skip: positive invoices tied to jobs (already in Completed Revenue via job.total)
     }
 
     // === Sum up Non-Job Revenue ===
