@@ -351,7 +351,7 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
             {isAheadOfPace ? '▲ Ahead of pace' : '▼ Behind pace'}
           </span>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Expected: {expectedPercent}%
+            Expected: {expectedPercent.toFixed(2)}%
           </span>
         </div>
       )}

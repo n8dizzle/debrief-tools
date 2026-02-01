@@ -1175,6 +1175,7 @@ function ReviewCard({
   const [isEditingMentions, setIsEditingMentions] = useState(false);
   const [editedMentions, setEditedMentions] = useState<string[]>([]);
   const [savingMentions, setSavingMentions] = useState(false);
+  const [markingReviewed, setMarkingReviewed] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
 
   const timeAgo = useMemo(() => {
@@ -1427,7 +1428,7 @@ function ReviewCard({
                     {name}
                   </span>
                 ))}
-                {review.mentions_reviewed && (
+                {review.mentions_reviewed ? (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1"
                     style={{
@@ -1440,6 +1441,42 @@ function ReviewCard({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </span>
+                ) : canReply && (
+                  <button
+                    onClick={async () => {
+                      setMarkingReviewed(true);
+                      try {
+                        const res = await fetch(`/api/reviews/${review.id}/mentions`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ mentions: review.team_members_mentioned || [] }),
+                        });
+                        if (res.ok) {
+                          onMentionsUpdate(review.id, review.team_members_mentioned);
+                        }
+                      } catch (err) {
+                        console.error('Failed to mark as reviewed:', err);
+                      } finally {
+                        setMarkingReviewed(false);
+                      }
+                    }}
+                    disabled={markingReviewed}
+                    className="text-xs px-1.5 py-0.5 rounded-full transition-colors hover:opacity-80 flex items-center gap-1"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      color: 'var(--text-muted)',
+                    }}
+                    title="Mark mentions as reviewed"
+                  >
+                    {markingReviewed ? (
+                      <span className="w-3 h-3 border border-current rounded-full border-t-transparent animate-spin" />
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </button>
                 )}
                 {canReply && (
                   <button

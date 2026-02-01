@@ -101,12 +101,13 @@ export type TradeName = 'HVAC' | 'Plumbing';
 // HVAC department types
 export type HVACDepartment = 'Install' | 'Service' | 'Maintenance';
 
-// Business units that belong to each trade (excluding HVAC - Sales which is for salespeople)
+// Business units that belong to each trade
 const HVAC_BUSINESS_UNITS = [
   'HVAC - Install',
   'HVAC - Service',
   'HVAC - Maintenance',
   'HVAC - Commercial', // Counted as Service
+  'HVAC - Sales',      // Sales team revenue
   'Mims - Service',    // Counted as Service
 ];
 
@@ -124,6 +125,7 @@ const HVAC_DEPT_MAPPING: Record<string, HVACDepartment> = {
   'HVAC - Service': 'Service',
   'HVAC - Maintenance': 'Maintenance',
   'HVAC - Commercial': 'Service', // Commercial counts as Service
+  'HVAC - Sales': 'Install',      // Sales revenue counts as Install
   'Mims - Service': 'Service',    // Mims counts as Service
 };
 

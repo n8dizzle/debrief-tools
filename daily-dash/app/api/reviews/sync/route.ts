@@ -74,15 +74,11 @@ export async function POST(request: NextRequest) {
     }> = [];
     const errors: string[] = [];
 
-    // Get existing review IDs and their mentions_reviewed status to detect new reviews
-    // and preserve manual edits
+    // Get existing review IDs to detect new reviews (AI only runs once per review)
     const { data: existingReviews } = await supabase
       .from('google_reviews')
-      .select('google_review_id, mentions_reviewed');
+      .select('google_review_id');
     const existingReviewIds = new Set(existingReviews?.map(r => r.google_review_id) || []);
-    const reviewedMentionsMap = new Map(
-      existingReviews?.map(r => [r.google_review_id, r.mentions_reviewed]) || []
-    );
 
     // Sync reviews for each location
     for (const location of locations) {
@@ -95,11 +91,10 @@ export async function POST(request: NextRequest) {
         // Process and upsert reviews
         for (const review of reviews) {
           const isNewReview = !existingReviewIds.has(review.reviewId);
-          const hasMentionsBeenReviewed = reviewedMentionsMap.get(review.reviewId) === true;
 
-          // Use AI-powered detection only for new reviews or reviews where mentions haven't been manually reviewed
+          // Use AI-powered detection ONLY for brand new reviews (never re-run on existing reviews)
           let teamMentions: string[] = [];
-          if (!hasMentionsBeenReviewed && review.comment && teamMembers && teamMembers.length > 0) {
+          if (isNewReview && review.comment && teamMembers && teamMembers.length > 0) {
             teamMentions = await findTeamMemberMentionsAI(
               review.comment,
               teamMembers as TeamMember[]
@@ -129,8 +124,8 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           };
 
-          // Only include team_members_mentioned if NOT manually reviewed
-          if (!hasMentionsBeenReviewed) {
+          // Only set team_members_mentioned for NEW reviews (never overwrite existing)
+          if (isNewReview) {
             reviewData.team_members_mentioned = teamMentions.length > 0 ? teamMentions : null;
           }
 
