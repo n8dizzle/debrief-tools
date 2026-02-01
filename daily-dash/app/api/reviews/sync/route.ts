@@ -74,11 +74,15 @@ export async function POST(request: NextRequest) {
     }> = [];
     const errors: string[] = [];
 
-    // Get existing review IDs to detect new reviews
+    // Get existing review IDs and their mentions_reviewed status to detect new reviews
+    // and preserve manual edits
     const { data: existingReviews } = await supabase
       .from('google_reviews')
-      .select('google_review_id');
+      .select('google_review_id, mentions_reviewed');
     const existingReviewIds = new Set(existingReviews?.map(r => r.google_review_id) || []);
+    const reviewedMentionsMap = new Map(
+      existingReviews?.map(r => [r.google_review_id, r.mentions_reviewed]) || []
+    );
 
     // Sync reviews for each location
     for (const location of locations) {
@@ -90,22 +94,24 @@ export async function POST(request: NextRequest) {
 
         // Process and upsert reviews
         for (const review of reviews) {
-          // Use AI-powered detection if comment exists
+          const isNewReview = !existingReviewIds.has(review.reviewId);
+          const hasMentionsBeenReviewed = reviewedMentionsMap.get(review.reviewId) === true;
+
+          // Use AI-powered detection only for new reviews or reviews where mentions haven't been manually reviewed
           let teamMentions: string[] = [];
-          if (review.comment && teamMembers && teamMembers.length > 0) {
+          if (!hasMentionsBeenReviewed && review.comment && teamMembers && teamMembers.length > 0) {
             teamMentions = await findTeamMemberMentionsAI(
               review.comment,
               teamMembers as TeamMember[]
             );
           }
 
-          const isNewReview = !existingReviewIds.has(review.reviewId);
-
           // Count photos and videos from media array
           const photoCount = review.media?.filter(m => m.mediaFormat === 'PHOTO').length || 0;
           const videoCount = review.media?.filter(m => m.mediaFormat === 'VIDEO').length || 0;
 
-          const reviewData = {
+          // Build review data - exclude team_members_mentioned if it was manually reviewed
+          const reviewData: Record<string, unknown> = {
             location_id: location.id,
             google_review_id: review.reviewId,
             reviewer_name: review.reviewer?.displayName || 'Anonymous',
@@ -116,13 +122,17 @@ export async function POST(request: NextRequest) {
             reply_time: review.reviewReply?.updateTime,
             create_time: review.createTime,
             update_time: review.updateTime,
-            team_members_mentioned: teamMentions.length > 0 ? teamMentions : null,
             media: review.media || null,
             photo_count: photoCount,
             video_count: videoCount,
             is_processed: true,
             updated_at: new Date().toISOString(),
           };
+
+          // Only include team_members_mentioned if NOT manually reviewed
+          if (!hasMentionsBeenReviewed) {
+            reviewData.team_members_mentioned = teamMentions.length > 0 ? teamMentions : null;
+          }
 
           const { error: upsertError } = await supabase
             .from('google_reviews')

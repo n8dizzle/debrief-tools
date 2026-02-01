@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { hasPermission } from '@christmas-air/shared/permissions';
+import { hasPermission } from '@/lib/permissions';
 import { getGoogleAnalyticsClient } from '@/lib/google-analytics';
 import { createClient } from '@supabase/supabase-js';
 

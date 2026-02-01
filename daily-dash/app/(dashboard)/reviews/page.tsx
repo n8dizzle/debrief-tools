@@ -77,6 +77,7 @@ interface Review {
   reply_time: string | null;
   create_time: string;
   team_members_mentioned: string[] | null;
+  mentions_reviewed: boolean | null;
   media: ReviewMedia[] | null;
   photo_count: number | null;
   video_count: number | null;
@@ -1426,6 +1427,20 @@ function ReviewCard({
                     {name}
                   </span>
                 ))}
+                {review.mentions_reviewed && (
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1"
+                    style={{
+                      backgroundColor: 'rgba(52, 102, 67, 0.2)',
+                      color: 'var(--christmas-green)',
+                    }}
+                    title="Mentions have been reviewed"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                )}
                 {canReply && (
                   <button
                     onClick={() => {

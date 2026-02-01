@@ -66,15 +66,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       ? mentions.map((m: string) => m.trim()).filter((m: string) => m.length > 0)
       : null;
 
-    // Update the review
+    // Update the review and mark mentions as reviewed to prevent sync from overwriting
     const { data, error: updateError } = await supabase
       .from('google_reviews')
       .update({
         team_members_mentioned: cleanedMentions && cleanedMentions.length > 0 ? cleanedMentions : null,
+        mentions_reviewed: true,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select('id, team_members_mentioned')
+      .select('id, team_members_mentioned, mentions_reviewed')
       .single();
 
     if (updateError) {
