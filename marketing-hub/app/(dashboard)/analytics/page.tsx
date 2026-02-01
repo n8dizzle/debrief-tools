@@ -500,7 +500,7 @@ export default function AnalyticsPage() {
                         borderRadius: '8px',
                         color: 'var(--christmas-cream)',
                       }}
-                      formatter={(value: number, name: string) => [value.toLocaleString(), name]}
+                      formatter={(value) => value?.toLocaleString() ?? '0'}
                     />
                     <Bar dataKey="sessions" name="Sessions">
                       {sources.slice(0, 6).map((_, index) => (
