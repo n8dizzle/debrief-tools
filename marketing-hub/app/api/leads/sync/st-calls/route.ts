@@ -115,13 +115,13 @@ class STCallsClient {
 
     while (hasMore && allCalls.length < maxCalls) {
       const params: Record<string, string> = {
-        receivedOnOrAfter: `${receivedOnOrAfter}T00:00:00`,
+        createdOnOrAfter: `${receivedOnOrAfter}T00:00:00Z`,
         pageSize: '200',
         page: page.toString(),
       };
 
       if (receivedBefore) {
-        params.receivedBefore = `${receivedBefore}T00:00:00`;
+        params.createdBefore = `${receivedBefore}T00:00:00Z`;
       }
 
       console.log(`[ST Calls] Fetching page ${page}...`);
