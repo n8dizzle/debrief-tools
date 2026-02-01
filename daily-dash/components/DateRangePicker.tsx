@@ -50,7 +50,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
     },
     {
       key: 'thisWeek',
-      label: 'This Week',
+      label: 'Week to Date',
       getRange: () => {
         const end = new Date();
         const start = new Date(end);
