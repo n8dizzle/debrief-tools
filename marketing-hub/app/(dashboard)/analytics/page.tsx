@@ -14,7 +14,7 @@ import {
   Bar,
   Cell,
 } from 'recharts';
-import { DateRangePicker, DateRange } from '@christmas-air/shared/components';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 
 interface TrafficOverview {
   period: { start: string; end: string };
