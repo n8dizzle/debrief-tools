@@ -541,8 +541,8 @@ export class ServiceTitanClient {
 
     // Fetch invoices - use broader range to catch invoices created before but with invoiceDate in range
     // We filter by invoiceDate in the processing loop to match ST's revenue attribution
-    // Go back 60 days to catch invoices created earlier with invoiceDate in our target range
-    const fetchStartDate = this.subtractDays(startDate, 60);
+    // Go back 180 days to catch invoices created earlier (e.g., equipment orders for install jobs)
+    const fetchStartDate = this.subtractDays(startDate, 180);
     const invoices = await this.getInvoicesDateRange(fetchStartDate, dayAfterEnd);
 
     // === Initialize Revenue Accumulators ===
