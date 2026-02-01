@@ -208,6 +208,7 @@ export class GoogleAnalyticsClient {
 
   /**
    * Get traffic overview metrics
+   * Compares current period to same period last year (YoY)
    */
   async getTrafficOverview(days: number = 30, startDateStr?: string, endDateStr?: string): Promise<TrafficOverview> {
     let startDate: Date;
@@ -222,17 +223,16 @@ export class GoogleAnalyticsClient {
       startDate.setDate(startDate.getDate() - days + 1);
     }
 
-    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-    const prevEndDate = new Date(startDate);
-    prevEndDate.setDate(prevEndDate.getDate() - 1);
-    const prevStartDate = new Date(prevEndDate);
-    prevStartDate.setDate(prevStartDate.getDate() - daysDiff + 1);
+    // Calculate YoY comparison (same period last year)
+    const yoyStartDate = new Date(startDate);
+    yoyStartDate.setFullYear(yoyStartDate.getFullYear() - 1);
+    const yoyEndDate = new Date(endDate);
+    yoyEndDate.setFullYear(yoyEndDate.getFullYear() - 1);
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
     const currentPeriod = { start: formatDate(startDate), end: formatDate(endDate) };
-    const previousPeriod = { start: formatDate(prevStartDate), end: formatDate(prevEndDate) };
+    const previousPeriod = { start: formatDate(yoyStartDate), end: formatDate(yoyEndDate) };
 
     const response = await this.runReport({
       dateRanges: [

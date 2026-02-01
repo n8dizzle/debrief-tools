@@ -395,7 +395,7 @@ export default function AnalyticsPage() {
           title="Sessions"
           value={overview?.current.sessions || 0}
           change={overview ? calcChange(overview.current.sessions, overview.previous.sessions) : undefined}
-          changeLabel={`vs prev ${daysInRange} days`}
+          changeLabel="vs last year"
           isLoading={isLoading}
           icon={
             <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
