@@ -1771,7 +1771,7 @@ export default function ReviewsPage() {
       setReviewsLoading(true);
       try {
         const params = new URLSearchParams({
-          limit: '50',
+          limit: '500', // Increased to show all reviews for the selected period
           startDate: periodDates.start.toISOString(),
           endDate: periodDates.end.toISOString(),
         });

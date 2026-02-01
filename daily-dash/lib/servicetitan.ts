@@ -106,9 +106,13 @@ const HVAC_BUSINESS_UNITS = [
   'HVAC - Install',
   'HVAC - Service',
   'HVAC - Maintenance',
-  'HVAC - Commercial', // Counted as Service
-  'HVAC - Sales',      // Sales team revenue
-  'Mims - Service',    // Counted as Service
+  'HVAC - Commercial',              // Counted as Service
+  'HVAC - Sales',                   // Sales team revenue
+  'Mims - Service',                 // Counted as Service
+  // Legacy DNU business units (still have historical revenue)
+  'z-DNU - Christmas HVAC- Install',
+  'z-DNU - Christmas HVAC- Service',
+  'z DNU Imported Default Businessunit',
 ];
 
 const PLUMBING_BUSINESS_UNITS = [
@@ -124,9 +128,13 @@ const HVAC_DEPT_MAPPING: Record<string, HVACDepartment> = {
   'HVAC - Install': 'Install',
   'HVAC - Service': 'Service',
   'HVAC - Maintenance': 'Maintenance',
-  'HVAC - Commercial': 'Service', // Commercial counts as Service
-  'HVAC - Sales': 'Install',      // Sales revenue counts as Install
-  'Mims - Service': 'Service',    // Mims counts as Service
+  'HVAC - Commercial': 'Service',              // Commercial counts as Service
+  'HVAC - Sales': 'Install',                   // Sales revenue counts as Install
+  'Mims - Service': 'Service',                 // Mims counts as Service
+  // Legacy DNU business units
+  'z-DNU - Christmas HVAC- Install': 'Install',
+  'z-DNU - Christmas HVAC- Service': 'Service',
+  'z DNU Imported Default Businessunit': 'Service', // Default to Service
 };
 
 export class ServiceTitanClient {
@@ -230,7 +238,7 @@ export class ServiceTitanClient {
   // ============================================
 
   /**
-   * Get all business units (cached)
+   * Get all business units (cached) - includes inactive for historical data
    */
   async getBusinessUnits(): Promise<STBusinessUnit[]> {
     if (this.businessUnitsCache) {
@@ -240,7 +248,7 @@ export class ServiceTitanClient {
     const response = await this.request<STPagedResponse<STBusinessUnit>>(
       'GET',
       `settings/v2/tenant/${this.tenantId}/business-units`,
-      { params: { pageSize: '100', active: 'true' } }
+      { params: { pageSize: '100' } } // Include all BUs (active + inactive) for historical revenue
     );
 
     this.businessUnitsCache = response.data || [];
