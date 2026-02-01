@@ -125,8 +125,8 @@ export default function LeadsPage() {
     setSyncMessage(null);
 
     try {
-      // LSA can handle 90 days, but ST calls times out - use 7 days for ST
-      const endpoint = type === 'lsa' ? '/api/lsa/sync?days=90' : '/api/leads/sync/st-calls?days=7';
+      // LSA can handle 90 days, ST calls limited to 30 days max
+      const endpoint = type === 'lsa' ? '/api/lsa/sync?days=90' : '/api/leads/sync/st-calls?days=30';
       const res = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',

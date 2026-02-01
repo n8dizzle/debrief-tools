@@ -130,11 +130,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Find HVAC jobs that have no invoices in our range
+    const jobsMissingInvoicesDetails: { id: number; total: number; completedOn?: string }[] = [];
     for (const job of hvacJobs) {
       if (!jobsWithInvoices.has(job.id)) {
         jobsMissingInvoices.push(job.id);
+        jobsMissingInvoicesDetails.push({
+          id: job.id,
+          total: Number(job.total) || 0,
+          completedOn: job.completedOn,
+        });
       }
     }
+    const missingJobsTotal = jobsMissingInvoicesDetails.reduce((sum, j) => sum + j.total, 0);
 
     return NextResponse.json({
       params: { month, startDate, endDate, dayAfterEnd, fetchStartDate },
@@ -161,7 +168,8 @@ export async function GET(request: NextRequest) {
         invoiceCountForCompletedJobs: invoiceCountForCompletedJobs,
         jobsWithInvoicesCount: jobsWithInvoices.size,
         jobsMissingInvoicesCount: jobsMissingInvoices.length,
-        jobsMissingInvoicesSample: jobsMissingInvoices.slice(0, 10),
+        jobsMissingInvoicesDetails: jobsMissingInvoicesDetails,
+        jobsMissingInvoicesTotal: missingJobsTotal,
         gap: {
           stCompleted: 426838,
           ourJobTotal: jobTotalSum,
