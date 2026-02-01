@@ -500,10 +500,25 @@ export async function GET(request: NextRequest) {
         tradeData.hvac.mtd = mtdMetrics.hvac;
         tradeData.plumbing.mtd = mtdMetrics.plumbing;
 
-        // QTD and YTD - still use Supabase snapshots (larger date ranges)
-        const periodEndDate = isToday ? getYesterdayStr() : date;
+        // QTD - fetch live from ServiceTitan for accuracy
+        const qtdMetrics = await stClient.getTradeMetrics(quarterStartDate, date);
+        tradeData.hvac.qtd = qtdMetrics.hvac;
+        tradeData.plumbing.qtd = qtdMetrics.plumbing;
 
-        // Fetch all historical snapshots for YTD range
+        // YTD - for Q1, YTD equals QTD. For other quarters, fetch full year live.
+        if (quarter === 1) {
+          // Q1: YTD = QTD
+          tradeData.hvac.ytd = qtdMetrics.hvac;
+          tradeData.plumbing.ytd = qtdMetrics.plumbing;
+        } else {
+          // Q2+: Fetch full YTD live from ServiceTitan
+          const ytdMetrics = await stClient.getTradeMetrics(yearStartDate, date);
+          tradeData.hvac.ytd = ytdMetrics.hvac;
+          tradeData.plumbing.ytd = ytdMetrics.plumbing;
+        }
+
+        // Legacy snapshot code - kept for reference but no longer used for QTD/YTD
+        const periodEndDate = isToday ? getYesterdayStr() : date;
         const { data: ytdSnapshots } = await supabase
           .from('trade_daily_snapshots')
           .select('*')
