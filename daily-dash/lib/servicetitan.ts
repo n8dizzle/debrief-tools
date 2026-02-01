@@ -611,7 +611,9 @@ export class ServiceTitanClient {
         invoiceBuId = allJobBuMap.get(inv.job.id);
       }
 
-      const isAdjustmentInvoice = inv.adjustmentToId != null || total < 0;
+      // Only count as adjustment if adjustmentToId is set (not just negative totals)
+      // Negative invoices without adjustmentToId are refunds already reflected in job.total
+      const isAdjustmentInvoice = inv.adjustmentToId != null;
       const hasJob = inv.job?.id != null;
 
       if (!hasJob) {
