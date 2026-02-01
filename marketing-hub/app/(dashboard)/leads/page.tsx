@@ -89,6 +89,7 @@ export default function LeadsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [showSyncMenu, setShowSyncMenu] = useState(false);
 
   const fetchMetrics = useCallback(async () => {
     setLoading(true);
@@ -215,9 +216,9 @@ export default function LeadsPage() {
           />
           <div className="relative">
             <button
-              onClick={() => {}}
+              onClick={() => setShowSyncMenu(!showSyncMenu)}
               disabled={syncing}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2 group"
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
               style={{
                 backgroundColor: 'var(--christmas-gold)',
                 color: 'var(--dark-bg)',
@@ -237,31 +238,33 @@ export default function LeadsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
                   Sync
-                  <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-3 h-3 ml-1 transition-transform ${showSyncMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </>
               )}
             </button>
             {/* Dropdown menu for sync options */}
-            <div className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-              <button
-                onClick={() => handleSync('lsa')}
-                disabled={syncing}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-[#0d1f0d] transition-colors rounded-t-lg"
-                style={{ color: 'var(--christmas-cream)' }}
-              >
-                Sync LSA Leads
-              </button>
-              <button
-                onClick={() => handleSync('st-calls')}
-                disabled={syncing}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-[#0d1f0d] transition-colors rounded-b-lg"
-                style={{ color: 'var(--christmas-cream)' }}
-              >
-                Sync ST Calls
-              </button>
-            </div>
+            {showSyncMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg z-20" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                <button
+                  onClick={() => { handleSync('lsa'); setShowSyncMenu(false); }}
+                  disabled={syncing}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-[#0d1f0d] transition-colors rounded-t-lg"
+                  style={{ color: 'var(--christmas-cream)' }}
+                >
+                  Sync LSA Leads
+                </button>
+                <button
+                  onClick={() => { handleSync('st-calls'); setShowSyncMenu(false); }}
+                  disabled={syncing}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-[#0d1f0d] transition-colors rounded-b-lg"
+                  style={{ color: 'var(--christmas-cream)' }}
+                >
+                  Sync ST Calls
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
