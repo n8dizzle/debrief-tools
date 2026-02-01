@@ -260,14 +260,17 @@ export async function POST(request: NextRequest) {
     let synced = 0;
     let errors = 0;
 
-    for (const call of calls) {
+    for (const callWrapper of calls) {
+      // ST API v2 returns call data nested inside leadCall object
+      const call = callWrapper.leadCall || callWrapper;
+
       const callData = {
         st_call_id: call.id?.toString(),
         direction: call.direction || 'Unknown',
-        call_type: call.callType || call.type?.name || null,
+        call_type: call.callType || callWrapper.type?.name || null,
         duration_seconds: parseDuration(call.duration),
         customer_id: call.customer?.id || null,
-        job_id: call.job?.id || null,
+        job_id: callWrapper.jobNumber ? parseInt(callWrapper.jobNumber) : null,
         booking_id: call.booking?.id || null,
         from_phone: call.from || null,
         to_phone: call.to || null,
@@ -277,8 +280,8 @@ export async function POST(request: NextRequest) {
         agent_id: call.agent?.id || call.createdBy?.id || null,
         agent_name: call.agent?.name || call.createdBy?.name || null,
         recording_url: call.recordingUrl || null,
-        business_unit_id: null, // Not directly available, would need job lookup
-        business_unit_name: null,
+        business_unit_id: callWrapper.businessUnit?.id || null,
+        business_unit_name: callWrapper.businessUnit?.name || null,
         received_at: call.receivedOn,
         answered_at: null, // Would need additional calculation
         ended_at: null,
@@ -287,7 +290,7 @@ export async function POST(request: NextRequest) {
       };
 
       if (!callData.st_call_id || !callData.received_at) {
-        console.warn('[ST Calls Sync] Skipping call with missing ID or receivedOn');
+        console.warn('[ST Calls Sync] Skipping call with missing ID or receivedOn:', { id: call.id, receivedOn: call.receivedOn });
         continue;
       }
 

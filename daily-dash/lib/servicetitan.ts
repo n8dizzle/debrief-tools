@@ -545,38 +545,30 @@ export class ServiceTitanClient {
     const fetchStartDate = this.subtractDays(startDate, 60);
     const invoices = await this.getInvoicesDateRange(fetchStartDate, dayAfterEnd);
 
-    // === Calculate Completed Revenue by filtering jobs ===
-    const hvacJobs = jobs.filter(j => hvacBuIds.includes(j.businessUnitId));
-    const plumbingJobs = jobs.filter(j => plumbingBuIds.includes(j.businessUnitId));
-    const hvacInstallJobs = jobs.filter(j => hvacInstallBuIds.includes(j.businessUnitId));
-    const hvacServiceJobs = jobs.filter(j => hvacServiceBuIds.includes(j.businessUnitId));
-    const hvacMaintenanceJobs = jobs.filter(j => hvacMaintenanceBuIds.includes(j.businessUnitId));
+    // === Initialize Revenue Accumulators ===
+    // ST calculates Completed Revenue from INVOICE totals for completed jobs, not job.total
+    // This ensures our numbers match ServiceTitan exactly
+    let hvacCompletedRevenue = 0;
+    let plumbingCompletedRevenue = 0;
+    let hvacInstallCompletedRevenue = 0;
+    let hvacServiceCompletedRevenue = 0;
+    let hvacMaintenanceCompletedRevenue = 0;
 
-    const hvacCompletedRevenue = hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const plumbingCompletedRevenue = plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const hvacInstallCompletedRevenue = hvacInstallJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const hvacServiceCompletedRevenue = hvacServiceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const hvacMaintenanceCompletedRevenue = hvacMaintenanceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-
-    // === Calculate Adj Revenue (negative invoices) by business unit ===
-    // Initialize accumulators
     let hvacAdjRevenue = 0;
     let plumbingAdjRevenue = 0;
     let hvacInstallAdjRevenue = 0;
     let hvacServiceAdjRevenue = 0;
     let hvacMaintenanceAdjRevenue = 0;
-    let totalNonJobRevenue = 0;
 
-    // Create set of completed job IDs for quick lookup
-    const completedJobIds = new Set(jobs.map(j => j.id));
-
-    // Non-job revenue accumulators (by business unit)
     let hvacMaintenanceNonJobRevenue = 0;
     let plumbingMaintenanceNonJobRevenue = 0;
     let otherNonJobRevenue = 0;
 
+    // Create set of completed job IDs for quick lookup
+    const completedJobIds = new Set(jobs.map(j => j.id));
+
     // Find invoices that reference jobs NOT in our completed jobs list
-    // These are likely refunds for jobs completed in prior periods
+    // to get their business units for attribution
     const missingJobIds: number[] = [];
     for (const inv of invoices) {
       if (inv.job?.id && !jobToBuMap.has(inv.job.id) && !inv.businessUnit?.id) {
@@ -594,21 +586,15 @@ export class ServiceTitanClient {
       });
     }
 
+    // Process invoices according to ServiceTitan's revenue definitions:
+    // - Completed Revenue: invoices for jobs COMPLETED in the period (uses job completion date)
+    // - Non-Job Revenue: invoices NOT tied to a job (uses invoice date)
+    // - Adj Revenue: adjustment invoices added to jobs (uses invoice date)
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
-
-      // Filter by invoiceDate to match ST's revenue attribution
-      // Non-Job and Adj Revenue are attributed by invoice date, not creation date
       const invDate = inv.invoiceDate?.split('T')[0];
-      if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
-        // Invoice date is outside our target range - skip it
-        continue;
-      }
 
-      // Check if invoice is tied to a COMPLETED job (in our date range)
-      const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
-
-      // Try to determine business unit: prefer invoice.businessUnit, then lookup via job
+      // Determine business unit: prefer invoice.businessUnit, then lookup via job
       let invoiceBuId: number | undefined;
       if (inv.businessUnit?.id) {
         invoiceBuId = inv.businessUnit.id;
@@ -616,13 +602,16 @@ export class ServiceTitanClient {
         invoiceBuId = allJobBuMap.get(inv.job.id);
       }
 
-      // Check if this is an ADJUSTMENT invoice (has adjustmentToId or negative total)
-      const isAdjustmentInvoice = inv.adjustmentToId != null || total < 0;
+      const isAdjustmentInvoice = inv.adjustmentToId != null;
       const hasJob = inv.job?.id != null;
+      const isCompletedJob = hasJob && completedJobIds.has(inv.job!.id);
 
       if (!hasJob) {
-        // NO JOB = Non-Job Revenue (includes non-job adjustments, memberships, counter sales)
-        // ST: "Revenue from invoices not tied to a job"
+        // === NON-JOB REVENUE ===
+        // Invoices NOT tied to a job - use invoiceDate for attribution
+        if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
+          continue; // Invoice date outside range
+        }
         if (invoiceBuId) {
           if (hvacMaintenanceBuIds.includes(invoiceBuId)) {
             hvacMaintenanceNonJobRevenue += total;
@@ -636,9 +625,40 @@ export class ServiceTitanClient {
         } else {
           hvacMaintenanceNonJobRevenue += total;
         }
-      } else if (isAdjustmentInvoice) {
-        // HAS JOB + IS ADJUSTMENT = Adj Revenue
-        // ST: "Revenue from adjustment invoices added to jobs"
+      } else if (isCompletedJob) {
+        // === INVOICE FOR COMPLETED JOB ===
+        // Job was completed in our date range - attribute by job completion date
+        if (isAdjustmentInvoice) {
+          // Adjustment invoice - goes to Adj Revenue
+          if (invoiceBuId) {
+            if (hvacBuIds.includes(invoiceBuId)) {
+              hvacAdjRevenue += total;
+              if (hvacInstallBuIds.includes(invoiceBuId)) hvacInstallAdjRevenue += total;
+              else if (hvacServiceBuIds.includes(invoiceBuId)) hvacServiceAdjRevenue += total;
+              else if (hvacMaintenanceBuIds.includes(invoiceBuId)) hvacMaintenanceAdjRevenue += total;
+            } else if (plumbingBuIds.includes(invoiceBuId)) {
+              plumbingAdjRevenue += total;
+            }
+          }
+        } else {
+          // Regular invoice - goes to Completed Revenue
+          if (invoiceBuId) {
+            if (hvacBuIds.includes(invoiceBuId)) {
+              hvacCompletedRevenue += total;
+              if (hvacInstallBuIds.includes(invoiceBuId)) hvacInstallCompletedRevenue += total;
+              else if (hvacServiceBuIds.includes(invoiceBuId)) hvacServiceCompletedRevenue += total;
+              else if (hvacMaintenanceBuIds.includes(invoiceBuId)) hvacMaintenanceCompletedRevenue += total;
+            } else if (plumbingBuIds.includes(invoiceBuId)) {
+              plumbingCompletedRevenue += total;
+            }
+          }
+        }
+      } else if (hasJob && isAdjustmentInvoice) {
+        // === ADJ REVENUE FOR NON-COMPLETED JOB ===
+        // Adjustment for a job completed in a different period - use invoiceDate
+        if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
+          continue; // Invoice date outside range
+        }
         if (invoiceBuId) {
           if (hvacBuIds.includes(invoiceBuId)) {
             hvacAdjRevenue += total;
@@ -650,7 +670,7 @@ export class ServiceTitanClient {
           }
         }
       }
-      // Regular positive invoices tied to jobs are already counted in completedRevenue via job.total
+      // Skip: positive invoices for jobs completed in other periods (not our responsibility)
     }
 
     // === Sum up Non-Job Revenue ===
