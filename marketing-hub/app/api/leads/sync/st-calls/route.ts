@@ -103,28 +103,35 @@ class STCallsClient {
 
   async getCalls(
     receivedOnOrAfter: string,
-    receivedBefore?: string
+    receivedBefore?: string,
+    maxCalls: number = 5000 // Limit to prevent timeout
   ): Promise<any[]> {
     const config = getSTConfig();
     const allCalls: any[] = [];
     let page = 1;
     let hasMore = true;
 
-    while (hasMore) {
+    console.log(`[ST Calls] Fetching calls from ${receivedOnOrAfter} to ${receivedBefore || 'now'}`);
+
+    while (hasMore && allCalls.length < maxCalls) {
       const params: Record<string, string> = {
-        receivedOnOrAfter: `${receivedOnOrAfter}T00:00:00Z`,
+        receivedOnOrAfter: `${receivedOnOrAfter}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
       };
 
       if (receivedBefore) {
-        params.receivedBefore = `${receivedBefore}T00:00:00Z`;
+        params.receivedBefore = `${receivedBefore}T00:00:00`;
       }
 
+      console.log(`[ST Calls] Fetching page ${page}...`);
       const response = await this.request<{
         data: any[];
         hasMore: boolean;
+        totalCount?: number;
       }>('GET', `telecom/v2/tenant/${config.tenantId}/calls`, { params });
+
+      console.log(`[ST Calls] Page ${page}: got ${response.data?.length || 0} calls, hasMore=${response.hasMore}, total=${response.totalCount}`);
 
       allCalls.push(...(response.data || []));
       hasMore = response.hasMore;
@@ -133,6 +140,7 @@ class STCallsClient {
       if (page > 100) break;
     }
 
+    console.log(`[ST Calls] Total fetched: ${allCalls.length} calls`);
     return allCalls;
   }
 }
@@ -206,15 +214,25 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const days = parseInt(searchParams.get('days') || '90');
 
+  // Use local date components (Central Time) - not toISOString() which converts to UTC
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(endDate.getDate() - days);
 
-  const startDateStr = startDate.toISOString().split('T')[0];
-  const endDateStr = endDate.toISOString().split('T')[0];
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const startDateStr = formatLocalDate(startDate);
+  const endDateStr = formatLocalDate(endDate);
   const nextDay = new Date(endDate);
   nextDay.setDate(nextDay.getDate() + 1);
-  const endDateStrExclusive = nextDay.toISOString().split('T')[0];
+  const endDateStrExclusive = formatLocalDate(nextDay);
+
+  console.log(`[ST Calls Sync] Date range: ${startDateStr} to ${endDateStrExclusive} (${days} days)`);
 
   try {
     if (!stClient.isConfigured()) {

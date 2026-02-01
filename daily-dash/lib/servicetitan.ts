@@ -595,8 +595,13 @@ export class ServiceTitanClient {
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
 
-      // Invoices already filtered by invoiceDate at API level
-      // No client-side date filtering needed
+      // Filter by invoiceDate per ST definition:
+      // "Revenue from non-job invoices and adjustment invoices is based on invoice date"
+      // We use invoiceDate if available, otherwise fall back to createdOn
+      const invDate = inv.invoiceDate?.split('T')[0] || inv.createdOn?.split('T')[0];
+      if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
+        continue; // Skip invoices outside our date range
+      }
 
       // Check if invoice is tied to a COMPLETED job (in our date range)
       const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
@@ -747,11 +752,11 @@ export class ServiceTitanClient {
     let hasMore = true;
 
     while (hasMore) {
-      // Filter by invoiceDate (not createdOn) per ST definition:
-      // "Revenue from non-job invoices and adjustment invoices is based on invoice date"
+      // Fetch by createdOn (API doesn't support invoiceDate filter)
+      // We'll filter by invoiceDate client-side in processing
       const params: Record<string, string> = {
-        invoiceDateOnOrAfter: `${startDate}T00:00:00`,
-        invoiceDateBefore: `${endDate}T00:00:00`,
+        createdOnOrAfter: `${startDate}T00:00:00`,
+        createdBefore: `${endDate}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
       };
