@@ -95,6 +95,47 @@ interface STEmployee {
   role?: string;
 }
 
+// Call types for Telecom API
+export interface STCall {
+  id: number;
+  receivedOn: string;
+  duration: string;  // Format: "HH:MM:SS" or seconds
+  from: string;
+  to: string;
+  direction: 'Inbound' | 'Outbound';
+  callType: string;  // Unbooked, Booked, Excused, etc.
+  reason?: {
+    id: number;
+    name: string;
+  };
+  recordingUrl?: string;
+  voiceMailUrl?: string;
+  createdBy?: {
+    id: number;
+    name: string;
+  };
+  customer?: {
+    id: number;
+    name: string;
+  };
+  campaign?: {
+    id: number;
+    name: string;
+  };
+  job?: {
+    id: number;
+    number: string;
+  };
+  booking?: {
+    id: number;
+  };
+  agent?: {
+    id: number;
+    name: string;
+  };
+  modifiedOn?: string;
+}
+
 // Trade types for filtering
 export type TradeName = 'HVAC' | 'Plumbing';
 
@@ -1111,6 +1152,125 @@ export class ServiceTitanClient {
     const estimates = await this.getSoldEstimates(date, nextDay);
     // Sum subtotals (before tax) to match ST's "Total Sales" definition
     return estimates.reduce((sum, est) => sum + (Number(est.subtotal) || 0), 0);
+  }
+
+  // ============================================
+  // TELECOM / CALLS METHODS
+  // ============================================
+
+  /**
+   * Get calls for a date range (handles pagination)
+   * Uses Telecom API: GET /telecom/v2/tenant/{tenant}/calls
+   * @param receivedOnOrAfter - Start date (inclusive) in YYYY-MM-DD format
+   * @param receivedBefore - End date (exclusive) in YYYY-MM-DD format
+   * @param options - Additional filter options
+   */
+  async getCalls(
+    receivedOnOrAfter: string,
+    receivedBefore?: string,
+    options: {
+      direction?: 'Inbound' | 'Outbound';
+      callType?: string;
+      hasRecording?: boolean;
+    } = {}
+  ): Promise<STCall[]> {
+    const allCalls: STCall[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params: Record<string, string> = {
+        receivedOnOrAfter: `${receivedOnOrAfter}T00:00:00Z`,
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      if (receivedBefore) {
+        params.receivedBefore = `${receivedBefore}T00:00:00Z`;
+      }
+
+      if (options.direction) {
+        params.direction = options.direction;
+      }
+
+      if (options.callType) {
+        params.callType = options.callType;
+      }
+
+      if (options.hasRecording !== undefined) {
+        params.hasRecording = options.hasRecording.toString();
+      }
+
+      const response = await this.request<STPagedResponse<STCall>>(
+        'GET',
+        `telecom/v2/tenant/${this.tenantId}/calls`,
+        { params }
+      );
+
+      allCalls.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+
+      // Safety limit to prevent infinite loops
+      if (page > 100) break;
+    }
+
+    return allCalls;
+  }
+
+  /**
+   * Get a single call by ID
+   */
+  async getCallById(callId: number): Promise<STCall | null> {
+    try {
+      const response = await this.request<STCall>(
+        'GET',
+        `telecom/v2/tenant/${this.tenantId}/calls/${callId}`
+      );
+      return response || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get inbound calls for a date range
+   */
+  async getInboundCalls(
+    receivedOnOrAfter: string,
+    receivedBefore?: string
+  ): Promise<STCall[]> {
+    return this.getCalls(receivedOnOrAfter, receivedBefore, { direction: 'Inbound' });
+  }
+
+  /**
+   * Get outbound calls for a date range
+   */
+  async getOutboundCalls(
+    receivedOnOrAfter: string,
+    receivedBefore?: string
+  ): Promise<STCall[]> {
+    return this.getCalls(receivedOnOrAfter, receivedBefore, { direction: 'Outbound' });
+  }
+
+  /**
+   * Parse call duration from ST format to seconds
+   * ST returns duration in various formats (HH:MM:SS or just seconds)
+   */
+  parseCallDuration(duration: string | number): number {
+    if (typeof duration === 'number') {
+      return duration;
+    }
+
+    // Try parsing HH:MM:SS format
+    const parts = duration.split(':');
+    if (parts.length === 3) {
+      const [hours, minutes, seconds] = parts.map(Number);
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    // Try parsing as seconds
+    return parseInt(duration, 10) || 0;
   }
 
   // ============================================

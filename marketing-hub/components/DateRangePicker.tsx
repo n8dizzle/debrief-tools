@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export interface DateRange {
   start: string;
@@ -9,300 +9,129 @@ export interface DateRange {
 
 interface DateRangePickerProps {
   value: DateRange;
-  onChange: (range: DateRange, presetKey?: string) => void;
-  dataDelay?: number;
+  onChange: (range: DateRange) => void;
+  dataDelay?: number; // Days of data delay (for display)
 }
 
-function formatDateInput(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
+type PresetKey = 'today' | 'yesterday' | 'last7' | 'last30' | 'mtd' | 'lastMonth' | 'qtd' | 'ytd' | 'custom';
 
-function formatDisplayDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-interface Preset {
-  key: string;
+interface PresetOption {
+  key: PresetKey;
   label: string;
-  getRange: (dataEnd: Date) => DateRange;
+  getRange: () => DateRange;
 }
 
-const PRESETS: Preset[] = [
-  {
-    key: 'today',
-    label: 'Today',
-    getRange: (dataEnd) => ({ start: formatDateInput(dataEnd), end: formatDateInput(dataEnd) }),
-  },
-  {
-    key: 'yesterday',
-    label: 'Yesterday',
-    getRange: (dataEnd) => {
-      const d = new Date(dataEnd);
-      d.setDate(d.getDate() - 1);
-      return { start: formatDateInput(d), end: formatDateInput(d) };
-    },
-  },
-  {
-    key: 'this_week',
-    label: 'This Week',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      const dayOfWeek = start.getDay();
-      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      start.setDate(start.getDate() - diff);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'wtd',
-    label: 'Week to Date',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      const dayOfWeek = start.getDay();
-      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      start.setDate(start.getDate() - diff);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: '7d',
-    label: 'Last 7 Days',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      start.setDate(start.getDate() - 6);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: '14d',
-    label: 'Last 14 Days',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      start.setDate(start.getDate() - 13);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: '30d',
-    label: 'Last 30 Days',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      start.setDate(start.getDate() - 29);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'mtd',
-    label: 'Month to Date',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd.getFullYear(), dataEnd.getMonth(), 1);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'last_month',
-    label: 'Last Month',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd.getFullYear(), dataEnd.getMonth() - 1, 1);
-      const end = new Date(dataEnd.getFullYear(), dataEnd.getMonth(), 0);
-      return { start: formatDateInput(start), end: formatDateInput(end) };
-    },
-  },
-  {
-    key: '90d',
-    label: 'Last 90 Days',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      start.setDate(start.getDate() - 89);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'this_quarter',
-    label: 'This Quarter',
-    getRange: (dataEnd) => {
-      const quarter = Math.floor(dataEnd.getMonth() / 3);
-      const start = new Date(dataEnd.getFullYear(), quarter * 3, 1);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'last_quarter',
-    label: 'Last Quarter',
-    getRange: (dataEnd) => {
-      const quarter = Math.floor(dataEnd.getMonth() / 3);
-      const start = new Date(dataEnd.getFullYear(), (quarter - 1) * 3, 1);
-      const end = new Date(dataEnd.getFullYear(), quarter * 3, 0);
-      return { start: formatDateInput(start), end: formatDateInput(end) };
-    },
-  },
-  {
-    key: 'qtd',
-    label: 'Quarter to Date',
-    getRange: (dataEnd) => {
-      const quarter = Math.floor(dataEnd.getMonth() / 3);
-      const start = new Date(dataEnd.getFullYear(), quarter * 3, 1);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'ytd',
-    label: 'Year to Date',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd.getFullYear(), 0, 1);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: '365d',
-    label: 'Last 365 Days',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd);
-      start.setDate(start.getDate() - 364);
-      return { start: formatDateInput(start), end: formatDateInput(dataEnd) };
-    },
-  },
-  {
-    key: 'last_year',
-    label: 'Last Year',
-    getRange: (dataEnd) => {
-      const start = new Date(dataEnd.getFullYear() - 1, 0, 1);
-      const end = new Date(dataEnd.getFullYear() - 1, 11, 31);
-      return { start: formatDateInput(start), end: formatDateInput(end) };
-    },
-  },
-];
-
-// Mini Calendar Component
-function MiniCalendar({
-  month,
-  year,
-  selectedStart,
-  selectedEnd,
-  onDateClick,
-  onMonthChange,
-}: {
-  month: number;
-  year: number;
-  selectedStart: string;
-  selectedEnd: string;
-  onDateClick: (date: string) => void;
-  onMonthChange: (delta: number) => void;
-}) {
-  const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(year, month, 1).getDay();
-
-  const days: (number | null)[] = [];
-  for (let i = 0; i < firstDayOfWeek; i++) days.push(null);
-  for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
-  const isSelected = (day: number) => {
-    const dateStr = formatDateInput(new Date(year, month, day));
-    return dateStr === selectedStart || dateStr === selectedEnd;
-  };
-
-  const isInRange = (day: number) => {
-    const dateStr = formatDateInput(new Date(year, month, day));
-    return dateStr > selectedStart && dateStr < selectedEnd;
-  };
-
-  const isToday = (day: number) => {
-    const today = new Date();
-    return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-  };
-
-  return (
-    <div className="w-[280px]">
-      {/* Month Header */}
-      <div className="flex items-center justify-between mb-3 px-1">
-        <button
-          onClick={() => onMonthChange(-1)}
-          className="p-1 rounded hover:bg-white/10 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="#8a9a8a" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <span className="text-sm font-medium" style={{ color: '#e5e0d6' }}>{monthName}</span>
-        <button
-          onClick={() => onMonthChange(1)}
-          className="p-1 rounded hover:bg-white/10 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="#8a9a8a" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Weekday Headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-          <div key={d} className="text-center text-[10px] font-medium py-1" style={{ color: '#6a7a6a' }}>
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Days Grid */}
-      <div className="grid grid-cols-7 gap-0.5">
-        {days.map((day, idx) => (
-          <div key={idx} className="aspect-square flex items-center justify-center">
-            {day && (
-              <button
-                onClick={() => onDateClick(formatDateInput(new Date(year, month, day)))}
-                className={`w-8 h-8 rounded-full text-sm transition-all ${
-                  isSelected(day)
-                    ? 'bg-[#5d8a66] text-white font-medium'
-                    : isInRange(day)
-                    ? 'bg-[#5d8a66]/20 text-[#a5c0a5]'
-                    : isToday(day)
-                    ? 'ring-1 ring-[#5d8a66] text-[#c5d0c5]'
-                    : 'text-[#c5d0c5] hover:bg-white/10'
-                }`}
-              >
-                {day}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function DateRangePicker({
-  value,
-  onChange,
-  dataDelay = 3,
-}: DateRangePickerProps) {
+export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState<string>('mtd');
-  const [tempStart, setTempStart] = useState(value.start);
-  const [tempEnd, setTempEnd] = useState(value.end);
-  const [selectingStart, setSelectingStart] = useState(true);
-  const [leftMonth, setLeftMonth] = useState(() => {
-    const d = new Date(value.start + 'T00:00:00');
-    return { month: d.getMonth(), year: d.getFullYear() };
-  });
+  const [activePreset, setActivePreset] = useState<PresetKey>('mtd');
+  const [customStart, setCustomStart] = useState(value.start);
+  const [customEnd, setCustomEnd] = useState(value.end);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const dataEnd = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - dataDelay);
-    return d;
-  }, [dataDelay]);
+  const presets: PresetOption[] = [
+    {
+      key: 'today',
+      label: 'Today',
+      getRange: () => {
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        return { start: dateStr, end: dateStr };
+      },
+    },
+    {
+      key: 'yesterday',
+      label: 'Yesterday',
+      getRange: () => {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const dateStr = yesterday.toISOString().split('T')[0];
+        return { start: dateStr, end: dateStr };
+      },
+    },
+    {
+      key: 'last7',
+      label: 'Last 7 Days',
+      getRange: () => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 6);
+        return {
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+        };
+      },
+    },
+    {
+      key: 'last30',
+      label: 'Last 30 Days',
+      getRange: () => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 29);
+        return {
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+        };
+      },
+    },
+    {
+      key: 'mtd',
+      label: 'Month to Date',
+      getRange: () => {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), end.getMonth(), 1);
+        return {
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+        };
+      },
+    },
+    {
+      key: 'lastMonth',
+      label: 'Last Month',
+      getRange: () => {
+        const end = new Date();
+        end.setDate(0); // Last day of previous month
+        const start = new Date(end.getFullYear(), end.getMonth(), 1);
+        return {
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+        };
+      },
+    },
+    {
+      key: 'qtd',
+      label: 'Quarter to Date',
+      getRange: () => {
+        const end = new Date();
+        const quarter = Math.floor(end.getMonth() / 3);
+        const start = new Date(end.getFullYear(), quarter * 3, 1);
+        return {
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+        };
+      },
+    },
+    {
+      key: 'ytd',
+      label: 'Year to Date',
+      getRange: () => {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), 0, 1);
+        return {
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+        };
+      },
+    },
+    {
+      key: 'custom',
+      label: 'Custom Range',
+      getRange: () => ({ start: customStart, end: customEnd }),
+    },
+  ];
 
-  // Right calendar is always one month ahead
-  const rightMonth = useMemo(() => {
-    let m = leftMonth.month + 1;
-    let y = leftMonth.year;
-    if (m > 11) { m = 0; y++; }
-    return { month: m, year: y };
-  }, [leftMonth]);
-
+  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -313,227 +142,149 @@ export function DateRangePicker({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    setTempStart(value.start);
-    setTempEnd(value.end);
-  }, [value]);
-
-  const handlePresetClick = (preset: Preset) => {
-    const range = preset.getRange(dataEnd);
-    setSelectedPreset(preset.key);
-    setTempStart(range.start);
-    setTempEnd(range.end);
-    onChange(range, preset.key);
-    setIsOpen(false);
-  };
-
-  const handleDateClick = (dateStr: string) => {
-    if (selectingStart) {
-      setTempStart(dateStr);
-      setTempEnd(dateStr);
-      setSelectingStart(false);
-      setSelectedPreset('custom');
-    } else {
-      if (dateStr < tempStart) {
-        setTempStart(dateStr);
-        setTempEnd(tempStart);
-      } else {
-        setTempEnd(dateStr);
-      }
-      setSelectingStart(true);
+  const handlePresetSelect = (preset: PresetOption) => {
+    setActivePreset(preset.key);
+    if (preset.key !== 'custom') {
+      const range = preset.getRange();
+      onChange(range);
+      setIsOpen(false);
     }
   };
 
-  const handleApply = () => {
-    onChange({ start: tempStart, end: tempEnd }, selectedPreset);
+  const handleCustomApply = () => {
+    onChange({ start: customStart, end: customEnd });
     setIsOpen(false);
   };
 
-  const handleMonthChange = (delta: number) => {
-    setLeftMonth((prev) => {
-      let m = prev.month + delta;
-      let y = prev.year;
-      if (m < 0) { m = 11; y--; }
-      if (m > 11) { m = 0; y++; }
-      return { month: m, year: y };
-    });
+  const formatDisplayDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-
-  const goToToday = () => {
-    const today = new Date();
-    setLeftMonth({ month: today.getMonth(), year: today.getFullYear() });
-  };
-
-  const daysInRange = Math.ceil(
-    (new Date(value.end).getTime() - new Date(value.start).getTime()) / (1000 * 60 * 60 * 24)
-  ) + 1;
 
   const getDisplayLabel = () => {
-    const preset = PRESETS.find(p => p.key === selectedPreset);
-    if (preset && selectedPreset !== 'custom') {
+    const preset = presets.find(p => {
+      if (p.key === 'custom') return false;
+      const range = p.getRange();
+      return range.start === value.start && range.end === value.end;
+    });
+
+    if (preset) {
       return preset.label;
     }
-    return 'Custom';
+
+    return `${formatDisplayDate(value.start)} - ${formatDisplayDate(value.end)}`;
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 pl-3 pr-2 py-2 rounded-lg transition-all hover:brightness-110 group"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         style={{
           backgroundColor: 'var(--bg-card)',
+          color: 'var(--christmas-cream)',
           border: '1px solid var(--border-subtle)',
         }}
       >
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="var(--christmas-green-light)" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-
-        <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
-          {getDisplayLabel()}
-        </span>
-
-        <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-muted)' }}>
-          {daysInRange}d
-        </span>
-
-        <svg
-          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="var(--text-muted)"
-          viewBox="0 0 24 24"
-        >
+        <span>{getDisplayLabel()}</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className="absolute top-full right-0 mt-2 rounded-xl shadow-2xl z-50 overflow-hidden"
+          className="absolute right-0 top-full mt-2 w-72 rounded-lg shadow-xl z-50"
           style={{
-            backgroundColor: '#151a15',
-            border: '1px solid #2a352a',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
           }}
         >
-          <div className="flex">
-            {/* Presets Column */}
-            <div
-              className="w-44 py-2 max-h-[420px] overflow-y-auto"
-              style={{ borderRight: '1px solid #2a352a' }}
-            >
-              {PRESETS.map((preset) => (
+          {/* Presets */}
+          <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="grid grid-cols-2 gap-1">
+              {presets.filter(p => p.key !== 'custom').map((preset) => (
                 <button
                   key={preset.key}
-                  onClick={() => handlePresetClick(preset)}
-                  className="w-full px-4 py-2 text-left text-sm transition-colors hover:bg-white/5 flex items-center justify-between"
-                  style={{
-                    color: selectedPreset === preset.key ? '#7ab886' : '#a5b0a5',
-                    backgroundColor: selectedPreset === preset.key ? 'rgba(93, 138, 102, 0.12)' : 'transparent',
-                  }}
+                  onClick={() => handlePresetSelect(preset)}
+                  className={`px-3 py-2 text-sm rounded-md transition-colors text-left ${
+                    activePreset === preset.key
+                      ? 'bg-[#346643] text-white'
+                      : 'hover:bg-white/5 text-gray-300'
+                  }`}
                 >
-                  <span>{preset.label}</span>
-                  {selectedPreset === preset.key && (
-                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
+                  {preset.label}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Calendar Section */}
-            <div className="p-4">
-              {/* Date Inputs Row */}
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="#6a7a6a" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <input
-                    type="date"
-                    value={tempStart}
-                    onChange={(e) => { setTempStart(e.target.value); setSelectedPreset('custom'); }}
-                    className="px-2 py-1.5 text-sm rounded-md w-32 focus:outline-none focus:ring-1 focus:ring-[#5d8a66]"
-                    style={{
-                      backgroundColor: '#252a25',
-                      border: '1px solid #3a453a',
-                      color: '#c5d0c5',
-                    }}
-                  />
-                </div>
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="#6a7a6a" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-                <div className="flex items-center gap-2 flex-1">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="#6a7a6a" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <input
-                    type="date"
-                    value={tempEnd}
-                    onChange={(e) => { setTempEnd(e.target.value); setSelectedPreset('custom'); }}
-                    className="px-2 py-1.5 text-sm rounded-md w-32 focus:outline-none focus:ring-1 focus:ring-[#5d8a66]"
-                    style={{
-                      backgroundColor: '#252a25',
-                      border: '1px solid #3a453a',
-                      color: '#c5d0c5',
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={handleApply}
-                  className="px-4 py-1.5 text-sm font-medium rounded-md transition-colors hover:brightness-110"
-                  style={{
-                    backgroundColor: '#5d8a66',
-                    color: '#f5f0e6',
+          {/* Custom Range */}
+          <div className="p-3">
+            <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
+              Custom Range
+            </div>
+            <div className="flex gap-2 mb-3">
+              <div className="flex-1">
+                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Start</label>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => {
+                    setCustomStart(e.target.value);
+                    setActivePreset('custom');
                   }}
-                >
-                  Apply
-                </button>
-              </div>
-
-              {/* Two Calendars Side by Side */}
-              <div className="flex gap-6">
-                <MiniCalendar
-                  month={leftMonth.month}
-                  year={leftMonth.year}
-                  selectedStart={tempStart}
-                  selectedEnd={tempEnd}
-                  onDateClick={handleDateClick}
-                  onMonthChange={handleMonthChange}
-                />
-                <MiniCalendar
-                  month={rightMonth.month}
-                  year={rightMonth.year}
-                  selectedStart={tempStart}
-                  selectedEnd={tempEnd}
-                  onDateClick={handleDateClick}
-                  onMonthChange={(delta) => handleMonthChange(delta)}
+                  className="w-full px-2 py-1.5 rounded text-sm"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    color: 'var(--christmas-cream)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
                 />
               </div>
-
-              {/* Today Button & Data Notice */}
-              <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid #2a352a' }}>
-                <button
-                  onClick={goToToday}
-                  className="text-xs font-medium transition-colors hover:brightness-125"
-                  style={{ color: '#7ab886' }}
-                >
-                  TODAY
-                </button>
-                <span className="text-[10px]" style={{ color: '#5a6a5a' }}>
-                  Data delayed {dataDelay} days from Google
-                </span>
+              <div className="flex-1">
+                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>End</label>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => {
+                    setCustomEnd(e.target.value);
+                    setActivePreset('custom');
+                  }}
+                  className="w-full px-2 py-1.5 rounded text-sm"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    color: 'var(--christmas-cream)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                />
               </div>
             </div>
+            <button
+              onClick={handleCustomApply}
+              className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'var(--christmas-green)',
+                color: 'var(--christmas-cream)',
+              }}
+            >
+              Apply
+            </button>
           </div>
+
+          {/* Data delay notice */}
+          {dataDelay > 0 && (
+            <div className="px-3 pb-3">
+              <div className="text-xs rounded-md p-2" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-muted)' }}>
+                Note: Data has a {dataDelay}-day delay from Google
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
-
-export default DateRangePicker;
