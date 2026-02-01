@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
     const tradeMetrics = await stClient.getTradeMetrics(startDate, endDate);
 
     // === DEEP ANALYSIS: Compare job.total vs invoice sums ===
-    const completedJobIds = new Set(jobs.map(j => j.id));
+    const allCompletedJobIds = new Set(jobs.map(j => j.id));
     const hvacBuNames = ['HVAC - Install', 'HVAC - Service', 'HVAC - Maintenance', 'HVAC - Commercial', 'HVAC - Sales', 'Mims - Service'];
     const businessUnits = await stClient.getBusinessUnits();
     const hvacBuIds = new Set(businessUnits.filter(bu => hvacBuNames.includes(bu.name)).map(bu => bu.id));
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     for (const inv of invoices) {
       if (!inv.job?.id) continue;
-      if (!completedJobIds.has(inv.job.id)) continue;
+      if (!allCompletedJobIds.has(inv.job.id)) continue;
 
       // Get business unit
       const buId = inv.businessUnit?.id;
