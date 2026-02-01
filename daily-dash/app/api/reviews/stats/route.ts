@@ -3,6 +3,21 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 
+/**
+ * Get a date string (YYYY-MM-DD) in Central Time from a Date
+ */
+function toCentralDateString(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+}
+
+/**
+ * Get current date in Central Time as a Date object (midnight)
+ */
+function getCentralToday(): Date {
+  const centralDateStr = toCentralDateString(new Date());
+  return new Date(centralDateStr + 'T00:00:00');
+}
+
 interface LocationStats {
   id: string;
   name: string;
@@ -93,18 +108,26 @@ export async function GET(request: NextRequest) {
 
   const supabase = getServerSupabase();
 
-  // Date calculations
-  const now = new Date();
-  const startOfYear = new Date(year, 0, 1);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
+  // Date calculations - use Central Time for all boundaries
+  const centralToday = getCentralToday();
+  const centralDateStr = toCentralDateString(new Date());
+  const [centralYear, centralMonth, centralDay] = centralDateStr.split('-').map(Number);
 
-  let periodStartDate = periodStart ? new Date(periodStart) : startOfMonth;
-  let periodEndDate = periodEnd ? new Date(periodEnd) : now;
+  // Use Central Time for "now" reference
+  const now = new Date(`${centralDateStr}T23:59:59`);
+  const startOfYear = new Date(year, 0, 1);
+  const startOfMonth = new Date(centralYear, centralMonth - 1, 1);
+
+  // Start of week (Sunday) in Central Time
+  const dayOfWeek = centralToday.getDay();
+  const startOfWeek = new Date(centralYear, centralMonth - 1, centralDay - dayOfWeek);
+
+  // Start of day in Central Time
+  const startOfDay = centralToday;
+
+  // Parse period dates - convert from UTC params to Central Time boundaries
+  let periodStartDate = periodStart ? new Date(toCentralDateString(new Date(periodStart)) + 'T00:00:00') : startOfMonth;
+  let periodEndDate = periodEnd ? new Date(toCentralDateString(new Date(periodEnd)) + 'T23:59:59') : now;
 
   // Validate dates - fallback to defaults if invalid
   if (isNaN(periodStartDate.getTime())) {
@@ -395,18 +418,21 @@ export async function GET(request: NextRequest) {
   // Build daily counts map
   const dailyCountsMap: Record<string, number> = {};
 
-  // Initialize all days in period with 0
-  const currentDate = new Date(periodStartDate);
-  while (currentDate <= periodEndDate) {
-    const dateKey = currentDate.toISOString().split('T')[0];
+  // Initialize all days in period with 0 (using Central Time date strings)
+  const periodStartStr = toCentralDateString(periodStartDate);
+  const periodEndStr = toCentralDateString(periodEndDate);
+  const currentDate = new Date(periodStartStr + 'T12:00:00'); // Use noon to avoid DST edge cases
+  const endDateForLoop = new Date(periodEndStr + 'T12:00:00');
+  while (currentDate <= endDateForLoop) {
+    const dateKey = toCentralDateString(currentDate);
     dailyCountsMap[dateKey] = 0;
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  // Count reviews per day - combine batches
+  // Count reviews per day - combine batches, using Central Time for date grouping
   [dailyCountsBatch1, dailyCountsBatch2, dailyCountsBatch3, dailyCountsBatch4].forEach(batch => {
     batch.data?.forEach(r => {
-      const dateKey = new Date(r.create_time).toISOString().split('T')[0];
+      const dateKey = toCentralDateString(new Date(r.create_time));
       dailyCountsMap[dateKey] = (dailyCountsMap[dateKey] || 0) + 1;
     });
   });

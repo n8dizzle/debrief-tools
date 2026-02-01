@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
+import { DateRangePicker, DateRange } from '@christmas-air/shared/components';
 import { LSADailyChart, LSADailyDataPoint } from '@/components/LSADailyChart';
 
 interface LSALead {

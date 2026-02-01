@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { DateRangePicker, DateRange } from '@christmas-air/shared/components';
 
 // Types
 interface DailyCount {
@@ -1577,6 +1578,19 @@ export default function ReviewsPage() {
     [period, customStartDate, customEndDate]
   );
 
+  // Compute DateRange for the DateRangePicker component
+  const dateRange: DateRange = useMemo(() => ({
+    start: periodDates.start.toISOString().split('T')[0],
+    end: periodDates.end.toISOString().split('T')[0],
+  }), [periodDates]);
+
+  // Handle DateRangePicker changes
+  const handleDateRangeChange = useCallback((range: DateRange) => {
+    setPeriod('custom');
+    setCustomStartDate(new Date(range.start + 'T00:00:00'));
+    setCustomEndDate(new Date(range.end + 'T00:00:00'));
+  }, []);
+
   // Generate cache keys
   const statsCacheKey = useMemo(() =>
     `stats-${period}-${customStartDate?.toISOString()}-${customEndDate?.toISOString()}`,
@@ -1890,62 +1904,7 @@ export default function ReviewsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <select
-            value={period}
-            onChange={(e) => {
-              const newPeriod = e.target.value as PeriodPreset;
-              setPeriod(newPeriod);
-              if (newPeriod !== 'custom') {
-                setCustomStartDate(null);
-                setCustomEndDate(null);
-              }
-            }}
-            className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--christmas-cream)',
-            }}
-          >
-            <option value="this_month">This Month</option>
-            <option value="last_month">Last Month</option>
-            <option value="last_30">Last 30 Days</option>
-            <option value="last_90">Last 90 Days</option>
-            <option value="this_quarter">This Quarter</option>
-            <option value="last_quarter">Last Quarter</option>
-            <option value="this_year">This Year</option>
-            <option value="last_year">Last Year</option>
-            <option value="all_time">All Time</option>
-            <option value="custom">Custom Range</option>
-          </select>
-
-          {period === 'custom' && (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={customStartDate ? customStartDate.toISOString().split('T')[0] : ''}
-                onChange={(e) => setCustomStartDate(e.target.value ? new Date(e.target.value) : null)}
-                className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--christmas-cream)',
-                }}
-              />
-              <span style={{ color: 'var(--text-muted)' }}>to</span>
-              <input
-                type="date"
-                value={customEndDate ? customEndDate.toISOString().split('T')[0] : ''}
-                onChange={(e) => setCustomEndDate(e.target.value ? new Date(e.target.value) : null)}
-                className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--christmas-cream)',
-                }}
-              />
-            </div>
-          )}
+          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
 
           <button
             onClick={handleSync}

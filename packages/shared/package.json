@@ -8,10 +8,13 @@
     ".": "./lib/index.ts",
     "./permissions": "./lib/permissions.ts",
     "./auth": "./lib/auth.ts",
-    "./types": "./lib/types.ts"
+    "./types": "./lib/types.ts",
+    "./components": "./components/index.ts",
+    "./components/DateRangePicker": "./components/DateRangePicker.tsx"
   },
   "peerDependencies": {
     "next-auth": "^4.24.0",
-    "@supabase/supabase-js": "^2.0.0"
+    "@supabase/supabase-js": "^2.0.0",
+    "react": "^18.0.0"
   }
 }

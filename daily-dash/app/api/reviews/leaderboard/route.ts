@@ -14,17 +14,26 @@ interface LeaderboardEntry {
 }
 
 /**
+ * Get a date string (YYYY-MM-DD) in Central Time from a Date or ISO string
+ */
+function toCentralDateString(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); // en-CA gives YYYY-MM-DD format
+}
+
+/**
+ * Get today's date string in Central Time
+ */
+function getTodayCentral(): string {
+  return toCentralDateString(new Date());
+}
+
+/**
  * GET /api/reviews/leaderboard
  * Get team member leaderboard with WTD, MTD, YTD counts
  * Query params: period (preset name), startDate, endDate (ISO strings)
  *
- * Period context determines which columns are relevant:
- * - this_month, this_week, last_30, last_90: WTD, MTD, YTD all active
- * - last_month: MTD (for that month), YTD active; WTD = 0
- * - this_quarter, last_quarter: MTD, YTD active; WTD = 0
- * - this_year: WTD, MTD, YTD all active
- * - last_year: YTD only (for that year); WTD, MTD = 0
- * - all_time: current WTD, MTD, YTD
+ * All date comparisons use Central Time (Texas timezone)
  */
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -38,70 +47,54 @@ export async function GET(request: NextRequest) {
   const endDateParam = searchParams.get('endDate');
 
   const supabase = getServerSupabase();
-  const now = new Date();
-  const endDate = endDateParam ? new Date(endDateParam) : now;
 
-  // Calculate period boundaries based on context
-  let wtdStart: Date | null = null;
-  let mtdStart: Date | null = null;
-  let ytdStart: Date | null = null;
+  // Get reference date in Central Time (YYYY-MM-DD)
+  const todayCentral = getTodayCentral();
+  const refDateStr = endDateParam ? toCentralDateString(endDateParam) : todayCentral;
 
-  // Determine the reference date for calculations (end of selected period)
-  const refDate = new Date(endDate);
+  // Parse reference date components
+  const [refYear, refMonth, refDay] = refDateStr.split('-').map(Number);
 
-  // Calculate WTD start (Monday of the week containing refDate)
+  // Calculate period boundary date strings (YYYY-MM-DD)
+  // WTD: Monday of the week containing refDate
+  const refDate = new Date(refYear, refMonth - 1, refDay);
   const dayOfWeek = refDate.getDay();
   const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const monday = new Date(refDate);
-  monday.setDate(refDate.getDate() - mondayOffset);
-  monday.setHours(0, 0, 0, 0);
+  const mondayDate = new Date(refYear, refMonth - 1, refDay - mondayOffset);
+  const wtdStartStr = `${mondayDate.getFullYear()}-${String(mondayDate.getMonth() + 1).padStart(2, '0')}-${String(mondayDate.getDate()).padStart(2, '0')}`;
 
-  // Calculate MTD start (first of the month containing refDate)
-  const firstOfMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+  // MTD: First of the month containing refDate
+  const mtdStartStr = `${refYear}-${String(refMonth).padStart(2, '0')}-01`;
 
-  // Calculate YTD start (first of the year containing refDate)
-  const firstOfYear = new Date(refDate.getFullYear(), 0, 1);
+  // YTD: First of the year containing refDate
+  const ytdStartStr = `${refYear}-01-01`;
 
   // Determine which columns are active based on period
+  let showWtd = true;
+  let showMtd = true;
+
   switch (period) {
     case 'last_year':
-      // Only YTD for that year, no WTD/MTD
-      ytdStart = firstOfYear;
+      showWtd = false;
+      showMtd = false;
       break;
     case 'last_month':
     case 'last_quarter':
     case 'this_quarter':
-      // MTD and YTD, no WTD
-      mtdStart = firstOfMonth;
-      ytdStart = firstOfYear;
-      break;
-    case 'this_month':
-    case 'this_week':
-    case 'this_year':
-    case 'last_30':
-    case 'last_90':
-    case 'all_time':
-    case 'custom':
-    default:
-      // All columns active
-      wtdStart = monday;
-      mtdStart = firstOfMonth;
-      ytdStart = firstOfYear;
+      showWtd = false;
       break;
   }
 
-  // Use startDate param if provided and it's earlier than our calculated start
-  const queryStart = startDateParam
-    ? new Date(Math.min(new Date(startDateParam).getTime(), (ytdStart || firstOfYear).getTime()))
-    : (ytdStart || firstOfYear);
+  // Query start date (earliest boundary we need)
+  const queryStartStr = ytdStartStr;
 
-  // Fetch all reviews with mentions from the earliest relevant date
+  // Fetch all reviews with mentions from YTD start
   const { data: reviews, error } = await supabase
     .from('google_reviews')
     .select('team_members_mentioned, star_rating, create_time')
     .not('team_members_mentioned', 'is', null)
-    .gte('create_time', queryStart.toISOString())
-    .lte('create_time', endDate.toISOString());
+    .gte('create_time', `${queryStartStr}T00:00:00`)
+    .lte('create_time', `${refDateStr}T23:59:59`);
 
   if (error) {
     console.error('Error fetching reviews:', error);
@@ -109,7 +102,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!reviews || reviews.length === 0) {
-    return NextResponse.json({ leaderboard: [], showWtd: !!wtdStart, showMtd: !!mtdStart });
+    return NextResponse.json({ leaderboard: [], showWtd, showMtd });
   }
 
   // Aggregate by team member with period breakdown
@@ -119,13 +112,14 @@ export async function GET(request: NextRequest) {
     const mentions = review.team_members_mentioned as string[];
     if (!mentions || mentions.length === 0) return;
 
-    const reviewDate = new Date(review.create_time);
+    // Get review date in Central Time as YYYY-MM-DD string
+    const reviewDateStr = toCentralDateString(review.create_time);
     const isFiveStar = review.star_rating === 5;
 
-    // Determine which periods this review falls into
-    const isWtd = wtdStart && reviewDate >= wtdStart;
-    const isMtd = mtdStart && reviewDate >= mtdStart;
-    const isYtd = ytdStart && reviewDate >= ytdStart;
+    // Compare date strings (lexicographic comparison works for YYYY-MM-DD)
+    const isWtd = showWtd && reviewDateStr >= wtdStartStr && reviewDateStr <= refDateStr;
+    const isMtd = showMtd && reviewDateStr >= mtdStartStr && reviewDateStr <= refDateStr;
+    const isYtd = reviewDateStr >= ytdStartStr && reviewDateStr <= refDateStr;
 
     mentions.forEach((name) => {
       if (!leaderboard[name]) {
@@ -162,7 +156,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     leaderboard: sorted,
-    showWtd: !!wtdStart,
-    showMtd: !!mtdStart,
+    showWtd,
+    showMtd,
   });
 }

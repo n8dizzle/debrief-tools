@@ -22,6 +22,28 @@ Common code shared across all Next.js apps:
 - `@christmas-air/shared/permissions` - Permission types and utilities
 - `@christmas-air/shared/auth` - Auth configuration factory
 - `@christmas-air/shared/types` - Shared TypeScript types
+- `@christmas-air/shared/components` - Shared UI components
+
+#### Standard UI Components
+
+**DateRangePicker** - Standard date range selector for all apps
+```tsx
+import { DateRangePicker, DateRange } from '@christmas-air/shared/components';
+
+// Usage
+const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-01-31' });
+
+<DateRangePicker
+  value={range}
+  onChange={(newRange) => setRange(newRange)}
+  dataDelay={3}  // Optional: shows "Data has a 3-day delay" notice
+/>
+```
+- Uses CSS variables for theming (--christmas-green, --bg-card, etc.)
+- Presets: Today, Yesterday, This Week, Last Week, Month to Date, Last Month, Quarter to Date, Last Quarter, Year to Date, Last Year
+- Custom date range with Start/End inputs
+- Compact 2-column grid layout
+- Click outside to close
 
 ## Current Features (Jan 2026)
 

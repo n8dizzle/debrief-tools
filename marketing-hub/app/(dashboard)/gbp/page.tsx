@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { LocationSummaryTable } from '@/components/LocationSummaryTable';
 import type { LocationData } from '@/components/LocationSummaryTable';
 import { DailyMetricsChart, DailyDataPoint } from '@/components/DailyMetricsChart';
-import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
+import { DateRangePicker, DateRange } from '@christmas-air/shared/components';
 
 interface InsightsData {
   period: { start: string; end: string };
