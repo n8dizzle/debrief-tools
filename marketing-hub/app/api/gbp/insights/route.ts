@@ -149,9 +149,9 @@ export async function GET(request: NextRequest) {
     const yoyData = yoyResult.data || [];
     const ytdData = ytdResult.data || [];
 
-    // Fetch ST metrics for locations with tracking phones (in parallel with cache check)
+    // Fetch ST metrics for locations with campaign names (in parallel with cache check)
     const stMetricsPromise = getSTMetricsForLocations(
-      locations.map(loc => ({ id: loc.id, tracking_phone: loc.tracking_phone })),
+      locations.map(loc => ({ id: loc.id, st_campaign_name: loc.st_campaign_name })),
       startDateStr,
       endDateStr
     );
@@ -610,13 +610,13 @@ function mergeSTMetrics(
     const stData = stMetrics.get(loc.locationId);
     return {
       ...loc,
-      // ST metrics (null if no tracking phone configured)
+      // ST metrics (null if no campaign name configured)
       stCallsBooked: stData?.callsBooked ?? null,
       stCallsTotal: stData?.callsTotal ?? null,
       stRevenue: stData?.revenue ?? null,
       stAvgTicket: stData?.avgTicket ?? null,
       stJobCount: stData?.jobCount ?? null,
-      hasTrackingPhone: stData !== undefined,
+      hasSTCampaign: stData !== undefined,
     };
   });
 

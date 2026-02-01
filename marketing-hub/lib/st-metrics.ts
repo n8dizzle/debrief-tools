@@ -2,6 +2,8 @@
  * ServiceTitan metrics helper for GBP location performance.
  * Fetches call and revenue data from st_calls table and ServiceTitan API
  * to show actual business impact alongside GBP metrics.
+ *
+ * Matches calls by campaign_name (e.g., "GBP - Argyle") for accurate attribution.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -9,7 +11,7 @@ import { createClient } from '@supabase/supabase-js';
 // Types
 export interface STLocationMetrics {
   locationId: string;
-  trackingPhone: string;
+  campaignName: string;
   callsBooked: number;
   callsTotal: number;
   revenue: number;
@@ -21,7 +23,7 @@ interface STCall {
   id: string;
   job_id: number | null;
   call_type: string | null;
-  tracking_number: string | null;
+  campaign_name: string | null;
   received_at: string;
 }
 
@@ -148,33 +150,16 @@ class STClient {
 const stClient = new STClient();
 
 /**
- * Normalize phone number to digits only for matching
- */
-function normalizePhone(phone: string | null): string | null {
-  if (!phone) return null;
-  return phone.replace(/\D/g, '');
-}
-
-/**
- * Format date for Supabase queries (YYYY-MM-DD)
- */
-function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
  * Get ServiceTitan call and revenue metrics for GBP locations.
+ * Matches calls by campaign_name for accurate attribution.
  *
- * @param locations - Array of locations with their tracking phone numbers
+ * @param locations - Array of locations with their ST campaign names
  * @param startDate - Start date (YYYY-MM-DD)
  * @param endDate - End date (YYYY-MM-DD)
  * @returns Map of locationId -> metrics
  */
 export async function getSTMetricsForLocations(
-  locations: Array<{ id: string; tracking_phone: string | null }>,
+  locations: Array<{ id: string; st_campaign_name: string | null }>,
   startDate: string,
   endDate: string
 ): Promise<Map<string, STLocationMetrics>> {
@@ -185,32 +170,25 @@ export async function getSTMetricsForLocations(
 
   const metricsMap = new Map<string, STLocationMetrics>();
 
-  // Filter to locations with tracking phones
-  const locationsWithPhones = locations.filter(loc => loc.tracking_phone);
+  // Filter to locations with campaign names
+  const locationsWithCampaigns = locations.filter(loc => loc.st_campaign_name);
 
-  if (locationsWithPhones.length === 0) {
-    console.log('[ST Metrics] No locations have tracking phones configured');
+  if (locationsWithCampaigns.length === 0) {
+    console.log('[ST Metrics] No locations have ST campaign names configured');
     return metricsMap;
   }
 
-  // Build map of normalized tracking numbers to location IDs
-  const phoneToLocationId = new Map<string, string>();
-  for (const loc of locationsWithPhones) {
-    const normalized = normalizePhone(loc.tracking_phone);
-    if (normalized) {
-      phoneToLocationId.set(normalized, loc.id);
-      // Also map last 10 digits in case tracking_number in st_calls is stored differently
-      if (normalized.length > 10) {
-        phoneToLocationId.set(normalized.slice(-10), loc.id);
-      }
-    }
+  // Build map of campaign name to location ID
+  const campaignToLocationId = new Map<string, string>();
+  for (const loc of locationsWithCampaigns) {
+    campaignToLocationId.set(loc.st_campaign_name!, loc.id);
   }
 
-  // Initialize metrics for all locations with phones
-  for (const loc of locationsWithPhones) {
+  // Initialize metrics for all locations with campaigns
+  for (const loc of locationsWithCampaigns) {
     metricsMap.set(loc.id, {
       locationId: loc.id,
-      trackingPhone: loc.tracking_phone!,
+      campaignName: loc.st_campaign_name!,
       callsBooked: 0,
       callsTotal: 0,
       revenue: 0,
@@ -219,14 +197,15 @@ export async function getSTMetricsForLocations(
     });
   }
 
-  // Build list of tracking numbers to query
-  const trackingNumbers = Array.from(phoneToLocationId.keys());
+  // Get list of campaign names to query
+  const campaignNames = locationsWithCampaigns.map(loc => loc.st_campaign_name!);
 
-  // Query st_calls for inbound calls to these tracking numbers in date range
+  // Query st_calls for inbound calls with matching campaign names in date range
   const { data: calls, error } = await supabase
     .from('st_calls')
-    .select('id, job_id, call_type, tracking_number, received_at')
+    .select('id, job_id, call_type, campaign_name, received_at')
     .eq('direction', 'Inbound')
+    .in('campaign_name', campaignNames)
     .gte('received_at', `${startDate}T00:00:00`)
     .lt('received_at', `${endDate}T23:59:59`);
 
@@ -236,32 +215,19 @@ export async function getSTMetricsForLocations(
   }
 
   if (!calls || calls.length === 0) {
-    console.log('[ST Metrics] No inbound calls found in date range');
+    console.log('[ST Metrics] No inbound calls found in date range for configured campaigns');
     return metricsMap;
   }
+
+  console.log(`[ST Metrics] Found ${calls.length} inbound calls for ${campaignNames.length} campaigns`);
 
   // Group calls by location
   const callsByLocation = new Map<string, STCall[]>();
 
   for (const call of calls) {
-    const normalizedTracking = normalizePhone(call.tracking_number);
-    if (!normalizedTracking) continue;
+    if (!call.campaign_name) continue;
 
-    // Try to find matching location ID
-    let locationId = phoneToLocationId.get(normalizedTracking);
-    if (!locationId && normalizedTracking.length > 10) {
-      locationId = phoneToLocationId.get(normalizedTracking.slice(-10));
-    }
-    if (!locationId && normalizedTracking.length === 10) {
-      // Also check if any tracking number ends with this
-      for (const [phone, locId] of phoneToLocationId.entries()) {
-        if (phone.endsWith(normalizedTracking)) {
-          locationId = locId;
-          break;
-        }
-      }
-    }
-
+    const locationId = campaignToLocationId.get(call.campaign_name);
     if (locationId) {
       const existing = callsByLocation.get(locationId) || [];
       existing.push(call);

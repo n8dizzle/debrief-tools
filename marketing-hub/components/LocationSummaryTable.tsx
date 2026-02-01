@@ -21,13 +21,13 @@ export interface LocationData {
   ytdViews?: number;
   ytdClicks?: number;
   ytdDirections?: number;
-  // ServiceTitan metrics (null if no tracking phone configured)
+  // ServiceTitan metrics (null if no campaign name configured)
   stCallsBooked?: number | null;
   stCallsTotal?: number | null;
   stRevenue?: number | null;
   stAvgTicket?: number | null;
   stJobCount?: number | null;
-  hasTrackingPhone?: boolean;
+  hasSTCampaign?: boolean;
 }
 
 type SortField = 'locationName' | 'phoneCalls' | 'totalViews' | 'websiteClicks' | 'directionRequests' | 'stCallsBooked' | 'stRevenue';
@@ -120,8 +120,8 @@ export function LocationSummaryTable({
   // Check if we have YoY data available
   const hasYoYData = data.some(loc => loc.callsYoY !== null && loc.callsYoY !== undefined);
   const hasYtdData = data.some(loc => loc.ytdCalls !== undefined && loc.ytdCalls > 0);
-  // Check if any location has ST data (tracking phone configured)
-  const hasSTData = data.some(loc => loc.hasTrackingPhone);
+  // Check if any location has ST data (campaign name configured)
+  const hasSTData = data.some(loc => loc.hasSTCampaign);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -412,7 +412,7 @@ export function LocationSummaryTable({
                   <>
                     <td className="py-3.5 px-1 w-px" style={{ borderLeft: '2px solid var(--border-subtle)' }}></td>
                     <td className="py-3.5 px-3 text-right">
-                      {loc.hasTrackingPhone ? (
+                      {loc.hasSTCampaign ? (
                         <span className="text-base font-semibold tabular-nums" style={{ color: '#5D8A66' }}>
                           {formatValue(loc.stCallsBooked || 0)}
                         </span>
@@ -421,7 +421,7 @@ export function LocationSummaryTable({
                       )}
                     </td>
                     <td className="py-3.5 px-3 text-right">
-                      {loc.hasTrackingPhone ? (
+                      {loc.hasSTCampaign ? (
                         <span className="text-base font-semibold tabular-nums" style={{ color: '#5D8A66' }}>
                           {formatCurrency(loc.stRevenue || 0)}
                         </span>
@@ -430,7 +430,7 @@ export function LocationSummaryTable({
                       )}
                     </td>
                     <td className="py-3.5 px-3 text-right">
-                      {loc.hasTrackingPhone && loc.stJobCount && loc.stJobCount > 0 ? (
+                      {loc.hasSTCampaign && loc.stJobCount && loc.stJobCount > 0 ? (
                         <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                           {formatCurrency(loc.stAvgTicket || 0)}
                         </span>
