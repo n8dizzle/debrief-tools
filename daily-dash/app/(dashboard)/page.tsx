@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -11,6 +11,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useHuddleData } from '@/lib/hooks/useHuddleData';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 
 // Department revenue breakdown
 interface DepartmentRevenue {
@@ -256,21 +257,12 @@ function getStatusColor(pacing: number): string {
   return '#EF4444';
 }
 
-function getLocalDateString(date: Date): string {
+function getTodayDateString(): string {
+  const date = new Date();
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function getYesterdayDateString(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return getLocalDateString(d);
-}
-
-function getTodayDateString(): string {
-  return getLocalDateString(new Date());
 }
 
 // ============================================
@@ -768,10 +760,15 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
 // MAIN DASHBOARD PAGE
 // ============================================
 export default function DashboardPage() {
-  const [currentDate, setCurrentDate] = useState('');
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const today = getTodayDateString();
+    return { start: today, end: today };
+  });
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+
+  // Use the end date as the reference point for pacing data
+  const selectedDate = dateRange.end;
 
   // Use SWR for cached data fetching - instant load on navigation
   const { data: dashData, pacing, isLoading, isValidating, mutate } = useHuddleData(
@@ -797,17 +794,6 @@ export default function DashboardPage() {
       setIsSyncing(false);
     }
   };
-
-  useEffect(() => {
-    const now = new Date();
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    };
-    setCurrentDate(now.toLocaleDateString('en-US', options));
-  }, []);
 
   // Show loading only on first load (no cached data)
   const loading = isLoading && !pacing;
@@ -876,30 +862,10 @@ export default function DashboardPage() {
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => setSelectedDate(getYesterdayDateString())}
-              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg transition-colors"
-              style={{
-                backgroundColor: selectedDate === getYesterdayDateString() ? 'var(--christmas-green)' : 'var(--bg-card)',
-                color: selectedDate === getYesterdayDateString() ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              Yesterday
-            </button>
-            <button
-              onClick={() => setSelectedDate(getTodayDateString())}
-              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg transition-colors"
-              style={{
-                backgroundColor: selectedDate === getTodayDateString() ? 'var(--christmas-green)' : 'var(--bg-card)',
-                color: selectedDate === getTodayDateString() ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              Today
-            </button>
-          </div>
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+          />
 
           {lastSync && (
             <span className="hidden sm:inline text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -942,31 +908,6 @@ export default function DashboardPage() {
             </svg>
             <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
           </button>
-
-          <div
-            className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-lg"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="var(--text-secondary)"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
-              {currentDate}
-            </span>
-          </div>
         </div>
       </div>
 
