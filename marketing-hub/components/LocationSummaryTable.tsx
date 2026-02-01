@@ -21,9 +21,16 @@ export interface LocationData {
   ytdViews?: number;
   ytdClicks?: number;
   ytdDirections?: number;
+  // ServiceTitan metrics (null if no tracking phone configured)
+  stCallsBooked?: number | null;
+  stCallsTotal?: number | null;
+  stRevenue?: number | null;
+  stAvgTicket?: number | null;
+  stJobCount?: number | null;
+  hasTrackingPhone?: boolean;
 }
 
-type SortField = 'locationName' | 'phoneCalls' | 'totalViews' | 'websiteClicks' | 'directionRequests';
+type SortField = 'locationName' | 'phoneCalls' | 'totalViews' | 'websiteClicks' | 'directionRequests' | 'stCallsBooked' | 'stRevenue';
 type SortDirection = 'asc' | 'desc';
 
 interface LocationSummaryTableProps {
@@ -35,6 +42,12 @@ function formatValue(value: number): string {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
   return value.toLocaleString();
+}
+
+function formatCurrency(value: number): string {
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function formatYoY(value: number | null | undefined): string {
@@ -69,8 +82,12 @@ export function LocationSummaryTable({
 
   const sortedData = useMemo(() => {
     return [...data].sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      // Handle null/undefined ST values (treat as 0 for sorting)
+      if (aVal === null || aVal === undefined) aVal = 0;
+      if (bVal === null || bVal === undefined) bVal = 0;
 
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return sortDirection === 'asc'
@@ -92,14 +109,19 @@ export function LocationSummaryTable({
         clicks: acc.clicks + loc.websiteClicks,
         directions: acc.directions + loc.directionRequests,
         ytdCalls: acc.ytdCalls + (loc.ytdCalls || 0),
+        stCallsBooked: acc.stCallsBooked + (loc.stCallsBooked || 0),
+        stRevenue: acc.stRevenue + (loc.stRevenue || 0),
+        stJobCount: acc.stJobCount + (loc.stJobCount || 0),
       }),
-      { views: 0, calls: 0, clicks: 0, directions: 0, ytdCalls: 0 }
+      { views: 0, calls: 0, clicks: 0, directions: 0, ytdCalls: 0, stCallsBooked: 0, stRevenue: 0, stJobCount: 0 }
     );
   }, [data]);
 
   // Check if we have YoY data available
   const hasYoYData = data.some(loc => loc.callsYoY !== null && loc.callsYoY !== undefined);
   const hasYtdData = data.some(loc => loc.ytdCalls !== undefined && loc.ytdCalls > 0);
+  // Check if any location has ST data (tracking phone configured)
+  const hasSTData = data.some(loc => loc.hasTrackingPhone);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -172,6 +194,9 @@ export function LocationSummaryTable({
       </div>
     );
   }
+
+  // Calculate average ticket from totals
+  const totalAvgTicket = totals.stJobCount > 0 ? totals.stRevenue / totals.stJobCount : 0;
 
   return (
     <div
@@ -280,6 +305,39 @@ export function LocationSummaryTable({
                   </span>
                 </th>
               )}
+              {/* ServiceTitan columns - separated by visual divider */}
+              {hasSTData && (
+                <>
+                  <th className="py-3 px-1 w-px" style={{ borderLeft: '2px solid var(--border-subtle)' }}></th>
+                  <th className="text-right py-3 px-3">
+                    <button
+                      onClick={() => handleSort('stCallsBooked')}
+                      className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
+                      style={{ color: sortField === 'stCallsBooked' ? '#5D8A66' : 'var(--text-muted)' }}
+                      title="ServiceTitan booked calls from tracking number"
+                    >
+                      ST Booked
+                      <SortIcon field="stCallsBooked" />
+                    </button>
+                  </th>
+                  <th className="text-right py-3 px-3">
+                    <button
+                      onClick={() => handleSort('stRevenue')}
+                      className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity ml-auto"
+                      style={{ color: sortField === 'stRevenue' ? '#5D8A66' : 'var(--text-muted)' }}
+                      title="Revenue from completed jobs linked to booked calls"
+                    >
+                      Revenue
+                      <SortIcon field="stRevenue" />
+                    </button>
+                  </th>
+                  <th className="text-right py-3 px-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }} title="Average revenue per completed job">
+                      Avg Ticket
+                    </span>
+                  </th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -349,6 +407,39 @@ export function LocationSummaryTable({
                     </span>
                   </td>
                 )}
+                {/* ServiceTitan columns */}
+                {hasSTData && (
+                  <>
+                    <td className="py-3.5 px-1 w-px" style={{ borderLeft: '2px solid var(--border-subtle)' }}></td>
+                    <td className="py-3.5 px-3 text-right">
+                      {loc.hasTrackingPhone ? (
+                        <span className="text-base font-semibold tabular-nums" style={{ color: '#5D8A66' }}>
+                          {formatValue(loc.stCallsBooked || 0)}
+                        </span>
+                      ) : (
+                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right">
+                      {loc.hasTrackingPhone ? (
+                        <span className="text-base font-semibold tabular-nums" style={{ color: '#5D8A66' }}>
+                          {formatCurrency(loc.stRevenue || 0)}
+                        </span>
+                      ) : (
+                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right">
+                      {loc.hasTrackingPhone && loc.stJobCount && loc.stJobCount > 0 ? (
+                        <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                          {formatCurrency(loc.stAvgTicket || 0)}
+                        </span>
+                      ) : (
+                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -390,6 +481,27 @@ export function LocationSummaryTable({
                   </span>
                 </td>
               )}
+              {/* ServiceTitan totals */}
+              {hasSTData && (
+                <>
+                  <td className="py-3.5 px-1 w-px" style={{ borderLeft: '2px solid var(--border-subtle)' }}></td>
+                  <td className="py-3.5 px-3 text-right">
+                    <span className="text-base font-bold tabular-nums" style={{ color: '#5D8A66' }}>
+                      {formatValue(totals.stCallsBooked)}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-3 text-right">
+                    <span className="text-base font-bold tabular-nums" style={{ color: '#5D8A66' }}>
+                      {formatCurrency(totals.stRevenue)}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-3 text-right">
+                    <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                      {totalAvgTicket > 0 ? formatCurrency(totalAvgTicket) : '—'}
+                    </span>
+                  </td>
+                </>
+              )}
             </tr>
           </tfoot>
         </table>
@@ -400,6 +512,9 @@ export function LocationSummaryTable({
         style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}
       >
         {data.length} locations &bull; Click headers to sort
+        {hasSTData && (
+          <span className="ml-2">&bull; ST = ServiceTitan actuals from call tracking</span>
+        )}
       </div>
     </div>
   );

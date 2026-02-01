@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getGoogleBusinessClient, AggregatedInsights } from '@/lib/google-business';
 import { hasPermission, UserPermissions } from '@/lib/permissions';
+import { getSTMetricsForLocations, STLocationMetrics } from '@/lib/st-metrics';
 
 /**
  * GET /api/gbp/insights
@@ -148,6 +149,13 @@ export async function GET(request: NextRequest) {
     const yoyData = yoyResult.data || [];
     const ytdData = ytdResult.data || [];
 
+    // Fetch ST metrics for locations with tracking phones (in parallel with cache check)
+    const stMetricsPromise = getSTMetricsForLocations(
+      locations.map(loc => ({ id: loc.id, tracking_phone: loc.tracking_phone })),
+      startDateStr,
+      endDateStr
+    );
+
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
       const { data: cachedData } = await supabase
@@ -168,8 +176,13 @@ export async function GET(request: NextRequest) {
           yoyData,
           ytdData
         );
+
+        // Merge ST metrics into the insights
+        const stMetrics = await stMetricsPromise;
+        const insightsWithST = mergeSTMetrics(insights, stMetrics);
+
         return NextResponse.json({
-          insights,
+          insights: insightsWithST,
           cached: true,
           locationCount: locations.length,
         });
@@ -188,13 +201,17 @@ export async function GET(request: NextRequest) {
     // Merge YoY and YTD data into the fresh insights
     const insightsWithComparisons = addComparisonData(freshInsights, locations, yoyData, ytdData);
 
+    // Merge ST metrics into the insights
+    const stMetrics = await stMetricsPromise;
+    const insightsWithST = mergeSTMetrics(insightsWithComparisons, stMetrics);
+
     // Cache the results (background, don't wait)
     cacheInsightsData(supabase, freshInsights, locations, startDateStr, endDateStr).catch(err => {
       console.error('Failed to cache insights:', err);
     });
 
     return NextResponse.json({
-      insights: insightsWithComparisons,
+      insights: insightsWithST,
       cached: false,
       locationCount: locations.length,
     });
@@ -577,6 +594,52 @@ function buildInsightsFromCache(
     current,
     previous: yoyTotals, // Use YoY data as previous for the stat cards
     byLocation,
+  };
+}
+
+// Helper: Merge ServiceTitan metrics into GBP insights
+function mergeSTMetrics(
+  insights: AggregatedInsights,
+  stMetrics: Map<string, STLocationMetrics>
+): AggregatedInsights & { hasSTData: boolean; stTotals: { stCallsBooked: number; stCallsTotal: number; stRevenue: number; stJobCount: number } } {
+  // Check if any location has ST data
+  const hasSTData = stMetrics.size > 0;
+
+  // Merge ST data into each location
+  const byLocationWithST = insights.byLocation.map(loc => {
+    const stData = stMetrics.get(loc.locationId);
+    return {
+      ...loc,
+      // ST metrics (null if no tracking phone configured)
+      stCallsBooked: stData?.callsBooked ?? null,
+      stCallsTotal: stData?.callsTotal ?? null,
+      stRevenue: stData?.revenue ?? null,
+      stAvgTicket: stData?.avgTicket ?? null,
+      stJobCount: stData?.jobCount ?? null,
+      hasTrackingPhone: stData !== undefined,
+    };
+  });
+
+  // Calculate ST totals
+  const stTotals = {
+    stCallsBooked: 0,
+    stCallsTotal: 0,
+    stRevenue: 0,
+    stJobCount: 0,
+  };
+
+  for (const loc of byLocationWithST) {
+    stTotals.stCallsBooked += loc.stCallsBooked || 0;
+    stTotals.stCallsTotal += loc.stCallsTotal || 0;
+    stTotals.stRevenue += loc.stRevenue || 0;
+    stTotals.stJobCount += loc.stJobCount || 0;
+  }
+
+  return {
+    ...insights,
+    byLocation: byLocationWithST,
+    hasSTData,
+    stTotals,
   };
 }
 
