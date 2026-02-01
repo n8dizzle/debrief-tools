@@ -13,7 +13,8 @@ export const config = {
     // - api/auth (NextAuth endpoints)
     // - api/huddle/backfill (cron endpoint - uses CRON_SECRET)
     // - api/huddle/snapshots/sync (cron endpoint - uses CRON_SECRET)
+    // - api/trades/sync-monthly (cron endpoint - uses CRON_SECRET)
     // - static files
-    "/((?!login|api/auth|api/huddle/backfill|api/huddle/snapshots/sync|_next/static|_next/image|favicon.ico|logo.png).*)",
+    "/((?!login|api/auth|api/huddle/backfill|api/huddle/snapshots/sync|api/trades/sync-monthly|_next/static|_next/image|favicon.ico|logo.png).*)",
   ],
 };

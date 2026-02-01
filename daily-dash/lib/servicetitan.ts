@@ -245,13 +245,22 @@ export class ServiceTitanClient {
       return this.businessUnitsCache;
     }
 
-    const response = await this.request<STPagedResponse<STBusinessUnit>>(
-      'GET',
-      `settings/v2/tenant/${this.tenantId}/business-units`,
-      { params: { pageSize: '100' } } // Include all BUs (active + inactive) for historical revenue
-    );
+    // Fetch both active and inactive business units for historical revenue
+    const [activeResponse, inactiveResponse] = await Promise.all([
+      this.request<STPagedResponse<STBusinessUnit>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/business-units`,
+        { params: { pageSize: '100', active: 'true' } }
+      ),
+      this.request<STPagedResponse<STBusinessUnit>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/business-units`,
+        { params: { pageSize: '100', active: 'false' } }
+      ),
+    ]);
 
-    this.businessUnitsCache = response.data || [];
+    const allUnits = [...(activeResponse.data || []), ...(inactiveResponse.data || [])];
+    this.businessUnitsCache = allUnits;
     return this.businessUnitsCache;
   }
 

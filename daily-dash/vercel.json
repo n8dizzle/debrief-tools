@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/trades/sync-monthly",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/huddle/snapshots/sync",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

@@ -675,8 +675,7 @@ export async function GET(request: NextRequest) {
       current.setMonth(current.getMonth() + 1);
     }
 
-    // Fetch trend revenue directly from ServiceTitan for accurate full-month totals
-    // The daily cache may have incomplete data for historical months
+    // Current month key
     const currentMonthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
 
     // For current month, use live ServiceTitan data (already fetched above as MTD)
@@ -687,33 +686,43 @@ export async function GET(request: NextRequest) {
       currentMonthData.totalRevenue = tradeData.hvac.mtd.revenue + tradeData.plumbing.mtd.revenue;
     }
 
-    // Fetch all historical months from ServiceTitan directly for accurate totals
-    // This ensures we get full-month data even if the daily cache is incomplete
-    if (stClient.isConfigured()) {
-      const historicalMonths = monthlyTrend.filter(m => m.month !== currentMonthKey);
+    // Fetch historical months from cached monthly snapshots (fast!)
+    // This avoids expensive ServiceTitan API calls for each historical month
+    const historicalMonthKeys = monthlyTrend
+      .filter(m => m.month !== currentMonthKey)
+      .map(m => m.month);
 
-      if (historicalMonths.length > 0) {
-        console.log(`Fetching ${historicalMonths.length} historical months from ServiceTitan...`);
-        const fetchTasks = historicalMonths.map(async (monthData) => {
-          const [yearStr, monthStr] = monthData.month.split('-');
-          const yr = parseInt(yearStr);
-          const mo = parseInt(monthStr);
-          const firstOfMonth = new Date(yr, mo - 1, 1);
-          const lastOfMonth = new Date(yr, mo, 0);
-          if (firstOfMonth > selectedDate) return;
-          const endDate = lastOfMonth > selectedDate ? selectedDate : lastOfMonth;
-          const startStr = firstOfMonth.toISOString().split('T')[0];
-          const endStr = endDate.toISOString().split('T')[0];
-          try {
-            const metrics = await stClient.getTradeMetrics(startStr, endStr);
-            monthData.hvacRevenue = metrics.hvac.revenue;
-            monthData.plumbingRevenue = metrics.plumbing.revenue;
-            monthData.totalRevenue = metrics.hvac.revenue + metrics.plumbing.revenue;
-          } catch (err) {
-            console.error(`Error fetching trend data for ${monthData.month}:`, err);
-          }
-        });
-        await Promise.all(fetchTasks);
+    if (historicalMonthKeys.length > 0) {
+      const { data: monthlyCache } = await supabase
+        .from('trade_monthly_snapshots')
+        .select('year_month, trade, revenue')
+        .in('year_month', historicalMonthKeys);
+
+      // Build lookup map from cached data
+      const cacheMap = new Map<string, { hvac: number; plumbing: number }>();
+      monthlyCache?.forEach((row) => {
+        const key = row.year_month;
+        if (!cacheMap.has(key)) {
+          cacheMap.set(key, { hvac: 0, plumbing: 0 });
+        }
+        const entry = cacheMap.get(key)!;
+        if (row.trade === 'hvac') {
+          entry.hvac = Number(row.revenue) || 0;
+        } else if (row.trade === 'plumbing') {
+          entry.plumbing = Number(row.revenue) || 0;
+        }
+      });
+
+      // Populate monthlyTrend from cache
+      for (const monthData of monthlyTrend) {
+        if (monthData.month === currentMonthKey) continue; // Skip current month (already populated)
+        const cached = cacheMap.get(monthData.month);
+        if (cached) {
+          monthData.hvacRevenue = cached.hvac;
+          monthData.plumbingRevenue = cached.plumbing;
+          monthData.totalRevenue = cached.hvac + cached.plumbing;
+        }
+        // If not in cache, leave as 0 (will be populated by next sync)
       }
     }
 
@@ -796,8 +805,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ...response,
       _debug: {
-        version: 'v3-direct-st-fetch',
-        trendDataSource: 'servicetitan-api',
+        version: 'v4-cached-monthly',
+        trendDataSource: 'supabase-cache',
         monthCount: monthlyTrend.length,
         nonZeroMonths: monthlyTrend.filter(m => m.totalRevenue > 0).length,
       },
