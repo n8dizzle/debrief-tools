@@ -92,13 +92,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Also get what getTradeMetrics returns
+    const lastDay = new Date(year, monthNum, 0).getDate();
+    const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${lastDay}`;
+    const tradeMetrics = await stClient.getTradeMetrics(startDate, endDate);
+
     return NextResponse.json({
-      params: { month, startDate, dayAfterEnd, fetchStartDate },
+      params: { month, startDate, endDate, dayAfterEnd, fetchStartDate },
       completedJobsCount: jobs.length,
       analysis,
+      tradeMetricsResult: {
+        hvac: {
+          revenue: tradeMetrics.hvac.revenue,
+          completedRevenue: tradeMetrics.hvac.completedRevenue,
+          nonJobRevenue: tradeMetrics.hvac.nonJobRevenue,
+          adjRevenue: tradeMetrics.hvac.adjRevenue,
+        },
+        plumbing: {
+          revenue: tradeMetrics.plumbing.revenue,
+          completedRevenue: tradeMetrics.plumbing.completedRevenue,
+          nonJobRevenue: tradeMetrics.plumbing.nonJobRevenue,
+          adjRevenue: tradeMetrics.plumbing.adjRevenue,
+        }
+      },
       expectedFromST: {
-        nonJobRevenue: 19782,
-        adjRevenue: -8798,
+        hvacNonJobRevenue: 19782,
+        hvacAdjRevenue: -8798,
+        hvacTotal: 437822,
         note: 'HVAC MTD values from ServiceTitan dashboard'
       }
     });
