@@ -25,8 +25,10 @@ export async function POST(request: Request) {
     } else {
       const session = await getServerSession(authOptions);
       if (session?.user?.email) {
-        const role = session.user.role as string;
-        const permissions = session.user.permissions as Record<string, unknown>;
+        const { role, permissions } = session.user as {
+          role: 'employee' | 'manager' | 'owner';
+          permissions: Record<string, unknown> | null;
+        };
         if (hasPermission(role, permissions, 'marketing_hub', 'can_sync_data')) {
           isAuthorized = true;
         }

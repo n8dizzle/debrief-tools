@@ -12,8 +12,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = session.user.role as string;
-    const permissions = session.user.permissions as Record<string, unknown>;
+    const { role, permissions } = session.user as {
+      role: 'employee' | 'manager' | 'owner';
+      permissions: Record<string, unknown> | null;
+    };
 
     if (!hasPermission(role, permissions, 'marketing_hub', 'can_view_analytics')) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
