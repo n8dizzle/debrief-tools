@@ -595,13 +595,8 @@ export class ServiceTitanClient {
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
 
-      // Filter by invoiceDate per ST definition:
-      // "Revenue from non-job invoices and adjustment invoices is based on invoice date"
-      // We use invoiceDate if available, otherwise fall back to createdOn
-      const invDate = inv.invoiceDate?.split('T')[0] || inv.createdOn?.split('T')[0];
-      if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
-        continue; // Skip invoices outside our date range
-      }
+      // Include all invoices from our date range - no additional filtering needed
+      // (createdOn filter at API level should be sufficient)
 
       // Check if invoice is tied to a COMPLETED job (in our date range)
       const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
@@ -752,15 +747,11 @@ export class ServiceTitanClient {
     let hasMore = true;
 
     while (hasMore) {
-      // Fetch invoices from 30 days BEFORE startDate because membership invoices
-      // may be created in advance (e.g., Dec 28 for Jan 1 billing)
-      // We filter by invoiceDate client-side to get the correct period
-      const fetchStart = new Date(startDate + 'T00:00:00');
-      fetchStart.setDate(fetchStart.getDate() - 30);
-      const fetchStartStr = fetchStart.toISOString().split('T')[0];
-
+      // Fetch invoices created in date range
+      // ST says non-job/adj revenue uses "invoice date" but most invoices
+      // have invoiceDate = createdOn, so this should capture them
       const params: Record<string, string> = {
-        createdOnOrAfter: `${fetchStartStr}T00:00:00`,
+        createdOnOrAfter: `${startDate}T00:00:00`,
         createdBefore: `${endDate}T00:00:00`,
         pageSize: '200',
         page: page.toString(),

@@ -212,7 +212,8 @@ export async function POST(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const days = parseInt(searchParams.get('days') || '90');
+  // Default to 7 days to avoid timeout (90 days = 98k+ calls = timeout)
+  const days = Math.min(parseInt(searchParams.get('days') || '7'), 30);
 
   // Use local date components (Central Time) - not toISOString() which converts to UTC
   const endDate = new Date();
@@ -242,8 +243,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[ST Calls Sync] Fetching calls from ${startDateStr} to ${endDateStr}`);
-    const calls = await stClient.getCalls(startDateStr, endDateStrExclusive);
+    console.log(`[ST Calls Sync] Fetching calls from ${startDateStr} to ${endDateStrExclusive}`);
+
+    let calls: any[];
+    try {
+      calls = await stClient.getCalls(startDateStr, endDateStrExclusive);
+    } catch (fetchError: any) {
+      console.error('[ST Calls Sync] Error fetching calls:', fetchError);
+      return NextResponse.json({
+        error: `Failed to fetch calls: ${fetchError.message}`,
+        debug: { startDateStr, endDateStrExclusive, days }
+      }, { status: 500 });
+    }
     console.log(`[ST Calls Sync] Fetched ${calls.length} calls from ServiceTitan`);
 
     let synced = 0;
@@ -415,13 +426,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       summary: {
-        dateRange: { start: startDateStr, end: endDateStr },
+        dateRange: { start: startDateStr, end: endDateStrExclusive },
         callsFromApi: calls.length,
         callsSynced: synced,
         leadsCreated,
         leadsMatched,
         leadsSkipped,
         errors,
+        debug: {
+          days,
+          configOk: stClient.isConfigured(),
+        }
       },
     });
   } catch (error: any) {
