@@ -96,7 +96,10 @@ export interface DailyTraffic {
   date: string;
   sessions: number;
   users: number;
+  newUsers: number;
   pageviews: number;
+  engagementRate: number;
+  avgSessionDuration: number;
 }
 
 export class GoogleAnalyticsClient {
@@ -206,15 +209,25 @@ export class GoogleAnalyticsClient {
   /**
    * Get traffic overview metrics
    */
-  async getTrafficOverview(days: number = 30): Promise<TrafficOverview> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
+  async getTrafficOverview(days: number = 30, startDateStr?: string, endDateStr?: string): Promise<TrafficOverview> {
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+      startDate = new Date(startDateStr + 'T00:00:00');
+      endDate = new Date(endDateStr + 'T00:00:00');
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days + 1);
+    }
+
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     const prevEndDate = new Date(startDate);
     prevEndDate.setDate(prevEndDate.getDate() - 1);
     const prevStartDate = new Date(prevEndDate);
-    prevStartDate.setDate(prevStartDate.getDate() - days + 1);
+    prevStartDate.setDate(prevStartDate.getDate() - daysDiff + 1);
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -275,10 +288,18 @@ export class GoogleAnalyticsClient {
   /**
    * Get daily traffic data for charts
    */
-  async getDailyTraffic(days: number = 30): Promise<DailyTraffic[]> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
+  async getDailyTraffic(days: number = 30, startDateStr?: string, endDateStr?: string): Promise<DailyTraffic[]> {
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+      startDate = new Date(startDateStr + 'T00:00:00');
+      endDate = new Date(endDateStr + 'T00:00:00');
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days + 1);
+    }
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -290,7 +311,10 @@ export class GoogleAnalyticsClient {
       metrics: [
         { name: 'sessions' },
         { name: 'totalUsers' },
+        { name: 'newUsers' },
         { name: 'screenPageViews' },
+        { name: 'engagementRate' },
+        { name: 'averageSessionDuration' },
       ],
       orderBys: [{ dimension: { dimensionName: 'date' }, desc: false }],
     });
@@ -299,17 +323,28 @@ export class GoogleAnalyticsClient {
       date: row.dimensionValues[0].value,
       sessions: parseInt(row.metricValues[0]?.value || '0', 10),
       users: parseInt(row.metricValues[1]?.value || '0', 10),
-      pageviews: parseInt(row.metricValues[2]?.value || '0', 10),
+      newUsers: parseInt(row.metricValues[2]?.value || '0', 10),
+      pageviews: parseInt(row.metricValues[3]?.value || '0', 10),
+      engagementRate: parseFloat(row.metricValues[4]?.value || '0'),
+      avgSessionDuration: parseFloat(row.metricValues[5]?.value || '0'),
     }));
   }
 
   /**
    * Get traffic sources breakdown
    */
-  async getTrafficSources(days: number = 30, limit: number = 10): Promise<TrafficSource[]> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
+  async getTrafficSources(days: number = 30, limit: number = 10, startDateStr?: string, endDateStr?: string): Promise<TrafficSource[]> {
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+      startDate = new Date(startDateStr + 'T00:00:00');
+      endDate = new Date(endDateStr + 'T00:00:00');
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days + 1);
+    }
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -346,10 +381,18 @@ export class GoogleAnalyticsClient {
   /**
    * Get top pages
    */
-  async getTopPages(days: number = 30, limit: number = 20): Promise<TopPage[]> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
+  async getTopPages(days: number = 30, limit: number = 20, startDateStr?: string, endDateStr?: string): Promise<TopPage[]> {
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+      startDate = new Date(startDateStr + 'T00:00:00');
+      endDate = new Date(endDateStr + 'T00:00:00');
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days + 1);
+    }
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -389,10 +432,18 @@ export class GoogleAnalyticsClient {
   /**
    * Get conversion events
    */
-  async getConversions(days: number = 30): Promise<ConversionEvent[]> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
+  async getConversions(days: number = 30, startDateStr?: string, endDateStr?: string): Promise<ConversionEvent[]> {
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+      startDate = new Date(startDateStr + 'T00:00:00');
+      endDate = new Date(endDateStr + 'T00:00:00');
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days + 1);
+    }
 
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 

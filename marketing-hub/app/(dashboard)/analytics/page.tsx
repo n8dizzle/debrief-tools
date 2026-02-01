@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   LineChart,
@@ -14,6 +14,7 @@ import {
   Bar,
   Cell,
 } from 'recharts';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 
 interface TrafficOverview {
   period: { start: string; end: string };
@@ -42,7 +43,10 @@ interface DailyTraffic {
   date: string;
   sessions: number;
   users: number;
+  newUsers: number;
   pageviews: number;
+  engagementRate: number;
+  avgSessionDuration: number;
 }
 
 interface TrafficSource {
@@ -195,11 +199,72 @@ const SOURCE_COLORS = [
   '#6B6BB8',
 ];
 
+// Metric configuration for daily traffic chart toggle
+type MetricKey = 'sessions' | 'users' | 'newUsers' | 'pageviews' | 'engagementRate' | 'avgSessionDuration';
+
+interface MetricConfig {
+  key: MetricKey;
+  label: string;
+  color: string;
+  formatValue: (value: number) => string;
+}
+
+const METRIC_CONFIG: MetricConfig[] = [
+  {
+    key: 'sessions',
+    label: 'Sessions',
+    color: 'var(--christmas-green)',
+    formatValue: (v) => v.toLocaleString(),
+  },
+  {
+    key: 'users',
+    label: 'Users',
+    color: '#6B9DB8',
+    formatValue: (v) => v.toLocaleString(),
+  },
+  {
+    key: 'newUsers',
+    label: 'New Users',
+    color: '#9B6BB8',
+    formatValue: (v) => v.toLocaleString(),
+  },
+  {
+    key: 'pageviews',
+    label: 'Pageviews',
+    color: '#B8956B',
+    formatValue: (v) => v.toLocaleString(),
+  },
+  {
+    key: 'engagementRate',
+    label: 'Engagement Rate',
+    color: '#6BB89B',
+    formatValue: (v) => `${(v * 100).toFixed(1)}%`,
+  },
+  {
+    key: 'avgSessionDuration',
+    label: 'Avg Duration',
+    color: '#B86B6B',
+    formatValue: (v) => formatDuration(v),
+  },
+];
+
+// Helper to get default date range (last 30 days)
+function getDefaultDateRange(): DateRange {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 29);
+  return {
+    start: start.toISOString().split('T')[0],
+    end: end.toISOString().split('T')[0],
+  };
+}
+
 export default function AnalyticsPage() {
   const { data: session } = useSession();
-  const [period, setPeriod] = useState('30d');
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>('sessions');
 
   // Data states
   const [overview, setOverview] = useState<TrafficOverview | null>(null);
@@ -208,16 +273,24 @@ export default function AnalyticsPage() {
   const [pages, setPages] = useState<TopPage[]>([]);
   const [conversions, setConversions] = useState<ConversionEvent[]>([]);
 
+  // Get selected metric config
+  const currentMetric = useMemo(
+    () => METRIC_CONFIG.find((m) => m.key === selectedMetric) || METRIC_CONFIG[0],
+    [selectedMetric]
+  );
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
+    const params = `start=${dateRange.start}&end=${dateRange.end}`;
+
     try {
       const [trafficRes, sourcesRes, pagesRes, conversionsRes] = await Promise.all([
-        fetch(`/api/analytics/traffic?period=${period}`, { credentials: 'include' }),
-        fetch(`/api/analytics/sources?period=${period}`, { credentials: 'include' }),
-        fetch(`/api/analytics/pages?period=${period}`, { credentials: 'include' }),
-        fetch(`/api/analytics/conversions?period=${period}`, { credentials: 'include' }),
+        fetch(`/api/analytics/traffic?${params}`, { credentials: 'include' }),
+        fetch(`/api/analytics/sources?${params}`, { credentials: 'include' }),
+        fetch(`/api/analytics/pages?${params}`, { credentials: 'include' }),
+        fetch(`/api/analytics/conversions?${params}`, { credentials: 'include' }),
       ]);
 
       // Check for errors
@@ -250,13 +323,23 @@ export default function AnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [period]);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const periodLabel = period === '7d' ? '7 days' : period === '30d' ? '30 days' : '90 days';
+  // Handle date range change
+  const handleDateChange = useCallback((range: DateRange) => {
+    setDateRange(range);
+  }, []);
+
+  // Calculate days in range for display
+  const daysInRange = useMemo(() => {
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  }, [dateRange]);
 
   return (
     <div className="space-y-6">
@@ -271,20 +354,11 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm"
-            style={{
-              backgroundColor: 'var(--bg-input)',
-              color: 'var(--christmas-cream)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-          </select>
+          <DateRangePicker
+            value={dateRange}
+            onChange={handleDateChange}
+            dataDelay={0}
+          />
           <button
             onClick={fetchData}
             disabled={isLoading}
@@ -321,7 +395,7 @@ export default function AnalyticsPage() {
           title="Sessions"
           value={overview?.current.sessions || 0}
           change={overview ? calcChange(overview.current.sessions, overview.previous.sessions) : undefined}
-          changeLabel={`Last ${periodLabel}`}
+          changeLabel={`vs prev ${daysInRange} days`}
           isLoading={isLoading}
           icon={
             <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
@@ -402,9 +476,38 @@ export default function AnalyticsPage() {
           border: '1px solid var(--border-subtle)',
         }}
       >
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-          Daily Traffic
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            Daily Traffic
+          </h2>
+          {/* Metric Toggle Buttons */}
+          <div className="flex flex-wrap gap-2">
+            {METRIC_CONFIG.map((metric) => (
+              <button
+                key={metric.key}
+                onClick={() => setSelectedMetric(metric.key)}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                style={{
+                  backgroundColor:
+                    selectedMetric === metric.key
+                      ? metric.color
+                      : 'var(--bg-input)',
+                  color:
+                    selectedMetric === metric.key
+                      ? '#fff'
+                      : 'var(--text-muted)',
+                  border: `1px solid ${
+                    selectedMetric === metric.key
+                      ? metric.color
+                      : 'var(--border-subtle)'
+                  }`,
+                }}
+              >
+                {metric.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {isLoading ? (
           <div className="h-64 flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--christmas-green)', borderTopColor: 'transparent' }} />
@@ -424,7 +527,11 @@ export default function AnalyticsPage() {
                   stroke="var(--text-muted)"
                   fontSize={12}
                 />
-                <YAxis stroke="var(--text-muted)" fontSize={12} />
+                <YAxis
+                  stroke="var(--text-muted)"
+                  fontSize={12}
+                  tickFormatter={(value) => currentMetric.formatValue(value)}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'var(--bg-secondary)',
@@ -433,22 +540,15 @@ export default function AnalyticsPage() {
                     color: 'var(--christmas-cream)',
                   }}
                   labelFormatter={(label) => formatDate(String(label))}
+                  formatter={(value) => [currentMetric.formatValue(Number(value) || 0), currentMetric.label]}
                 />
                 <Line
                   type="monotone"
-                  dataKey="sessions"
-                  stroke="var(--christmas-green)"
+                  dataKey={selectedMetric}
+                  stroke={currentMetric.color}
                   strokeWidth={2}
                   dot={false}
-                  name="Sessions"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="users"
-                  stroke="#6B9DB8"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Users"
+                  name={currentMetric.label}
                 />
               </LineChart>
             </ResponsiveContainer>

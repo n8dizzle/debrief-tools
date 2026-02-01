@@ -22,10 +22,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
+    const start = searchParams.get('start');
+    const end = searchParams.get('end');
     const period = searchParams.get('period') || '30d';
     const limit = parseInt(searchParams.get('limit') || '20', 10);
 
-    // Parse period
+    // Parse period as fallback
     let days = 30;
     if (period === '7d') days = 7;
     else if (period === '90d') days = 90;
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const pages = await client.getTopPages(days, limit);
+    const pages = await client.getTopPages(days, limit, start || undefined, end || undefined);
 
     return NextResponse.json({ pages });
   } catch (error) {

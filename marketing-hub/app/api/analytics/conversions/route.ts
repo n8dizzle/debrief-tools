@@ -22,10 +22,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
+    const start = searchParams.get('start');
+    const end = searchParams.get('end');
     const period = searchParams.get('period') || '30d';
     const includeAll = searchParams.get('includeAll') === 'true';
 
-    // Parse period
+    // Parse period as fallback
     let days = 30;
     if (period === '7d') days = 7;
     else if (period === '90d') days = 90;
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const conversions = await client.getConversions(days);
+    const conversions = await client.getConversions(days, start || undefined, end || undefined);
 
     return NextResponse.json({ conversions });
   } catch (error) {
