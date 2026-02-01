@@ -432,7 +432,7 @@ export default function AnalyticsPage() {
                     borderRadius: '8px',
                     color: 'var(--christmas-cream)',
                   }}
-                  labelFormatter={formatDate}
+                  labelFormatter={(label) => formatDate(String(label))}
                 />
                 <Line
                   type="monotone"

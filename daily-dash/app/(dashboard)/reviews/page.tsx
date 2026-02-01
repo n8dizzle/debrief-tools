@@ -1640,11 +1640,11 @@ export default function ReviewsPage() {
     reviewsCache.clear();
   }, []);
 
-  // Handle mentions update - update local state
+  // Handle mentions update - update local state and mark as reviewed
   const handleMentionsUpdate = useCallback((reviewId: string, mentions: string[] | null) => {
     setReviews(prev => prev.map(r =>
       r.id === reviewId
-        ? { ...r, team_members_mentioned: mentions }
+        ? { ...r, team_members_mentioned: mentions, mentions_reviewed: true }
         : r
     ));
     // Clear cache since data changed
