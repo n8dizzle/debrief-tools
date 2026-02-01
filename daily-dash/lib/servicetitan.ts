@@ -752,10 +752,15 @@ export class ServiceTitanClient {
     let hasMore = true;
 
     while (hasMore) {
-      // Fetch by createdOn (API doesn't support invoiceDate filter)
-      // We'll filter by invoiceDate client-side in processing
+      // Fetch invoices from 30 days BEFORE startDate because membership invoices
+      // may be created in advance (e.g., Dec 28 for Jan 1 billing)
+      // We filter by invoiceDate client-side to get the correct period
+      const fetchStart = new Date(startDate + 'T00:00:00');
+      fetchStart.setDate(fetchStart.getDate() - 30);
+      const fetchStartStr = fetchStart.toISOString().split('T')[0];
+
       const params: Record<string, string> = {
-        createdOnOrAfter: `${startDate}T00:00:00`,
+        createdOnOrAfter: `${fetchStartStr}T00:00:00`,
         createdBefore: `${endDate}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
