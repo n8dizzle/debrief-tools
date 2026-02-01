@@ -10,18 +10,20 @@ interface MarketingSidebarProps {
   onClose?: () => void;
 }
 
+// GSD = Get Shit Done - action items
+const gsdLinks = [
+  { href: '/tasks', label: 'Tasks', icon: 'checklist' },
+  { href: 'https://dash.christmasair.com/reviews', label: 'Reviews', icon: 'star', external: true },
+  { href: '/posts', label: 'GBP Posts', icon: 'megaphone' },
+];
+
+// Analytics and insights
 const navLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
-  { href: '/posts', label: 'GBP Posts', icon: 'megaphone' },
   { href: '/lsa', label: 'Local Service Ads', icon: 'phone' },
   { href: '/gbp', label: 'GBP Insights', icon: 'chart-bar' },
   { href: '/analytics', label: 'Website Analytics', icon: 'globe' },
   { href: '/social', label: 'Social Media', icon: 'share' },
-  { href: '/tasks', label: 'Tasks', icon: 'checklist' },
-];
-
-const settingsLinks = [
-  { href: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 function NavIcon({ type }: { type: string }) {
@@ -202,13 +204,13 @@ export default function MarketingSidebar({ isOpen = false, onClose }: MarketingS
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">
-          {/* Main Navigation */}
+          {/* Reporting - Analytics & Insights */}
           <div className="mb-6">
             <div
               className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
               style={{ color: 'var(--text-muted)' }}
             >
-              Marketing
+              Reporting
             </div>
             <div className="space-y-1">
               {navLinks.map((link) => (
@@ -230,51 +232,43 @@ export default function MarketingSidebar({ isOpen = false, onClose }: MarketingS
             </div>
           </div>
 
-          {/* Settings Section */}
-          <div>
+          {/* GSD - Get Shit Done */}
+          <div className="mb-6">
             <div
               className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
               style={{ color: 'var(--text-muted)' }}
             >
-              System
+              GSD
             </div>
             <div className="space-y-1">
-              {settingsLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                    color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                  }}
-                >
-                  <NavIcon type={link.icon} />
-                  <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
-                    {link.label}
-                  </span>
-                </Link>
+              {gsdLinks.map((link) => (
+                link.external ? (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-white/5"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <NavIcon type={link.icon} />
+                    <span className="text-sm">{link.label}</span>
+                  </a>
+                ) : (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    style={{
+                      backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
+                      color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    <NavIcon type={link.icon} />
+                    <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
+                      {link.label}
+                    </span>
+                  </Link>
+                )
               ))}
-            </div>
-          </div>
-
-          {/* Daily Dash Links */}
-          <div className="mt-6">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Daily Dash
-            </div>
-            <div className="space-y-1">
-              <a
-                href="https://dash.christmasair.com/reviews"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-white/5"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <NavIcon type="star" />
-                <span className="text-sm">Reviews</span>
-              </a>
             </div>
           </div>
         </nav>
