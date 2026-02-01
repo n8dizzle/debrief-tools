@@ -3,13 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
-
-// Helper to get yesterday's date string
-function getYesterdayDateString(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
-}
+import { getYesterdayDateString, getLocalDateString } from '@/lib/huddle-utils';
 
 // POST /api/trades/sync - Sync trade metrics for a specific date
 // Body: { date?: string, backfillDays?: number }
@@ -40,7 +34,7 @@ export async function POST(request: NextRequest) {
       for (let i = 1; i <= backfillDays; i++) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        datesToSync.push(d.toISOString().split('T')[0]);
+        datesToSync.push(getLocalDateString(d));
       }
     } else {
       // Single date mode

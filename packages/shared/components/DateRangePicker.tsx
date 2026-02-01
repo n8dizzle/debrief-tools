@@ -21,6 +21,17 @@ interface PresetOption {
   getRange: () => DateRange;
 }
 
+/**
+ * Format a Date to YYYY-MM-DD using LOCAL time (not UTC)
+ * IMPORTANT: Never use toISOString().split('T')[0] - it converts to UTC first!
+ */
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activePreset, setActivePreset] = useState<PresetKey>('mtd');
@@ -34,7 +45,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
       label: 'Today',
       getRange: () => {
         const today = new Date();
-        const dateStr = today.toISOString().split('T')[0];
+        const dateStr = formatLocalDate(today);
         return { start: dateStr, end: dateStr };
       },
     },
@@ -44,7 +55,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
       getRange: () => {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const dateStr = yesterday.toISOString().split('T')[0];
+        const dateStr = formatLocalDate(yesterday);
         return { start: dateStr, end: dateStr };
       },
     },
@@ -58,8 +69,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday start
         start.setDate(start.getDate() - diff);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -75,8 +86,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const start = new Date(end);
         start.setDate(end.getDate() - 6); // Previous Monday
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -87,8 +98,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const end = new Date();
         const start = new Date(end.getFullYear(), end.getMonth(), 1);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -100,8 +111,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         end.setDate(0); // Last day of previous month
         const start = new Date(end.getFullYear(), end.getMonth(), 1);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -113,8 +124,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const quarter = Math.floor(end.getMonth() / 3);
         const start = new Date(end.getFullYear(), quarter * 3, 1);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -127,8 +138,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const start = new Date(today.getFullYear(), (quarter - 1) * 3, 1);
         const end = new Date(today.getFullYear(), quarter * 3, 0);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -139,8 +150,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const end = new Date();
         const start = new Date(end.getFullYear(), 0, 1);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },
@@ -152,8 +163,8 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         const start = new Date(today.getFullYear() - 1, 0, 1);
         const end = new Date(today.getFullYear() - 1, 11, 31);
         return {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: formatLocalDate(start),
+          end: formatLocalDate(end),
         };
       },
     },

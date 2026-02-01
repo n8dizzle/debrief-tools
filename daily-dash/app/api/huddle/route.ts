@@ -726,26 +726,37 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Use live trade totals for pacing cards (instead of snapshot sums)
+    // This ensures consistency with trade sections and chart
+    const liveTodayRevenue = tradeData.hvac.today.revenue + tradeData.plumbing.today.revenue;
+    const liveWtdRevenue = tradeData.hvac.wtd.revenue + tradeData.plumbing.wtd.revenue;
+    const liveMtdRevenue = tradeData.hvac.mtd.revenue + tradeData.plumbing.mtd.revenue;
+    const liveQtdRevenue = tradeData.hvac.qtd.revenue + tradeData.plumbing.qtd.revenue;
+    const liveYtdRevenue = tradeData.hvac.ytd.revenue + tradeData.plumbing.ytd.revenue;
+
+    // Recalculate pacing with live MTD data
+    const livePacingPercent = expectedMTD > 0 ? Math.round((liveMtdRevenue / expectedMTD) * 100) : 0;
+
     // Pacing data object
     const pacingData = {
-      todayRevenue,
+      todayRevenue: liveTodayRevenue,
       todaySales,
       dailyTarget,      // Base daily target (for full business day)
       todayTarget,      // Adjusted for day of week (0 on Sunday, 50% on Saturday)
-      wtdRevenue,
+      wtdRevenue: liveWtdRevenue,
       wtdSales,
       weeklyTarget,
-      mtdRevenue,
+      mtdRevenue: liveMtdRevenue,
       mtdSales,
       monthlyTarget: monthlyTargetValue,
-      qtdRevenue,
+      qtdRevenue: liveQtdRevenue,
       qtdSales,
       quarterlyTarget: quarterlyTargetValue,
       quarter,
-      ytdRevenue,
+      ytdRevenue: liveYtdRevenue,
       annualTarget: annualTargetValue,
       expectedAnnualPacingPercent, // Seasonal weighted expected YTD %
-      pacingPercent,
+      pacingPercent: livePacingPercent,
       businessDaysRemaining,
       businessDaysElapsed: daysElapsedInMonth,
       businessDaysInMonth,
@@ -805,10 +816,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ...response,
       _debug: {
-        version: 'v4-cached-monthly',
+        version: 'v5-live-trade-totals',
+        pacingSource: 'live-trade-data',
         trendDataSource: 'supabase-cache',
         monthCount: monthlyTrend.length,
         nonZeroMonths: monthlyTrend.filter(m => m.totalRevenue > 0).length,
+        liveTodayRevenue,
+        liveMtdRevenue,
       },
     });
   } catch (error) {

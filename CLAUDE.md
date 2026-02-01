@@ -5,6 +5,44 @@ alwaysApply: true
 
 # Claude Code Context - Christmas Air Internal Tools
 
+## CRITICAL: Timezone Rules (READ FIRST)
+
+**This company is in TEXAS (Central Time). All dates MUST be in Central Time, not UTC.**
+
+### NEVER DO THIS:
+```typescript
+// WRONG - toISOString() converts to UTC, causing 6-hour date shifts!
+const dateStr = new Date().toISOString().split('T')[0];
+const dateStr = someDate.toISOString().split('T')[0];
+
+// WRONG - Z suffix means UTC, not local time!
+params.completedOnOrAfter = `${date}T00:00:00Z`;
+```
+
+### ALWAYS DO THIS:
+```typescript
+// CORRECT - Use local date components directly
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// CORRECT - For API timestamps, NO Z suffix (let API interpret as tenant's local time)
+params.completedOnOrAfter = `${date}T00:00:00`;
+
+// CORRECT - In daily-dash, use the helper functions from huddle-utils.ts:
+import { getTodayDateString, getYesterdayDateString, getLocalDateString } from '@/lib/huddle-utils';
+```
+
+### Why This Matters:
+- `new Date()` in JavaScript uses local time
+- `toISOString()` converts that local time to UTC
+- At 11pm Central on Jan 31, `toISOString().split('T')[0]` returns "2026-02-01" (wrong!)
+- ServiceTitan API interprets timestamps without `Z` as tenant local time
+- Using `Z` suffix caused ALL revenue queries to be off by 6 hours
+
 ## Project Overview
 
 This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:

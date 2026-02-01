@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
+import { getLocalDateString } from '@/lib/huddle-utils';
 
 interface MonthSyncResult {
   yearMonth: string;
@@ -116,8 +117,8 @@ export async function POST(request: NextRequest) {
 
       // For months in progress (shouldn't happen with current logic), cap at today
       const endDate = lastOfMonth > today ? today : lastOfMonth;
-      const startStr = firstOfMonth.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
+      const startStr = getLocalDateString(firstOfMonth);
+      const endStr = getLocalDateString(endDate);
 
       try {
         console.log(`Syncing ${yearMonth}: ${startStr} to ${endStr}`);

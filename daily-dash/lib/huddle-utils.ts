@@ -193,17 +193,30 @@ export function formatDateForDisplay(dateString: string): string {
 }
 
 /**
+ * Convert a Date object to YYYY-MM-DD string in Central Time
+ * IMPORTANT: Always use this instead of toISOString().split('T')[0] to avoid timezone issues
+ */
+export function getLocalDateString(date: Date): string {
+  // Convert to Central Time
+  const centralTime = new Date(date.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const year = centralTime.getFullYear();
+  const month = String(centralTime.getMonth() + 1).padStart(2, '0');
+  const day = String(centralTime.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Get date range for last N days
  */
 export function getDateRange(days: number): { start: string; end: string; dates: string[] } {
   const end = getTodayDateString();
   const dates: string[] = [];
 
-  const endDate = new Date(end + 'T00:00:00');
+  const endDate = new Date(end + 'T12:00:00'); // Use noon to avoid any edge cases
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(endDate);
     d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(getLocalDateString(d));
   }
 
   return {

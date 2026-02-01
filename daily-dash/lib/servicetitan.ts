@@ -737,8 +737,8 @@ export class ServiceTitanClient {
 
     while (hasMore) {
       const params: Record<string, string> = {
-        createdOnOrAfter: `${createdOnOrAfter}T00:00:00Z`,
-        createdBefore: `${createdBefore}T00:00:00Z`,
+        createdOnOrAfter: `${createdOnOrAfter}T00:00:00`,
+        createdBefore: `${createdBefore}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
       };
@@ -778,14 +778,14 @@ export class ServiceTitanClient {
 
     while (hasMore) {
       const params: Record<string, string> = {
-        completedOnOrAfter: `${completedOnOrAfter}T00:00:00Z`,
+        completedOnOrAfter: `${completedOnOrAfter}T00:00:00`,
         jobStatus: 'Completed',
         pageSize: '200',
         page: page.toString(),
       };
 
       if (completedBefore) {
-        params.completedBefore = `${completedBefore}T00:00:00Z`;
+        params.completedBefore = `${completedBefore}T00:00:00`;
       }
 
       if (businessUnitId) {
@@ -817,12 +817,12 @@ export class ServiceTitanClient {
     scheduledBefore?: string
   ): Promise<STJob[]> {
     const params: Record<string, string> = {
-      scheduledOnOrAfter: `${scheduledOnOrAfter}T00:00:00Z`,
+      scheduledOnOrAfter: `${scheduledOnOrAfter}T00:00:00`,
       pageSize: '200',
     };
 
     if (scheduledBefore) {
-      params.scheduledBefore = `${scheduledBefore}T00:00:00Z`;
+      params.scheduledBefore = `${scheduledBefore}T00:00:00`;
     }
 
     const response = await this.request<STPagedResponse<STJob>>(
@@ -842,12 +842,12 @@ export class ServiceTitanClient {
     createdBefore?: string
   ): Promise<STInvoice[]> {
     const params: Record<string, string> = {
-      createdOnOrAfter: `${createdOnOrAfter}T00:00:00Z`,
+      createdOnOrAfter: `${createdOnOrAfter}T00:00:00`,
       pageSize: '200',
     };
 
     if (createdBefore) {
-      params.createdBefore = `${createdBefore}T00:00:00Z`;
+      params.createdBefore = `${createdBefore}T00:00:00`;
     }
 
     const response = await this.request<STPagedResponse<STInvoice>>(
@@ -1126,12 +1126,12 @@ export class ServiceTitanClient {
     soldBeforeDate?: string
   ): Promise<STEstimate[]> {
     const params: Record<string, string> = {
-      soldAfter: `${soldAfterDate}T00:00:00Z`,
+      soldAfter: `${soldAfterDate}T00:00:00`,
       pageSize: '200',
     };
 
     if (soldBeforeDate) {
-      params.soldBefore = `${soldBeforeDate}T00:00:00Z`;
+      params.soldBefore = `${soldBeforeDate}T00:00:00`;
     }
 
     const response = await this.request<STPagedResponse<STEstimate>>(
@@ -1180,13 +1180,13 @@ export class ServiceTitanClient {
 
     while (hasMore) {
       const params: Record<string, string> = {
-        receivedOnOrAfter: `${receivedOnOrAfter}T00:00:00Z`,
+        receivedOnOrAfter: `${receivedOnOrAfter}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
       };
 
       if (receivedBefore) {
-        params.receivedBefore = `${receivedBefore}T00:00:00Z`;
+        params.receivedBefore = `${receivedBefore}T00:00:00`;
       }
 
       if (options.direction) {
