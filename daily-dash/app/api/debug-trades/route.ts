@@ -67,10 +67,26 @@ export async function GET(request: NextRequest) {
         combined: hvacTotal + plumbingTotal + otherTotal,
       },
       metricsResult: {
-        hvacRevenue: metrics.hvac.revenue,
-        hvacCompleted: metrics.hvac.completedRevenue,
-        plumbingRevenue: metrics.plumbing.revenue,
-        plumbingCompleted: metrics.plumbing.completedRevenue,
+        hvac: {
+          revenue: metrics.hvac.revenue,
+          completedRevenue: metrics.hvac.completedRevenue,
+          nonJobRevenue: metrics.hvac.nonJobRevenue,
+          adjRevenue: metrics.hvac.adjRevenue,
+        },
+        plumbing: {
+          revenue: metrics.plumbing.revenue,
+          completedRevenue: metrics.plumbing.completedRevenue,
+          nonJobRevenue: metrics.plumbing.nonJobRevenue,
+          adjRevenue: metrics.plumbing.adjRevenue,
+        },
+        totals: {
+          totalRevenue: metrics.hvac.revenue + metrics.plumbing.revenue,
+          completedRevenue: metrics.hvac.completedRevenue + metrics.plumbing.completedRevenue,
+          nonJobRevenue: metrics.hvac.nonJobRevenue + metrics.plumbing.nonJobRevenue,
+          adjRevenue: metrics.hvac.adjRevenue + metrics.plumbing.adjRevenue,
+        },
+        // ST shows: Completed=$563,271, Non-Job=$19,782, Adj=-$11,919, Total=$571,134
+        stComparison: 'Compare totals above with ST: Completed=$563,271, Non-Job=$19,782, Adj=-$11,919, Total=$571,134',
       },
       // Sample jobs to verify data
       sampleJobs: {

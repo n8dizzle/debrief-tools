@@ -35,6 +35,10 @@ interface STInvoice {
   balance: number;
   summary?: string;
   createdOn?: string;
+  invoiceDate?: string;  // The actual invoice date (for revenue attribution)
+  modifiedOn?: string;
+  adjustmentToId?: number | null;  // If set, this is an adjustment invoice
+  invoiceType?: string;  // Type of invoice (e.g., "Adjustment")
 }
 
 interface STEstimateItem {
@@ -535,7 +539,8 @@ export class ServiceTitanClient {
     const jobToBuMap = new Map<number, number>();
     jobs.forEach(j => jobToBuMap.set(j.id, j.businessUnitId));
 
-    // Fetch all invoices for the date range
+    // Fetch invoices - use broader range to catch invoices created before but with invoiceDate in range
+    // We filter by invoiceDate in the processing loop to match ST's revenue attribution
     const invoices = await this.getInvoicesDateRange(startDate, dayAfterEnd);
 
     // === Calculate Completed Revenue by filtering jobs ===
@@ -589,6 +594,14 @@ export class ServiceTitanClient {
 
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
+
+      // Filter by invoiceDate (not createdOn) for revenue attribution
+      // This matches how ServiceTitan calculates Non-Job and Adj Revenue
+      const invoiceDate = inv.invoiceDate?.split('T')[0] || inv.createdOn?.split('T')[0];
+      if (!invoiceDate || invoiceDate < startDate || invoiceDate >= dayAfterEnd) {
+        continue; // Skip invoices outside our date range
+      }
+
       // Check if invoice is tied to a COMPLETED job (in our date range)
       const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
 
@@ -600,8 +613,29 @@ export class ServiceTitanClient {
         invoiceBuId = allJobBuMap.get(inv.job.id);
       }
 
-      if (total < 0) {
-        // Negative invoice (refund/credit) - attribute to business unit
+      // Check if this is an ADJUSTMENT invoice (has adjustmentToId or negative total)
+      const isAdjustmentInvoice = inv.adjustmentToId != null || total < 0;
+      const hasJob = inv.job?.id != null;
+
+      if (!hasJob) {
+        // NO JOB = Non-Job Revenue (includes non-job adjustments, memberships, counter sales)
+        // ST: "Revenue from invoices not tied to a job"
+        if (invoiceBuId) {
+          if (hvacMaintenanceBuIds.includes(invoiceBuId)) {
+            hvacMaintenanceNonJobRevenue += total;
+          } else if (plumbingBuIds.includes(invoiceBuId)) {
+            plumbingMaintenanceNonJobRevenue += total;
+          } else if (hvacBuIds.includes(invoiceBuId)) {
+            hvacMaintenanceNonJobRevenue += total;
+          } else {
+            otherNonJobRevenue += total;
+          }
+        } else {
+          hvacMaintenanceNonJobRevenue += total;
+        }
+      } else if (isAdjustmentInvoice) {
+        // HAS JOB + IS ADJUSTMENT = Adj Revenue
+        // ST: "Revenue from adjustment invoices added to jobs"
         if (invoiceBuId) {
           if (hvacBuIds.includes(invoiceBuId)) {
             hvacAdjRevenue += total;
@@ -612,27 +646,8 @@ export class ServiceTitanClient {
             plumbingAdjRevenue += total;
           }
         }
-      } else if (total > 0 && !inv.job?.id) {
-        // Positive invoice with NO JOB = non-job revenue (memberships, standalone sales, etc.)
-        // Note: Invoices tied to jobs (even from prior periods) are NOT non-job revenue
-        if (invoiceBuId) {
-          if (hvacMaintenanceBuIds.includes(invoiceBuId)) {
-            hvacMaintenanceNonJobRevenue += total;
-          } else if (plumbingBuIds.includes(invoiceBuId)) {
-            plumbingMaintenanceNonJobRevenue += total;
-          } else if (hvacBuIds.includes(invoiceBuId)) {
-            // Other HVAC business unit - attribute to that dept's non-job (but we only track maintenance)
-            // For now, still attribute to HVAC Maintenance
-            hvacMaintenanceNonJobRevenue += total;
-          } else {
-            otherNonJobRevenue += total;
-          }
-        } else {
-          // No business unit determinable - attribute to HVAC Maintenance as default
-          hvacMaintenanceNonJobRevenue += total;
-        }
       }
-      // Positive invoices tied to completed jobs are already counted in completedRevenue via job.total
+      // Regular positive invoices tied to jobs are already counted in completedRevenue via job.total
     }
 
     // === Sum up Non-Job Revenue ===
@@ -728,17 +743,19 @@ export class ServiceTitanClient {
    * Get invoices for a date range (handles pagination)
    */
   async getInvoicesDateRange(
-    createdOnOrAfter: string,
-    createdBefore: string
+    startDate: string,
+    endDate: string
   ): Promise<STInvoice[]> {
     const allInvoices: STInvoice[] = [];
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
+      // Use modifiedOnOrAfter to capture invoices that were posted/modified in the date range
+      // This is more accurate than createdOn for revenue attribution
       const params: Record<string, string> = {
-        createdOnOrAfter: `${createdOnOrAfter}T00:00:00`,
-        createdBefore: `${createdBefore}T00:00:00`,
+        modifiedOnOrAfter: `${startDate}T00:00:00`,
+        modifiedBefore: `${endDate}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
       };
