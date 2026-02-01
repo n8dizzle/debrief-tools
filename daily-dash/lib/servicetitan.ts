@@ -595,12 +595,13 @@ export class ServiceTitanClient {
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
 
-      // Filter by invoiceDate (not createdOn) for revenue attribution
-      // This matches how ServiceTitan calculates Non-Job and Adj Revenue
+      // Filter by invoiceDate for revenue attribution (matches ST behavior)
+      // If invoiceDate is missing, use createdOn since we already filtered by createdOnOrAfter
       const invoiceDate = inv.invoiceDate?.split('T')[0] || inv.createdOn?.split('T')[0];
-      if (!invoiceDate || invoiceDate < startDate || invoiceDate >= dayAfterEnd) {
-        continue; // Skip invoices outside our date range
+      if (invoiceDate && (invoiceDate < startDate || invoiceDate >= dayAfterEnd)) {
+        continue; // Skip invoices with dates outside our range
       }
+      // If no date available, include it (it was created in our range)
 
       // Check if invoice is tied to a COMPLETED job (in our date range)
       const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
@@ -751,11 +752,11 @@ export class ServiceTitanClient {
     let hasMore = true;
 
     while (hasMore) {
-      // Use modifiedOnOrAfter to capture invoices that were posted/modified in the date range
-      // This is more accurate than createdOn for revenue attribution
+      // Use createdOnOrAfter to get invoices created in date range
+      // We filter by invoiceDate in the processing loop for proper revenue attribution
       const params: Record<string, string> = {
-        modifiedOnOrAfter: `${startDate}T00:00:00`,
-        modifiedBefore: `${endDate}T00:00:00`,
+        createdOnOrAfter: `${startDate}T00:00:00`,
+        createdBefore: `${endDate}T00:00:00`,
         pageSize: '200',
         page: page.toString(),
       };

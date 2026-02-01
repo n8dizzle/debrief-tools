@@ -9,6 +9,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper to get env vars at runtime (not module load time)
+function getSTConfig() {
+  return {
+    clientId: (process.env.ST_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.ST_CLIENT_SECRET || '').trim(),
+    tenantId: (process.env.ST_TENANT_ID || '').trim(),
+    appKey: (process.env.ST_APP_KEY || '').trim(),
+  };
+}
+
 // ServiceTitan client for calls
 class STCallsClient {
   private readonly BASE_URL = 'https://api.servicetitan.io';
@@ -16,13 +26,18 @@ class STCallsClient {
   private accessToken: string | null = null;
   private tokenExpiresAt: Date | null = null;
 
-  private clientId = process.env.ST_CLIENT_ID || '';
-  private clientSecret = process.env.ST_CLIENT_SECRET || '';
-  private tenantId = process.env.ST_TENANT_ID || '';
-  private appKey = process.env.ST_APP_KEY || '';
-
   isConfigured(): boolean {
-    return !!(this.clientId && this.clientSecret && this.tenantId && this.appKey);
+    const config = getSTConfig();
+    const configured = !!(config.clientId && config.clientSecret && config.tenantId && config.appKey);
+    if (!configured) {
+      console.log('[ST Calls] Missing config:', {
+        hasClientId: !!config.clientId,
+        hasClientSecret: !!config.clientSecret,
+        hasTenantId: !!config.tenantId,
+        hasAppKey: !!config.appKey,
+      });
+    }
+    return configured;
   }
 
   private async getAccessToken(): Promise<string> {
@@ -34,17 +49,20 @@ class STCallsClient {
       }
     }
 
+    const config = getSTConfig();
     const response = await fetch(this.AUTH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'client_credentials',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ST Auth] Failed:', response.status, errorText.slice(0, 200));
       throw new Error(`Failed to get ST access token: ${response.status}`);
     }
 
@@ -59,6 +77,7 @@ class STCallsClient {
     endpoint: string,
     options: { params?: Record<string, string> } = {}
   ): Promise<T> {
+    const config = getSTConfig();
     const token = await this.getAccessToken();
     let url = `${this.BASE_URL}/${endpoint}`;
     if (options.params) {
@@ -69,7 +88,7 @@ class STCallsClient {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
-        'ST-App-Key': this.appKey,
+        'ST-App-Key': config.appKey,
         'Content-Type': 'application/json',
       },
     });
@@ -86,6 +105,7 @@ class STCallsClient {
     receivedOnOrAfter: string,
     receivedBefore?: string
   ): Promise<any[]> {
+    const config = getSTConfig();
     const allCalls: any[] = [];
     let page = 1;
     let hasMore = true;
@@ -104,7 +124,7 @@ class STCallsClient {
       const response = await this.request<{
         data: any[];
         hasMore: boolean;
-      }>('GET', `telecom/v2/tenant/${this.tenantId}/calls`, { params });
+      }>('GET', `telecom/v2/tenant/${config.tenantId}/calls`, { params });
 
       allCalls.push(...(response.data || []));
       hasMore = response.hasMore;
