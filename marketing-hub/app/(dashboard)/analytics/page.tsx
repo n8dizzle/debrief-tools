@@ -112,21 +112,17 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// Stat card component
+// Stat card component - cleaner horizontal layout
 function StatCard({
   title,
   value,
   change,
-  changeLabel,
-  icon,
   isLoading,
   format = 'number',
 }: {
   title: string;
   value: number;
   change?: string;
-  changeLabel?: string;
-  icon: React.ReactNode;
   isLoading?: boolean;
   format?: 'number' | 'percent' | 'duration';
 }) {
@@ -141,48 +137,42 @@ function StatCard({
     }
   }
 
+  const isPositive = change?.startsWith('+');
+  const isNegative = change?.startsWith('-');
+
   return (
     <div
-      className="rounded-xl p-5 transition-colors"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: 'var(--christmas-green)', opacity: 0.9 }}
-        >
-          {icon}
+      <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+        {title}
+      </div>
+      <div className="flex items-baseline gap-3">
+        <div className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          {isLoading ? (
+            <span className="inline-block w-16 h-8 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
+          ) : (
+            displayValue
+          )}
         </div>
         {change && !isLoading && (
           <span
-            className="text-xs font-medium px-2 py-1 rounded-full"
+            className="text-sm font-medium"
             style={{
-              backgroundColor: change.startsWith('+') ? 'rgba(93, 138, 102, 0.2)' : 'rgba(139, 45, 50, 0.2)',
-              color: change.startsWith('+') ? 'var(--christmas-green-light)' : '#c97878',
+              color: isPositive ? 'var(--christmas-green-light)' : isNegative ? '#c97878' : 'var(--text-muted)',
             }}
           >
             {change}
           </span>
         )}
       </div>
-      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-        {isLoading ? (
-          <span className="inline-block w-16 h-7 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
-        ) : (
-          displayValue
-        )}
+      <div className="text-[11px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+        vs same period last year
       </div>
-      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-        {title}
-      </div>
-      {changeLabel && (
-        <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          {changeLabel}
-        </div>
-      )}
     </div>
   );
 }
@@ -389,82 +379,45 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Stats Grid - 3 columns on desktop, 2 on tablet, 2 on mobile */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
           title="Sessions"
           value={overview?.current.sessions || 0}
           change={overview ? calcChange(overview.current.sessions, overview.previous.sessions) : undefined}
-          changeLabel="vs last year"
           isLoading={isLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-            </svg>
-          }
         />
         <StatCard
           title="Users"
           value={overview?.current.users || 0}
           change={overview ? calcChange(overview.current.users, overview.previous.users) : undefined}
-          changeLabel="Unique visitors"
           isLoading={isLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-            </svg>
-          }
         />
         <StatCard
           title="New Users"
           value={overview?.current.newUsers || 0}
           change={overview ? calcChange(overview.current.newUsers, overview.previous.newUsers) : undefined}
-          changeLabel="First-time visitors"
           isLoading={isLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-            </svg>
-          }
         />
         <StatCard
           title="Pageviews"
           value={overview?.current.pageviews || 0}
           change={overview ? calcChange(overview.current.pageviews, overview.previous.pageviews) : undefined}
-          changeLabel="Total page loads"
           isLoading={isLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          }
         />
         <StatCard
-          title="Engagement Rate"
+          title="Engagement"
           value={overview?.current.engagementRate || 0}
           change={overview ? calcChange(overview.current.engagementRate, overview.previous.engagementRate) : undefined}
-          changeLabel="Engaged sessions"
           isLoading={isLoading}
           format="percent"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-            </svg>
-          }
         />
         <StatCard
           title="Avg Session"
           value={overview?.current.avgSessionDuration || 0}
           change={overview ? calcChange(overview.current.avgSessionDuration, overview.previous.avgSessionDuration) : undefined}
-          changeLabel="Time on site"
           isLoading={isLoading}
           format="duration"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
         />
       </div>
 
