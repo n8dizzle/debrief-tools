@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { DateRangePicker, DateRange } from '@christmas-air/shared/components';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 
 // Types
 interface DailyCount {
