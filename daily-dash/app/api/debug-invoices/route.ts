@@ -97,6 +97,45 @@ export async function GET(request: NextRequest) {
     const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${lastDay}`;
     const tradeMetrics = await stClient.getTradeMetrics(startDate, endDate);
 
+    // === DEEP ANALYSIS: Compare job.total vs invoice sums ===
+    const completedJobIds = new Set(jobs.map(j => j.id));
+    const hvacBuNames = ['HVAC - Install', 'HVAC - Service', 'HVAC - Maintenance', 'HVAC - Commercial', 'HVAC - Sales', 'Mims - Service'];
+    const businessUnits = await stClient.getBusinessUnits();
+    const hvacBuIds = new Set(businessUnits.filter(bu => hvacBuNames.includes(bu.name)).map(bu => bu.id));
+
+    // Sum job.total for HVAC jobs
+    const hvacJobs = jobs.filter(j => hvacBuIds.has(j.businessUnitId));
+    const jobTotalSum = hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+
+    // Sum invoices for HVAC completed jobs (excluding adjustments)
+    let invoiceSumForCompletedJobs = 0;
+    let invoiceCountForCompletedJobs = 0;
+    let jobsWithInvoices = new Set<number>();
+    let jobsMissingInvoices: number[] = [];
+
+    for (const inv of invoices) {
+      if (!inv.job?.id) continue;
+      if (!completedJobIds.has(inv.job.id)) continue;
+
+      // Get business unit
+      const buId = inv.businessUnit?.id;
+      if (!buId || !hvacBuIds.has(buId)) continue;
+
+      // Skip adjustments (adjustmentToId set)
+      if (inv.adjustmentToId != null) continue;
+
+      invoiceSumForCompletedJobs += Number(inv.total) || 0;
+      invoiceCountForCompletedJobs++;
+      jobsWithInvoices.add(inv.job.id);
+    }
+
+    // Find HVAC jobs that have no invoices in our range
+    for (const job of hvacJobs) {
+      if (!jobsWithInvoices.has(job.id)) {
+        jobsMissingInvoices.push(job.id);
+      }
+    }
+
     return NextResponse.json({
       params: { month, startDate, endDate, dayAfterEnd, fetchStartDate },
       completedJobsCount: jobs.length,
@@ -115,10 +154,27 @@ export async function GET(request: NextRequest) {
           adjRevenue: tradeMetrics.plumbing.adjRevenue,
         }
       },
+      deepAnalysis: {
+        hvacJobCount: hvacJobs.length,
+        jobTotalSum: jobTotalSum,
+        invoiceSumForCompletedJobs: invoiceSumForCompletedJobs,
+        invoiceCountForCompletedJobs: invoiceCountForCompletedJobs,
+        jobsWithInvoicesCount: jobsWithInvoices.size,
+        jobsMissingInvoicesCount: jobsMissingInvoices.length,
+        jobsMissingInvoicesSample: jobsMissingInvoices.slice(0, 10),
+        gap: {
+          stCompleted: 426838,
+          ourJobTotal: jobTotalSum,
+          ourInvoiceSum: invoiceSumForCompletedJobs,
+          jobTotalVsSTGap: 426838 - jobTotalSum,
+          invoiceSumVsSTGap: 426838 - invoiceSumForCompletedJobs,
+        }
+      },
       expectedFromST: {
         hvacNonJobRevenue: 19782,
         hvacAdjRevenue: -8798,
         hvacTotal: 437822,
+        hvacCompleted: 426838,
         note: 'HVAC MTD values from ServiceTitan dashboard'
       }
     });
