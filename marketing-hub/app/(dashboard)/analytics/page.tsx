@@ -142,26 +142,26 @@ function StatCard({
 
   return (
     <div
-      className="rounded-xl p-4 sm:p-5"
+      className="rounded-xl p-3 lg:p-4"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-[10px] lg:text-xs font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>
         {title}
       </div>
-      <div className="flex items-baseline gap-3">
-        <div className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+      <div className="flex items-baseline gap-2">
+        <div className="text-xl lg:text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
           {isLoading ? (
-            <span className="inline-block w-16 h-8 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
+            <span className="inline-block w-12 h-6 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
           ) : (
             displayValue
           )}
         </div>
         {change && !isLoading && (
           <span
-            className="text-sm font-medium"
+            className="text-xs font-medium"
             style={{
               color: isPositive ? 'var(--christmas-green-light)' : isNegative ? '#c97878' : 'var(--text-muted)',
             }}
@@ -170,8 +170,8 @@ function StatCard({
           </span>
         )}
       </div>
-      <div className="text-[11px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-        vs same period last year
+      <div className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+        vs last year
       </div>
     </div>
   );
@@ -379,8 +379,8 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Stats Grid - 3 columns on desktop, 2 on tablet, 2 on mobile */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+      {/* Stats Grid - 6 columns on desktop, 3 on tablet, 2 on mobile */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard
           title="Sessions"
           value={overview?.current.sessions || 0}
