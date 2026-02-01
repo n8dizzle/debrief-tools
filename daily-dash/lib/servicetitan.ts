@@ -541,7 +541,9 @@ export class ServiceTitanClient {
 
     // Fetch invoices - use broader range to catch invoices created before but with invoiceDate in range
     // We filter by invoiceDate in the processing loop to match ST's revenue attribution
-    const invoices = await this.getInvoicesDateRange(startDate, dayAfterEnd);
+    // Go back 60 days to catch invoices created earlier with invoiceDate in our target range
+    const fetchStartDate = this.subtractDays(startDate, 60);
+    const invoices = await this.getInvoicesDateRange(fetchStartDate, dayAfterEnd);
 
     // === Calculate Completed Revenue by filtering jobs ===
     const hvacJobs = jobs.filter(j => hvacBuIds.includes(j.businessUnitId));
@@ -595,8 +597,13 @@ export class ServiceTitanClient {
     for (const inv of invoices) {
       const total = Number(inv.total) || 0;
 
-      // Include all invoices from our date range - no additional filtering needed
-      // (createdOn filter at API level should be sufficient)
+      // Filter by invoiceDate to match ST's revenue attribution
+      // Non-Job and Adj Revenue are attributed by invoice date, not creation date
+      const invDate = inv.invoiceDate?.split('T')[0];
+      if (invDate && (invDate < startDate || invDate >= dayAfterEnd)) {
+        // Invoice date is outside our target range - skip it
+        continue;
+      }
 
       // Check if invoice is tied to a COMPLETED job (in our date range)
       const hasCompletedJob = inv.job && inv.job.id && completedJobIds.has(inv.job.id);
@@ -1297,6 +1304,15 @@ export class ServiceTitanClient {
   private getNextDay(dateStr: string): string {
     const date = new Date(dateStr + 'T00:00:00Z');
     date.setDate(date.getDate() + 1);
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Subtract days from a date string
+   */
+  private subtractDays(dateStr: string, days: number): string {
+    const date = new Date(dateStr + 'T00:00:00Z');
+    date.setDate(date.getDate() - days);
     return date.toISOString().split('T')[0];
   }
 
