@@ -48,6 +48,12 @@ export interface STLocation {
   };
 }
 
+export interface STBusinessUnit {
+  id: number;
+  name: string;
+  active: boolean;
+}
+
 interface STPagedResponse<T> {
   data: T[];
   page: number;
@@ -55,6 +61,12 @@ interface STPagedResponse<T> {
   totalCount: number;
   hasMore: boolean;
 }
+
+// Business units for install jobs
+const INSTALL_BUSINESS_UNITS = [
+  'HVAC - Install',
+  'Plumbing - Install',
+];
 
 export class ServiceTitanClient {
   private readonly BASE_URL = 'https://api.servicetitan.io';
@@ -67,6 +79,7 @@ export class ServiceTitanClient {
 
   private accessToken: string | null = null;
   private tokenExpiresAt: Date | null = null;
+  private businessUnitsCache: STBusinessUnit[] | null = null;
 
   constructor() {
     this.clientId = process.env.ST_CLIENT_ID || '';
@@ -151,6 +164,58 @@ export class ServiceTitanClient {
   }
 
   // ============================================
+  // BUSINESS UNITS
+  // ============================================
+
+  /**
+   * Get all business units (cached)
+   */
+  async getBusinessUnits(): Promise<STBusinessUnit[]> {
+    if (this.businessUnitsCache) {
+      return this.businessUnitsCache;
+    }
+
+    const response = await this.request<STPagedResponse<STBusinessUnit>>(
+      'GET',
+      `settings/v2/tenant/${this.tenantId}/business-units`,
+      { params: { pageSize: '100', active: 'true' } }
+    );
+
+    this.businessUnitsCache = response.data || [];
+    return this.businessUnitsCache;
+  }
+
+  /**
+   * Get business unit IDs for install jobs (HVAC - Install, Plumbing - Install)
+   */
+  async getInstallBusinessUnitIds(): Promise<number[]> {
+    const businessUnits = await this.getBusinessUnits();
+    return businessUnits
+      .filter(bu => INSTALL_BUSINESS_UNITS.includes(bu.name))
+      .map(bu => bu.id);
+  }
+
+  /**
+   * Get business unit name by ID
+   */
+  async getBusinessUnitName(businessUnitId: number): Promise<string | null> {
+    const businessUnits = await this.getBusinessUnits();
+    const bu = businessUnits.find(b => b.id === businessUnitId);
+    return bu?.name || null;
+  }
+
+  /**
+   * Determine trade from business unit ID
+   */
+  async getTradeFromBusinessUnit(businessUnitId: number): Promise<'hvac' | 'plumbing'> {
+    const buName = await this.getBusinessUnitName(businessUnitId);
+    if (buName?.toLowerCase().includes('plumb')) {
+      return 'plumbing';
+    }
+    return 'hvac';
+  }
+
+  // ============================================
   // JOB TRACKER METHODS
   // ============================================
 
@@ -225,14 +290,22 @@ export class ServiceTitanClient {
   /**
    * Get recently completed install jobs (for auto-tracker creation)
    * Looks at jobs completed in the last N hours
+   * Filters by business unit (HVAC - Install, Plumbing - Install)
    */
   async getRecentInstallJobs(hoursAgo: number = 24): Promise<STJob[]> {
     const since = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
     const sinceStr = since.toISOString();
 
     try {
-      // Install business unit IDs (adjust based on your ST configuration)
-      // Common patterns: HVAC Install, Plumbing Install
+      // Get install business unit IDs
+      const installBuIds = await this.getInstallBusinessUnitIds();
+      console.log(`Install business unit IDs: ${installBuIds.join(', ')}`);
+
+      if (installBuIds.length === 0) {
+        console.warn('No install business units found');
+        return [];
+      }
+
       const response = await this.request<STPagedResponse<STJob>>(
         'GET',
         `jpm/v2/tenant/${this.tenantId}/jobs`,
@@ -245,11 +318,14 @@ export class ServiceTitanClient {
         }
       );
 
-      // Filter to install jobs by checking job type name
-      const installJobs = (response.data || []).filter(job => {
-        const typeName = job.type?.name?.toLowerCase() || '';
-        return typeName.includes('install');
-      });
+      console.log(`Found ${response.data?.length || 0} completed jobs in last ${hoursAgo} hours`);
+
+      // Filter to install jobs by business unit ID
+      const installJobs = (response.data || []).filter(job =>
+        installBuIds.includes(job.businessUnitId)
+      );
+
+      console.log(`Found ${installJobs.length} install jobs`);
 
       return installJobs;
     } catch (error) {
@@ -277,13 +353,12 @@ export function getServiceTitanClient(): ServiceTitanClient {
 }
 
 /**
- * Determine trade based on business unit or job type
+ * Determine trade based on business unit name
  */
 export function determineTrade(job: STJob): 'hvac' | 'plumbing' {
-  const typeName = job.type?.name?.toLowerCase() || '';
   const buName = job.businessUnitName?.toLowerCase() || '';
 
-  if (typeName.includes('plumb') || buName.includes('plumb')) {
+  if (buName.includes('plumb')) {
     return 'plumbing';
   }
 

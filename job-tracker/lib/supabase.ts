@@ -86,6 +86,7 @@ export interface JobTracker {
   id: string;
   tracking_code: string;
   st_job_id: number | null;
+  st_customer_id: number | null;
   job_number: string | null;
   customer_name: string;
   customer_email: string | null;

@@ -5,7 +5,7 @@ import { notifyTrackerComplete } from '@/lib/notifications';
 
 /**
  * Cron job to sync tracker status from ServiceTitan.
- * Runs every 2 hours.
+ * Runs daily.
  * - Marks trackers as completed when ST job is completed
  * - Updates scheduled dates if changed
  */
@@ -23,6 +23,18 @@ export async function GET(request: NextRequest) {
 
   const supabase = getServerSupabase();
 
+  // Create sync log entry
+  const { data: syncLog } = await supabase
+    .from('tracker_sync_logs')
+    .insert({
+      sync_type: 'sync_status',
+      status: 'running',
+    })
+    .select()
+    .single();
+
+  const logId = syncLog?.id;
+
   try {
     // Get active trackers with ServiceTitan job IDs
     const { data: trackers, error: trackersError } = await supabase
@@ -39,6 +51,7 @@ export async function GET(request: NextRequest) {
 
     let updated = 0;
     let completed = 0;
+    const errors: string[] = [];
 
     for (const tracker of trackers || []) {
       if (!tracker.st_job_id) continue;
@@ -112,7 +125,24 @@ export async function GET(request: NextRequest) {
         }
       } catch (error) {
         console.error(`Failed to sync tracker ${tracker.id}:`, error);
+        errors.push(`Tracker ${tracker.tracking_code}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
+    }
+
+    // Update sync log
+    if (logId) {
+      await supabase
+        .from('tracker_sync_logs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          records_processed: trackers?.length || 0,
+          records_created: 0,
+          records_updated: updated + completed,
+          errors: errors.length > 0 ? errors.join('\n') : null,
+          metadata: { completed_count: completed, updated_count: updated },
+        })
+        .eq('id', logId);
     }
 
     return NextResponse.json({
@@ -123,6 +153,19 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Sync status cron error:', error);
+
+    // Update sync log with error
+    if (logId) {
+      await supabase
+        .from('tracker_sync_logs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          errors: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .eq('id', logId);
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

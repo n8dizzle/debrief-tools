@@ -58,26 +58,36 @@ export async function POST(request: NextRequest) {
   const supabase = getServerSupabase();
   const body = await request.json();
 
-  // Generate unique tracking code
-  let trackingCode = generateTrackingCode();
-  let attempts = 0;
-  const maxAttempts = 5;
+  // Use job_number as tracking code if provided, otherwise generate one
+  let trackingCode = body.job_number || generateTrackingCode();
 
   // Ensure tracking code is unique
-  while (attempts < maxAttempts) {
-    const { data: existing } = await supabase
-      .from('job_trackers')
-      .select('id')
-      .eq('tracking_code', trackingCode)
-      .single();
+  const { data: existing } = await supabase
+    .from('job_trackers')
+    .select('id')
+    .eq('tracking_code', trackingCode)
+    .single();
 
-    if (!existing) break;
-    trackingCode = generateTrackingCode();
-    attempts++;
-  }
-
-  if (attempts === maxAttempts) {
-    return NextResponse.json({ error: 'Failed to generate unique tracking code' }, { status: 500 });
+  if (existing) {
+    // If job_number was provided and exists, that's an error
+    if (body.job_number) {
+      return NextResponse.json({ error: 'A tracker already exists for this job number' }, { status: 400 });
+    }
+    // Otherwise generate a new random code
+    let attempts = 0;
+    while (attempts < 5) {
+      trackingCode = generateTrackingCode();
+      const { data: exists } = await supabase
+        .from('job_trackers')
+        .select('id')
+        .eq('tracking_code', trackingCode)
+        .single();
+      if (!exists) break;
+      attempts++;
+    }
+    if (attempts === 5) {
+      return NextResponse.json({ error: 'Failed to generate unique tracking code' }, { status: 500 });
+    }
   }
 
   // Create the tracker
@@ -91,6 +101,7 @@ export async function POST(request: NextRequest) {
       job_address: body.job_address || null,
       job_number: body.job_number || null,
       st_job_id: body.st_job_id || null,
+      st_customer_id: body.st_customer_id || null,
       trade: body.trade,
       job_type: body.job_type,
       job_description: body.job_description || null,

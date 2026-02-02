@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
-import {
-  getServiceTitanClient,
-  determineTrade,
-  determineJobType,
-} from '@/lib/servicetitan';
-import { generateTrackingCode } from '@/lib/tracking-code';
+import { getServiceTitanClient } from '@/lib/servicetitan';
 import { notifyTrackerCreated } from '@/lib/notifications';
 
 /**
@@ -26,6 +21,18 @@ export async function GET(request: NextRequest) {
 
   const supabase = getServerSupabase();
 
+  // Create sync log entry
+  const { data: syncLog } = await supabase
+    .from('tracker_sync_logs')
+    .insert({
+      sync_type: 'auto_create',
+      status: 'running',
+    })
+    .select()
+    .single();
+
+  const logId = syncLog?.id;
+
   try {
     // Get install jobs completed in last 24 hours
     const recentJobs = await st.getRecentInstallJobs(24);
@@ -34,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     let created = 0;
     let skipped = 0;
+    const errors: string[] = [];
 
     for (const job of recentJobs) {
       // Check if tracker already exists for this job
@@ -52,6 +60,7 @@ export async function GET(request: NextRequest) {
       const customer = await st.getCustomer(job.customerId);
       if (!customer) {
         console.log(`Skipping job ${job.jobNumber}: customer not found`);
+        errors.push(`Job ${job.jobNumber}: customer not found`);
         skipped++;
         continue;
       }
@@ -62,9 +71,9 @@ export async function GET(request: NextRequest) {
         ? `${location.address.street}, ${location.address.city}, ${location.address.state} ${location.address.zip}`
         : null;
 
-      // Determine trade and job type
-      const trade = determineTrade(job);
-      const jobType = determineJobType(job);
+      // Determine trade from business unit
+      const trade = await st.getTradeFromBusinessUnit(job.businessUnitId);
+      const jobType = 'install'; // We're only pulling install jobs
 
       // Find default template
       const { data: template } = await supabase
@@ -75,19 +84,8 @@ export async function GET(request: NextRequest) {
         .eq('is_default', true)
         .single();
 
-      // Generate tracking code
-      let trackingCode = generateTrackingCode();
-      let attempts = 0;
-      while (attempts < 5) {
-        const { data: exists } = await supabase
-          .from('job_trackers')
-          .select('id')
-          .eq('tracking_code', trackingCode)
-          .single();
-        if (!exists) break;
-        trackingCode = generateTrackingCode();
-        attempts++;
-      }
+      // Use job number as tracking code (unique and meaningful)
+      const trackingCode = job.jobNumber;
 
       // Create tracker
       const { data: tracker, error: trackerError } = await supabase
@@ -95,6 +93,7 @@ export async function GET(request: NextRequest) {
         .insert({
           tracking_code: trackingCode,
           st_job_id: job.id,
+          st_customer_id: job.customerId,
           job_number: job.jobNumber,
           customer_name: customer.name,
           customer_email: customer.email || null,
@@ -115,6 +114,7 @@ export async function GET(request: NextRequest) {
 
       if (trackerError) {
         console.error(`Failed to create tracker for job ${job.jobNumber}:`, trackerError);
+        errors.push(`Job ${job.jobNumber}: ${trackerError.message}`);
         continue;
       }
 
@@ -156,6 +156,21 @@ export async function GET(request: NextRequest) {
       created++;
     }
 
+    // Update sync log
+    if (logId) {
+      await supabase
+        .from('tracker_sync_logs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          records_processed: recentJobs.length,
+          records_created: created,
+          records_updated: 0,
+          errors: errors.length > 0 ? errors.join('\n') : null,
+        })
+        .eq('id', logId);
+    }
+
     return NextResponse.json({
       success: true,
       created,
@@ -164,6 +179,19 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Auto-create cron error:', error);
+
+    // Update sync log with error
+    if (logId) {
+      await supabase
+        .from('tracker_sync_logs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          errors: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .eq('id', logId);
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

@@ -199,6 +199,27 @@ export default function TrackerDetail({ tracker }: TrackerDetailProps) {
           <div className="card">
             <h2 className="text-lg font-semibold text-text-primary mb-4">Job Details</h2>
             <dl className="space-y-3 text-sm">
+              {tracker.job_number && (
+                <div>
+                  <dt className="text-text-muted">Job #</dt>
+                  <dd className="text-text-primary flex items-center gap-1">
+                    <span>{tracker.job_number}</span>
+                    {tracker.st_job_id && (
+                      <a
+                        href={`https://go.servicetitan.com/#/Job/Index/${tracker.st_job_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="opacity-50 hover:opacity-100 transition-opacity"
+                        title="View job in ServiceTitan"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-text-muted">Type</dt>
                 <dd className="text-text-primary capitalize">{tracker.job_type}</dd>
@@ -240,7 +261,22 @@ export default function TrackerDetail({ tracker }: TrackerDetailProps) {
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-text-muted">Name</dt>
-                <dd className="text-text-primary">{tracker.customer_name}</dd>
+                <dd className="text-text-primary flex items-center gap-1">
+                  <span>{tracker.customer_name}</span>
+                  {tracker.st_customer_id && (
+                    <a
+                      href={`https://go.servicetitan.com/#/Customer/${tracker.st_customer_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="opacity-50 hover:opacity-100 transition-opacity"
+                      title="View customer in ServiceTitan"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </dd>
               </div>
               {tracker.customer_email && (
                 <div>
