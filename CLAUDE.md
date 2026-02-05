@@ -268,11 +268,51 @@ cd marketing-hub && vercel --prod
 cd internal-portal && vercel --prod
 ```
 
-Cron jobs configured in `vercel.json`:
-- Daily 6am CT: Sync yesterday's final numbers
-- Hourly 8am-6pm Mon-Fri: Update today's running totals
+Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
 
 Backfill endpoint: `POST /api/huddle/backfill` (requires `CRON_SECRET` header)
+
+## Cron Schedules
+
+All Vercel crons use UTC. Times shown are Central Time (CT). During daylight saving (Mar-Nov), schedules shift 1 hour later.
+
+### Daily Dash (`daily-dash/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/trades/sync` | `0 12 * * *` | 6am daily | Daily trade snapshots for dashboard/pacing |
+| `/api/trades/sync-monthly` | `0 12 * * *` | 6am daily | Monthly trend chart data |
+| `/api/huddle/snapshots/sync` | `0 12 * * *` | 6am daily | Huddle KPIs |
+| `/api/reviews/sync` | `0 0,14-23 * * *` | 8am-6pm hourly | Google reviews (near real-time) |
+
+### Marketing Hub (`marketing-hub/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/analytics/sync` | `0 12 * * *` | 6am daily | Website analytics |
+| `/api/gbp/insights/sync` | `0 12 * * *` | 6am daily | GBP performance (2-3 day delay from Google) |
+| `/api/social/sync` | `0 12 * * *` | 6am daily | Social media data |
+| `/api/lsa/sync` | `0 0,14-23 * * *` | 8am-6pm hourly | LSA leads (near real-time) |
+| `/api/leads/sync/st-calls` | `0 0,14-23 * * *` | 8am-6pm hourly | ServiceTitan calls (near real-time) |
+
+### AR Collections (`ar-collections/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/cron/sync` | `0 12 * * *` | 6am daily | AR invoices from ServiceTitan |
+| `/api/cron/sync` | `0 14-23 * * 1-5` | 8am-5pm Mon-Fri hourly | Intraday AR updates |
+| `/api/cron/sync` | `0 0 * * 2-6` | 6pm Mon-Fri | End of day sync |
+| `/api/cron/weekly-slack` | `0 * * * *` | Every hour | Slack notifications |
+
+### Data Freshness Notes
+
+| Data Source | Delay | Sync Frequency |
+|-------------|-------|----------------|
+| GBP Insights | 2-3 days (Google API limitation) | Daily |
+| LSA Leads | Near real-time | Hourly |
+| ServiceTitan Calls | Near real-time | Hourly |
+| Google Reviews | Near real-time | Hourly |
+| AR Invoices | Near real-time | Hourly (business hours) |
 
 ## Environment Variables
 
@@ -328,6 +368,13 @@ cd marketing-hub && npm run dev    # http://localhost:3002
 ```
 
 ## Recent Changes Summary
+
+**Feb 4, 2026**:
+- **Cron Schedules Added** - Set up automated syncs across all apps:
+  - Daily Dash: Reviews sync hourly 8am-6pm, trades/huddle sync daily 6am
+  - Marketing Hub: LSA and ST calls sync hourly 8am-6pm, GBP/analytics daily 6am
+  - AR Collections: Already had hourly syncs configured
+- All cron endpoints now support both session auth (manual) and `CRON_SECRET` auth (scheduled)
 
 **Jan 28, 2026**:
 - **User Migration Complete** - Migrated all 19 users from debrief's `dispatchers` table to `portal_users`. Portal is now the single source of truth for all user management. Debrief validates users against portal on login via `/api/users/validate` endpoint.
