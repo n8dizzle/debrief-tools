@@ -158,5 +158,9 @@ export async function GET(request: NextRequest) {
     leaderboard: sorted,
     showWtd,
     showMtd,
+  }, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    }
   });
 }

@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
+import { DateRangePicker, DateRange, DateRangePreset } from '@/components/DateRangePicker';
 
 // Types
 interface DailyCount {
@@ -1631,9 +1631,25 @@ export default function ReviewsPage() {
     end: periodDates.end.toISOString().split('T')[0],
   }), [periodDates]);
 
-  // Handle DateRangePicker changes
-  const handleDateRangeChange = useCallback((range: DateRange) => {
-    setPeriod('custom');
+  // Handle DateRangePicker changes - map preset to period
+  const handleDateRangeChange = useCallback((range: DateRange, preset?: DateRangePreset) => {
+    // Map DateRangePicker presets to our PeriodPreset type
+    const presetToPeriod: Record<DateRangePreset, PeriodPreset> = {
+      'today': 'custom',
+      'yesterday': 'custom',
+      'thisWeek': 'custom',
+      'lastWeek': 'custom',
+      'mtd': 'this_month',
+      'lastMonth': 'last_month',
+      'qtd': 'this_quarter',
+      'lastQuarter': 'last_quarter',
+      'ytd': 'this_year',
+      'lastYear': 'last_year',
+      'custom': 'custom',
+    };
+
+    const mappedPeriod = preset ? presetToPeriod[preset] : 'custom';
+    setPeriod(mappedPeriod);
     setCustomStartDate(new Date(range.start + 'T00:00:00'));
     setCustomEndDate(new Date(range.end + 'T00:00:00'));
   }, []);

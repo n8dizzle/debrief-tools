@@ -7,13 +7,15 @@ export interface DateRange {
   end: string;
 }
 
+export type DateRangePreset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'mtd' | 'lastMonth' | 'qtd' | 'lastQuarter' | 'ytd' | 'lastYear' | 'custom';
+
 interface DateRangePickerProps {
   value: DateRange;
-  onChange: (range: DateRange) => void;
+  onChange: (range: DateRange, preset?: DateRangePreset) => void;
   dataDelay?: number; // Days of data delay (for display)
 }
 
-type PresetKey = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'mtd' | 'lastMonth' | 'qtd' | 'lastQuarter' | 'ytd' | 'lastYear' | 'custom';
+type PresetKey = DateRangePreset;
 
 interface PresetOption {
   key: PresetKey;
@@ -190,13 +192,13 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
     setActivePreset(preset.key);
     if (preset.key !== 'custom') {
       const range = preset.getRange();
-      onChange(range);
+      onChange(range, preset.key);
       setIsOpen(false);
     }
   };
 
   const handleCustomApply = () => {
-    onChange({ start: customStart, end: customEnd });
+    onChange({ start: customStart, end: customEnd }, 'custom');
     setIsOpen(false);
   };
 
