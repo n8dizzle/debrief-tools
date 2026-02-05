@@ -13,22 +13,34 @@ const supabase = createClient(
 /**
  * POST /api/lsa/sync
  * Sync LSA leads from Google Ads API to Supabase
+ * Supports both session auth (manual) and cron auth (scheduled)
  */
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Check for cron secret (for scheduled jobs)
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  const isCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+  // If not cron auth, check session
+  if (!isCronAuth) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { role, permissions } = session.user as {
+      role: 'employee' | 'manager' | 'owner';
+      permissions: any;
+    };
+
+    // Only owners can sync
+    if (role !== 'owner' && !hasPermission(role, permissions, 'marketing_hub', 'can_sync_data')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
   }
 
-  const { role, permissions } = session.user as {
-    role: 'employee' | 'manager' | 'owner';
-    permissions: any;
-  };
-
-  // Only owners can sync
-  if (role !== 'owner' && !hasPermission(role, permissions, 'marketing_hub', 'can_sync_data')) {
-    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  }
+  const syncSource = isCronAuth ? 'cron' : 'manual';
+  console.log(`[LSA Sync] Starting ${syncSource} sync at ${new Date().toISOString()}`);
 
   const { searchParams } = new URL(request.url);
   const days = parseInt(searchParams.get('days') || '90');

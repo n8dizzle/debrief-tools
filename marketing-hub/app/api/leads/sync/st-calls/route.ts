@@ -195,21 +195,33 @@ function parseDuration(duration: string | number | null): number | null {
 /**
  * POST /api/leads/sync/st-calls
  * Sync ServiceTitan calls to st_calls table
+ * Supports both session auth (manual) and cron auth (scheduled)
  */
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Check for cron secret (for scheduled jobs)
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  const isCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+  // If not cron auth, check session
+  if (!isCronAuth) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { role, permissions } = session.user as {
+      role: 'employee' | 'manager' | 'owner';
+      permissions: any;
+    };
+
+    if (role !== 'owner' && !hasPermission(role, permissions, 'marketing_hub', 'can_sync_data')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
   }
 
-  const { role, permissions } = session.user as {
-    role: 'employee' | 'manager' | 'owner';
-    permissions: any;
-  };
-
-  if (role !== 'owner' && !hasPermission(role, permissions, 'marketing_hub', 'can_sync_data')) {
-    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  }
+  const syncSource = isCronAuth ? 'cron' : 'manual';
+  console.log(`[ST Calls Sync] Starting ${syncSource} sync at ${new Date().toISOString()}`);
 
   const { searchParams } = new URL(request.url);
   // Default to 7 days to avoid timeout (90 days = 98k+ calls = timeout)

@@ -11,6 +11,14 @@
     {
       "path": "/api/social/sync",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/lsa/sync",
+      "schedule": "0 0,14-23 * * *"
+    },
+    {
+      "path": "/api/leads/sync/st-calls",
+      "schedule": "0 0,14-23 * * *"
     }
   ]
 }
