@@ -314,24 +314,49 @@ function ReviewsChart({ data, period }: { data: DailyCount[]; period: PeriodPres
   const chartData = useMemo(() => {
     return data.map((item) => {
       const date = new Date(item.date);
-      let label: string;
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
 
-      if (period === 'this_year' || period === 'last_quarter' || period === 'this_quarter') {
-        label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      } else {
-        label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
+      const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       return {
         date: label,
         reviews: item.count,
         fullDate: item.date,
+        dayName,
+        isWeekend,
       };
     });
   }, [data, period]);
 
   const totalReviews = data.reduce((sum, d) => sum + d.count, 0);
   const avgPerDay = data.length > 0 ? (totalReviews / data.length).toFixed(1) : '0';
+
+  // Custom tooltip to show day of week
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { dayName: string; date: string; reviews: number; isWeekend: boolean } }> }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div
+          style={{
+            backgroundColor: '#1a2e1f',
+            border: '1px solid rgba(52, 102, 67, 0.3)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+            padding: '8px 12px',
+          }}
+        >
+          <p style={{ color: '#d4c5a9', marginBottom: '4px', fontWeight: 500 }}>
+            {data.dayName}, {data.date}
+            {data.isWeekend && <span style={{ color: '#9ca3af', marginLeft: '6px', fontSize: '11px' }}>(Weekend)</span>}
+          </p>
+          <p style={{ color: '#346643', margin: 0 }}>{data.reviews} reviews</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div
@@ -363,18 +388,7 @@ function ReviewsChart({ data, period }: { data: DailyCount[]; period: PeriodPres
               tick={{ fill: '#9ca3af', fontSize: 11 }}
               allowDecimals={false}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#1a2e1f',
-                border: '1px solid rgba(52, 102, 67, 0.3)',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-              }}
-              labelStyle={{ color: '#d4c5a9', marginBottom: '4px' }}
-              itemStyle={{ color: '#346643' }}
-              formatter={(value) => [`${value} reviews`, '']}
-              cursor={{ fill: 'rgba(52, 102, 67, 0.1)' }}
-            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(52, 102, 67, 0.1)' }} />
             <Bar dataKey="reviews" fill="#346643" radius={[4, 4, 0, 0]} maxBarSize={40} />
           </BarChart>
         </ResponsiveContainer>
@@ -503,13 +517,44 @@ function GoalProgress({
         return { goal: stats.year_goal, label: `${now.getFullYear()} Goal`, reviewsInPeriod: stats.reviews_this_year, dailyTarget };
       }
       case 'custom': {
-        // Pro-rate goal based on custom period length using monthly goals
+        // Pro-rate goal based on custom period length, handling partial months
+        const startYear = periodDates.start.getFullYear();
         const startMonth = periodDates.start.getMonth() + 1;
+        const startDay = periodDates.start.getDate();
+        const endYear = periodDates.end.getFullYear();
         const endMonth = periodDates.end.getMonth() + 1;
+        const endDay = periodDates.end.getDate();
+
         let goal = 0;
-        for (let m = startMonth; m <= endMonth; m++) {
-          goal += getMonthlyGoalValue(m);
+
+        if (startMonth === endMonth && startYear === endYear) {
+          // Same month - prorate based on days
+          const daysInMonth = new Date(startYear, startMonth, 0).getDate();
+          const daysInRange = endDay - startDay + 1;
+          goal = Math.round(getMonthlyGoalValue(startMonth) * (daysInRange / daysInMonth));
+        } else {
+          // Multiple months - handle first partial, full months, and last partial
+          // First month (partial if not starting on 1st)
+          const daysInFirstMonth = new Date(startYear, startMonth, 0).getDate();
+          const daysUsedFirstMonth = daysInFirstMonth - startDay + 1;
+          goal += Math.round(getMonthlyGoalValue(startMonth) * (daysUsedFirstMonth / daysInFirstMonth));
+
+          // Full months in between
+          let currentYear = startYear;
+          let currentMonth = startMonth + 1;
+          if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+
+          while (currentYear < endYear || (currentYear === endYear && currentMonth < endMonth)) {
+            goal += getMonthlyGoalValue(currentMonth);
+            currentMonth++;
+            if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+          }
+
+          // Last month (partial if not ending on last day)
+          const daysInLastMonth = new Date(endYear, endMonth, 0).getDate();
+          goal += Math.round(getMonthlyGoalValue(endMonth) * (endDay / daysInLastMonth));
         }
+
         const dailyTarget = getDailyTargetValue(endMonth);
         const startLabel = periodDates.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const endLabel = periodDates.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
