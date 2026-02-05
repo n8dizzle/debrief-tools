@@ -313,7 +313,9 @@ function StatCard({
 function ReviewsChart({ data, period }: { data: DailyCount[]; period: PeriodPreset }) {
   const chartData = useMemo(() => {
     return data.map((item) => {
-      const date = new Date(item.date);
+      // Parse date with noon time to avoid timezone issues
+      // "2026-02-04" alone would be interpreted as midnight UTC = previous day in Central Time
+      const date = new Date(item.date + 'T12:00:00');
       const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
