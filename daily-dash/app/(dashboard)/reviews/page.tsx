@@ -1995,16 +1995,16 @@ export default function ReviewsPage() {
           }
         />
         <StatCard
-          label={`${stats.period_year} Progress`}
-          value={stats.period_goal !== null
-            ? `${stats.reviews_this_period.toLocaleString()} / ${stats.period_goal.toLocaleString()}`
+          label={`${stats.period_year} YTD`}
+          value={stats.year_goal > 0
+            ? `${stats.reviews_this_year.toLocaleString()} / ${stats.year_goal.toLocaleString()}`
             : '-'
           }
-          subtext={stats.period_goal !== null
-            ? `${Math.round((stats.reviews_this_period / stats.period_goal) * 100)}% of goal`
+          subtext={stats.year_goal > 0
+            ? `${stats.year_progress_percent}% of goal`
             : 'No goal set'
           }
-          changePercent={stats.period_goal !== null ? stats.pacing_difference_percent : undefined}
+          changePercent={stats.year_goal > 0 ? stats.pacing_difference_percent : undefined}
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
