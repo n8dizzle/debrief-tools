@@ -953,6 +953,24 @@ export default function InvoicesPage() {
           </button>
         ))}
 
+        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+
+        {/* Membership Only Chip */}
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            invoiceType: prev.invoiceType === 'membership' ? '' : 'membership'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.invoiceType === 'membership' ? 'rgba(147, 51, 234, 0.2)' : 'var(--bg-secondary)',
+            color: filters.invoiceType === 'membership' ? '#a78bfa' : 'var(--text-secondary)',
+            border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Membership Only
+        </button>
+
         {/* Clear All Filters */}
         {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0) && (
           <button
