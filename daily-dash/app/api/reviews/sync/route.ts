@@ -13,18 +13,30 @@ import {
 /**
  * POST /api/reviews/sync
  * Sync reviews from Google Business Profile API
+ * Supports both session auth (manual) and cron auth (scheduled)
  */
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Check for cron secret (for scheduled jobs)
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  const isCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+  // If not cron auth, check session
+  if (!isCronAuth) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user has owner/manager role
+    const { role } = session.user as { role?: string };
+    if (role !== 'owner' && role !== 'manager') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
   }
 
-  // Check if user has owner/manager role
-  const { role } = session.user as { role?: string };
-  if (role !== 'owner' && role !== 'manager') {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-  }
+  const syncSource = isCronAuth ? 'cron' : 'manual';
+  console.log(`[Reviews Sync] Starting ${syncSource} sync at ${new Date().toISOString()}`);
 
   const supabase = getServerSupabase();
   const googleClient = getGoogleBusinessClient();
@@ -205,6 +217,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Sync completed',
+      syncSource,
       synced: totalSynced,
       newMentions: newReviewsWithMentions.length,
       errors: errors.length > 0 ? errors : undefined,

@@ -7,12 +7,24 @@ import { getYesterdayDateString, getLocalDateString } from '@/lib/huddle-utils';
 
 // POST /api/trades/sync - Sync trade metrics for a specific date
 // Body: { date?: string, backfillDays?: number }
+// Supports both session auth (manual) and cron auth (scheduled)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check for cron secret (for scheduled jobs)
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+    const isCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+    // If not cron auth, check session
+    if (!isCronAuth) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
+
+    const syncSource = isCronAuth ? 'cron' : 'manual';
+    console.log(`[Trades Sync] Starting ${syncSource} sync at ${new Date().toISOString()}`);
 
     const body = await request.json().catch(() => ({}));
     const { date, backfillDays } = body;
