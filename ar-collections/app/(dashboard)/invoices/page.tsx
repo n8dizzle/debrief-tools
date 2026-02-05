@@ -955,24 +955,6 @@ export default function InvoicesPage() {
 
         <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
 
-        {/* Membership Only Chip */}
-        <button
-          onClick={() => setFilters(prev => ({
-            ...prev,
-            invoiceType: prev.invoiceType === 'membership' ? '' : 'membership'
-          }))}
-          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
-          style={{
-            backgroundColor: filters.invoiceType === 'membership' ? 'rgba(147, 51, 234, 0.2)' : 'var(--bg-secondary)',
-            color: filters.invoiceType === 'membership' ? '#a78bfa' : 'var(--text-secondary)',
-            border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
-          }}
-        >
-          Membership Invoices
-        </button>
-
-        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
-
         {/* Actionable AR Chips */}
         <button
           onClick={() => setFilters(prev => ({
@@ -1001,6 +983,24 @@ export default function InvoicesPage() {
           }}
         >
           Pending Closures
+        </button>
+
+        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+
+        {/* Membership Invoices Chip */}
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            invoiceType: prev.invoiceType === 'membership' ? '' : 'membership'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.invoiceType === 'membership' ? 'rgba(147, 51, 234, 0.2)' : 'var(--bg-secondary)',
+            color: filters.invoiceType === 'membership' ? '#a78bfa' : 'var(--text-secondary)',
+            border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Membership Invoices
         </button>
 
         {/* Clear All Filters */}
