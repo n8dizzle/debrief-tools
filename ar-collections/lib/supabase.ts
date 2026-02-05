@@ -107,7 +107,10 @@ export interface ARInvoice {
   st_invoice_id: number;
   invoice_number: string;
   customer_id: string | null;
+  st_customer_id: number | null;
   customer_name: string;
+  location_name: string | null;
+  st_location_id: number | null;
   invoice_total: number;
   balance: number;
   amount_paid: number;
@@ -126,10 +129,13 @@ export interface ARInvoice {
   st_job_status: string | null;
   st_job_type_name: string | null;
   has_membership: boolean;
+  is_membership_invoice: boolean;
   technician_name: string | null;
   has_inhouse_financing: boolean;
   booking_payment_type: string | null;
   next_appointment_date: string | null;
+  st_project_id: number | null;
+  project_name: string | null;
   synced_at: string;
   created_at: string;
   updated_at: string;
@@ -413,6 +419,7 @@ export interface ARDashboardStats {
   top_90_plus: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   top_recent: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   recent_activity: ARCollectionNote[];
+  last_sync_at: string | null;
 }
 
 export interface ARInvoiceWithTracking extends ARInvoice {

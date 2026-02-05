@@ -115,6 +115,28 @@ export async function POST(request: NextRequest) {
       console.log(`Fetching job info for ${jobNumbers.length} jobs...`);
       const jobInfoMap = await stClient.getJobInfoBatch(jobNumbers);
 
+      // Step 4b: Check all invoices to determine if they are membership invoices
+      // This is important for filtering - we want to know which invoices ARE membership sales
+      console.log(`Checking ${arRows.length} invoices for membership invoice status...`);
+      const invoiceMembershipMap = new Map<number, { hasMembership: boolean; isMembershipInvoice: boolean }>();
+
+      for (const row of arRows) {
+        if (row.invoiceId > 0) {
+          try {
+            const invoice = await stClient.getInvoice(row.invoiceId);
+            const isMembershipInvoice = stClient.invoiceIndicatesMembership(invoice);
+            invoiceMembershipMap.set(row.invoiceId, {
+              hasMembership: isMembershipInvoice, // If it's a membership invoice, they have membership
+              isMembershipInvoice,
+            });
+          } catch (err) {
+            // Skip failures
+          }
+        }
+      }
+      const membershipInvoiceCount = Array.from(invoiceMembershipMap.values()).filter(v => v.isMembershipInvoice).length;
+      console.log(`Found ${membershipInvoiceCount} membership invoices`);
+
       // Step 5: Get existing invoice IDs to track what's still open
       const { data: existingInvoices } = await supabase
         .from('ar_invoices')
@@ -143,11 +165,17 @@ export async function POST(request: NextRequest) {
           const hasInhouseFinancing = jobInfo?.hasInhouseFinancing || false;
           const stJobStatus = jobInfo?.jobStatus || null;
           const stJobTypeName = jobInfo?.jobTypeName || null;
-          const hasMembership = jobInfo?.hasMembership || false;
+          // Check membership from job info OR from invoice (for invoices without jobs)
+          const invoiceInfo = invoiceMembershipMap.get(row.invoiceId);
+          const hasMembership = jobInfo?.hasMembership || invoiceInfo?.hasMembership || false;
+          const isMembershipInvoice = invoiceInfo?.isMembershipInvoice || false;
           const bookingPaymentType = jobInfo?.bookingPaymentType || null;
           const nextAppointmentDate = jobInfo?.nextAppointmentDate || null;
+          const locationId = jobInfo?.locationId || null;
+          const projectId = jobInfo?.projectId || null;
+          const projectName = jobInfo?.projectName || null;
 
-          const wasCreated = await upsertInvoiceFromReport(supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing, stJobStatus, stJobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate);
+          const wasCreated = await upsertInvoiceFromReport(supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing, stJobStatus, stJobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice);
 
           if (existing) {
             stats.invoicesUpdated++;
@@ -292,7 +320,11 @@ async function upsertInvoiceFromReport(
   stJobTypeName: string | null = null,
   hasMembership: boolean = false,
   bookingPaymentType: string | null = null,
-  nextAppointmentDate: string | null = null
+  nextAppointmentDate: string | null = null,
+  locationId: number | null = null,
+  projectId: number | null = null,
+  projectName: string | null = null,
+  isMembershipInvoice: boolean = false
 ): Promise<boolean> {
   // Determine job type from business unit name
   const buName = (row.businessUnitName || '').toLowerCase();
@@ -338,7 +370,9 @@ async function upsertInvoiceFromReport(
     st_invoice_id: row.invoiceId,
     invoice_number: row.invoiceNumber || `INV-${row.invoiceId}`,
     customer_id: dbCustomerId,
+    st_customer_id: row.customerId || null,
     customer_name: row.customerName || stCustomer?.name || 'Unknown',
+    location_name: row.locationName || null,
     customer_type: customerType,
     invoice_total: row.total || row.netAmount,
     balance: row.netAmount,
@@ -357,8 +391,12 @@ async function upsertInvoiceFromReport(
     st_job_status: stJobStatus,
     st_job_type_name: stJobTypeName,
     has_membership: hasMembership,
+    is_membership_invoice: isMembershipInvoice,
     booking_payment_type: bookingPaymentType,
     next_appointment_date: nextAppointmentDate,
+    st_location_id: locationId,
+    st_project_id: projectId,
+    project_name: projectName,
     synced_at: new Date().toISOString(),
   };
 
