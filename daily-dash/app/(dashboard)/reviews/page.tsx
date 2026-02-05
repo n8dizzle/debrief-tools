@@ -1790,14 +1790,18 @@ export default function ReviewsPage() {
   }, [period, customStartDate, customEndDate, statsCacheKey]);
 
   // Fetch leaderboard for selected period
+  // Use ISO strings in dependency to ensure proper re-fetching when dates change
+  const leaderboardStartDate = periodDates.start.toISOString();
+  const leaderboardEndDate = periodDates.end.toISOString();
+
   useEffect(() => {
     async function fetchLeaderboard() {
       setLeaderboardLoading(true);
       try {
         const params = new URLSearchParams({
           period,
-          startDate: periodDates.start.toISOString(),
-          endDate: periodDates.end.toISOString(),
+          startDate: leaderboardStartDate,
+          endDate: leaderboardEndDate,
         });
         const response = await fetch(`/api/reviews/leaderboard?${params}`, {
           credentials: 'include',
@@ -1805,8 +1809,8 @@ export default function ReviewsPage() {
         if (response.ok) {
           const data = await response.json();
           setLeaderboard(data.leaderboard || []);
-          setShowWtd(data.showWtd !== false);
-          setShowMtd(data.showMtd !== false);
+          setShowWtd(data.showWtd === true);
+          setShowMtd(data.showMtd === true);
         }
       } catch (error) {
         console.error('Failed to fetch leaderboard:', error);
@@ -1816,7 +1820,7 @@ export default function ReviewsPage() {
     }
 
     fetchLeaderboard();
-  }, [period, periodDates.start, periodDates.end]);
+  }, [period, leaderboardStartDate, leaderboardEndDate]);
 
   // Fetch reviews with caching
   useEffect(() => {
