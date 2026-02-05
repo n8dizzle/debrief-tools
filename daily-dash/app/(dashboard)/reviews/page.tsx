@@ -1861,13 +1861,21 @@ export default function ReviewsPage() {
       return sum;
     }, 0);
     const prevTotal = stats.locations.reduce((sum, loc) => {
-      if (loc.period_change_percent !== null && loc.period_change_percent !== 100) {
-        return sum + Math.round(loc.reviews_this_period / (1 + loc.period_change_percent / 100));
+      // Skip if null, if +100% (had zero before), or if -100% (would divide by zero)
+      if (loc.period_change_percent !== null &&
+          loc.period_change_percent !== 100 &&
+          loc.period_change_percent !== -100) {
+        const divisor = 1 + loc.period_change_percent / 100;
+        if (divisor > 0) {
+          return sum + Math.round(loc.reviews_this_period / divisor);
+        }
       }
       return sum;
     }, 0);
     if (prevTotal === 0) return null;
-    return ((total - prevTotal) / prevTotal) * 100;
+    const result = ((total - prevTotal) / prevTotal) * 100;
+    // Return null if result is NaN or Infinity
+    return Number.isFinite(result) ? result : null;
   }, [stats]);
 
   if (loading) {

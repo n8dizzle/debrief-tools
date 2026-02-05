@@ -396,16 +396,31 @@ export async function GET(request: NextRequest) {
   const reviewsThisPeriod = periodCountResult.count || 0;
   const reviewsPrevPeriod = previousPeriodCountResult.count || 0;
 
-  // Calculate expected progress based on day of year
-  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-  const daysInYear = 365;
-  const expectedProgressPercent = (dayOfYear / daysInYear) * 100;
+  // Calculate expected YTD progress based on monthly goals and business days
+  // This gives more accurate pacing than simple day-of-year calculation
+  const currentDay = now.getDate();
+
+  // Sum up goals for completed months + prorated current month
+  let expectedReviewsYTD = 0;
+  for (let month = 1; month < currentMonth; month++) {
+    expectedReviewsYTD += monthlyGoals[month - 1]?.target_value || 0;
+  }
+
+  // For current month, estimate based on day of month (simplified - assumes ~22 business days/month)
+  const daysInCurrentMonth = new Date(year, currentMonth, 0).getDate();
+  const thisMonthTarget = monthlyGoals[currentMonth - 1]?.target_value || 0;
+  const monthProgress = currentDay / daysInCurrentMonth;
+  expectedReviewsYTD += thisMonthTarget * monthProgress;
+
   const yearProgressPercent = (reviewsThisYear / yearGoal) * 100;
-  const pacingDifference = yearProgressPercent - expectedProgressPercent;
+  const expectedProgressPercent = (expectedReviewsYTD / yearGoal) * 100;
+  const pacingDifference = expectedReviewsYTD > 0
+    ? ((reviewsThisYear - expectedReviewsYTD) / expectedReviewsYTD) * 100
+    : 0;
 
   let pacingStatus: 'ahead' | 'on_track' | 'behind' = 'on_track';
-  if (pacingDifference > 5) pacingStatus = 'ahead';
-  else if (pacingDifference < -5) pacingStatus = 'behind';
+  if (pacingDifference > 2) pacingStatus = 'ahead';
+  else if (pacingDifference < -2) pacingStatus = 'behind';
 
   // Rating distribution - combine batches
   const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
