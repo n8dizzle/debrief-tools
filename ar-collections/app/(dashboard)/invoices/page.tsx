@@ -1127,20 +1127,6 @@ export default function InvoicesPage() {
               placeholder="All"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Invoice Type
-            </label>
-            <select
-              className="select"
-              value={filters.invoiceType}
-              onChange={(e) => setFilters(prev => ({ ...prev, invoiceType: e.target.value }))}
-            >
-              <option value="">All Invoices</option>
-              <option value="membership">Membership Only</option>
-              <option value="service">Service Only</option>
-            </select>
-          </div>
         </div>
       </div>
 
