@@ -147,7 +147,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'next_appointment_date', label: 'Next Appt', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
-  { id: 'control_bucket', label: 'Control', sortable: true, minWidth: 90, defaultWidth: 110 },
+  { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'days_outstanding', label: 'DSO', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
   { id: 'actions', label: 'Log', sortable: false, minWidth: 80, defaultWidth: 90 },
@@ -971,6 +971,38 @@ export default function InvoicesPage() {
           Membership Invoices
         </button>
 
+        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+
+        {/* Actionable AR Chips */}
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            controlBuckets: prev.controlBuckets.includes('ar_collectible') ? [] : ['ar_collectible']
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.controlBuckets.includes('ar_collectible') ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-secondary)',
+            color: filters.controlBuckets.includes('ar_collectible') ? '#4ade80' : 'var(--text-secondary)',
+            border: filters.controlBuckets.includes('ar_collectible') ? '1px solid #4ade80' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Actionable Collections
+        </button>
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            controlBuckets: prev.controlBuckets.includes('ar_not_in_our_control') ? [] : ['ar_not_in_our_control']
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.controlBuckets.includes('ar_not_in_our_control') ? 'rgba(251, 146, 60, 0.2)' : 'var(--bg-secondary)',
+            color: filters.controlBuckets.includes('ar_not_in_our_control') ? '#fb923c' : 'var(--text-secondary)',
+            border: filters.controlBuckets.includes('ar_not_in_our_control') ? '1px solid #fb923c' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Pending Closures
+        </button>
+
         {/* Clear All Filters */}
         {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0) && (
           <button
@@ -1098,21 +1130,6 @@ export default function InvoicesPage() {
               selected={filters.owners}
               onChange={(values) => setFilters(prev => ({ ...prev, owners: values }))}
               placeholder="All AR Owners"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Control Bucket
-            </label>
-            <MultiSelectDropdown
-              label="Control Bucket"
-              options={[
-                { value: 'ar_collectible', label: 'Actionable Collections' },
-                { value: 'ar_not_in_our_control', label: 'Pending Closures' },
-              ]}
-              selected={filters.controlBuckets}
-              onChange={(values) => setFilters(prev => ({ ...prev, controlBuckets: values }))}
-              placeholder="All"
             />
           </div>
           <div>
