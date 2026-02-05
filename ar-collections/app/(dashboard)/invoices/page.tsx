@@ -767,16 +767,7 @@ export default function InvoicesPage() {
           </select>
         );
       case 'control_bucket':
-        return canChangeControlBucket ? (
-          <select
-            className="select text-xs py-1"
-            value={invoice.tracking?.control_bucket || 'ar_collectible'}
-            onChange={(e) => updateTracking(invoice.id, 'control_bucket', e.target.value)}
-          >
-            <option value="ar_collectible">Actionable AR</option>
-            <option value="ar_not_in_our_control">Pending Closures</option>
-          </select>
-        ) : (
+        return (
           <span className={`text-xs badge ${invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'badge-30' : 'badge-current'}`}>
             {invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'Pending Closures' : 'Actionable AR'}
           </span>
