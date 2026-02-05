@@ -120,7 +120,7 @@ function MultiSelectDropdown({
   );
 }
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'next_appointment_date' | 'control_bucket' | 'project_name' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -144,7 +144,6 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'inhouse_financing', label: 'IHF', sortable: true, minWidth: 40, defaultWidth: 50 },
   { id: 'is_membership_invoice', label: 'Mbrshp Inv', sortable: true, minWidth: 60, defaultWidth: 70 },
   { id: 'booking_payment_type', label: 'Booked Pay', sortable: true, minWidth: 80, defaultWidth: 100 },
-  { id: 'next_appointment_date', label: 'Next Appt', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
   { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
@@ -592,10 +591,6 @@ export default function InvoicesPage() {
         aVal = (a.booking_payment_type || '').toLowerCase();
         bVal = (b.booking_payment_type || '').toLowerCase();
         break;
-      case 'next_appointment_date':
-        aVal = a.next_appointment_date ? new Date(a.next_appointment_date).getTime() : 0;
-        bVal = b.next_appointment_date ? new Date(b.next_appointment_date).getTime() : 0;
-        break;
       case 'control_bucket':
         aVal = a.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
         bVal = b.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
@@ -806,23 +801,6 @@ export default function InvoicesPage() {
         return (
           <span className="text-xs truncate block" title={invoice.booking_payment_type || ''}>
             {invoice.booking_payment_type || '-'}
-          </span>
-        );
-      case 'next_appointment_date':
-        if (!invoice.next_appointment_date) return <span className="text-xs">-</span>;
-        const apptDate = new Date(invoice.next_appointment_date);
-        const isToday = apptDate.toDateString() === new Date().toDateString();
-        const isPast = apptDate < new Date();
-        return (
-          <span
-            className="text-xs whitespace-nowrap"
-            style={{
-              color: isToday ? 'var(--christmas-green)' : isPast ? 'var(--text-muted)' : 'var(--text-secondary)',
-              fontWeight: isToday ? 600 : 400,
-            }}
-            title={apptDate.toLocaleString()}
-          >
-            {isToday ? '📅 Today' : formatDate(invoice.next_appointment_date)}
           </span>
         );
       case 'actions':
