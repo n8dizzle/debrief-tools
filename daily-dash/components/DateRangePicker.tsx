@@ -197,13 +197,10 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
   };
 
   const getDisplayLabel = () => {
-    const preset = presets.find(p => {
-      if (p.key === 'custom') return false;
-      const range = p.getRange();
-      return range.start === value.start && range.end === value.end;
-    });
-
-    if (preset) {
+    // Use the actively selected preset instead of matching by date range
+    // (fixes issue where QTD and YTD have same dates in Q1)
+    const preset = presets.find(p => p.key === activePreset);
+    if (preset && activePreset !== 'custom') {
       return preset.label;
     }
 
