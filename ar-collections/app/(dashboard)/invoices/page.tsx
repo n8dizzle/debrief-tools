@@ -968,7 +968,7 @@ export default function InvoicesPage() {
             border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
           }}
         >
-          Membership Only
+          Membership Invoices
         </button>
 
         {/* Clear All Filters */}
