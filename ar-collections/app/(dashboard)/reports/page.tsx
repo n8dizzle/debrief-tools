@@ -167,7 +167,7 @@ export default function ReportsPage() {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--status-success)' }} />
-                  <span style={{ color: 'var(--text-secondary)' }}>AR Collectible</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Actionable AR</span>
                 </div>
                 <span className="font-semibold" style={{ color: 'var(--status-success)' }}>
                   {formatCurrency(currentTotals.collectible)}
@@ -176,7 +176,7 @@ export default function ReportsPage() {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--status-warning)' }} />
-                  <span style={{ color: 'var(--text-secondary)' }}>Not In Our Control</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Pending Closures</span>
                 </div>
                 <span className="font-semibold" style={{ color: 'var(--status-warning)' }}>
                   {formatCurrency(currentTotals.not_in_control)}
@@ -207,7 +207,7 @@ export default function ReportsPage() {
                   <th className="text-right">31-60</th>
                   <th className="text-right">61-90</th>
                   <th className="text-right">90+</th>
-                  <th className="text-right">Collectible</th>
+                  <th className="text-right">Actionable</th>
                 </tr>
               </thead>
               <tbody>

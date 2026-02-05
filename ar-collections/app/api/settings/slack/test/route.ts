@@ -159,5 +159,6 @@ async function fetchDashboardStats(supabase: ReturnType<typeof getServerSupabase
     top_90_plus,
     top_recent,
     recent_activity: recentNotes || [],
+    last_sync_at: null,
   };
 }

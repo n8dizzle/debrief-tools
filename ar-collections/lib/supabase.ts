@@ -387,6 +387,7 @@ export interface ARJobStatusOption {
   label: string;
   sort_order: number;
   is_active: boolean;
+  control_bucket: ARControlBucket | null; // Linked control bucket for auto-assignment
   created_at: string;
   updated_at: string;
 }

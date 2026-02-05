@@ -61,23 +61,23 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
- * Format date for display
+ * Format date for display (MM/DD/YYYY)
  */
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
   }).format(new Date(date));
 }
 
 /**
- * Format date with time (e.g., "Jan 28, 2026 3:45 PM")
+ * Format date with time (e.g., "01/28/2026 3:45 PM")
  */
 export function formatDateTime(date: string | Date): string {
   return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',

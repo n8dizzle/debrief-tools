@@ -41,7 +41,7 @@ function generateSlackBlocks(stats: ARDashboardStats, weekDate: string, isTest: 
         },
         {
           type: 'mrkdwn',
-          text: `*AR Collectible*\n${formatCurrency(stats.ar_collectible)}`,
+          text: `*Actionable AR*\n${formatCurrency(stats.ar_collectible)}`,
         },
       ],
     },

@@ -81,6 +81,7 @@ export default function DashboardPage() {
     top_90_plus: [],
     top_recent: [],
     recent_activity: [],
+    last_sync_at: null,
   };
 
   // Cohesive color palette for all charts - matches Daily Dash
@@ -119,6 +120,17 @@ export default function DashboardPage() {
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
             Accounts Receivable Overview
+            {displayStats.last_sync_at && (
+              <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                • Last synced {new Date(displayStats.last_sync_at).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -170,7 +182,7 @@ export default function DashboardPage() {
           }}
         >
           <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-            AR Collectible
+            Actionable AR
           </div>
           <div className="mt-2 text-2xl font-bold" style={{ color: '#4ade80' }}>
             {formatCurrency(displayStats.ar_collectible)}
@@ -185,7 +197,7 @@ export default function DashboardPage() {
           }}
         >
           <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-            Not In Control
+            Pending Closures
           </div>
           <div className="mt-2 text-2xl font-bold" style={{ color: '#fb923c' }}>
             {formatCurrency(displayStats.ar_not_in_control)}

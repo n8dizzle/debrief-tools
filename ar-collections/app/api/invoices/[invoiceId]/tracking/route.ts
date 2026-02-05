@@ -30,6 +30,20 @@ export async function PATCH(
     // Prepare update data with date tracking
     const updateData: Record<string, any> = { ...body };
 
+    // Auto-set control_bucket when job_status is changed
+    if (body.job_status) {
+      // Look up the job status to get its linked control_bucket
+      const { data: jobStatusData } = await supabase
+        .from('ar_job_statuses')
+        .select('control_bucket')
+        .eq('key', body.job_status)
+        .single();
+
+      if (jobStatusData?.control_bucket) {
+        updateData.control_bucket = jobStatusData.control_bucket;
+      }
+    }
+
     // Auto-set dates when checkboxes are checked
     if (body.day1_text_sent === true && !body.day1_text_date) {
       updateData.day1_text_date = today;

@@ -850,7 +850,7 @@ export default function InvoiceDetailPage() {
                   onChange={(e) => updateTracking('control_bucket', e.target.value)}
                   disabled={!canChangeControlBucket}
                 >
-                  <option value="ar_collectible">Actionable Collections</option>
+                  <option value="ar_collectible">Actionable AR</option>
                   <option value="ar_not_in_our_control">Pending Closures</option>
                 </select>
               </div>

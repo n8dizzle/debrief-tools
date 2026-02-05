@@ -5,7 +5,7 @@ import { formatDateTime } from '@/lib/ar-utils';
 import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog, ARJobStatusOption } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
-type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'history' | 'admin';
+type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'admin';
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -202,7 +202,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean }) {
+  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean; control_bucket?: string | null }) {
     try {
       const response = await fetch('/api/settings/job-statuses', {
         method: 'PATCH',
@@ -260,7 +260,6 @@ export default function SettingsPage() {
     { id: 'sync', label: 'Data Sync', show: true },
     { id: 'notifications', label: 'Notifications', show: canManageSettings },
     { id: 'job-statuses', label: 'Job Statuses', show: isOwner },
-    { id: 'history', label: 'Sync History', show: true },
     { id: 'admin', label: 'Admin', show: isOwner },
   ];
 
@@ -297,40 +296,109 @@ export default function SettingsPage() {
 
       {/* Sync Settings */}
       {activeTab === 'sync' && (
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-          Data Sync
-        </h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div>
-              <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                Automatic Sync
-              </div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                Daily at 6am CT + Hourly 8am-6pm Mon-Fri
-              </div>
-            </div>
-            <span className="badge badge-current">Enabled</span>
-          </div>
-
-          {canRunManualSync && (
+      <div className="space-y-6">
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Data Sync
+          </h2>
+          <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div>
                 <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                  Manual Sync
+                  Automatic Sync
                 </div>
                 <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Sync invoices from ServiceTitan now
+                  Daily at 6am CT + Hourly 8am-6pm Mon-Fri
                 </div>
               </div>
-              <button
-                onClick={runManualSync}
-                disabled={syncing}
-                className="btn btn-primary"
-              >
-                {syncing ? 'Syncing...' : 'Run Sync'}
-              </button>
+              <span className="badge badge-current">Enabled</span>
+            </div>
+
+            {canRunManualSync && (
+              <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div>
+                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    Manual Sync
+                  </div>
+                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Sync invoices from ServiceTitan now
+                  </div>
+                </div>
+                <button
+                  onClick={runManualSync}
+                  disabled={syncing}
+                  className="btn btn-primary"
+                >
+                  {syncing ? 'Syncing...' : 'Run Sync'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sync History */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Sync History
+          </h2>
+          {loading ? (
+            <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
+          ) : syncLogs.length === 0 ? (
+            <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+              No sync history yet
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="ar-table">
+                <thead>
+                  <tr>
+                    <th>Started</th>
+                    <th>Duration</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Processed</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                    <th>Errors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {syncLogs.slice(0, 20).map((log) => {
+                    const duration = log.completed_at
+                      ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
+                      : null;
+                    const durationStr = duration !== null
+                      ? duration >= 60
+                        ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                        : `${duration}s`
+                      : '-';
+                    return (
+                    <tr key={log.id}>
+                      <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
+                      <td className="text-sm">{durationStr}</td>
+                      <td className="capitalize">{log.sync_type}</td>
+                      <td>
+                        <span className={`badge badge-${log.status === 'completed' ? 'current' : log.status === 'failed' ? '90' : '30'}`}>
+                          {log.status}
+                        </span>
+                      </td>
+                      <td>{log.records_processed}</td>
+                      <td>{log.records_created}</td>
+                      <td>{log.records_updated}</td>
+                      <td
+                        className="text-sm max-w-xs"
+                        style={{ color: log.errors ? 'var(--status-error)' : 'var(--text-muted)' }}
+                        title={log.errors || ''}
+                      >
+                        {log.errors ? (
+                          <span className="block truncate">{log.errors}</span>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -626,6 +694,24 @@ export default function SettingsPage() {
                           )}
                         </div>
 
+                        {/* Control Bucket Linkage */}
+                        <select
+                          value={(status as any).control_bucket || ''}
+                          onChange={(e) => updateJobStatus(status.id, { control_bucket: e.target.value || null })}
+                          className="px-2 py-1 text-xs rounded"
+                          style={{
+                            backgroundColor: 'var(--bg-tertiary)',
+                            color: 'var(--christmas-cream)',
+                            border: '1px solid var(--border-subtle)',
+                            minWidth: '140px',
+                          }}
+                          title="Auto-set Actionable AR when this status is selected"
+                        >
+                          <option value="">No linkage</option>
+                          <option value="ar_collectible">→ Actionable AR</option>
+                          <option value="ar_not_in_our_control">→ Pending Closures</option>
+                        </select>
+
                         {/* Actions */}
                         <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
                           <button
@@ -786,75 +872,18 @@ export default function SettingsPage() {
                       </svg>
                       Deactivate to hide from dropdown
                     </li>
+                    <li className="flex gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      Use linkage dropdown to auto-set Actionable AR
+                    </li>
                   </ul>
                 </div>
               </div>
             </div>
           )}
         </div>
-      )}
-
-      {/* Sync History */}
-      {activeTab === 'history' && (
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-          Sync History
-        </h2>
-        {loading ? (
-          <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
-        ) : syncLogs.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-            No sync history yet
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="ar-table">
-              <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Duration</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Processed</th>
-                  <th>Created</th>
-                  <th>Updated</th>
-                  <th>Errors</th>
-                </tr>
-              </thead>
-              <tbody>
-                {syncLogs.slice(0, 20).map((log) => {
-                  const duration = log.completed_at
-                    ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
-                    : null;
-                  const durationStr = duration !== null
-                    ? duration >= 60
-                      ? `${Math.floor(duration / 60)}m ${duration % 60}s`
-                      : `${duration}s`
-                    : '-';
-                  return (
-                  <tr key={log.id}>
-                    <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
-                    <td className="text-sm">{durationStr}</td>
-                    <td className="capitalize">{log.sync_type}</td>
-                    <td>
-                      <span className={`badge badge-${log.status === 'completed' ? 'current' : log.status === 'failed' ? '90' : '30'}`}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td>{log.records_processed}</td>
-                    <td>{log.records_created}</td>
-                    <td>{log.records_updated}</td>
-                    <td className="text-sm" style={{ color: log.errors ? 'var(--status-error)' : 'var(--text-muted)' }}>
-                      {log.errors ? log.errors.substring(0, 50) + '...' : '-'}
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
       )}
 
       {/* Admin Only Settings */}

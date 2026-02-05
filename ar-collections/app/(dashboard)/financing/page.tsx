@@ -36,11 +36,30 @@ export default function FinancingPage() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>('invoice_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const { canUpdateWorkflow } = useARPermissions();
 
   useEffect(() => {
     fetchInvoices();
   }, [filterStatus]);
+
+  useEffect(() => {
+    fetchLastSync();
+  }, []);
+
+  async function fetchLastSync() {
+    try {
+      const response = await fetch('/api/sync/last', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLastSyncAt(data.last_sync_at);
+      }
+    } catch (err) {
+      console.error('Failed to fetch last sync:', err);
+    }
+  }
 
   useEffect(() => {
     if (expandedInvoice) {
@@ -204,6 +223,17 @@ export default function FinancingPage() {
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
             {summary?.active_plans || 0} active plans · {formatCurrency(summary?.total_outstanding || 0)} total outstanding
+            {lastSyncAt && (
+              <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                • Last synced {new Date(lastSyncAt).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </span>
+            )}
           </p>
         </div>
         <button

@@ -147,6 +147,7 @@ export async function PATCH(request: NextRequest) {
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     if (label !== undefined) updates.label = label;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (body.control_bucket !== undefined) updates.control_bucket = body.control_bucket;
 
     const { data, error } = await supabase
       .from('ar_job_statuses')

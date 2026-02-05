@@ -170,6 +170,15 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching notes:', notesError);
     }
 
+    // Get last successful sync date
+    const { data: lastSync } = await supabase
+      .from('ar_sync_log')
+      .select('completed_at')
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .single();
+
     const stats: ARDashboardStats = {
       total_outstanding,
       ar_collectible,
@@ -189,6 +198,7 @@ export async function GET(request: NextRequest) {
       top_90_plus,
       top_recent,
       recent_activity: recentNotes || [],
+      last_sync_at: lastSync?.completed_at || null,
     };
 
     return NextResponse.json(stats);

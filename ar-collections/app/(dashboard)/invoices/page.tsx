@@ -773,12 +773,12 @@ export default function InvoicesPage() {
             value={invoice.tracking?.control_bucket || 'ar_collectible'}
             onChange={(e) => updateTracking(invoice.id, 'control_bucket', e.target.value)}
           >
-            <option value="ar_collectible">Actionable Collections</option>
+            <option value="ar_collectible">Actionable AR</option>
             <option value="ar_not_in_our_control">Pending Closures</option>
           </select>
         ) : (
           <span className={`text-xs badge ${invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'badge-30' : 'badge-current'}`}>
-            {invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'Pending Closures' : 'Actionable Collections'}
+            {invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'Pending Closures' : 'Actionable AR'}
           </span>
         );
       case 'days_outstanding':
@@ -946,7 +946,7 @@ export default function InvoicesPage() {
             border: filters.controlBuckets.includes('ar_collectible') ? '1px solid #4ade80' : '1px solid var(--border-subtle)',
           }}
         >
-          Actionable Collections
+          Actionable AR
         </button>
         <button
           onClick={() => setFilters(prev => ({
