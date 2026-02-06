@@ -34,6 +34,7 @@ function getStatusColor(status: ARTaskStatus): string {
   switch (status) {
     case 'completed': return 'var(--status-success)';
     case 'in_progress': return '#60a5fa';
+    case 'on_hold': return '#8b5cf6';
     case 'pending': return 'var(--text-muted)';
     case 'cancelled': return 'var(--status-error)';
   }
