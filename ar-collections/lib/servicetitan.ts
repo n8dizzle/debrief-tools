@@ -110,13 +110,17 @@ export interface STTask {
 export interface STTaskCreate {
   jobId?: number;
   customerId?: number;
-  sourceId: number;
-  typeId: number;
-  priority?: number;
+  employeeTaskSourceId: number;
+  employeeTaskTypeId: number;
+  priority?: 'Low' | 'Normal' | 'High' | 'Urgent';
   dueDate?: string;
-  subject: string;
-  description?: string;
-  assignedTo?: number;
+  name: string;
+  body: string;
+  isClosed: boolean;
+  assignedToId: number;
+  reportedById: number;
+  reportedDate: string;
+  businessUnitId?: number;
 }
 
 export interface STTaskUpdate {
@@ -620,6 +624,23 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Get all business units
+   */
+  async getBusinessUnits(): Promise<{ id: number; name: string }[]> {
+    try {
+      const response = await this.request<STPagedResponse<{ id: number; name: string; active: boolean }>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/business-units`,
+        { params: { pageSize: '100', active: 'true' } }
+      );
+      return (response.data || []).map(bu => ({ id: bu.id, name: bu.name }));
+    } catch (error) {
+      console.error('Failed to get business units:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get multiple customers by IDs
    */
   async getCustomers(customerIds: number[]): Promise<STCustomer[]> {
@@ -922,8 +943,8 @@ export class ServiceTitanClient {
    * Get job info for multiple job numbers
    * Returns a map of job number -> { hasInhouseFinancing, jobStatus, jobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate }
    */
-  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>> {
-    const jobInfoMap = new Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>();
+  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { jobId: number; hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>> {
+    const jobInfoMap = new Map<string, { jobId: number; hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>();
     if (jobNumbers.length === 0) return jobInfoMap;
 
     // Fetch job types first for name lookup
@@ -1018,6 +1039,7 @@ export class ServiceTitanClient {
             }
 
             jobInfoMap.set(jobNumber, {
+              jobId: job.id,
               hasInhouseFinancing,
               jobStatus: job.jobStatus || null,
               jobTypeName,

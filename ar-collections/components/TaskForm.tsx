@@ -30,11 +30,19 @@ const PRIORITIES: { value: ARTaskPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgent' },
 ];
 
+interface InvoiceInfo {
+  invoice_number: string;
+  customer_name: string;
+  st_job_id: number | null;
+  balance: number;
+}
+
 export default function TaskForm({
   isOpen,
   onClose,
   onSubmit,
   initialData,
+  invoiceId,
   mode = 'create',
 }: TaskFormProps) {
   const [formData, setFormData] = useState<TaskFormData>({
@@ -48,6 +56,7 @@ export default function TaskForm({
   });
   const [taskTypes, setTaskTypes] = useState<ARSTTaskType[]>([]);
   const [employees, setEmployees] = useState<ARSTEmployee[]>([]);
+  const [invoiceInfo, setInvoiceInfo] = useState<InvoiceInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,9 +73,31 @@ export default function TaskForm({
         push_to_st: initialData?.push_to_st || false,
       });
       setError(null);
+      setInvoiceInfo(null);
       fetchSTConfig();
+      if (invoiceId) {
+        fetchInvoiceInfo();
+      }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, invoiceId]);
+
+  async function fetchInvoiceInfo() {
+    if (!invoiceId) return;
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setInvoiceInfo({
+          invoice_number: data.invoice_number || '',
+          customer_name: data.customer_name || '',
+          st_job_id: data.st_job_id || null,
+          balance: data.balance || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch invoice info:', err);
+    }
+  }
 
   async function fetchSTConfig() {
     try {
@@ -134,6 +165,28 @@ export default function TaskForm({
               </svg>
             </button>
           </div>
+
+          {/* Invoice/Job Context */}
+          {invoiceInfo && (
+            <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-secondary)' }}>
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span style={{ color: 'var(--text-muted)' }}>Creating task for:</span>
+              </div>
+              <div className="mt-1 ml-6">
+                <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  {invoiceInfo.customer_name}
+                </div>
+                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Invoice #{invoiceInfo.invoice_number}
+                  {invoiceInfo.st_job_id && <span> · Job #{invoiceInfo.st_job_id}</span>}
+                  <span> · ${invoiceInfo.balance.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 space-y-4">

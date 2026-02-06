@@ -180,6 +180,7 @@ export async function runARSync(): Promise<SyncResult> {
         const dbCustomerId = dbCustomerMap.get(row.customerId) ?? null;
         const existing = existingByStId.get(row.invoiceId);
         const jobInfo = row.jobNumber ? jobInfoMap.get(row.jobNumber) : null;
+        const stJobId = jobInfo?.jobId || null;
         const hasInhouseFinancing = jobInfo?.hasInhouseFinancing || false;
         const stJobStatus = jobInfo?.jobStatus || null;
         const stJobTypeName = jobInfo?.jobTypeName || null;
@@ -195,7 +196,7 @@ export async function runARSync(): Promise<SyncResult> {
         await upsertInvoiceFromReport(
           supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing,
           stJobStatus, stJobTypeName, hasMembership, bookingPaymentType,
-          nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice
+          nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice, stJobId
         );
 
         if (existing) {
@@ -332,7 +333,8 @@ async function upsertInvoiceFromReport(
   locationId: number | null = null,
   projectId: number | null = null,
   projectName: string | null = null,
-  isMembershipInvoice: boolean = false
+  isMembershipInvoice: boolean = false,
+  stJobId: number | null = null
 ): Promise<boolean> {
   // Determine job type from business unit name
   const buName = (row.businessUnitName || '').toLowerCase();
@@ -393,7 +395,7 @@ async function upsertInvoiceFromReport(
     business_unit_id: null,
     business_unit_name: row.businessUnitName || null,
     job_type: jobType,
-    st_job_id: null,
+    st_job_id: stJobId,
     job_number: row.jobNumber,
     has_inhouse_financing: hasInhouseFinancing,
     st_job_status: stJobStatus,
