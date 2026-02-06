@@ -756,36 +756,6 @@ export default function InvoiceDetailPage() {
             </div>
           )}
 
-          {/* Tasks */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-              Tasks
-            </h2>
-            <TaskList
-              invoiceId={invoiceId}
-              showFilters={false}
-              showCreateButton={canUpdateWorkflow}
-              compact={true}
-              maxItems={5}
-            />
-          </div>
-
-          {/* Activity Timeline */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-                Activity Timeline
-              </h2>
-              {canAddNotes && (
-                <QuickLogButtons
-                  invoiceId={invoiceId}
-                  onLogSaved={refreshNotes}
-                />
-              )}
-            </div>
-
-            <ActivityTimeline notes={invoice.notes} />
-          </div>
         </div>
 
         {/* Sidebar */}
@@ -841,20 +811,6 @@ export default function InvoiceDetailPage() {
                   <option value="ar_collectible">Actionable AR</option>
                   <option value="ar_not_in_our_control">Pending Closures</option>
                 </select>
-              </div>
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={tracking?.invoice_verified || false}
-                    onChange={(e) => updateTracking('invoice_verified', e.target.checked)}
-                    disabled={!canUpdateWorkflow}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    Invoice Verified
-                  </span>
-                </label>
               </div>
             </div>
           </div>
@@ -924,6 +880,38 @@ export default function InvoiceDetailPage() {
                 </>
               )}
             </div>
+          </div>
+
+          {/* Activity */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
+                Activity
+              </h3>
+              {canAddNotes && (
+                <QuickLogButtons
+                  invoiceId={invoiceId}
+                  onLogSaved={refreshNotes}
+                />
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              <ActivityTimeline notes={invoice.notes} maxItems={5} />
+            </div>
+          </div>
+
+          {/* Tasks */}
+          <div className="card">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>
+              Tasks
+            </h3>
+            <TaskList
+              invoiceId={invoiceId}
+              showFilters={false}
+              showCreateButton={false}
+              compact={true}
+              maxItems={3}
+            />
           </div>
 
         </div>
