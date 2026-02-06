@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/weekly-slack",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/task-sync",
+      "schedule": "0 14,16,18,20,22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/task-sync",
+      "schedule": "0 0 * * 2-6"
     }
   ]
 }

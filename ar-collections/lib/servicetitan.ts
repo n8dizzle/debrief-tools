@@ -26,6 +26,15 @@ export interface STJob {
   type?: { name?: string };
   lastAppointmentId?: number;
   membershipId?: number | null;
+  projectId?: number | null;
+}
+
+export interface STProject {
+  id: number;
+  number?: string;
+  name?: string;
+  status?: string;
+  customerId?: number;
 }
 
 export interface STAppointment {
@@ -58,6 +67,7 @@ export interface STInvoice {
   dueDate?: string;
   status?: string;
   items?: STInvoiceItem[];
+  invoiceConfiguration?: string; // e.g., "MembershipInvoice"
 }
 
 interface STInvoiceItem {
@@ -66,6 +76,7 @@ interface STInvoiceItem {
   quantity?: number;
   unitPrice?: number;
   total?: number;
+  membershipTypeId?: number;
 }
 
 export interface STPayment {
@@ -78,6 +89,47 @@ export interface STPayment {
   status?: string;
 }
 
+export interface STTask {
+  id: number;
+  jobId?: number;
+  customerId?: number;
+  sourceId?: number;
+  typeId?: number;
+  resolutionId?: number;
+  status?: string;
+  priority?: number;
+  dueDate?: string;
+  subject?: string;
+  description?: string;
+  completedOn?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  assignedTo?: { id: number; name: string };
+}
+
+export interface STTaskCreate {
+  jobId?: number;
+  customerId?: number;
+  sourceId: number;
+  typeId: number;
+  priority?: number;
+  dueDate?: string;
+  subject: string;
+  description?: string;
+  assignedTo?: number;
+}
+
+export interface STTaskUpdate {
+  status?: string;
+  resolutionId?: number;
+  priority?: number;
+  dueDate?: string;
+  subject?: string;
+  description?: string;
+  completedOn?: string;
+  assignedTo?: number;
+}
+
 export interface STCustomer {
   id: number;
   name: string;
@@ -88,6 +140,24 @@ export interface STCustomer {
   doNotService?: boolean;
   active?: boolean;
   createdOn?: string;
+}
+
+export interface STLocationTag {
+  tagTypeId: number;
+  tagTypeName?: string;
+}
+
+export interface STLocation {
+  id: number;
+  name?: string;
+  customerId?: number;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+  tagTypes?: STLocationTag[];
 }
 
 
@@ -456,34 +526,25 @@ export class ServiceTitanClient {
    * Get a single invoice by ID
    */
   async getInvoice(invoiceId: number): Promise<STInvoice | null> {
-    try {
-      const response = await this.request<STInvoice>(
-        'GET',
-        `accounting/v2/tenant/${this.tenantId}/invoices/${invoiceId}`,
-        {}
-      );
-      return response;
-    } catch (error) {
-      console.error(`Failed to get invoice ${invoiceId}:`, error);
-      return null;
-    }
+    // ServiceTitan requires using ids query param, not path param
+    const response = await this.request<STPagedResponse<STInvoice>>(
+      'GET',
+      `accounting/v2/tenant/${this.tenantId}/invoices`,
+      { params: { ids: invoiceId.toString(), pageSize: '1' } }
+    );
+    return response.data?.[0] || null;
   }
 
   /**
    * Get invoice by invoice number (searches invoices)
    */
   async getInvoiceByNumber(invoiceNumber: string): Promise<STInvoice | null> {
-    try {
-      const response = await this.request<STPagedResponse<STInvoice>>(
-        'GET',
-        `accounting/v2/tenant/${this.tenantId}/invoices`,
-        { params: { number: invoiceNumber, pageSize: '1' } }
-      );
-      return response.data?.[0] || null;
-    } catch (error) {
-      console.error(`Failed to get invoice by number ${invoiceNumber}:`, error);
-      return null;
-    }
+    const response = await this.request<STPagedResponse<STInvoice>>(
+      'GET',
+      `accounting/v2/tenant/${this.tenantId}/invoices`,
+      { params: { number: invoiceNumber, pageSize: '1' } }
+    );
+    return response.data?.[0] || null;
   }
 
   /**
@@ -618,6 +679,61 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Get location details by ID (includes tags)
+   */
+  async getLocation(locationId: number): Promise<STLocation | null> {
+    try {
+      const response = await this.request<STLocation>(
+        'GET',
+        `crm/v2/tenant/${this.tenantId}/locations/${locationId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get location ${locationId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a location has any membership-related tags
+   */
+  locationHasMembershipTag(location: STLocation | null): boolean {
+    if (!location?.tagTypes || location.tagTypes.length === 0) {
+      return false;
+    }
+    // Check if any tag name contains "membership" (case-insensitive)
+    return location.tagTypes.some(tag =>
+      tag.tagTypeName?.toLowerCase().includes('membership')
+    );
+  }
+
+  /**
+   * Check if an invoice indicates a membership
+   * Returns true if:
+   * - invoiceConfiguration is "MembershipInvoice"
+   * - Any line item has membershipTypeId > 0
+   */
+  invoiceIndicatesMembership(invoice: STInvoice | null): boolean {
+    if (!invoice) return false;
+
+    // Check invoice configuration
+    if (invoice.invoiceConfiguration === 'MembershipInvoice') {
+      return true;
+    }
+
+    // Check line items for membership type
+    const invoiceAny = invoice as any;
+    if (Array.isArray(invoiceAny.items)) {
+      return invoiceAny.items.some((item: any) =>
+        item.membershipTypeId && item.membershipTypeId > 0
+      );
+    }
+
+    return false;
+  }
+
+  /**
    * Get appointment details by ID
    */
   async getAppointment(appointmentId: number): Promise<STAppointment | null> {
@@ -712,7 +828,7 @@ export class ServiceTitanClient {
   // ============================================
 
   /**
-   * Get all tag types (to find "In-house Financing" tag ID)
+   * Get all tag types (fetches all pages)
    * Tries multiple API paths as ServiceTitan's API structure varies
    */
   async getTagTypes(): Promise<{ id: number; name: string; active: boolean }[]> {
@@ -725,19 +841,34 @@ export class ServiceTitanClient {
 
     for (const endpoint of endpoints) {
       try {
-        console.log(`Trying tag-types endpoint: ${endpoint}`);
-        const response = await this.request<STPagedResponse<{
-          id: number;
-          name: string;
-          active: boolean;
-        }>>(
-          'GET',
-          endpoint,
-          { params: { pageSize: '200' } }
-        );
-        if (response.data && response.data.length > 0) {
-          console.log(`Found ${response.data.length} tag types from ${endpoint}`);
-          return response.data;
+        const allTags: { id: number; name: string; active: boolean }[] = [];
+        let page = 1;
+        const maxPages = 10;
+
+        while (page <= maxPages) {
+          const response = await this.request<STPagedResponse<{
+            id: number;
+            name: string;
+            active: boolean;
+          }>>(
+            'GET',
+            endpoint,
+            { params: { pageSize: '200', page: page.toString() } }
+          );
+
+          if (response.data && response.data.length > 0) {
+            allTags.push(...response.data);
+          }
+
+          if (!response.hasMore || !response.data || response.data.length === 0) {
+            break;
+          }
+          page++;
+        }
+
+        if (allTags.length > 0) {
+          console.log(`Found ${allTags.length} tag types from ${endpoint}`);
+          return allTags;
         }
       } catch (error) {
         console.log(`Endpoint ${endpoint} failed, trying next...`);
@@ -791,8 +922,8 @@ export class ServiceTitanClient {
    * Get job info for multiple job numbers
    * Returns a map of job number -> { hasInhouseFinancing, jobStatus, jobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate }
    */
-  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null }>> {
-    const jobInfoMap = new Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null }>();
+  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>> {
+    const jobInfoMap = new Map<string, { hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>();
     if (jobNumbers.length === 0) return jobInfoMap;
 
     // Fetch job types first for name lookup
@@ -810,15 +941,28 @@ export class ServiceTitanClient {
         try {
           const job = await this.getJobByNumber(jobNumber);
           if (job) {
+            const jobAny = job as any;
             const hasInhouseFinancing = job.tagTypeIds?.includes(ServiceTitanClient.IN_HOUSE_FINANCING_TAG_ID) || false;
             // Look up job type name from ID
             const jobTypeName = job.jobTypeId ? jobTypeMap.get(job.jobTypeId) || null : null;
-            // Check if job is tied to a membership
-            const hasMembership = job.membershipId != null && job.membershipId > 0;
+
+            // Check if job is tied to a membership via multiple sources:
+            // 1. Job has membershipId set
+            // 2. Custom field "Are they a member?" = "Yes"
+            let hasMembership = job.membershipId != null && job.membershipId > 0;
+
+            // Check custom field "Are they a member?"
+            if (!hasMembership && Array.isArray(jobAny.customFields)) {
+              const memberField = jobAny.customFields.find(
+                (cf: any) => cf.name === 'Are they a member?' || cf.typeId === 173706782
+              );
+              if (memberField?.value?.toLowerCase() === 'yes') {
+                hasMembership = true;
+              }
+            }
 
             // Get payment type from customFields array
             // The field is: {"typeId": 174250392, "name": "Payment Type?", "value": "Cash/Check"}
-            const jobAny = job as any;
             let bookingPaymentType: string | null = null;
 
             if (Array.isArray(jobAny.customFields)) {
@@ -861,6 +1005,18 @@ export class ServiceTitanClient {
               // Skip appointment fetch failures
             }
 
+            // Get project name if projectId exists
+            let projectName: string | null = null;
+            const projectId = job.projectId || null;
+            if (projectId) {
+              try {
+                const project = await this.getProject(projectId);
+                projectName = project?.name || project?.number || null;
+              } catch (e) {
+                // Skip project fetch failures
+              }
+            }
+
             jobInfoMap.set(jobNumber, {
               hasInhouseFinancing,
               jobStatus: job.jobStatus || null,
@@ -868,6 +1024,9 @@ export class ServiceTitanClient {
               hasMembership,
               bookingPaymentType,
               nextAppointmentDate,
+              locationId: job.locationId || null,
+              projectId,
+              projectName,
             });
           }
         } catch (error) {
@@ -882,8 +1041,26 @@ export class ServiceTitanClient {
     }
 
     const inhouseCount = Array.from(jobInfoMap.values()).filter(j => j.hasInhouseFinancing).length;
-    console.log(`Found ${inhouseCount} jobs with In-house Financing tag`);
+    const projectCount = Array.from(jobInfoMap.values()).filter(j => j.projectId).length;
+    console.log(`Found ${inhouseCount} jobs with In-house Financing tag, ${projectCount} with projects`);
     return jobInfoMap;
+  }
+
+  /**
+   * Get project details by ID
+   */
+  async getProject(projectId: number): Promise<STProject | null> {
+    try {
+      const response = await this.request<STProject>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/projects/${projectId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get project ${projectId}:`, error);
+      return null;
+    }
   }
 
   /**
@@ -930,6 +1107,176 @@ export class ServiceTitanClient {
     } catch (error) {
       console.error(`Failed to fetch jobs${tagTypeId ? ` with tag ${tagTypeId}` : ''}:`, error);
       return [];
+    }
+  }
+
+  // ============================================
+  // TASK MANAGEMENT METHODS
+  // ============================================
+
+  /**
+   * ServiceTitan Task types
+   */
+
+  /**
+   * Get task management data (sources, types, resolutions, priorities)
+   * This is the combined endpoint that returns all task configuration
+   */
+  async getTaskManagementData(): Promise<{
+    sources: { id: number; name: string; active: boolean }[];
+    types: { id: number; name: string; active: boolean }[];
+    resolutions: { id: number; name: string; active: boolean }[];
+  }> {
+    try {
+      const response = await this.request<{
+        sources?: { id: number; name: string; active?: boolean }[];
+        types?: { id: number; name: string; active?: boolean }[];
+        resolutions?: { id: number; name: string; active?: boolean }[];
+        taskSources?: { id: number; name: string; active?: boolean }[];
+        taskTypes?: { id: number; name: string; active?: boolean }[];
+        taskResolutions?: { id: number; name: string; active?: boolean }[];
+      }>(
+        'GET',
+        `taskmanagement/v2/tenant/${this.tenantId}/data`,
+        {}
+      );
+      console.log('Task management data response:', JSON.stringify(response).slice(0, 1000));
+
+      // Handle different possible response structures
+      const sources = (response.sources || response.taskSources || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        active: s.active ?? true,
+      }));
+      const types = (response.types || response.taskTypes || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        active: t.active ?? true,
+      }));
+      const resolutions = (response.resolutions || response.taskResolutions || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        active: r.active ?? true,
+      }));
+
+      return { sources, types, resolutions };
+    } catch (error) {
+      console.error('Failed to fetch task management data:', error);
+      return { sources: [], types: [], resolutions: [] };
+    }
+  }
+
+  /**
+   * Get task sources (e.g., "AR Collections", "Service Call")
+   */
+  async getTaskSources(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const data = await this.getTaskManagementData();
+    return data.sources;
+  }
+
+  /**
+   * Get task types (e.g., "Follow Up Call", "Send Email")
+   */
+  async getTaskTypes(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const data = await this.getTaskManagementData();
+    return data.types;
+  }
+
+  /**
+   * Get task resolutions (e.g., "Completed", "Cancelled", "Left Voicemail")
+   */
+  async getTaskResolutions(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const data = await this.getTaskManagementData();
+    return data.resolutions;
+  }
+
+  /**
+   * Get employees from ServiceTitan
+   */
+  async getEmployees(): Promise<{ id: number; name: string; active: boolean }[]> {
+    try {
+      const response = await this.request<STPagedResponse<{
+        id: number;
+        name: string;
+        active: boolean;
+      }>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/employees`,
+        { params: { pageSize: '500', active: 'true' } }
+      );
+      console.log(`Fetched ${response.data?.length || 0} employees from ST`);
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get a single task by ID
+   */
+  async getTaskById(taskId: number): Promise<STTask | null> {
+    try {
+      const response = await this.request<STTask>(
+        'GET',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks/${taskId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get task ${taskId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get tasks for a job
+   */
+  async getTasksForJob(jobId: number): Promise<STTask[]> {
+    try {
+      const response = await this.request<STPagedResponse<STTask>>(
+        'GET',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks`,
+        { params: { jobId: jobId.toString(), pageSize: '100' } }
+      );
+      return response.data || [];
+    } catch (error) {
+      console.error(`Failed to get tasks for job ${jobId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Create a task in ServiceTitan
+   */
+  async createTask(task: STTaskCreate): Promise<STTask | null> {
+    try {
+      const response = await this.request<STTask>(
+        'POST',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks`,
+        { body: task }
+      );
+      return response;
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update a task in ServiceTitan
+   */
+  async updateTask(taskId: number, updates: STTaskUpdate): Promise<STTask | null> {
+    try {
+      const response = await this.request<STTask>(
+        'PATCH',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks/${taskId}`,
+        { body: updates }
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to update task ${taskId}:`, error);
+      return null;
     }
   }
 

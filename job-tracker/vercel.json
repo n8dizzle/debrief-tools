@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-create",
+      "schedule": "0 14 * * 1-5"
+    },
+    {
+      "path": "/api/cron/sync-status",
+      "schedule": "0 18 * * *"
+    }
+  ]
+}

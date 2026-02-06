@@ -136,10 +136,76 @@ export async function GET(request: NextRequest) {
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total);
 
-    // Calculate average DSO
-    const avg_dso = invoices ? calculateAverageDSO(invoices.map(inv => ({
+    // Calculate average invoice age (simple average of days outstanding)
+    const avg_invoice_age = invoices ? calculateAverageDSO(invoices.map(inv => ({
       days_outstanding: inv.days_outstanding
     }))) : 0;
+
+    // Calculate average invoice age by control bucket
+    const actionableInvoices = invoices?.filter(inv =>
+      inv.tracking?.control_bucket !== 'ar_not_in_our_control'
+    ) || [];
+    const pendingClosuresInvoices = invoices?.filter(inv =>
+      inv.tracking?.control_bucket === 'ar_not_in_our_control'
+    ) || [];
+
+    const actionable_ar_avg_age = actionableInvoices.length > 0
+      ? calculateAverageDSO(actionableInvoices.map(inv => ({ days_outstanding: inv.days_outstanding })))
+      : 0;
+    const pending_closures_avg_age = pendingClosuresInvoices.length > 0
+      ? calculateAverageDSO(pendingClosuresInvoices.map(inv => ({ days_outstanding: inv.days_outstanding })))
+      : 0;
+
+    // Calculate true DSO = (AR Balance / Revenue) × Days in Period
+    // Using 30-day period and revenue from trade_daily_snapshots
+    const DSO_PERIOD_DAYS = 30;
+    const today = new Date();
+    const periodStartDate = new Date(today);
+    periodStartDate.setDate(periodStartDate.getDate() - DSO_PERIOD_DAYS);
+    const periodStartStr = periodStartDate.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Fetch revenue from trade_daily_snapshots for the period
+    const { data: revenueSnapshots } = await supabase
+      .from('trade_daily_snapshots')
+      .select('revenue')
+      .gte('snapshot_date', periodStartStr)
+      .lte('snapshot_date', todayStr)
+      .is('department', null); // Only trade-level aggregates (not department breakdowns)
+
+    const periodRevenue = revenueSnapshots?.reduce((sum, snap) => sum + Number(snap.revenue || 0), 0) || 0;
+
+    // True DSO formula: (AR Balance / Credit Sales) × Days in Period
+    // If no revenue, DSO is undefined (show 0)
+    const true_dso = periodRevenue > 0
+      ? Math.round((total_outstanding / periodRevenue) * DSO_PERIOD_DAYS)
+      : 0;
+
+    // Get job status options for labels
+    const { data: jobStatusOptions } = await supabase
+      .from('ar_job_statuses')
+      .select('key, label')
+      .eq('is_active', true);
+
+    const jobStatusLabelMap = new Map<string, string>();
+    for (const opt of jobStatusOptions || []) {
+      jobStatusLabelMap.set(opt.key, opt.label);
+    }
+
+    // Calculate AR totals by job status
+    const jobStatusMap = new Map<string, number>();
+    for (const inv of invoices || []) {
+      const status = inv.tracking?.job_status || 'none';
+      const current = jobStatusMap.get(status) || 0;
+      jobStatusMap.set(status, current + Number(inv.balance));
+    }
+    const job_status_totals = Array.from(jobStatusMap.entries())
+      .map(([key, total]) => ({
+        key,
+        label: key === 'none' ? 'No Status' : (jobStatusLabelMap.get(key) || key),
+        total,
+      }))
+      .sort((a, b) => b.total - a.total);
 
     // Get top 5 lists
     const top_balances = [...(invoices || [])]
@@ -170,11 +236,25 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching notes:', notesError);
     }
 
+    // Get last successful sync date
+    const { data: lastSync } = await supabase
+      .from('ar_sync_log')
+      .select('completed_at')
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .single();
+
     const stats: ARDashboardStats = {
       total_outstanding,
       ar_collectible,
       ar_not_in_control,
-      avg_dso,
+      avg_invoice_age,
+      actionable_ar_avg_age,
+      pending_closures_avg_age,
+      true_dso,
+      true_dso_period_days: DSO_PERIOD_DAYS,
+      true_dso_revenue: periodRevenue,
       aging_buckets,
       install_total,
       service_total,
@@ -184,11 +264,13 @@ export async function GET(request: NextRequest) {
       inhouse_financing_count,
       inhouse_financing_delinquent,
       business_unit_totals,
+      job_status_totals,
       top_balances,
       top_oldest,
       top_90_plus,
       top_recent,
       recent_activity: recentNotes || [],
+      last_sync_at: lastSync?.completed_at || null,
     };
 
     return NextResponse.json(stats);

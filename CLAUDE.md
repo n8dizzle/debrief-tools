@@ -54,6 +54,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Marketing Hub** (`/marketing-hub`) | https://marketing.christmasair.com | Next.js | 3002 |
 | **Internal Portal** (`/internal-portal`) | https://portal.christmasair.com | Next.js | 3000 |
 | **AR Collections** (`/ar-collections`) | https://ar.christmasair.com | Next.js | 3003 |
+| **Job Tracker** (`/job-tracker`) | https://track.christmasair.com | Next.js | 3004 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -152,6 +153,35 @@ const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-
 - Reports and analytics
 - ServiceTitan integration for invoice data
 
+### Job Tracker ("Pizza Tracker")
+
+**Customer-Facing Job Tracking** - Unique links for customers to track job progress
+- Public tracker page at `track.christmasair.com/[trackingCode]` (no login required)
+- Progress timeline with milestone status
+- Trade-based theming (HVAC = green, Plumbing = gold)
+- Customer notification preferences (SMS/email)
+
+**Staff Dashboard** - Create and manage job trackers
+- Create trackers manually or auto-create from ServiceTitan
+- Update milestones with customer-visible notes
+- Copy shareable tracker links
+
+**Milestone Templates** - Reusable milestone sets
+- Default templates: HVAC Install (7 steps), HVAC Repair (5 steps), Water Heater Install (4 steps)
+- Templates by trade and job type
+- Auto-progress calculation
+
+**Notifications** - Keep customers informed
+- SMS via Twilio
+- Email via Resend
+- Auto-send on milestone completion
+- Welcome and completion notifications
+
+**ServiceTitan Integration**
+- Auto-create trackers for install jobs (cron: 8 AM weekdays)
+- Sync job status (cron: every 2 hours)
+- Pull customer info and job details
+
 ### Internal Portal (Admin)
 
 **User Management** (`/admin/users`) - Centralized user provisioning
@@ -222,6 +252,11 @@ Key tables:
 - `huddle_daily_snapshots`, `trade_daily_snapshots` - Revenue caching
 - `dash_monthly_targets`, `dash_quarterly_targets` - Target configuration
 - `marketing_tasks` - Task tracking
+- `job_trackers` - Customer job tracking records
+- `tracker_milestones` - Progress milestones for each tracker
+- `tracker_templates`, `tracker_template_milestones` - Reusable milestone templates
+- `tracker_activity` - Audit log for tracker changes
+- `tracker_notifications` - Notification send history
 
 ### Permission Groups
 ```typescript
@@ -239,6 +274,9 @@ can_manage_users, can_view_audit_log
 
 // ar_collections
 can_view_invoices, can_update_invoices, can_log_communications, can_view_reports, can_manage_settings
+
+// job_tracker
+can_view_trackers, can_manage_trackers, can_manage_templates, can_sync_data
 ```
 
 ## Deployment
@@ -261,11 +299,13 @@ systemctl restart debrief-qa
 journalctl -u debrief-qa -f
 ```
 
-### Daily Dash, Marketing Hub & Internal Portal - Vercel
+### Daily Dash, Marketing Hub, Internal Portal, AR Collections & Job Tracker - Vercel
 ```bash
 cd daily-dash && vercel --prod
 cd marketing-hub && vercel --prod
 cd internal-portal && vercel --prod
+cd ar-collections && vercel --prod
+cd job-tracker && vercel --prod
 ```
 
 Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
@@ -345,11 +385,21 @@ PORTAL_URL=https://portal.christmasair.com
 INTERNAL_API_SECRET          # Same as Internal Portal
 ```
 
+### Job Tracker
+Same as Daily Dash plus:
+```
+TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER  # SMS notifications
+RESEND_API_KEY                                               # Email notifications
+NEXT_PUBLIC_APP_URL=https://track.christmasair.com          # For tracker links
+```
+
 ## DNS (Namecheap)
 - debrief.christmasair.com → A record → 64.225.12.86
 - dash.christmasair.com → CNAME → Vercel
 - marketing.christmasair.com → CNAME → Vercel
 - portal.christmasair.com → CNAME → Vercel
+- ar.christmasair.com → CNAME → Vercel
+- track.christmasair.com → CNAME → Vercel
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
@@ -365,6 +415,12 @@ cd daily-dash && npm run dev       # http://localhost:3001
 
 # Terminal 3 - Marketing Hub
 cd marketing-hub && npm run dev    # http://localhost:3002
+
+# Terminal 4 - AR Collections
+cd ar-collections && npm run dev   # http://localhost:3003
+
+# Terminal 5 - Job Tracker
+cd job-tracker && npm run dev      # http://localhost:3004
 ```
 
 ## Recent Changes Summary
@@ -375,6 +431,15 @@ cd marketing-hub && npm run dev    # http://localhost:3002
   - Marketing Hub: LSA and ST calls sync hourly 8am-6pm, GBP/analytics daily 6am
   - AR Collections: Already had hourly syncs configured
 - All cron endpoints now support both session auth (manual) and `CRON_SECRET` auth (scheduled)
+
+**Jan 29, 2026**:
+- **Job Tracker MVP** - Customer-facing job tracking ("Pizza Tracker") at track.christmasair.com
+  - Public tracker page with progress timeline and milestone status
+  - Staff dashboard for creating/managing trackers
+  - Milestone templates (HVAC Install, HVAC Repair, Water Heater Install)
+  - SMS (Twilio) and Email (Resend) notifications
+  - ServiceTitan integration for auto-create and status sync
+  - Database tables: job_trackers, tracker_milestones, tracker_templates, tracker_activity, tracker_notifications
 
 **Jan 28, 2026**:
 - **User Migration Complete** - Migrated all 19 users from debrief's `dispatchers` table to `portal_users`. Portal is now the single source of truth for all user management. Debrief validates users against portal on login via `/api/users/validate` endpoint.

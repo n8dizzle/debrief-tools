@@ -53,6 +53,13 @@ export interface ARCollectionsPermissions {
   can_write_off_accounts?: boolean;
 }
 
+export interface JobTrackerPermissions {
+  can_view_trackers?: boolean;
+  can_manage_trackers?: boolean;
+  can_manage_templates?: boolean;
+  can_sync_data?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -64,6 +71,7 @@ export interface UserPermissions {
   marketing_hub?: MarketingHubPermissions;
   admin_panel?: AdminPanelPermissions;
   ar_collections?: ARCollectionsPermissions;
+  job_tracker?: JobTrackerPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -213,6 +221,32 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_spot_checks',
         label: 'Manage spot checks',
         description: 'Create and review spot checks',
+      },
+    ],
+  },
+  {
+    app: 'job_tracker',
+    label: 'Job Tracker',
+    permissions: [
+      {
+        key: 'can_view_trackers',
+        label: 'View trackers',
+        description: 'Access job tracker dashboard and view all trackers',
+      },
+      {
+        key: 'can_manage_trackers',
+        label: 'Manage trackers',
+        description: 'Create, edit, and update job trackers and milestones',
+      },
+      {
+        key: 'can_manage_templates',
+        label: 'Manage templates',
+        description: 'Create and edit milestone templates',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan sync',
       },
     ],
   },

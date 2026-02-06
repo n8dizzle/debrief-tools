@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const agingBucket = searchParams.get('aging_bucket');
     const ownerId = searchParams.get('owner_id');
     const controlBucket = searchParams.get('control_bucket');
+    const invoiceType = searchParams.get('invoice_type'); // 'membership' | 'service' | null (all)
 
     const supabase = getServerSupabase();
 
@@ -37,6 +38,11 @@ export async function GET(request: NextRequest) {
     }
     if (agingBucket) {
       query = query.eq('aging_bucket', agingBucket);
+    }
+    if (invoiceType === 'membership') {
+      query = query.eq('is_membership_invoice', true);
+    } else if (invoiceType === 'service') {
+      query = query.eq('is_membership_invoice', false);
     }
 
     const { data: invoices, error } = await query;

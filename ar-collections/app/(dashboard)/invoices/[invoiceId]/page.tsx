@@ -10,6 +10,7 @@ import { useSession } from 'next-auth/react';
 import QuickLogButtons from '@/components/QuickLogButtons';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import ExpectedPaymentSchedule from '@/components/ExpectedPaymentSchedule';
+import TaskList from '@/components/TaskList';
 import { formatDueDay, getPaymentProgress } from '@/lib/financing-utils';
 
 export default function InvoiceDetailPage() {
@@ -35,6 +36,24 @@ export default function InvoiceDetailPage() {
     notes: '',
   });
 
+  // ServiceTitan details state
+  const [stDetails, setStDetails] = useState<{
+    jobSummary: string | null;
+    invoiceSummary: string | null;
+    lineItems: Array<{
+      id: number;
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+      type?: string;
+    }>;
+    technician: string | null;
+    soldBy: string | null;
+    customerTags: Array<{ id: number; name: string }>;
+  } | null>(null);
+  const [stDetailsLoading, setStDetailsLoading] = useState(false);
+
   const {
     canUpdateWorkflow,
     canAssignOwner,
@@ -56,6 +75,29 @@ export default function InvoiceDetailPage() {
       fetchExpectedPayments();
     }
   }, [invoice?.has_inhouse_financing, invoiceId]);
+
+  // Fetch ServiceTitan details when invoice is loaded
+  useEffect(() => {
+    if (invoice) {
+      fetchStDetails();
+    }
+  }, [invoice?.id]);
+
+  async function fetchStDetails() {
+    setStDetailsLoading(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/st-details`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setStDetails(data);
+    } catch (err) {
+      console.error('Failed to fetch ST details:', err);
+    } finally {
+      setStDetailsLoading(false);
+    }
+  }
 
   async function fetchInvoice() {
     try {
@@ -278,9 +320,30 @@ export default function InvoiceDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Invoice Details */}
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-              Invoice Details
-            </h2>
+            <div className="flex items-start justify-between mb-4">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                Invoice Details
+              </h2>
+              {/* Customer Tags */}
+              {stDetails?.customerTags && stDetails.customerTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {stDetails.customerTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="px-2 py-0.5 rounded-full text-xs"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                      title={`Tag ID: ${tag.id}`}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Balance</div>
@@ -339,35 +402,54 @@ export default function InvoiceDetailPage() {
                 <div style={{ color: 'var(--text-secondary)' }}>{invoice.st_job_type_name || '-'}</div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>ST Job Status</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Technician</div>
+                <div style={{ color: 'var(--text-secondary)' }}>{stDetails?.technician || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Location</div>
                 <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                  <span>{invoice.st_job_status?.toLowerCase() === 'completed' ? '✅' : '⚠️'}</span>
-                  <span>{invoice.st_job_status || 'Unknown'}</span>
+                  <span className="truncate">{(invoice as any).location_name || '-'}</span>
+                  {(invoice as any).st_location_id > 0 && (
+                    <a
+                      href={`https://go.servicetitan.com/#/Location/${(invoice as any).st_location_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0"
+                      title="Open Location in ServiceTitan"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
                 </div>
               </div>
-            </div>
-            {/* Second row - Booking Payment Type & Next Appointment */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Project</div>
+                <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="truncate">{(invoice as any).project_name || '-'}</span>
+                  {(invoice as any).st_project_id > 0 && (
+                    <a
+                      href={`https://go.servicetitan.com/#/project/${(invoice as any).st_project_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0"
+                      title="Open Project in ServiceTitan"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              </div>
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Booked Payment Type</div>
                 <div style={{ color: 'var(--text-secondary)' }}>{(invoice as any).booking_payment_type || '-'}</div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Next Appointment</div>
-                {(invoice as any).next_appointment_date ? (
-                  <div style={{
-                    color: new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString()
-                      ? 'var(--christmas-green)'
-                      : 'var(--text-secondary)',
-                    fontWeight: new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString() ? 600 : 400,
-                  }}>
-                    {new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString()
-                      ? '📅 Today'
-                      : formatDate((invoice as any).next_appointment_date)}
-                  </div>
-                ) : (
-                  <div style={{ color: 'var(--text-secondary)' }}>-</div>
-                )}
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Sold By</div>
+                <div style={{ color: 'var(--text-secondary)' }}>{stDetails?.soldBy || '-'}</div>
               </div>
             </div>
             {/* Flags row */}
@@ -386,7 +468,85 @@ export default function InvoiceDetailPage() {
                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No special flags</span>
               )}
             </div>
+
+            {/* Job Summary */}
+            {stDetails?.jobSummary && (
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Job Summary</div>
+                <div
+                  className="text-sm p-3 rounded-lg"
+                  style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+                  dangerouslySetInnerHTML={{ __html: stDetails.jobSummary.replace(/<div>/g, '<br>').replace(/<\/div>/g, '') }}
+                />
+              </div>
+            )}
           </div>
+
+          {/* Invoice Line Items */}
+          {stDetails && (stDetails.lineItems.length > 0 || stDetails.invoiceSummary) && (
+            <div className="card">
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+                Invoice Items
+              </h2>
+
+              {/* Invoice Summary */}
+              {stDetails.invoiceSummary && (
+                <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Summary</div>
+                  <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {stDetails.invoiceSummary}
+                  </div>
+                </div>
+              )}
+
+              {/* Line Items Table */}
+              {stDetails.lineItems.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
+                        <th className="text-left py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Description</th>
+                        <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Qty</th>
+                        <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Unit Price</th>
+                        <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stDetails.lineItems.map((item) => (
+                        <tr key={item.id} className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>
+                            {item.description}
+                            {item.type && (
+                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                                {item.type}
+                              </span>
+                            )}
+                          </td>
+                          <td className="text-right py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{item.quantity}</td>
+                          <td className="text-right py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(item.unitPrice)}</td>
+                          <td className="text-right py-2 px-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>{formatCurrency(item.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={3} className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Total:</td>
+                        <td className="text-right py-2 px-2 font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                          {formatCurrency(stDetails.lineItems.reduce((sum, item) => sum + item.total, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {stDetailsLoading && (
+                <div className="text-center py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Loading invoice details...
+                </div>
+              )}
+            </div>
+          )}
 
           {/* In-House Financing Section */}
           {invoice.has_inhouse_financing && (
@@ -596,22 +756,6 @@ export default function InvoiceDetailPage() {
             </div>
           )}
 
-          {/* Activity Timeline */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-                Activity Timeline
-              </h2>
-              {canAddNotes && (
-                <QuickLogButtons
-                  invoiceId={invoiceId}
-                  onLogSaved={refreshNotes}
-                />
-              )}
-            </div>
-
-            <ActivityTimeline notes={invoice.notes} />
-          </div>
         </div>
 
         {/* Sidebar */}
@@ -664,23 +808,9 @@ export default function InvoiceDetailPage() {
                   onChange={(e) => updateTracking('control_bucket', e.target.value)}
                   disabled={!canChangeControlBucket}
                 >
-                  <option value="ar_collectible">AR Collectible</option>
-                  <option value="ar_not_in_our_control">Not In Our Control</option>
+                  <option value="ar_collectible">Actionable AR</option>
+                  <option value="ar_not_in_our_control">Pending Closures</option>
                 </select>
-              </div>
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={tracking?.invoice_verified || false}
-                    onChange={(e) => updateTracking('invoice_verified', e.target.checked)}
-                    disabled={!canUpdateWorkflow}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    Invoice Verified
-                  </span>
-                </label>
               </div>
             </div>
           </div>
@@ -752,39 +882,38 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          {/* Payment History */}
+          {/* Activity */}
           <div className="card">
-            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-muted)' }}>
-              Payment History
-            </h3>
-            {invoice.payments.length === 0 ? (
-              <div className="text-center py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                No payments recorded
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {invoice.payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex justify-between items-center p-2 rounded"
-                    style={{ backgroundColor: 'var(--bg-secondary)' }}
-                  >
-                    <div>
-                      <div className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
-                        {formatCurrency(payment.amount)}
-                      </div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {payment.payment_type}
-                      </div>
-                    </div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(payment.payment_date)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
+                Activity
+              </h3>
+              {canAddNotes && (
+                <QuickLogButtons
+                  invoiceId={invoiceId}
+                  onLogSaved={refreshNotes}
+                />
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              <ActivityTimeline notes={invoice.notes} maxItems={5} />
+            </div>
           </div>
+
+          {/* Tasks */}
+          <div className="card">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>
+              Tasks
+            </h3>
+            <TaskList
+              invoiceId={invoiceId}
+              showFilters={false}
+              showCreateButton={false}
+              compact={true}
+              maxItems={3}
+            />
+          </div>
+
         </div>
       </div>
     </div>

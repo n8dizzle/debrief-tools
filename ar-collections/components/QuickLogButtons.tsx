@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ARNoteType, ARContactResult } from '@/lib/supabase';
+import TaskForm, { TaskFormData } from './TaskForm';
 
 interface QuickLogButtonsProps {
   invoiceId: string;
@@ -27,6 +28,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
   const [spokeWith, setSpokeWith] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
 
   const openModal = (noteType: ARNoteType) => {
     setModal({ isOpen: true, noteType });
@@ -83,8 +85,28 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
       case 'call': return 'Log Call';
       case 'email': return 'Log Email';
       case 'text': return 'Log Text';
+      case 'note': return 'Add Note';
       default: return 'Log Activity';
     }
+  };
+
+  const handleCreateTask = async (formData: TaskFormData) => {
+    const response = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        ...formData,
+        invoice_id: invoiceId,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to create task');
+    }
+
+    onLogSaved?.();
   };
 
   const buttonClass = compact
@@ -128,6 +150,28 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
         >
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal('note')}
+          className={buttonClass}
+          style={{ color: 'var(--text-secondary)' }}
+          title="Add Note"
+        >
+          <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowTaskModal(true)}
+          className={buttonClass}
+          style={{ color: 'var(--text-secondary)' }}
+          title="Create Task"
+        >
+          <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
         </button>
       </div>
@@ -182,29 +226,31 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
                 </div>
               )}
 
-              {/* Spoke With */}
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Spoke with (optional)
-                </label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  placeholder="Name of person contacted"
-                  value={spokeWith}
-                  onChange={(e) => setSpokeWith(e.target.value)}
-                />
-              </div>
+              {/* Spoke With (not shown for generic notes) */}
+              {modal.noteType !== 'note' && (
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                    Spoke with (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="Name of person contacted"
+                    value={spokeWith}
+                    onChange={(e) => setSpokeWith(e.target.value)}
+                  />
+                </div>
+              )}
 
               {/* Note */}
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Note (optional)
+                  {modal.noteType === 'note' ? 'Note' : 'Note (optional)'}
                 </label>
                 <textarea
                   className="input w-full"
                   rows={3}
-                  placeholder="Add details about this contact..."
+                  placeholder={modal.noteType === 'note' ? 'Enter your note...' : 'Add details about this contact...'}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
@@ -230,6 +276,14 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           </div>
         </div>
       )}
+
+      {/* Task Form Modal */}
+      <TaskForm
+        isOpen={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onSubmit={handleCreateTask}
+        invoiceId={invoiceId}
+      />
     </>
   );
 }

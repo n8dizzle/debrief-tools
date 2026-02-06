@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { formatDateTime } from '@/lib/ar-utils';
-import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog, ARJobStatusOption } from '@/lib/supabase';
+import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog, ARJobStatusOption, ARSTTaskSource, ARSTTaskType, ARSTTaskResolution } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
-type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'history' | 'admin';
+type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'st-tasks' | 'admin';
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -53,6 +53,15 @@ export default function SettingsPage() {
   const [editingLabel, setEditingLabel] = useState('');
   const [jobStatusMessage, setJobStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // ST Task Config state
+  const [stTaskSources, setStTaskSources] = useState<ARSTTaskSource[]>([]);
+  const [stTaskTypes, setStTaskTypes] = useState<ARSTTaskType[]>([]);
+  const [stTaskResolutions, setStTaskResolutions] = useState<ARSTTaskResolution[]>([]);
+  const [stConfigLoading, setStConfigLoading] = useState(true);
+  const [stConfigRefreshing, setStConfigRefreshing] = useState(false);
+  const [stConfigLastFetched, setStConfigLastFetched] = useState<string | null>(null);
+  const [stConfigMessage, setStConfigMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   useEffect(() => {
     fetchSyncLogs();
     if (canManageSettings) {
@@ -60,6 +69,7 @@ export default function SettingsPage() {
     }
     if (isOwner) {
       fetchJobStatuses();
+      fetchStTaskConfig();
     }
   }, [canManageSettings, isOwner]);
 
@@ -202,7 +212,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean }) {
+  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean; control_bucket?: string | null }) {
     try {
       const response = await fetch('/api/settings/job-statuses', {
         method: 'PATCH',
@@ -245,6 +255,51 @@ export default function SettingsPage() {
     }
   }
 
+  // ST Task Config functions
+  async function fetchStTaskConfig() {
+    try {
+      const response = await fetch('/api/settings/st-task-config', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setStTaskSources(data.sources || []);
+        setStTaskTypes(data.types || []);
+        setStTaskResolutions(data.resolutions || []);
+        setStConfigLastFetched(data.lastFetchedAt);
+      }
+    } catch (err) {
+      console.error('Error fetching ST config:', err);
+    } finally {
+      setStConfigLoading(false);
+    }
+  }
+
+  async function refreshStTaskConfig() {
+    setStConfigRefreshing(true);
+    setStConfigMessage(null);
+    try {
+      const response = await fetch('/api/settings/st-task-config/refresh', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStTaskSources(data.sources || []);
+        setStTaskTypes(data.types || []);
+        setStTaskResolutions(data.resolutions || []);
+        setStConfigLastFetched(data.lastFetchedAt);
+        setStConfigMessage({ type: 'success', text: data.message || 'Config refreshed' });
+      } else {
+        setStConfigMessage({ type: 'error', text: data.error || 'Failed to refresh config' });
+      }
+    } catch (err) {
+      console.error('Error refreshing ST config:', err);
+      setStConfigMessage({ type: 'error', text: 'Failed to refresh config' });
+    } finally {
+      setStConfigRefreshing(false);
+      setTimeout(() => setStConfigMessage(null), 5000);
+    }
+  }
+
   if (!canManageSettings && !canRunManualSync) {
     return (
       <div className="card">
@@ -259,8 +314,8 @@ export default function SettingsPage() {
   const tabs: { id: SettingsTab; label: string; show: boolean }[] = [
     { id: 'sync', label: 'Data Sync', show: true },
     { id: 'notifications', label: 'Notifications', show: canManageSettings },
-    { id: 'job-statuses', label: 'Job Statuses', show: isOwner },
-    { id: 'history', label: 'Sync History', show: true },
+    { id: 'job-statuses', label: 'Workflow', show: isOwner },
+    { id: 'st-tasks', label: 'ST Tasks', show: isOwner },
     { id: 'admin', label: 'Admin', show: isOwner },
   ];
 
@@ -297,40 +352,109 @@ export default function SettingsPage() {
 
       {/* Sync Settings */}
       {activeTab === 'sync' && (
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-          Data Sync
-        </h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div>
-              <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                Automatic Sync
-              </div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                Daily at 6am CT + Hourly 8am-6pm Mon-Fri
-              </div>
-            </div>
-            <span className="badge badge-current">Enabled</span>
-          </div>
-
-          {canRunManualSync && (
+      <div className="space-y-6">
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Data Sync
+          </h2>
+          <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div>
                 <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                  Manual Sync
+                  Automatic Sync
                 </div>
                 <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Sync invoices from ServiceTitan now
+                  Daily at 6am CT + Hourly 8am-6pm Mon-Fri
                 </div>
               </div>
-              <button
-                onClick={runManualSync}
-                disabled={syncing}
-                className="btn btn-primary"
-              >
-                {syncing ? 'Syncing...' : 'Run Sync'}
-              </button>
+              <span className="badge badge-current">Enabled</span>
+            </div>
+
+            {canRunManualSync && (
+              <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div>
+                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    Manual Sync
+                  </div>
+                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Sync invoices from ServiceTitan now
+                  </div>
+                </div>
+                <button
+                  onClick={runManualSync}
+                  disabled={syncing}
+                  className="btn btn-primary"
+                >
+                  {syncing ? 'Syncing...' : 'Run Sync'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sync History */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Sync History
+          </h2>
+          {loading ? (
+            <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
+          ) : syncLogs.length === 0 ? (
+            <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+              No sync history yet
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="ar-table">
+                <thead>
+                  <tr>
+                    <th>Started</th>
+                    <th>Duration</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Processed</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                    <th>Errors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {syncLogs.slice(0, 20).map((log) => {
+                    const duration = log.completed_at
+                      ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
+                      : null;
+                    const durationStr = duration !== null
+                      ? duration >= 60
+                        ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                        : `${duration}s`
+                      : '-';
+                    return (
+                    <tr key={log.id}>
+                      <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
+                      <td className="text-sm">{durationStr}</td>
+                      <td className="capitalize">{log.sync_type}</td>
+                      <td>
+                        <span className={`badge badge-${log.status === 'completed' ? 'current' : log.status === 'failed' ? '90' : '30'}`}>
+                          {log.status}
+                        </span>
+                      </td>
+                      <td>{log.records_processed}</td>
+                      <td>{log.records_created}</td>
+                      <td>{log.records_updated}</td>
+                      <td
+                        className="text-sm max-w-xs"
+                        style={{ color: log.errors ? 'var(--status-error)' : 'var(--text-muted)' }}
+                        title={log.errors || ''}
+                      >
+                        {log.errors ? (
+                          <span className="block truncate">{log.errors}</span>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -514,10 +638,10 @@ export default function SettingsPage() {
       {activeTab === 'job-statuses' && isOwner && (
         <div className="card">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-            Job Status Options
+            Workflow Settings
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            Manage the dropdown options for job status on invoices.
+            Manage status options and automation rules for invoice tracking.
           </p>
 
           {jobStatusMessage && (
@@ -625,6 +749,24 @@ export default function SettingsPage() {
                             <span style={{ color: 'var(--christmas-cream)' }}>{status.label}</span>
                           )}
                         </div>
+
+                        {/* Control Bucket Linkage */}
+                        <select
+                          value={(status as any).control_bucket || ''}
+                          onChange={(e) => updateJobStatus(status.id, { control_bucket: e.target.value || null })}
+                          className="px-2 py-1 text-xs rounded"
+                          style={{
+                            backgroundColor: 'var(--bg-tertiary)',
+                            color: 'var(--christmas-cream)',
+                            border: '1px solid var(--border-subtle)',
+                            minWidth: '140px',
+                          }}
+                          title="Auto-set Actionable AR when this status is selected"
+                        >
+                          <option value="">No linkage</option>
+                          <option value="ar_collectible">→ Actionable AR</option>
+                          <option value="ar_not_in_our_control">→ Pending Closures</option>
+                        </select>
 
                         {/* Actions */}
                         <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
@@ -786,6 +928,12 @@ export default function SettingsPage() {
                       </svg>
                       Deactivate to hide from dropdown
                     </li>
+                    <li className="flex gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      Use linkage dropdown to auto-set Actionable AR
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -794,67 +942,103 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Sync History */}
-      {activeTab === 'history' && (
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-          Sync History
-        </h2>
-        {loading ? (
-          <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
-        ) : syncLogs.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-            No sync history yet
+      {/* ServiceTitan Tasks Config - Owner Only */}
+      {activeTab === 'st-tasks' && isOwner && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                ServiceTitan Task Integration
+              </h2>
+              <button
+                onClick={refreshStTaskConfig}
+                disabled={stConfigRefreshing}
+                className="btn btn-secondary btn-sm"
+              >
+                {stConfigRefreshing ? 'Refreshing...' : 'Refresh from ST'}
+              </button>
+            </div>
+
+            {stConfigMessage && (
+              <div
+                className="mb-4 p-3 rounded-lg text-sm"
+                style={{
+                  backgroundColor: stConfigMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: stConfigMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+                }}
+              >
+                {stConfigMessage.text}
+              </div>
+            )}
+
+            {stConfigLoading ? (
+              <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
+            ) : (
+              <div className="space-y-4">
+                {/* Status info */}
+                <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Task Sources</div>
+                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        {stTaskSources.length} available
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Task Types</div>
+                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        {stTaskTypes.length} available
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Resolutions</div>
+                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        {stTaskResolutions.length} available
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Last Fetched</div>
+                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        {stConfigLastFetched ? formatDateTime(stConfigLastFetched) : 'Never'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Help text */}
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Task types are synced from ServiceTitan. When creating tasks,
+                  you can select from these types directly.
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="ar-table">
-              <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Duration</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Processed</th>
-                  <th>Created</th>
-                  <th>Updated</th>
-                  <th>Errors</th>
-                </tr>
-              </thead>
-              <tbody>
-                {syncLogs.slice(0, 20).map((log) => {
-                  const duration = log.completed_at
-                    ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
-                    : null;
-                  const durationStr = duration !== null
-                    ? duration >= 60
-                      ? `${Math.floor(duration / 60)}m ${duration % 60}s`
-                      : `${duration}s`
-                    : '-';
-                  return (
-                  <tr key={log.id}>
-                    <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
-                    <td className="text-sm">{durationStr}</td>
-                    <td className="capitalize">{log.sync_type}</td>
-                    <td>
-                      <span className={`badge badge-${log.status === 'completed' ? 'current' : log.status === 'failed' ? '90' : '30'}`}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td>{log.records_processed}</td>
-                    <td>{log.records_created}</td>
-                    <td>{log.records_updated}</td>
-                    <td className="text-sm" style={{ color: log.errors ? 'var(--status-error)' : 'var(--text-muted)' }}>
-                      {log.errors ? log.errors.substring(0, 50) + '...' : '-'}
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+          {/* Available Task Types */}
+          <div className="card">
+            <h3 className="text-md font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              Available Task Types ({stTaskTypes.length})
+            </h3>
+
+            {stTaskTypes.length === 0 ? (
+              <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>
+                No task types loaded. Click &quot;Refresh from ST&quot; to load.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {stTaskTypes.map(type => (
+                  <span
+                    key={type.st_type_id}
+                    className="px-3 py-1 rounded-full text-sm"
+                    style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+                  >
+                    {type.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
       )}
 
       {/* Admin Only Settings */}

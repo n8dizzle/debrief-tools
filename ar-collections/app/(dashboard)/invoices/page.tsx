@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
 import { ARInvoice, ARInvoiceTracking, PortalUser, ARJobStatusOption } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
@@ -14,16 +14,113 @@ interface InvoiceWithTracking extends ARInvoice {
 
 type FilterState = {
   search: string;
-  businessUnit: string;
-  owner: string;
-  controlBucket: string;
-  jobStatus: string;
+  businessUnits: string[];
+  owners: string[];
+  controlBuckets: string[];
+  jobStatuses: string[];
   agingBucket: string;
   customerType: string;
-  stJobStatus: string;
+  invoiceType: string; // 'membership' | 'service' | '' (all)
 };
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_status' | 'st_job_type_name' | 'inhouse_financing' | 'has_membership' | 'booking_payment_type' | 'next_appointment_date' | 'control_bucket' | 'actions';
+// Multi-select dropdown component
+function MultiSelectDropdown({
+  label,
+  options,
+  selected,
+  onChange,
+  placeholder = 'All',
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  function toggleOption(value: string) {
+    if (selected.includes(value)) {
+      onChange(selected.filter(v => v !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+  }
+
+  const displayText = selected.length === 0
+    ? placeholder
+    : selected.length === 1
+      ? options.find(o => o.value === selected[0])?.label || selected[0]
+      : `${selected.length} selected`;
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        className="select w-full text-left flex items-center justify-between"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className={selected.length === 0 ? 'opacity-60' : ''}>{displayText}</span>
+        <svg
+          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div
+          className="absolute z-50 mt-1 w-full rounded-lg shadow-lg max-h-60 overflow-auto"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+        >
+          {selected.length > 0 && (
+            <button
+              type="button"
+              className="w-full px-3 py-2 text-left text-xs hover:bg-white/5 border-b"
+              style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
+              onClick={() => onChange([])}
+            >
+              Clear all
+            </button>
+          )}
+          {options.map(option => (
+            <label
+              key={option.value}
+              className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5"
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(option.value)}
+                onChange={() => toggleOption(option.value)}
+                className="w-4 h-4 rounded"
+              />
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {option.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -39,17 +136,17 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'invoice_date', label: 'Date', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'invoice_number', label: 'Inv #', sortable: true, minWidth: 100, defaultWidth: 120 },
   { id: 'customer_name', label: 'Customer', sortable: true, minWidth: 120, defaultWidth: 180 },
+  { id: 'location_name', label: 'Location', sortable: true, minWidth: 120, defaultWidth: 180 },
   { id: 'business_unit_name', label: 'Business Unit', sortable: true, minWidth: 100, defaultWidth: 140 },
+  { id: 'project_name', label: 'Project', sortable: true, minWidth: 100, defaultWidth: 140 },
   { id: 'st_job_type_name', label: 'Job Type', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'customer_type', label: 'R/C', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'inhouse_financing', label: 'IHF', sortable: true, minWidth: 40, defaultWidth: 50 },
-  { id: 'has_membership', label: 'Mbrshp', sortable: true, minWidth: 50, defaultWidth: 60 },
+  { id: 'is_membership_invoice', label: 'Mbrshp Inv', sortable: true, minWidth: 60, defaultWidth: 70 },
   { id: 'booking_payment_type', label: 'Booked Pay', sortable: true, minWidth: 80, defaultWidth: 100 },
-  { id: 'next_appointment_date', label: 'Next Appt', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
-  { id: 'control_bucket', label: 'Control', sortable: true, minWidth: 90, defaultWidth: 110 },
-  { id: 'st_job_status', label: 'Job Done', sortable: true, minWidth: 70, defaultWidth: 80 },
+  { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'days_outstanding', label: 'DSO', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
   { id: 'actions', label: 'Log', sortable: false, minWidth: 80, defaultWidth: 90 },
@@ -61,23 +158,28 @@ const VISIBILITY_STORAGE_KEY = 'ar-invoices-column-visibility';
 
 export default function InvoicesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [invoices, setInvoices] = useState<InvoiceWithTracking[]>([]);
   const [owners, setOwners] = useState<PortalUser[]>([]);
   const [businessUnits, setBusinessUnits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    businessUnit: searchParams.get('businessUnit') || '',
-    owner: '',
-    controlBucket: '',
-    jobStatus: '',
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+
+  // Initialize filters from URL params
+  const [filters, setFilters] = useState<FilterState>(() => ({
+    search: searchParams.get('search') || '',
+    businessUnits: searchParams.get('businessUnits')?.split(',').filter(Boolean) || [],
+    owners: searchParams.get('owners')?.split(',').filter(Boolean) || [],
+    controlBuckets: searchParams.get('controlBuckets')?.split(',').filter(Boolean) || [],
+    jobStatuses: searchParams.get('jobStatuses')?.split(',').filter(Boolean) || [],
     agingBucket: searchParams.get('agingBucket') || '',
     customerType: searchParams.get('customerType') || '',
-    stJobStatus: '',
-  });
-  const [sortField, setSortField] = useState<SortField>('balance');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    invoiceType: searchParams.get('invoiceType') || '',
+  }));
+  const [sortField, setSortField] = useState<SortField>((searchParams.get('sortField') as SortField) || 'balance');
+  const [sortDirection, setSortDirection] = useState<SortDirection>((searchParams.get('sortDir') as SortDirection) || 'desc');
+  const [excludeInhouseFinancing, setExcludeInhouseFinancing] = useState(searchParams.get('excludeIHF') !== 'false');
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
@@ -87,10 +189,32 @@ export default function InvoicesPage() {
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
-  const [excludeInhouseFinancing, setExcludeInhouseFinancing] = useState(true);
   const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
   const columnPickerRef = useRef<HTMLDivElement>(null);
   const { canUpdateWorkflow, canAssignOwner, canChangeControlBucket } = useARPermissions();
+
+  // Sync filters to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (filters.search) params.set('search', filters.search);
+    if (filters.businessUnits.length > 0) params.set('businessUnits', filters.businessUnits.join(','));
+    if (filters.owners.length > 0) params.set('owners', filters.owners.join(','));
+    if (filters.controlBuckets.length > 0) params.set('controlBuckets', filters.controlBuckets.join(','));
+    if (filters.jobStatuses.length > 0) params.set('jobStatuses', filters.jobStatuses.join(','));
+    if (filters.agingBucket) params.set('agingBucket', filters.agingBucket);
+    if (filters.customerType) params.set('customerType', filters.customerType);
+    if (filters.invoiceType) params.set('invoiceType', filters.invoiceType);
+    if (sortField !== 'balance') params.set('sortField', sortField);
+    if (sortDirection !== 'desc') params.set('sortDir', sortDirection);
+    if (!excludeInhouseFinancing) params.set('excludeIHF', 'false');
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `/invoices?${queryString}` : '/invoices';
+
+    // Use replace to avoid adding to history on every filter change
+    router.replace(newUrl, { scroll: false });
+  }, [filters, sortField, sortDirection, excludeInhouseFinancing, router]);
 
   // Close column picker when clicking outside
   useEffect(() => {
@@ -182,7 +306,22 @@ export default function InvoicesPage() {
     fetchInvoices();
     fetchOwners();
     fetchJobStatuses();
+    fetchLastSync();
   }, []);
+
+  async function fetchLastSync() {
+    try {
+      const response = await fetch('/api/sync/last', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLastSyncAt(data.last_sync_at);
+      }
+    } catch (err) {
+      console.error('Failed to fetch last sync:', err);
+    }
+  }
 
   async function fetchInvoices() {
     try {
@@ -374,17 +513,17 @@ export default function InvoicesPage() {
         return false;
       }
     }
-    if (filters.businessUnit && inv.business_unit_name !== filters.businessUnit) return false;
-    if (filters.owner && inv.tracking?.owner_id !== filters.owner) return false;
-    if (filters.controlBucket && inv.tracking?.control_bucket !== filters.controlBucket) return false;
-    if (filters.jobStatus && inv.tracking?.job_status !== filters.jobStatus) return false;
+    if (filters.businessUnits.length > 0 && !filters.businessUnits.includes(inv.business_unit_name || '')) return false;
+    if (filters.owners.length > 0 && !filters.owners.includes(inv.tracking?.owner_id || '')) return false;
+    if (filters.controlBuckets.length > 0 && !filters.controlBuckets.includes(inv.tracking?.control_bucket || '')) return false;
+    if (filters.jobStatuses.length > 0 && !filters.jobStatuses.includes(inv.tracking?.job_status || '')) return false;
     if (filters.agingBucket && inv.aging_bucket !== filters.agingBucket) return false;
     if (filters.customerType && inv.customer_type !== filters.customerType) return false;
     if (excludeInhouseFinancing && inv.has_inhouse_financing) return false;
-    if (filters.stJobStatus) {
-      const jobStatus = (inv.st_job_status || '').toLowerCase();
-      if (filters.stJobStatus === 'incomplete' && jobStatus === 'completed') return false;
-      if (filters.stJobStatus === 'completed' && jobStatus !== 'completed') return false;
+    if (filters.invoiceType) {
+      const isMembershipInvoice = (inv as any).is_membership_invoice || false;
+      if (filters.invoiceType === 'membership' && !isMembershipInvoice) return false;
+      if (filters.invoiceType === 'service' && isMembershipInvoice) return false;
     }
     return true;
   });
@@ -407,6 +546,10 @@ export default function InvoicesPage() {
         aVal = a.customer_name.toLowerCase();
         bVal = b.customer_name.toLowerCase();
         break;
+      case 'location_name':
+        aVal = (a.location_name || '').toLowerCase();
+        bVal = (b.location_name || '').toLowerCase();
+        break;
       case 'business_unit_name':
         aVal = (a.business_unit_name || '').toLowerCase();
         bVal = (b.business_unit_name || '').toLowerCase();
@@ -414,6 +557,10 @@ export default function InvoicesPage() {
       case 'st_job_type_name':
         aVal = (a.st_job_type_name || '').toLowerCase();
         bVal = (b.st_job_type_name || '').toLowerCase();
+        break;
+      case 'project_name':
+        aVal = (a.project_name || '').toLowerCase();
+        bVal = (b.project_name || '').toLowerCase();
         break;
       case 'balance':
         aVal = Number(a.balance);
@@ -436,21 +583,13 @@ export default function InvoicesPage() {
         aVal = a.has_inhouse_financing ? 1 : 0;
         bVal = b.has_inhouse_financing ? 1 : 0;
         break;
-      case 'has_membership':
-        aVal = a.has_membership ? 1 : 0;
-        bVal = b.has_membership ? 1 : 0;
+      case 'is_membership_invoice':
+        aVal = (a as any).is_membership_invoice ? 1 : 0;
+        bVal = (b as any).is_membership_invoice ? 1 : 0;
         break;
       case 'booking_payment_type':
         aVal = (a.booking_payment_type || '').toLowerCase();
         bVal = (b.booking_payment_type || '').toLowerCase();
-        break;
-      case 'next_appointment_date':
-        aVal = a.next_appointment_date ? new Date(a.next_appointment_date).getTime() : 0;
-        bVal = b.next_appointment_date ? new Date(b.next_appointment_date).getTime() : 0;
-        break;
-      case 'st_job_status':
-        aVal = a.st_job_status?.toLowerCase() === 'completed' ? 1 : 0;
-        bVal = b.st_job_status?.toLowerCase() === 'completed' ? 1 : 0;
         break;
       case 'control_bucket':
         aVal = a.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
@@ -543,6 +682,29 @@ export default function InvoicesPage() {
             )}
           </div>
         );
+      case 'location_name':
+        const stLocationId = invoice.st_location_id;
+        return (
+          <div className="flex items-center gap-1">
+            <span className="text-xs truncate" title={invoice.location_name || ''}>
+              {invoice.location_name || '-'}
+            </span>
+            {stLocationId && stLocationId > 0 && (
+              <a
+                href={`https://go.servicetitan.com/#/Location/${stLocationId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
+                title="Open Location in ServiceTitan"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
+          </div>
+        );
       case 'business_unit_name':
         return (
           <span className="text-xs truncate block" title={invoice.business_unit_name || ''}>
@@ -554,6 +716,29 @@ export default function InvoicesPage() {
           <span className="text-xs truncate block" title={invoice.st_job_type_name || ''}>
             {invoice.st_job_type_name || '-'}
           </span>
+        );
+      case 'project_name':
+        const stProjectId = invoice.st_project_id;
+        return (
+          <div className="flex items-center gap-1">
+            <span className="text-xs truncate" title={invoice.project_name || ''}>
+              {invoice.project_name || '-'}
+            </span>
+            {stProjectId && stProjectId > 0 && (
+              <a
+                href={`https://go.servicetitan.com/#/project/${stProjectId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
+                title="Open Project in ServiceTitan"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
+          </div>
         );
       case 'customer_type':
         return (
@@ -581,26 +766,10 @@ export default function InvoicesPage() {
             ))}
           </select>
         );
-      case 'st_job_status':
-        const isCompleted = invoice.st_job_status?.toLowerCase() === 'completed';
-        return (
-          <span className="text-xs" title={invoice.st_job_status || 'Unknown'}>
-            {isCompleted ? '✅' : '⚠️'}
-          </span>
-        );
       case 'control_bucket':
-        return canChangeControlBucket ? (
-          <select
-            className="select text-xs py-1"
-            value={invoice.tracking?.control_bucket || 'ar_collectible'}
-            onChange={(e) => updateTracking(invoice.id, 'control_bucket', e.target.value)}
-          >
-            <option value="ar_collectible">Collectible</option>
-            <option value="ar_not_in_our_control">Not In Control</option>
-          </select>
-        ) : (
+        return (
           <span className={`text-xs badge ${invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'badge-30' : 'badge-current'}`}>
-            {invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'Not In Control' : 'Collectible'}
+            {invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'Pending Closures' : 'Actionable AR'}
           </span>
         );
       case 'days_outstanding':
@@ -615,31 +784,14 @@ export default function InvoicesPage() {
         return invoice.has_inhouse_financing ? (
           <span className="text-xs badge badge-financing" title="In-house Financing">💳</span>
         ) : null;
-      case 'has_membership':
-        return invoice.has_membership ? (
-          <span className="text-xs" title="Membership">🎫</span>
+      case 'is_membership_invoice':
+        return (invoice as any).is_membership_invoice ? (
+          <span className="text-xs" title="Membership Invoice">📋</span>
         ) : null;
       case 'booking_payment_type':
         return (
           <span className="text-xs truncate block" title={invoice.booking_payment_type || ''}>
             {invoice.booking_payment_type || '-'}
-          </span>
-        );
-      case 'next_appointment_date':
-        if (!invoice.next_appointment_date) return <span className="text-xs">-</span>;
-        const apptDate = new Date(invoice.next_appointment_date);
-        const isToday = apptDate.toDateString() === new Date().toDateString();
-        const isPast = apptDate < new Date();
-        return (
-          <span
-            className="text-xs whitespace-nowrap"
-            style={{
-              color: isToday ? 'var(--christmas-green)' : isPast ? 'var(--text-muted)' : 'var(--text-secondary)',
-              fontWeight: isToday ? 600 : 400,
-            }}
-            title={apptDate.toLocaleString()}
-          >
-            {isToday ? '📅 Today' : formatDate(invoice.next_appointment_date)}
           </span>
         );
       case 'actions':
@@ -672,6 +824,17 @@ export default function InvoicesPage() {
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
             {filteredInvoices.length} invoices · {formatCurrency(totalBalance)} outstanding
+            {lastSyncAt && (
+              <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                • Last synced {new Date(lastSyncAt).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -695,75 +858,13 @@ export default function InvoicesPage() {
               />
             </button>
           </label>
-          {/* Column Picker */}
-          <div className="relative" ref={columnPickerRef}>
-            <button
-              className="btn btn-secondary text-xs"
-              onClick={() => setShowColumnPicker(!showColumnPicker)}
-            >
-              Columns
-            </button>
-            {showColumnPicker && (
-              <div
-                className="absolute right-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-[200px]"
-                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
-              >
-                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Show/Hide Columns
-                </div>
-                <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                  {DEFAULT_COLUMNS.map((col) => (
-                    <label
-                      key={col.id}
-                      className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isColumnVisible(col.id)}
-                        onChange={() => toggleColumnVisibility(col.id)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {col.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-2 pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <button
-                    className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
-                    style={{ color: 'var(--text-muted)' }}
-                    onClick={() => {
-                      setColumnVisibility({});
-                      saveColumnVisibility({});
-                    }}
-                  >
-                    Show All
-                  </button>
-                  <button
-                    className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
-                    style={{ color: 'var(--text-muted)' }}
-                    onClick={() => {
-                      setColumns(DEFAULT_COLUMNS);
-                      setColumnWidths({});
-                      setColumnVisibility({});
-                      saveColumnOrder(DEFAULT_COLUMNS);
-                      localStorage.removeItem(WIDTH_STORAGE_KEY);
-                      localStorage.removeItem(VISIBILITY_STORAGE_KEY);
-                    }}
-                  >
-                    Reset All
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
       {/* Quick Chip Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Quick filters:</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Quick filters:</span>
 
         {/* Customer Type Chips */}
         <button
@@ -823,34 +924,66 @@ export default function InvoicesPage() {
 
         <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
 
-        {/* ST Job Status Chips */}
+        {/* Actionable AR Chips */}
         <button
           onClick={() => setFilters(prev => ({
             ...prev,
-            stJobStatus: prev.stJobStatus === 'incomplete' ? '' : 'incomplete'
+            controlBuckets: prev.controlBuckets.includes('ar_collectible') ? [] : ['ar_collectible']
           }))}
           className="px-3 py-1 rounded-full text-xs font-medium transition-all"
           style={{
-            backgroundColor: filters.stJobStatus === 'incomplete' ? 'rgba(234, 179, 8, 0.2)' : 'var(--bg-secondary)',
-            color: filters.stJobStatus === 'incomplete' ? '#fcd34d' : 'var(--text-secondary)',
-            border: filters.stJobStatus === 'incomplete' ? '1px solid #fcd34d' : '1px solid var(--border-subtle)',
+            backgroundColor: filters.controlBuckets.includes('ar_collectible') ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-secondary)',
+            color: filters.controlBuckets.includes('ar_collectible') ? '#4ade80' : 'var(--text-secondary)',
+            border: filters.controlBuckets.includes('ar_collectible') ? '1px solid #4ade80' : '1px solid var(--border-subtle)',
           }}
         >
-          ⚠️ Job Incomplete
+          Actionable AR
+        </button>
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            controlBuckets: prev.controlBuckets.includes('ar_not_in_our_control') ? [] : ['ar_not_in_our_control']
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.controlBuckets.includes('ar_not_in_our_control') ? 'rgba(251, 146, 60, 0.2)' : 'var(--bg-secondary)',
+            color: filters.controlBuckets.includes('ar_not_in_our_control') ? '#fb923c' : 'var(--text-secondary)',
+            border: filters.controlBuckets.includes('ar_not_in_our_control') ? '1px solid #fb923c' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Pending Closures
+        </button>
+
+        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+
+        {/* Membership Invoices Chip */}
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            invoiceType: prev.invoiceType === 'membership' ? '' : 'membership'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.invoiceType === 'membership' ? 'rgba(147, 51, 234, 0.2)' : 'var(--bg-secondary)',
+            color: filters.invoiceType === 'membership' ? '#a78bfa' : 'var(--text-secondary)',
+            border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Membership Invoices
         </button>
 
         {/* Clear All Filters */}
-        {(filters.customerType || filters.agingBucket || filters.stJobStatus || filters.businessUnit || filters.owner || filters.controlBucket || filters.jobStatus) && (
+        {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0) && (
           <button
             onClick={() => setFilters({
               search: filters.search,
-              businessUnit: '',
-              owner: '',
-              controlBucket: '',
-              jobStatus: '',
+              businessUnits: [],
+              owners: [],
+              controlBuckets: [],
+              jobStatuses: [],
               agingBucket: '',
               customerType: '',
-              stJobStatus: '',
+              invoiceType: '',
             })}
             className="px-3 py-1 rounded-full text-xs font-medium transition-all ml-2"
             style={{
@@ -862,6 +995,71 @@ export default function InvoicesPage() {
             Clear All
           </button>
         )}
+        </div>
+
+        {/* Column Picker */}
+        <div className="relative" ref={columnPickerRef}>
+          <button
+            className="btn btn-secondary text-xs"
+            onClick={() => setShowColumnPicker(!showColumnPicker)}
+          >
+            Add Columns
+          </button>
+          {showColumnPicker && (
+            <div
+              className="absolute right-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-[200px]"
+              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+            >
+              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+                Show/Hide Columns
+              </div>
+              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                {DEFAULT_COLUMNS.map((col) => (
+                  <label
+                    key={col.id}
+                    className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isColumnVisible(col.id)}
+                      onChange={() => toggleColumnVisibility(col.id)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {col.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2 pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                <button
+                  className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
+                  style={{ color: 'var(--text-muted)' }}
+                  onClick={() => {
+                    setColumnVisibility({});
+                    saveColumnVisibility({});
+                  }}
+                >
+                  Show All
+                </button>
+                <button
+                  className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
+                  style={{ color: 'var(--text-muted)' }}
+                  onClick={() => {
+                    setColumns(DEFAULT_COLUMNS);
+                    setColumnWidths({});
+                    setColumnVisibility({});
+                    saveColumnOrder(DEFAULT_COLUMNS);
+                    localStorage.removeItem(WIDTH_STORAGE_KEY);
+                    localStorage.removeItem(VISIBILITY_STORAGE_KEY);
+                  }}
+                >
+                  Reset All
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Advanced Filters */}
@@ -883,60 +1081,37 @@ export default function InvoicesPage() {
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
               Business Unit
             </label>
-            <select
-              className="select"
-              value={filters.businessUnit}
-              onChange={(e) => setFilters(prev => ({ ...prev, businessUnit: e.target.value }))}
-            >
-              <option value="">All Business Units</option>
-              {businessUnits.map(unit => (
-                <option key={unit} value={unit}>{unit}</option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              label="Business Unit"
+              options={businessUnits.map(unit => ({ value: unit, label: unit }))}
+              selected={filters.businessUnits}
+              onChange={(values) => setFilters(prev => ({ ...prev, businessUnits: values }))}
+              placeholder="All Business Units"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
               AR Owner
             </label>
-            <select
-              className="select"
-              value={filters.owner}
-              onChange={(e) => setFilters(prev => ({ ...prev, owner: e.target.value }))}
-            >
-              <option value="">All AR Owners</option>
-              {owners.map(owner => (
-                <option key={owner.id} value={owner.id}>{owner.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Control Bucket
-            </label>
-            <select
-              className="select"
-              value={filters.controlBucket}
-              onChange={(e) => setFilters(prev => ({ ...prev, controlBucket: e.target.value }))}
-            >
-              <option value="">All</option>
-              <option value="ar_collectible">AR Collectible</option>
-              <option value="ar_not_in_our_control">Not In Control</option>
-            </select>
+            <MultiSelectDropdown
+              label="AR Owner"
+              options={owners.map(owner => ({ value: owner.id, label: owner.name || owner.email }))}
+              selected={filters.owners}
+              onChange={(values) => setFilters(prev => ({ ...prev, owners: values }))}
+              placeholder="All AR Owners"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
               Job Status
             </label>
-            <select
-              className="select"
-              value={filters.jobStatus}
-              onChange={(e) => setFilters(prev => ({ ...prev, jobStatus: e.target.value }))}
-            >
-              <option value="">All</option>
-              {jobStatuses.map(status => (
-                <option key={status.key} value={status.key}>{status.label}</option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              label="Job Status"
+              options={jobStatuses.map(status => ({ value: status.key, label: status.label }))}
+              selected={filters.jobStatuses}
+              onChange={(values) => setFilters(prev => ({ ...prev, jobStatuses: values }))}
+              placeholder="All"
+            />
           </div>
         </div>
       </div>

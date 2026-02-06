@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // call, email, text, etc.
+    const types = searchParams.get('types'); // comma-separated: call,email,text,task,etc.
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
     const ownerId = searchParams.get('ownerId');
@@ -36,8 +36,13 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     // Apply filters
-    if (type) {
-      query = query.eq('note_type', type);
+    if (types) {
+      const typeArray = types.split(',').filter(t => t.trim());
+      if (typeArray.length === 1) {
+        query = query.eq('note_type', typeArray[0]);
+      } else if (typeArray.length > 1) {
+        query = query.in('note_type', typeArray);
+      }
     }
 
     if (dateFrom) {
