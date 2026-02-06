@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
         *,
         invoice:ar_invoices(id, invoice_number, customer_name, balance, st_job_id),
         customer:ar_customers(id, name, st_customer_id),
-        assignee:ar_st_employees!ar_collection_tasks_st_assigned_to_fkey(st_employee_id, name),
         created_by_user:portal_users!ar_collection_tasks_created_by_fkey(id, name),
         completed_by_user:portal_users!ar_collection_tasks_completed_by_fkey(id, name),
         task_type:ar_st_task_types!ar_collection_tasks_st_type_id_fkey(st_type_id, name),
@@ -202,7 +201,6 @@ export async function POST(request: NextRequest) {
         *,
         invoice:ar_invoices(id, invoice_number, customer_name, balance, st_job_id),
         customer:ar_customers(id, name, st_customer_id),
-        assignee:ar_st_employees!ar_collection_tasks_st_assigned_to_fkey(st_employee_id, name),
         task_type:ar_st_task_types!ar_collection_tasks_st_type_id_fkey(st_type_id, name)
       `)
       .single();
