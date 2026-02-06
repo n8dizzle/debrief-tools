@@ -28,6 +28,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
   const [spokeWith, setSpokeWith] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
   const openModal = (noteType: ARNoteType) => {
@@ -35,6 +36,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
     setContactResult('reached');
     setSpokeWith('');
     setNote('');
+    setError(null);
   };
 
   const closeModal = () => {
@@ -43,6 +45,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setError(null);
     try {
       const response = await fetch(`/api/invoices/${invoiceId}/notes`, {
         method: 'POST',
@@ -56,12 +59,16 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to save');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save');
+      }
 
       closeModal();
       onLogSaved?.();
     } catch (err) {
       console.error('Failed to log activity:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSubmitting(false);
     }
@@ -257,6 +264,13 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
               </div>
             </div>
 
+            {/* Error */}
+            {error && (
+              <div className="mt-4 p-2 rounded text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
+                {error}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-3 mt-6">
               <button
@@ -267,7 +281,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || (modal.noteType === 'note' && !note.trim())}
                 className="btn btn-primary"
               >
                 {submitting ? 'Saving...' : 'Save'}
