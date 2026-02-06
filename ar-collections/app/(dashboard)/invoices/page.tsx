@@ -120,7 +120,7 @@ function MultiSelectDropdown({
   );
 }
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -135,6 +135,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'owner', label: 'AR Owner', sortable: false, minWidth: 80, defaultWidth: 100 },
   { id: 'invoice_date', label: 'Date', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'invoice_number', label: 'Inv #', sortable: true, minWidth: 100, defaultWidth: 120 },
+  { id: 'st_job_id', label: 'Job #', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'customer_name', label: 'Customer', sortable: true, minWidth: 120, defaultWidth: 180 },
   { id: 'location_name', label: 'Location', sortable: true, minWidth: 120, defaultWidth: 180 },
   { id: 'business_unit_name', label: 'Business Unit', sortable: true, minWidth: 100, defaultWidth: 140 },
@@ -147,7 +148,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
   { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
-  { id: 'days_outstanding', label: 'DSO', sortable: true, minWidth: 50, defaultWidth: 60 },
+  { id: 'days_outstanding', label: 'Age', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
   { id: 'actions', label: 'Log', sortable: false, minWidth: 80, defaultWidth: 90 },
 ];
@@ -595,6 +596,10 @@ export default function InvoicesPage() {
         aVal = a.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
         bVal = b.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
         break;
+      case 'st_job_id':
+        aVal = a.st_job_id || 0;
+        bVal = b.st_job_id || 0;
+        break;
       default:
         return 0;
     }
@@ -658,6 +663,24 @@ export default function InvoicesPage() {
               </a>
             )}
           </div>
+        );
+      case 'st_job_id':
+        return invoice.st_job_id ? (
+          <a
+            href={`https://go.servicetitan.com/#/Job/Index/${invoice.st_job_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium hover:underline whitespace-nowrap flex items-center gap-1"
+            style={{ color: 'var(--text-secondary)' }}
+            title="Open Job in ServiceTitan"
+          >
+            {invoice.st_job_id}
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        ) : (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>-</span>
         );
       case 'customer_name':
         const stCustomerId = (invoice as any).st_customer_id;
@@ -1118,9 +1141,9 @@ export default function InvoicesPage() {
 
       {/* Invoice Table */}
       <div className="card p-0 overflow-hidden">
-        <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 380px)' }}>
           <table className="ar-table" style={{ minWidth: 'max-content' }}>
-            <thead>
+            <thead className="sticky top-0 z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
               <tr>
                 {columns.filter(col => isColumnVisible(col.id)).map((column) => (
                   <th

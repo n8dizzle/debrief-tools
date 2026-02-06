@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runARSync } from '@/lib/ar-sync';
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret
+  // Verify cron secret (skip in development for local testing)
   const cronSecret = request.headers.get('Authorization')?.replace('Bearer ', '');
-  if (cronSecret !== process.env.CRON_SECRET) {
+  const isDev = process.env.NODE_ENV === 'development';
+  if (cronSecret !== process.env.CRON_SECRET && !isDev) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -49,8 +49,53 @@ export async function pushTaskToST(task: ARCollectionTaskExtended): Promise<{ su
     return { success: false, error: 'Task has no ST type ID assigned' };
   }
 
+  // If task doesn't have st_job_id but has invoice_id, look it up
+  let stJobId = task.st_job_id;
+  let stCustomerId = task.st_customer_id;
+  let businessUnitId: number | null = null;
+
+  if (task.invoice_id) {
+    const { data: invoice } = await supabase
+      .from('ar_invoices')
+      .select('st_job_id, st_customer_id, business_unit_id')
+      .eq('id', task.invoice_id)
+      .single();
+
+    if (invoice) {
+      if (!stJobId) stJobId = invoice.st_job_id;
+      if (!stCustomerId) stCustomerId = invoice.st_customer_id;
+      businessUnitId = invoice.business_unit_id;
+
+      // Update the task with the job ID for future syncs
+      if (stJobId && !task.st_job_id) {
+        await supabase
+          .from('ar_collection_tasks')
+          .update({ st_job_id: stJobId, st_customer_id: stCustomerId })
+          .eq('id', task.id);
+      }
+    }
+  }
+
+  // Get business unit ID from job if we have a job ID
+  if (!businessUnitId && stJobId) {
+    try {
+      // Get job details to find business unit
+      const job = await stClient.getJob(stJobId);
+      if (job) {
+        businessUnitId = job.businessUnitId;
+      }
+    } catch (e) {
+      console.error('Failed to get job for business unit:', e);
+    }
+  }
+
+  // Business unit is required by ST
+  if (!businessUnitId) {
+    return { success: false, error: 'Could not determine business unit for task' };
+  }
+
   // Need either a job ID or customer ID to create the task
-  if (!task.st_job_id && !task.st_customer_id) {
+  if (!stJobId && !stCustomerId) {
     return { success: false, error: 'Task must have either st_job_id or st_customer_id' };
   }
 
@@ -84,29 +129,53 @@ export async function pushTaskToST(task: ARCollectionTaskExtended): Promise<{ su
     return { success: false, error: 'No ST task source configured. Refresh ST config in Settings.' };
   }
 
-  // Build the ST task create payload
-  const stTaskData: STTaskCreate = {
-    sourceId: sourceId,
-    typeId: task.st_type_id,
-    subject: task.title,
-    description: task.description || undefined,
-    dueDate: task.due_date || undefined,
+  // Map our priority to ST priority strings
+  const priorityMap: Record<string, 'Low' | 'Normal' | 'High' | 'Urgent'> = {
+    low: 'Low',
+    normal: 'Normal',
+    high: 'High',
+    urgent: 'Urgent',
   };
 
-  if (task.st_job_id) {
-    stTaskData.jobId = task.st_job_id;
-  } else if (task.st_customer_id) {
-    stTaskData.customerId = task.st_customer_id;
+  // Get default employee ID if not assigned
+  let assignedToId = task.st_assigned_to;
+  if (!assignedToId) {
+    // Get first active employee as default
+    const { data: defaultEmployee } = await supabase
+      .from('ar_st_employees')
+      .select('st_employee_id')
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+    assignedToId = defaultEmployee?.st_employee_id || null;
   }
 
-  // Map priority: urgent=1, high=2, normal=3, low=4
-  const priorityMap: Record<string, number> = {
-    urgent: 1,
-    high: 2,
-    normal: 3,
-    low: 4,
+  if (!assignedToId) {
+    return { success: false, error: 'No employee available for task assignment' };
+  }
+
+  // Build the ST task create payload
+  const taskBody = task.description && task.description.trim() ? task.description : 'Task created from AR Collections';
+
+  const stTaskData: STTaskCreate = {
+    employeeTaskSourceId: sourceId,
+    employeeTaskTypeId: task.st_type_id,
+    name: task.title,
+    body: taskBody,
+    dueDate: task.due_date || undefined,
+    isClosed: false,
+    priority: priorityMap[task.priority] || 'Normal',
+    assignedToId: assignedToId,
+    reportedById: assignedToId, // Use same employee as reporter
+    reportedDate: new Date().toISOString(),
+    businessUnitId: businessUnitId,
   };
-  stTaskData.priority = priorityMap[task.priority] || 3;
+
+  if (stJobId) {
+    stTaskData.jobId = stJobId;
+  } else if (stCustomerId) {
+    stTaskData.customerId = stCustomerId;
+  }
 
   try {
     const stTask = await stClient.createTask(stTaskData);

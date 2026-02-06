@@ -94,6 +94,22 @@ export function formatNoteDate(date: string | Date): string {
 }
 
 /**
+ * Format date with time for activity feed (e.g., "1/20 3:45p")
+ */
+export function formatActivityDate(date: string | Date): string {
+  const d = new Date(date);
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  let hours = d.getHours();
+  const minutes = d.getMinutes();
+  const ampm = hours >= 12 ? 'p' : 'a';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const minuteStr = minutes < 10 ? `0${minutes}` : minutes;
+  return `${month}/${day} ${hours}:${minuteStr}${ampm}`;
+}
+
+/**
  * Format a collection note in the standard format: "{date}-{initials}-{content}"
  */
 export function formatCollectionNote(
@@ -105,15 +121,15 @@ export function formatCollectionNote(
 }
 
 /**
- * Parse initials from a user name (e.g., "John Smith" -> "js")
+ * Parse initials from a user name (e.g., "John Smith" -> "JS")
  */
 export function getInitials(name: string): string {
-  if (!name) return 'xx';
+  if (!name) return 'XX';
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) {
-    return parts[0].substring(0, 2).toLowerCase();
+    return parts[0].substring(0, 2).toUpperCase();
   }
-  return (parts[0][0] + parts[parts.length - 1][0]).toLowerCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 /**
