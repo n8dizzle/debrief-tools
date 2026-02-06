@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
         assignee:ar_st_employees!ar_collection_tasks_st_assigned_to_fkey(st_employee_id, name),
         created_by_user:portal_users!ar_collection_tasks_created_by_fkey(id, name),
         completed_by_user:portal_users!ar_collection_tasks_completed_by_fkey(id, name),
-        task_type:ar_st_task_types!ar_collection_tasks_st_type_id_fkey(st_type_id, name)
+        task_type:ar_st_task_types!ar_collection_tasks_st_type_id_fkey(st_type_id, name),
+        task_source:ar_st_task_sources!ar_collection_tasks_st_source_id_fkey(st_source_id, name)
       `, { count: 'exact' })
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('priority', { ascending: false })
@@ -209,6 +210,38 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating task:', error);
       return NextResponse.json({ error: 'Failed to create task' }, { status: 500 });
+    }
+
+    // Create activity log entry for the task
+    if (invoice_id && data) {
+      const assigneeName = data.assignee?.name || 'Unassigned';
+      const taskTypeName = data.task_type?.name || 'Task';
+      const dueDateStr = due_date ? ` due ${new Date(due_date).toLocaleDateString()}` : '';
+      const userName = (session.user as { name?: string }).name || 'Unknown';
+      const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+      // Get customer_id from invoice if not provided
+      let noteCustomerId = customer_id;
+      if (!noteCustomerId && data.invoice) {
+        const { data: invoiceData } = await supabase
+          .from('ar_invoices')
+          .select('customer_id')
+          .eq('id', invoice_id)
+          .single();
+        noteCustomerId = invoiceData?.customer_id || null;
+      }
+
+      await supabase
+        .from('ar_collection_notes')
+        .insert({
+          invoice_id,
+          customer_id: noteCustomerId,
+          note_date: new Date().toISOString().split('T')[0],
+          author_initials: initials,
+          note_type: 'task',
+          content: `Task created: "${title}" (${taskTypeName}) assigned to ${assigneeName}${dueDateStr}`,
+          created_by: userId,
+        });
     }
 
     return NextResponse.json({ task: data }, { status: 201 });
