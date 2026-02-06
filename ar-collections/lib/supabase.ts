@@ -85,7 +85,7 @@ export type ARFinancingStatus =
 export type ARCollectionPriority = 'low' | 'normal' | 'high' | 'critical';
 export type ARCollectionStatus = 'none' | 'contacted' | 'promised' | 'disputed' | 'escalated';
 
-export type ARTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type ARTaskStatus = 'pending' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
 export type ARTaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type ARTaskSyncStatus = 'local' | 'pending_push' | 'synced' | 'push_failed' | 'from_st';
 
