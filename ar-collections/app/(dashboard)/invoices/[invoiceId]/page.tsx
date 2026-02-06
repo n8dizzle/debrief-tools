@@ -10,6 +10,7 @@ import { useSession } from 'next-auth/react';
 import QuickLogButtons from '@/components/QuickLogButtons';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import ExpectedPaymentSchedule from '@/components/ExpectedPaymentSchedule';
+import TaskList from '@/components/TaskList';
 import { formatDueDay, getPaymentProgress } from '@/lib/financing-utils';
 
 export default function InvoiceDetailPage() {
@@ -401,15 +402,9 @@ export default function InvoiceDetailPage() {
                 <div style={{ color: 'var(--text-secondary)' }}>{invoice.st_job_type_name || '-'}</div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>ST Job Status</div>
-                <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                  <span>{invoice.st_job_status?.toLowerCase() === 'completed' ? '✅' : '⚠️'}</span>
-                  <span>{invoice.st_job_status || 'Unknown'}</span>
-                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Technician</div>
+                <div style={{ color: 'var(--text-secondary)' }}>{stDetails?.technician || '-'}</div>
               </div>
-            </div>
-            {/* Second row - Location, Project, Booked Payment Type, Next Appointment */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Location</div>
                 <div className="flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
@@ -451,27 +446,6 @@ export default function InvoiceDetailPage() {
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Booked Payment Type</div>
                 <div style={{ color: 'var(--text-secondary)' }}>{(invoice as any).booking_payment_type || '-'}</div>
-              </div>
-              <div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Next Appointment</div>
-                {(invoice as any).next_appointment_date ? (
-                  <div style={{
-                    color: new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString()
-                      ? 'var(--christmas-green)'
-                      : 'var(--text-secondary)',
-                    fontWeight: new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString() ? 600 : 400,
-                  }}>
-                    {new Date((invoice as any).next_appointment_date).toDateString() === new Date().toDateString()
-                      ? '📅 Today'
-                      : formatDate((invoice as any).next_appointment_date)}
-                  </div>
-                ) : (
-                  <div style={{ color: 'var(--text-secondary)' }}>-</div>
-                )}
-              </div>
-              <div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Technician</div>
-                <div style={{ color: 'var(--text-secondary)' }}>{stDetails?.technician || '-'}</div>
               </div>
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Sold By</div>
@@ -782,6 +756,20 @@ export default function InvoiceDetailPage() {
             </div>
           )}
 
+          {/* Tasks */}
+          <div className="card">
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              Tasks
+            </h2>
+            <TaskList
+              invoiceId={invoiceId}
+              showFilters={false}
+              showCreateButton={canUpdateWorkflow}
+              compact={true}
+              maxItems={5}
+            />
+          </div>
+
           {/* Activity Timeline */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
@@ -938,39 +926,6 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          {/* Payment History */}
-          <div className="card">
-            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-muted)' }}>
-              Payment History
-            </h3>
-            {invoice.payments.length === 0 ? (
-              <div className="text-center py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                No payments recorded
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {invoice.payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex justify-between items-center p-2 rounded"
-                    style={{ backgroundColor: 'var(--bg-secondary)' }}
-                  >
-                    <div>
-                      <div className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
-                        {formatCurrency(payment.amount)}
-                      </div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {payment.payment_type}
-                      </div>
-                    </div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(payment.payment_date)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

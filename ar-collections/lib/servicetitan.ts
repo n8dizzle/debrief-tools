@@ -89,6 +89,47 @@ export interface STPayment {
   status?: string;
 }
 
+export interface STTask {
+  id: number;
+  jobId?: number;
+  customerId?: number;
+  sourceId?: number;
+  typeId?: number;
+  resolutionId?: number;
+  status?: string;
+  priority?: number;
+  dueDate?: string;
+  subject?: string;
+  description?: string;
+  completedOn?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  assignedTo?: { id: number; name: string };
+}
+
+export interface STTaskCreate {
+  jobId?: number;
+  customerId?: number;
+  sourceId: number;
+  typeId: number;
+  priority?: number;
+  dueDate?: string;
+  subject: string;
+  description?: string;
+  assignedTo?: number;
+}
+
+export interface STTaskUpdate {
+  status?: string;
+  resolutionId?: number;
+  priority?: number;
+  dueDate?: string;
+  subject?: string;
+  description?: string;
+  completedOn?: string;
+  assignedTo?: number;
+}
+
 export interface STCustomer {
   id: number;
   name: string;
@@ -1066,6 +1107,176 @@ export class ServiceTitanClient {
     } catch (error) {
       console.error(`Failed to fetch jobs${tagTypeId ? ` with tag ${tagTypeId}` : ''}:`, error);
       return [];
+    }
+  }
+
+  // ============================================
+  // TASK MANAGEMENT METHODS
+  // ============================================
+
+  /**
+   * ServiceTitan Task types
+   */
+
+  /**
+   * Get task management data (sources, types, resolutions, priorities)
+   * This is the combined endpoint that returns all task configuration
+   */
+  async getTaskManagementData(): Promise<{
+    sources: { id: number; name: string; active: boolean }[];
+    types: { id: number; name: string; active: boolean }[];
+    resolutions: { id: number; name: string; active: boolean }[];
+  }> {
+    try {
+      const response = await this.request<{
+        sources?: { id: number; name: string; active?: boolean }[];
+        types?: { id: number; name: string; active?: boolean }[];
+        resolutions?: { id: number; name: string; active?: boolean }[];
+        taskSources?: { id: number; name: string; active?: boolean }[];
+        taskTypes?: { id: number; name: string; active?: boolean }[];
+        taskResolutions?: { id: number; name: string; active?: boolean }[];
+      }>(
+        'GET',
+        `taskmanagement/v2/tenant/${this.tenantId}/data`,
+        {}
+      );
+      console.log('Task management data response:', JSON.stringify(response).slice(0, 1000));
+
+      // Handle different possible response structures
+      const sources = (response.sources || response.taskSources || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        active: s.active ?? true,
+      }));
+      const types = (response.types || response.taskTypes || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        active: t.active ?? true,
+      }));
+      const resolutions = (response.resolutions || response.taskResolutions || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        active: r.active ?? true,
+      }));
+
+      return { sources, types, resolutions };
+    } catch (error) {
+      console.error('Failed to fetch task management data:', error);
+      return { sources: [], types: [], resolutions: [] };
+    }
+  }
+
+  /**
+   * Get task sources (e.g., "AR Collections", "Service Call")
+   */
+  async getTaskSources(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const data = await this.getTaskManagementData();
+    return data.sources;
+  }
+
+  /**
+   * Get task types (e.g., "Follow Up Call", "Send Email")
+   */
+  async getTaskTypes(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const data = await this.getTaskManagementData();
+    return data.types;
+  }
+
+  /**
+   * Get task resolutions (e.g., "Completed", "Cancelled", "Left Voicemail")
+   */
+  async getTaskResolutions(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const data = await this.getTaskManagementData();
+    return data.resolutions;
+  }
+
+  /**
+   * Get employees from ServiceTitan
+   */
+  async getEmployees(): Promise<{ id: number; name: string; active: boolean }[]> {
+    try {
+      const response = await this.request<STPagedResponse<{
+        id: number;
+        name: string;
+        active: boolean;
+      }>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/employees`,
+        { params: { pageSize: '500', active: 'true' } }
+      );
+      console.log(`Fetched ${response.data?.length || 0} employees from ST`);
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get a single task by ID
+   */
+  async getTaskById(taskId: number): Promise<STTask | null> {
+    try {
+      const response = await this.request<STTask>(
+        'GET',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks/${taskId}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get task ${taskId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get tasks for a job
+   */
+  async getTasksForJob(jobId: number): Promise<STTask[]> {
+    try {
+      const response = await this.request<STPagedResponse<STTask>>(
+        'GET',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks`,
+        { params: { jobId: jobId.toString(), pageSize: '100' } }
+      );
+      return response.data || [];
+    } catch (error) {
+      console.error(`Failed to get tasks for job ${jobId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Create a task in ServiceTitan
+   */
+  async createTask(task: STTaskCreate): Promise<STTask | null> {
+    try {
+      const response = await this.request<STTask>(
+        'POST',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks`,
+        { body: task }
+      );
+      return response;
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update a task in ServiceTitan
+   */
+  async updateTask(taskId: number, updates: STTaskUpdate): Promise<STTask | null> {
+    try {
+      const response = await this.request<STTask>(
+        'PATCH',
+        `taskmanagement/v2/tenant/${this.tenantId}/tasks/${taskId}`,
+        { body: updates }
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to update task ${taskId}:`, error);
+      return null;
     }
   }
 

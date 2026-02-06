@@ -66,7 +66,12 @@ export default function DashboardPage() {
     total_outstanding: 0,
     ar_collectible: 0,
     ar_not_in_control: 0,
-    avg_dso: 0,
+    avg_invoice_age: 0,
+    actionable_ar_avg_age: 0,
+    pending_closures_avg_age: 0,
+    true_dso: 0,
+    true_dso_period_days: 30,
+    true_dso_revenue: 0,
     aging_buckets: { current: 0, bucket_30: 0, bucket_60: 0, bucket_90_plus: 0 },
     install_total: 0,
     service_total: 0,
@@ -76,6 +81,7 @@ export default function DashboardPage() {
     inhouse_financing_count: 0,
     inhouse_financing_delinquent: 0,
     business_unit_totals: [],
+    job_status_totals: [],
     top_balances: [],
     top_oldest: [],
     top_90_plus: [],
@@ -212,10 +218,55 @@ export default function DashboardPage() {
           }}
         >
           <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-            Average DSO
+            Avg Invoice Age
           </div>
-          <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-            {displayStats.avg_dso} days
+          <div className="mt-2 space-y-1">
+            <div
+              className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity rounded px-1 -mx-1"
+              onClick={() => router.push('/invoices?controlBucket=ar_collectible')}
+            >
+              <span className="text-xs" style={{ color: '#4ade80' }}>Actionable</span>
+              <span className="text-lg font-bold" style={{ color: '#4ade80' }}>
+                {displayStats.actionable_ar_avg_age} days
+              </span>
+            </div>
+            <div
+              className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity rounded px-1 -mx-1"
+              onClick={() => router.push('/invoices?controlBucket=ar_not_in_our_control')}
+            >
+              <span className="text-xs" style={{ color: '#fb923c' }}>Pending</span>
+              <span className="text-lg font-bold" style={{ color: '#fb923c' }}>
+                {displayStats.pending_closures_avg_age} days
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* True DSO */}
+      <div
+        className="p-4 sm:p-5 rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              True DSO ({displayStats.true_dso_period_days}-Day)
+            </div>
+            <div className="mt-1 text-3xl font-bold" style={{ color: '#a78bfa' }}>
+              {displayStats.true_dso} days
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Formula: (AR ÷ Revenue) × {displayStats.true_dso_period_days}
+            </div>
+            <div className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              {formatCurrency(displayStats.total_outstanding)} ÷ {formatCurrency(displayStats.true_dso_revenue)}
+            </div>
           </div>
         </div>
       </div>
@@ -397,6 +448,72 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* AR by Job Status */}
+      <div
+        className="p-4 sm:p-5 rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+          AR by Job Status
+        </h2>
+        {displayStats.job_status_totals.length === 0 ? (
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+            No data available
+          </div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={displayStats.job_status_totals.slice(0, 8)}
+                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => formatCurrency(value)}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={false}
+                  width={95}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(value as number), 'Balance']}
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                  }}
+                  labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                  itemStyle={{ color: 'var(--christmas-cream)' }}
+                />
+                <Bar
+                  dataKey="total"
+                  fill="#346643"
+                  radius={[0, 4, 4, 0]}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(data) => {
+                    if (data && data.key && data.key !== 'none') {
+                      router.push(`/invoices?jobStatus=${encodeURIComponent(String(data.key))}`);
+                    }
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* In-House Financing Summary */}

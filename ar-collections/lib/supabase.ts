@@ -85,9 +85,9 @@ export type ARFinancingStatus =
 export type ARCollectionPriority = 'low' | 'normal' | 'high' | 'critical';
 export type ARCollectionStatus = 'none' | 'contacted' | 'promised' | 'disputed' | 'escalated';
 
-export type ARTaskType = 'call' | 'email' | 'letter' | 'escalation';
 export type ARTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type ARTaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type ARTaskSyncStatus = 'local' | 'pending_push' | 'synced' | 'push_failed' | 'from_st';
 
 export type ARNoteType = 'call' | 'text' | 'email' | 'task' | 'status_change' | 'payment_promise';
 export type ARContactResult = 'reached' | 'voicemail' | 'no_answer' | 'left_message';
@@ -213,7 +213,7 @@ export interface ARCollectionTask {
   id: string;
   customer_id: string | null;
   invoice_id: string | null;
-  task_type: ARTaskType;
+  st_type_id: number | null;
   title: string;
   description: string | null;
   status: ARTaskStatus;
@@ -230,6 +230,70 @@ export interface ARCollectionTask {
   customer?: ARCustomer;
   invoice?: ARInvoice;
   assignee?: PortalUser;
+  task_type?: { st_type_id: number; name: string } | null;
+}
+
+export interface ARCollectionTaskExtended extends ARCollectionTask {
+  st_task_id: number | null;
+  st_job_id: number | null;
+  st_customer_id: number | null;
+  st_source_id: number | null;
+  st_resolution_id: number | null;
+  st_synced_at: string | null;
+  sync_status: ARTaskSyncStatus;
+  sync_error: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_by: string | null;
+  // Additional joined data
+  completed_by_user?: PortalUser;
+  created_by_user?: PortalUser;
+}
+
+// ServiceTitan Task Config Types
+export interface ARSTTaskSource {
+  id: string;
+  st_source_id: number;
+  name: string;
+  is_active: boolean;
+  fetched_at: string;
+}
+
+export interface ARSTTaskType {
+  id: string;
+  st_type_id: number;
+  name: string;
+  is_active: boolean;
+  fetched_at: string;
+}
+
+export interface ARSTTaskResolution {
+  id: string;
+  st_resolution_id: number;
+  name: string;
+  is_active: boolean;
+  fetched_at: string;
+}
+
+export interface ARSTEmployee {
+  id: string;
+  st_employee_id: number;
+  name: string;
+  is_active: boolean;
+  fetched_at: string;
+}
+
+
+export interface ARTaskSyncLog {
+  id: string;
+  sync_type: 'push_to_st' | 'pull_from_st' | 'full_sync';
+  started_at: string;
+  completed_at: string | null;
+  tasks_pushed: number;
+  tasks_pulled: number;
+  tasks_updated: number;
+  errors: string | null;
+  status: 'running' | 'completed' | 'failed';
 }
 
 export interface ARCollectionNote {
@@ -400,7 +464,14 @@ export interface ARDashboardStats {
   total_outstanding: number;
   ar_collectible: number;
   ar_not_in_control: number;
-  avg_dso: number;
+  // Average Invoice Age (simple average of days outstanding)
+  avg_invoice_age: number;
+  actionable_ar_avg_age: number;
+  pending_closures_avg_age: number;
+  // True DSO = (AR Balance / Revenue) × Days in Period
+  true_dso: number;
+  true_dso_period_days: number;
+  true_dso_revenue: number;
   aging_buckets: {
     current: number;
     bucket_30: number;
@@ -415,6 +486,7 @@ export interface ARDashboardStats {
   inhouse_financing_count: number;
   inhouse_financing_delinquent: number;
   business_unit_totals: { name: string; total: number }[];
+  job_status_totals: { key: string; label: string; total: number }[];
   top_balances: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   top_oldest: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   top_90_plus: (ARInvoice & { tracking?: ARInvoiceTracking })[];

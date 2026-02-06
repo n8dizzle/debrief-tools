@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { runARSync } from '@/lib/ar-sync';
 
 export async function GET(request: NextRequest) {
   // Verify cron secret
@@ -7,17 +8,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Forward to sync endpoint
-  const syncResponse = await fetch(new URL('/api/sync', request.url), {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const data = await syncResponse.json();
-  return NextResponse.json(data, { status: syncResponse.status });
+  try {
+    const result = await runARSync();
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Cron sync error:', error);
+    return NextResponse.json(
+      { error: 'Sync failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
 }
 
 // Vercel cron jobs call GET by default
