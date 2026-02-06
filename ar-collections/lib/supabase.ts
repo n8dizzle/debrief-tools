@@ -250,8 +250,8 @@ export interface ARCollectionTaskExtended extends ARCollectionTask {
   completed_by_user?: PortalUser;
   created_by_user?: PortalUser;
   task_source?: { st_source_id: number; name: string } | null;
-  assignee?: { st_employee_id: number; name: string } | null;
-  reporter?: { st_employee_id: number; name: string } | null;
+  st_assignee?: { st_employee_id: number; name: string } | null;
+  st_reporter?: { st_employee_id: number; name: string } | null;
 }
 
 // ServiceTitan Task Config Types

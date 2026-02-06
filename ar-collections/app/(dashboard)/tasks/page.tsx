@@ -68,7 +68,7 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
   };
 
   const getAssigneeName = () => {
-    if (task.assignee?.name) return task.assignee.name;
+    if (task.st_assignee?.name) return task.st_assignee.name;
     if (task.st_assigned_to) {
       const emp = employees.find(e => e.st_employee_id === task.st_assigned_to);
       return emp?.name || '-';
@@ -690,7 +690,7 @@ export default function TasksPage() {
   };
 
   const getAssigneeName = (task: ARCollectionTaskExtended) => {
-    if (task.assignee?.name) return task.assignee.name;
+    if (task.st_assignee?.name) return task.st_assignee.name;
     if (task.st_assigned_to) {
       const emp = employees.find(e => e.st_employee_id === task.st_assigned_to);
       return emp?.name || '-';
