@@ -89,7 +89,7 @@ export type ARTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
 export type ARTaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type ARTaskSyncStatus = 'local' | 'pending_push' | 'synced' | 'push_failed' | 'from_st';
 
-export type ARNoteType = 'call' | 'text' | 'email' | 'task' | 'status_change' | 'payment_promise';
+export type ARNoteType = 'call' | 'text' | 'email' | 'task' | 'status_change' | 'payment_promise' | 'note';
 export type ARContactResult = 'reached' | 'voicemail' | 'no_answer' | 'left_message';
 
 export type ARPaymentPlanStatus = 'active' | 'completed' | 'defaulted';
@@ -239,6 +239,7 @@ export interface ARCollectionTaskExtended extends ARCollectionTask {
   st_customer_id: number | null;
   st_source_id: number | null;
   st_resolution_id: number | null;
+  st_assigned_to: number | null;
   st_synced_at: string | null;
   sync_status: ARTaskSyncStatus;
   sync_error: string | null;
@@ -248,6 +249,9 @@ export interface ARCollectionTaskExtended extends ARCollectionTask {
   // Additional joined data
   completed_by_user?: PortalUser;
   created_by_user?: PortalUser;
+  task_source?: { st_source_id: number; name: string } | null;
+  assignee?: { st_employee_id: number; name: string } | null;
+  reporter?: { st_employee_id: number; name: string } | null;
 }
 
 // ServiceTitan Task Config Types

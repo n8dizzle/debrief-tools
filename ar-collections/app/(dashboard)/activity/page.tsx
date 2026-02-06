@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ARNoteType, ARContactResult, PortalUser } from '@/lib/supabase';
-import { formatNoteDate, formatCurrency } from '@/lib/ar-utils';
+import { formatNoteDate, formatCurrency, formatActivityDate } from '@/lib/ar-utils';
 
 interface Activity {
   id: string;
@@ -24,11 +24,19 @@ interface Activity {
 }
 
 type FilterState = {
-  type: string;
+  types: string[];
   dateFrom: string;
   dateTo: string;
   ownerId: string;
 };
+
+const NOTE_TYPE_OPTIONS = [
+  { value: 'call', label: 'Calls' },
+  { value: 'email', label: 'Emails' },
+  { value: 'text', label: 'Texts' },
+  { value: 'task', label: 'Tasks' },
+  { value: 'note', label: 'Notes' },
+];
 
 function getNoteTypeIcon(type: ARNoteType): JSX.Element {
   const iconClass = "w-5 h-5";
@@ -52,6 +60,30 @@ function getNoteTypeIcon(type: ARNoteType): JSX.Element {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
       );
+    case 'task':
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      );
+    case 'status_change':
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      );
+    case 'payment_promise':
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    case 'note':
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      );
     default:
       return (
         <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,6 +101,14 @@ function getNoteTypeColor(type: ARNoteType): string {
       return '#60a5fa'; // blue
     case 'text':
       return '#a78bfa'; // purple
+    case 'task':
+      return '#fbbf24'; // yellow
+    case 'status_change':
+      return '#f97316'; // orange
+    case 'payment_promise':
+      return '#34d399'; // green
+    case 'note':
+      return '#14b8a6'; // teal
     default:
       return 'var(--text-secondary)';
   }
@@ -91,11 +131,12 @@ export default function ActivityPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState<FilterState>({
-    type: '',
+    types: [],
     dateFrom: '',
     dateTo: '',
     ownerId: '',
   });
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
 
   useEffect(() => {
     fetchActivities();
@@ -110,7 +151,7 @@ export default function ActivityPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.type) params.set('type', filters.type);
+      if (filters.types.length > 0) params.set('types', filters.types.join(','));
       if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
       if (filters.dateTo) params.set('dateTo', filters.dateTo);
       if (filters.ownerId) params.set('ownerId', filters.ownerId);
@@ -162,20 +203,75 @@ export default function ActivityPage() {
       {/* Filters */}
       <div className="card">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
+          <div className="relative">
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
               Activity Type
             </label>
-            <select
-              className="select"
-              value={filters.type}
-              onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+            <button
+              type="button"
+              className="select w-full text-left flex items-center justify-between"
+              onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
             >
-              <option value="">All Types</option>
-              <option value="call">Calls</option>
-              <option value="email">Emails</option>
-              <option value="text">Texts</option>
-            </select>
+              <span style={{ color: filters.types.length === 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                {filters.types.length === 0
+                  ? 'All Types'
+                  : filters.types.length === 1
+                    ? NOTE_TYPE_OPTIONS.find(o => o.value === filters.types[0])?.label
+                    : `${filters.types.length} selected`}
+              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {typeDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setTypeDropdownOpen(false)}
+                />
+                <div
+                  className="absolute z-20 mt-1 w-full rounded-md shadow-lg"
+                  style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <button
+                      type="button"
+                      className="text-xs hover:underline"
+                      style={{ color: 'var(--christmas-green-light)' }}
+                      onClick={() => setFilters(prev => ({ ...prev, types: [] }))}
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto p-2 space-y-1">
+                    {NOTE_TYPE_OPTIONS.map(option => (
+                      <label
+                        key={option.value}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-opacity-50"
+                        style={{ backgroundColor: filters.types.includes(option.value) ? 'var(--bg-secondary)' : 'transparent' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filters.types.includes(option.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFilters(prev => ({ ...prev, types: [...prev.types, option.value] }));
+                            } else {
+                              setFilters(prev => ({ ...prev, types: prev.types.filter(t => t !== option.value) }));
+                            }
+                          }}
+                          className="rounded"
+                          style={{ accentColor: 'var(--christmas-green-light)' }}
+                        />
+                        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                          {option.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
@@ -262,10 +358,10 @@ export default function ActivityPage() {
                     {/* Header */}
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-sm font-semibold" style={{ color: typeColor }}>
-                        {formatNoteDate(activity.note_date)}
+                        {formatActivityDate(activity.created_at)}
                       </span>
                       <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                        {activity.author_initials}
+                        {activity.author_initials?.toUpperCase()}
                       </span>
                       {activity.contact_result && (
                         <span
