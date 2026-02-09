@@ -6,7 +6,7 @@ import { ARCollectionTaskExtended, ARSTTaskType, ARSTTaskSource, ARSTEmployee, A
 import { formatDate } from '@/lib/ar-utils';
 import TaskCompleteModal from '@/components/TaskCompleteModal';
 
-type StatusTab = 'todo' | 'in_progress' | 'on_hold' | 'canceled' | 'completed' | 'all';
+type StatusTab = 'todo' | 'in_progress' | 'canceled' | 'completed' | 'all';
 
 interface FilterState {
   priorities: string[];
@@ -109,7 +109,6 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
   const statusOptions: { value: ARTaskStatus; label: string }[] = [
     { value: 'pending', label: 'To Do' },
     { value: 'in_progress', label: 'In Progress' },
-    { value: 'on_hold', label: 'On Hold' },
     { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Canceled' },
   ];
@@ -575,7 +574,6 @@ export default function TasksPage() {
         const statusMap: Record<StatusTab, string> = {
           todo: 'pending',
           in_progress: 'in_progress',
-          on_hold: 'on_hold',
           canceled: 'cancelled',
           completed: 'completed',
           all: '',
@@ -662,7 +660,6 @@ export default function TasksPage() {
   const tabs: { id: StatusTab; label: string }[] = [
     { id: 'todo', label: 'To Do' },
     { id: 'in_progress', label: 'In Progress' },
-    { id: 'on_hold', label: 'On Hold' },
     { id: 'canceled', label: 'Canceled' },
     { id: 'completed', label: 'Completed' },
     { id: 'all', label: 'View All' },
@@ -679,7 +676,6 @@ export default function TasksPage() {
     const statusConfig: Record<string, { label: string; color: string }> = {
       pending: { label: 'To Do', color: '#3b82f6' },
       in_progress: { label: 'In Progress', color: '#f59e0b' },
-      on_hold: { label: 'On Hold', color: '#8b5cf6' },
       cancelled: { label: 'Canceled', color: '#6b7280' },
       completed: { label: 'Completed', color: '#22c55e' },
     };
