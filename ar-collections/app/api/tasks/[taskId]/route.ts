@@ -79,9 +79,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     } = body;
 
     const supabase = getServerSupabase();
-    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-    console.log('Using service role key:', hasServiceKey);
-    console.log('Request body:', JSON.stringify(body));
 
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {};
@@ -110,8 +107,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.sync_status = 'pending_push';
     }
 
-    console.log('Updating task', taskId, 'with:', JSON.stringify(updates));
-
     // First, do the update
     const { error: updateError } = await supabase
       .from('ar_collection_tasks')
@@ -119,15 +114,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .eq('id', taskId);
 
     if (updateError) {
-      console.error('Error updating task:', JSON.stringify(updateError, null, 2));
-      return NextResponse.json({
-        error: `Failed to update: ${updateError.message || 'Unknown'}`,
-        code: updateError.code,
-        details: updateError.details,
-        hint: updateError.hint,
-        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-        updates: updates
-      }, { status: 500 });
+      console.error('Error updating task:', updateError);
+      return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
     }
 
     // Then fetch the updated task
@@ -188,4 +176,3 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-// Deploy trigger Mon Feb  9 12:05:59 CST 2026
