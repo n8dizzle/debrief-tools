@@ -78,9 +78,11 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
   };
 
   const handleSave = async () => {
+    console.log('handleSave called');
     setSaving(true);
     setError(null);
     try {
+      console.log('Calling onUpdate with:', { status, priority, st_assigned_to: assignedTo, due_date: dueDate || null, title, description });
       await onUpdate(task.id, {
         status,
         priority,
@@ -89,6 +91,7 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
         title,
         description,
       });
+      console.log('onUpdate completed successfully');
       onClose();
     } catch (err) {
       console.error('Failed to update task:', err);
@@ -628,6 +631,7 @@ export default function TasksPage() {
   }
 
   async function handleUpdateTask(taskId: string, updates: Partial<ARCollectionTaskExtended>) {
+    console.log('handleUpdateTask called with:', taskId, updates);
     const response = await fetch(`/api/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -635,12 +639,19 @@ export default function TasksPage() {
       body: JSON.stringify(updates),
     });
 
+    console.log('API response status:', response.status);
+
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
+      console.error('API error:', data);
       throw new Error(data.error || 'Failed to update task');
     }
 
-    fetchTasks();
+    const result = await response.json();
+    console.log('API success:', result);
+
+    await fetchTasks();
+    console.log('fetchTasks completed');
   }
 
   const tabs: { id: StatusTab; label: string }[] = [
