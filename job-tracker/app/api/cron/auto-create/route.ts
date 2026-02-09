@@ -34,16 +34,16 @@ export async function GET(request: NextRequest) {
   const logId = syncLog?.id;
 
   try {
-    // Get install jobs completed in last 24 hours
-    const recentJobs = await st.getRecentInstallJobs(24);
+    // Get install jobs scheduled in the next 14 days
+    const upcomingJobs = await st.getUpcomingInstallJobs(14);
 
-    console.log(`Found ${recentJobs.length} recent install jobs`);
+    console.log(`Found ${upcomingJobs.length} upcoming install jobs`);
 
     let created = 0;
     let skipped = 0;
     const errors: string[] = [];
 
-    for (const job of recentJobs) {
+    for (const job of upcomingJobs) {
       // Check if tracker already exists for this job
       const { data: existing } = await supabase
         .from('job_trackers')
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          records_processed: recentJobs.length,
+          records_processed: upcomingJobs.length,
           records_created: created,
           records_updated: 0,
           errors: errors.length > 0 ? errors.join('\n') : null,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       success: true,
       created,
       skipped,
-      total: recentJobs.length,
+      total: upcomingJobs.length,
     });
   } catch (error) {
     console.error('Auto-create cron error:', error);

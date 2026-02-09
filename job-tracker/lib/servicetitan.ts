@@ -288,13 +288,17 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get recently completed install jobs (for auto-tracker creation)
-   * Looks at jobs completed in the last N hours
+   * Get upcoming scheduled install jobs (for auto-tracker creation)
+   * Looks at jobs scheduled within the next N days that aren't completed/canceled
    * Filters by business unit (HVAC - Install, Plumbing - Install)
    */
-  async getRecentInstallJobs(hoursAgo: number = 24): Promise<STJob[]> {
-    const since = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
-    const sinceStr = since.toISOString();
+  async getUpcomingInstallJobs(daysAhead: number = 14): Promise<STJob[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString();
+
+    const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+    const futureStr = futureDate.toISOString();
 
     try {
       // Get install business unit IDs
@@ -311,25 +315,26 @@ export class ServiceTitanClient {
         `jpm/v2/tenant/${this.tenantId}/jobs`,
         {
           params: {
-            completedOnOrAfter: sinceStr,
-            jobStatus: 'Completed',
+            scheduledOnOrAfter: todayStr,
+            scheduledOnOrBefore: futureStr,
             pageSize: '100',
           },
         }
       );
 
-      console.log(`Found ${response.data?.length || 0} completed jobs in last ${hoursAgo} hours`);
+      console.log(`Found ${response.data?.length || 0} jobs scheduled in next ${daysAhead} days`);
 
-      // Filter to install jobs by business unit ID
+      // Filter to install jobs by business unit ID and exclude completed/canceled
       const installJobs = (response.data || []).filter(job =>
-        installBuIds.includes(job.businessUnitId)
+        installBuIds.includes(job.businessUnitId) &&
+        !['Completed', 'Canceled'].includes(job.jobStatus)
       );
 
-      console.log(`Found ${installJobs.length} install jobs`);
+      console.log(`Found ${installJobs.length} upcoming install jobs`);
 
       return installJobs;
     } catch (error) {
-      console.error('Failed to get recent install jobs:', error);
+      console.error('Failed to get upcoming install jobs:', error);
       return [];
     }
   }

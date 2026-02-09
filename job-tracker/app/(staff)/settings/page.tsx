@@ -22,7 +22,7 @@ interface SyncLog {
   errors: string | null;
 }
 
-type SettingsTab = 'sync' | 'notifications' | 'history';
+type SettingsTab = 'sync' | 'notifications';
 
 function formatDateTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -140,7 +140,6 @@ export default function SettingsPage() {
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: 'sync', label: 'Data Sync' },
     { id: 'notifications', label: 'Notifications' },
-    { id: 'history', label: 'Sync History' },
   ];
 
   return (
@@ -170,94 +169,170 @@ export default function SettingsPage() {
 
       {/* Data Sync Tab */}
       {activeTab === 'sync' && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Data Sync</h2>
-          <div className="space-y-4">
-            {/* Automatic Sync Info */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-bg-secondary">
-              <div>
-                <div className="font-medium text-text-primary">Automatic Sync</div>
-                <div className="text-sm text-text-muted">
-                  Auto-create: 8am CT weekdays • Status sync: 12pm CT daily
+        <div className="space-y-6">
+          <div className="card">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">Data Sync</h2>
+            <div className="space-y-4">
+              {/* Automatic Sync Info */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-bg-secondary">
+                <div>
+                  <div className="font-medium text-text-primary">Automatic Sync</div>
+                  <div className="text-sm text-text-muted">
+                    Auto-create: 8am CT weekdays • Status sync: 12pm CT daily
+                  </div>
                 </div>
+                <span className="px-2 py-1 rounded text-xs font-medium bg-green-500/20 text-green-400">
+                  Enabled
+                </span>
               </div>
-              <span className="px-2 py-1 rounded text-xs font-medium bg-green-500/20 text-green-400">
-                Enabled
-              </span>
-            </div>
 
-            {/* Manual Sync - Auto Create */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-bg-secondary">
-              <div>
-                <div className="font-medium text-text-primary">Auto-Create Trackers</div>
-                <div className="text-sm text-text-muted">
-                  Find new install jobs from ServiceTitan and create trackers
+              {/* Manual Sync - Auto Create */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-bg-secondary">
+                <div>
+                  <div className="font-medium text-text-primary">Auto-Create Trackers</div>
+                  <div className="text-sm text-text-muted">
+                    Find new install jobs from ServiceTitan and create trackers
+                  </div>
                 </div>
+                <button
+                  onClick={() => runSync('auto-create')}
+                  disabled={syncing !== null}
+                  className="btn btn-primary"
+                >
+                  {syncing === 'auto-create' ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                      Running...
+                    </span>
+                  ) : (
+                    'Run Sync'
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => runSync('auto-create')}
-                disabled={syncing !== null}
-                className="btn btn-primary"
-              >
-                {syncing === 'auto-create' ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                    Running...
-                  </span>
-                ) : (
-                  'Run Sync'
-                )}
-              </button>
-            </div>
 
-            {/* Manual Sync - Status */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-bg-secondary">
-              <div>
-                <div className="font-medium text-text-primary">Sync Status</div>
-                <div className="text-sm text-text-muted">
-                  Update tracker status from ServiceTitan jobs
+              {/* Manual Sync - Status */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-bg-secondary">
+                <div>
+                  <div className="font-medium text-text-primary">Sync Status</div>
+                  <div className="text-sm text-text-muted">
+                    Update tracker status from ServiceTitan jobs
+                  </div>
                 </div>
+                <button
+                  onClick={() => runSync('sync-status')}
+                  disabled={syncing !== null}
+                  className="btn btn-secondary"
+                >
+                  {syncing === 'sync-status' ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                      Running...
+                    </span>
+                  ) : (
+                    'Run Sync'
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => runSync('sync-status')}
-                disabled={syncing !== null}
-                className="btn btn-secondary"
-              >
-                {syncing === 'sync-status' ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-                    Running...
-                  </span>
-                ) : (
-                  'Run Sync'
-                )}
-              </button>
-            </div>
 
-            {/* Integration Status */}
-            <div className="mt-6 pt-6 border-t border-border-default">
-              <h3 className="text-sm font-semibold text-text-primary mb-3">Integration Status</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-bg-secondary">
-                  <span className="text-sm text-text-secondary">Email (Resend)</span>
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400">
-                    Connected
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-bg-secondary">
-                  <span className="text-sm text-text-secondary">SMS (Dialpad)</span>
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
-                    Pending
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-bg-secondary">
-                  <span className="text-sm text-text-secondary">ServiceTitan</span>
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400">
-                    Connected
-                  </span>
+              {/* Integration Status */}
+              <div className="mt-6 pt-6 border-t border-border-default">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">Integration Status</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-bg-secondary">
+                    <span className="text-sm text-text-secondary">Email (Resend)</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400">
+                      Connected
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-bg-secondary">
+                    <span className="text-sm text-text-secondary">SMS (Dialpad)</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                      Pending
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-bg-secondary">
+                    <span className="text-sm text-text-secondary">ServiceTitan</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400">
+                      Connected
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Sync History */}
+          <div className="card">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">Sync History</h2>
+            {logsLoading ? (
+              <div className="text-center py-8 text-text-muted">Loading...</div>
+            ) : syncLogs.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">No sync history yet</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="tracker-table">
+                  <thead>
+                    <tr>
+                      <th>Started</th>
+                      <th>Duration</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Processed</th>
+                      <th>Created</th>
+                      <th>Updated</th>
+                      <th>Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncLogs.slice(0, 20).map((log) => {
+                      const duration = log.completed_at
+                        ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
+                        : null;
+                      const durationStr = duration !== null
+                        ? duration >= 60
+                          ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                          : `${duration}s`
+                        : '-';
+
+                      return (
+                        <tr key={log.id}>
+                          <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
+                          <td className="text-sm">{durationStr}</td>
+                          <td className="capitalize text-sm">
+                            {log.sync_type === 'auto_create' ? 'Auto Create' : 'Status Sync'}
+                          </td>
+                          <td>
+                            <span
+                              className={`badge ${
+                                log.status === 'completed'
+                                  ? 'badge-completed'
+                                  : log.status === 'failed'
+                                  ? 'badge-skipped'
+                                  : 'badge-in-progress'
+                              }`}
+                            >
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="text-sm">{log.records_processed}</td>
+                          <td className="text-sm">{log.records_created}</td>
+                          <td className="text-sm">{log.records_updated}</td>
+                          <td className="text-sm">
+                            {log.errors ? (
+                              <span className="text-red-400" title={log.errors}>
+                                {log.errors.substring(0, 30)}...
+                              </span>
+                            ) : (
+                              <span className="text-text-muted">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -324,81 +399,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Sync History Tab */}
-      {activeTab === 'history' && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Sync History</h2>
-          {logsLoading ? (
-            <div className="text-center py-8 text-text-muted">Loading...</div>
-          ) : syncLogs.length === 0 ? (
-            <div className="text-center py-8 text-text-muted">No sync history yet</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="tracker-table">
-                <thead>
-                  <tr>
-                    <th>Started</th>
-                    <th>Duration</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Processed</th>
-                    <th>Created</th>
-                    <th>Updated</th>
-                    <th>Errors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {syncLogs.slice(0, 20).map((log) => {
-                    const duration = log.completed_at
-                      ? Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)
-                      : null;
-                    const durationStr = duration !== null
-                      ? duration >= 60
-                        ? `${Math.floor(duration / 60)}m ${duration % 60}s`
-                        : `${duration}s`
-                      : '-';
-
-                    return (
-                      <tr key={log.id}>
-                        <td className="text-sm whitespace-nowrap">{formatDateTime(log.started_at)}</td>
-                        <td className="text-sm">{durationStr}</td>
-                        <td className="capitalize text-sm">
-                          {log.sync_type === 'auto_create' ? 'Auto Create' : 'Status Sync'}
-                        </td>
-                        <td>
-                          <span
-                            className={`badge ${
-                              log.status === 'completed'
-                                ? 'badge-completed'
-                                : log.status === 'failed'
-                                ? 'badge-skipped'
-                                : 'badge-in-progress'
-                            }`}
-                          >
-                            {log.status}
-                          </span>
-                        </td>
-                        <td className="text-sm">{log.records_processed}</td>
-                        <td className="text-sm">{log.records_created}</td>
-                        <td className="text-sm">{log.records_updated}</td>
-                        <td className="text-sm">
-                          {log.errors ? (
-                            <span className="text-red-400" title={log.errors}>
-                              {log.errors.substring(0, 30)}...
-                            </span>
-                          ) : (
-                            <span className="text-text-muted">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
