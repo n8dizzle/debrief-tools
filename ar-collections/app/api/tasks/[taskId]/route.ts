@@ -107,12 +107,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.sync_status = 'pending_push';
     }
 
-    console.log('Updating task', taskId, 'with:', updates);
+    console.log('Updating task', taskId, 'with:', JSON.stringify(updates));
 
-    const { data, error } = await supabase
+    // First, do the update
+    const { error: updateError } = await supabase
       .from('ar_collection_tasks')
       .update(updates)
-      .eq('id', taskId)
+      .eq('id', taskId);
+
+    if (updateError) {
+      console.error('Error updating task:', JSON.stringify(updateError, null, 2));
+      return NextResponse.json({
+        error: `Failed to update task: ${updateError.message || updateError.code || 'Unknown error'}`,
+        code: updateError.code,
+        details: updateError.details,
+        hint: updateError.hint
+      }, { status: 500 });
+    }
+
+    // Then fetch the updated task
+    const { data, error: fetchError } = await supabase
+      .from('ar_collection_tasks')
       .select(`
         *,
         invoice:ar_invoices(id, invoice_number, customer_name, balance, st_job_id),
@@ -121,16 +136,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         created_by_user:portal_users!ar_collection_tasks_created_by_fkey(id, name),
         completed_by_user:portal_users!ar_collection_tasks_completed_by_fkey(id, name)
       `)
+      .eq('id', taskId)
       .single();
 
-    if (error) {
-      console.error('Error updating task:', JSON.stringify(error, null, 2));
-      return NextResponse.json({
-        error: `Failed to update task: ${error.message || error.code || 'Unknown error'}`,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      }, { status: 500 });
+    if (fetchError) {
+      console.error('Error fetching updated task:', JSON.stringify(fetchError, null, 2));
+      // Update succeeded but fetch failed - still return success
+      return NextResponse.json({ task: null, message: 'Task updated but fetch failed' });
     }
 
     return NextResponse.json({ task: data });
