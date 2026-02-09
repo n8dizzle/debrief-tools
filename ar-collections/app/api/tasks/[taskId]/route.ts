@@ -79,6 +79,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     } = body;
 
     const supabase = getServerSupabase();
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log('Using service role key:', hasServiceKey);
+    console.log('Request body:', JSON.stringify(body));
 
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {};
@@ -118,10 +121,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (updateError) {
       console.error('Error updating task:', JSON.stringify(updateError, null, 2));
       return NextResponse.json({
-        error: `Failed to update task: ${updateError.message || updateError.code || 'Unknown error'}`,
+        error: `Failed to update: ${updateError.message || 'Unknown'}`,
         code: updateError.code,
         details: updateError.details,
-        hint: updateError.hint
+        hint: updateError.hint,
+        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        updates: updates
       }, { status: 500 });
     }
 
