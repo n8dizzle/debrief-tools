@@ -123,7 +123,48 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (fetchError) {
       console.error('Error fetching updated task:', JSON.stringify(fetchError, null, 2));
-      return NextResponse.json({ task: null, message: 'Task updated but fetch failed' });
+
+      // Even if the full fetch failed, try to sync to ST with a simpler query
+      const { data: simpleTask } = await supabase
+        .from('ar_collection_tasks')
+        .select('id, st_task_id, sync_status')
+        .eq('id', taskId)
+        .single();
+
+      if (simpleTask?.st_task_id) {
+        try {
+          const syncUpdates: {
+            status?: string;
+            priority?: string;
+            title?: string;
+            description?: string;
+            due_date?: string | null;
+            st_assigned_to?: number | null;
+            outcome?: string;
+            completed_at?: string;
+          } = {};
+
+          if (status !== undefined) syncUpdates.status = status;
+          if (priority !== undefined) syncUpdates.priority = priority;
+          if (title !== undefined) syncUpdates.title = title;
+          if (description !== undefined) syncUpdates.description = description;
+          if (due_date !== undefined) syncUpdates.due_date = due_date;
+          if (st_assigned_to !== undefined) syncUpdates.st_assigned_to = st_assigned_to;
+          if (outcome !== undefined) syncUpdates.outcome = outcome;
+          if (status === 'completed') syncUpdates.completed_at = new Date().toISOString();
+
+          console.log('Syncing to ST (fallback) with updates:', JSON.stringify(syncUpdates));
+          await syncTaskUpdateToST(simpleTask as ARCollectionTaskExtended, syncUpdates);
+        } catch (syncError) {
+          console.error('Failed to sync task to ST:', syncError);
+        }
+      }
+
+      return NextResponse.json({
+        task: null,
+        message: 'Task updated but fetch failed',
+        fetchError: fetchError.message || fetchError.code
+      });
     }
 
     // Immediately sync to ServiceTitan if task has ST link
