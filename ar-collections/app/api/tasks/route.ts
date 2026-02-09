@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getServerSupabase, ARTaskStatus, ARTaskPriority } from '@/lib/supabase';
+import { getServerSupabase, ARTaskStatus, ARTaskPriority, ARCollectionTaskExtended } from '@/lib/supabase';
+import { pushTaskToST } from '@/lib/task-sync';
 
 /**
  * GET /api/tasks
@@ -210,6 +211,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create task' }, { status: 500 });
     }
 
+    // Immediately push to ServiceTitan if requested
+    if (push_to_st && data) {
+      try {
+        const pushResult = await pushTaskToST(data as ARCollectionTaskExtended);
+        if (!pushResult.success) {
+          console.error('Failed to push task to ST:', pushResult.error);
+          // Task is created locally, ST sync failed - will retry on cron
+        }
+      } catch (syncError) {
+        console.error('Error pushing task to ST (non-blocking):', syncError);
+      }
+    }
+
     // Create activity log entry for the task
     if (invoice_id && data) {
       const assigneeName = data.assignee?.name || 'Unassigned';
@@ -240,6 +254,22 @@ export async function POST(request: NextRequest) {
           content: `Task created: "${title}" (${taskTypeName}) assigned to ${assigneeName}${dueDateStr}`,
           created_by: userId,
         });
+    }
+
+    // Re-fetch task to get updated ST info after sync
+    if (push_to_st && data) {
+      const { data: refreshedTask } = await supabase
+        .from('ar_collection_tasks')
+        .select(`
+          *,
+          invoice:ar_invoices(id, invoice_number, customer_name, balance, st_job_id),
+          customer:ar_customers(id, name, st_customer_id),
+          task_type:ar_st_task_types!ar_collection_tasks_st_type_id_fkey(st_type_id, name)
+        `)
+        .eq('id', data.id)
+        .single();
+
+      return NextResponse.json({ task: refreshedTask || data }, { status: 201 });
     }
 
     return NextResponse.json({ task: data }, { status: 201 });

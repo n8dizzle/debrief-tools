@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase, ARCollectionTaskExtended } from '@/lib/supabase';
+import { syncTaskUpdateToST } from '@/lib/task-sync';
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -95,18 +96,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (followup_required !== undefined) updates.followup_required = followup_required;
     if (followup_date !== undefined) updates.followup_date = followup_date || null;
 
-    // Check if task has ST sync and mark for update
-    const { data: existing } = await supabase
-      .from('ar_collection_tasks')
-      .select('st_task_id, sync_status')
-      .eq('id', taskId)
-      .single();
-
-    if (existing?.st_task_id && existing.sync_status === 'synced') {
-      // Mark for push to update ST
-      updates.sync_status = 'pending_push';
-    }
-
     // First, do the update
     const { error: updateError } = await supabase
       .from('ar_collection_tasks')
@@ -118,7 +107,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
     }
 
-    // Then fetch the updated task
+    // Fetch the updated task with all relations
     const { data, error: fetchError } = await supabase
       .from('ar_collection_tasks')
       .select(`
@@ -134,8 +123,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (fetchError) {
       console.error('Error fetching updated task:', JSON.stringify(fetchError, null, 2));
-      // Update succeeded but fetch failed - still return success
       return NextResponse.json({ task: null, message: 'Task updated but fetch failed' });
+    }
+
+    // Immediately sync to ServiceTitan if task has ST link
+    if (data?.st_task_id) {
+      try {
+        const syncUpdates: { status?: string; outcome?: string; completed_at?: string } = {};
+        if (status !== undefined) syncUpdates.status = status;
+        if (outcome !== undefined) syncUpdates.outcome = outcome;
+        if (status === 'completed') syncUpdates.completed_at = new Date().toISOString();
+
+        await syncTaskUpdateToST(data as ARCollectionTaskExtended, syncUpdates);
+      } catch (syncError) {
+        console.error('Failed to sync task to ST (non-blocking):', syncError);
+        // Don't fail the request if ST sync fails - it will retry on next cron
+      }
     }
 
     return NextResponse.json({ task: data });
