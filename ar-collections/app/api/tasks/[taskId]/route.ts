@@ -124,8 +124,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error) {
-      console.error('Error updating task:', error);
-      return NextResponse.json({ error: `Failed to update task: ${error.message}`, details: error }, { status: 500 });
+      console.error('Error updating task:', JSON.stringify(error, null, 2));
+      return NextResponse.json({
+        error: `Failed to update task: ${error.message || error.code || 'Unknown error'}`,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      }, { status: 500 });
     }
 
     return NextResponse.json({ task: data });
