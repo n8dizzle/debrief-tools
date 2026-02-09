@@ -34,6 +34,7 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (task) {
@@ -43,6 +44,7 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
       setDueDate(task.due_date || '');
       setTitle(task.title || '');
       setDescription(task.description || '');
+      setError(null);
     }
   }, [task]);
 
@@ -77,6 +79,7 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
     try {
       await onUpdate(task.id, {
         status,
@@ -89,6 +92,7 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
       onClose();
     } catch (err) {
       console.error('Failed to update task:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save task');
     } finally {
       setSaving(false);
     }
@@ -387,21 +391,28 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
         </div>
 
         {/* Sticky Footer */}
-        <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm transition-colors hover:bg-white/10"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn btn-primary"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+        <div className="sticky bottom-0 border-t" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
+          {error && (
+            <div className="px-6 py-3" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+              <p className="text-sm" style={{ color: '#ef4444' }}>{error}</p>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-3 px-6 py-4">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm transition-colors hover:bg-white/10"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn btn-primary"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -625,7 +636,8 @@ export default function TasksPage() {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to update task');
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to update task');
     }
 
     fetchTasks();
