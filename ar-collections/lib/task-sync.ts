@@ -260,7 +260,16 @@ export async function pushPendingTasksToST(): Promise<SyncResult> {
  */
 export async function syncTaskUpdateToST(
   task: ARCollectionTaskExtended,
-  updates: { status?: string; outcome?: string; completed_at?: string }
+  updates: {
+    status?: string;
+    priority?: string;
+    title?: string;
+    description?: string;
+    due_date?: string | null;
+    st_assigned_to?: number | null;
+    outcome?: string;
+    completed_at?: string;
+  }
 ): Promise<boolean> {
   if (!task.st_task_id) {
     return false;
@@ -280,6 +289,34 @@ export async function syncTaskUpdateToST(
       cancelled: 'Cancelled',
     };
     stUpdates.status = statusMap[updates.status] || updates.status;
+  }
+
+  // Map priority: low->4, normal->3, high->2, urgent->1
+  if (updates.priority) {
+    const priorityMap: Record<string, number> = {
+      low: 4,
+      normal: 3,
+      high: 2,
+      urgent: 1,
+    };
+    stUpdates.priority = priorityMap[updates.priority] || 3;
+  }
+
+  // Map other fields
+  if (updates.title) {
+    stUpdates.subject = updates.title;
+  }
+
+  if (updates.description !== undefined) {
+    stUpdates.description = updates.description || undefined;
+  }
+
+  if (updates.due_date !== undefined) {
+    stUpdates.dueDate = updates.due_date || undefined;
+  }
+
+  if (updates.st_assigned_to !== undefined) {
+    stUpdates.assignedTo = updates.st_assigned_to || undefined;
   }
 
   if (updates.completed_at) {
@@ -304,6 +341,11 @@ export async function syncTaskUpdateToST(
         stUpdates.resolutionId = matchingResolution.st_resolution_id;
       }
     }
+  }
+
+  // Only call ST API if we have updates to send
+  if (Object.keys(stUpdates).length === 0) {
+    return true; // Nothing to sync
   }
 
   try {

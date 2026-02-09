@@ -129,8 +129,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Immediately sync to ServiceTitan if task has ST link
     if (data?.st_task_id) {
       try {
-        const syncUpdates: { status?: string; outcome?: string; completed_at?: string } = {};
+        const syncUpdates: {
+          status?: string;
+          priority?: string;
+          title?: string;
+          description?: string;
+          due_date?: string | null;
+          st_assigned_to?: number | null;
+          outcome?: string;
+          completed_at?: string;
+        } = {};
+
         if (status !== undefined) syncUpdates.status = status;
+        if (priority !== undefined) syncUpdates.priority = priority;
+        if (title !== undefined) syncUpdates.title = title;
+        if (description !== undefined) syncUpdates.description = description;
+        if (due_date !== undefined) syncUpdates.due_date = due_date;
+        if (st_assigned_to !== undefined) syncUpdates.st_assigned_to = st_assigned_to;
         if (outcome !== undefined) syncUpdates.outcome = outcome;
         if (status === 'completed') syncUpdates.completed_at = new Date().toISOString();
 
