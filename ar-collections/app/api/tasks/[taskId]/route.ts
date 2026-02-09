@@ -107,16 +107,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
     }
 
-    // Fetch the updated task with all relations
+    // Fetch the updated task with relations (simplified - removed portal_users joins that cause schema cache issues)
     const { data, error: fetchError } = await supabase
       .from('ar_collection_tasks')
       .select(`
         *,
         invoice:ar_invoices(id, invoice_number, customer_name, balance, st_job_id),
-        customer:ar_customers(id, name, st_customer_id),
-        assignee:portal_users!ar_collection_tasks_assigned_to_fkey(id, name, email),
-        created_by_user:portal_users!ar_collection_tasks_created_by_fkey(id, name),
-        completed_by_user:portal_users!ar_collection_tasks_completed_by_fkey(id, name)
+        customer:ar_customers(id, name, st_customer_id)
       `)
       .eq('id', taskId)
       .single();
