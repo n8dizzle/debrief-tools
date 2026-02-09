@@ -82,15 +82,20 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
     setSaving(true);
     setError(null);
     try {
-      console.log('Calling onUpdate with:', { status, priority, st_assigned_to: assignedTo, due_date: dueDate || null, title, description });
-      await onUpdate(task.id, {
+      // Temporarily skip st_assigned_to to test if that's causing the issue
+      const updateData: Record<string, unknown> = {
         status,
         priority,
-        st_assigned_to: assignedTo,
         due_date: dueDate || null,
         title,
         description,
-      });
+      };
+      // Only include st_assigned_to if it changed
+      // if (assignedTo !== task.st_assigned_to) {
+      //   updateData.st_assigned_to = assignedTo;
+      // }
+      console.log('Calling onUpdate with:', updateData);
+      await onUpdate(task.id, updateData);
       console.log('onUpdate completed successfully');
       onClose();
     } catch (err) {
