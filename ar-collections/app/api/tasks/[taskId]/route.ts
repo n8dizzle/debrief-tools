@@ -127,6 +127,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Immediately sync to ServiceTitan if task has ST link
+    console.log('Task update - st_task_id:', data?.st_task_id, 'sync_status:', data?.sync_status);
     if (data?.st_task_id) {
       try {
         const syncUpdates: {
@@ -149,11 +150,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         if (outcome !== undefined) syncUpdates.outcome = outcome;
         if (status === 'completed') syncUpdates.completed_at = new Date().toISOString();
 
-        await syncTaskUpdateToST(data as ARCollectionTaskExtended, syncUpdates);
+        console.log('Syncing to ST with updates:', JSON.stringify(syncUpdates));
+        const syncResult = await syncTaskUpdateToST(data as ARCollectionTaskExtended, syncUpdates);
+        console.log('ST sync result:', syncResult);
       } catch (syncError) {
         console.error('Failed to sync task to ST (non-blocking):', syncError);
         // Don't fail the request if ST sync fails - it will retry on next cron
       }
+    } else {
+      console.log('Skipping ST sync - no st_task_id');
     }
 
     return NextResponse.json({ task: data });

@@ -345,11 +345,14 @@ export async function syncTaskUpdateToST(
 
   // Only call ST API if we have updates to send
   if (Object.keys(stUpdates).length === 0) {
+    console.log('No ST updates to send');
     return true; // Nothing to sync
   }
 
+  console.log('Calling ST updateTask with:', task.st_task_id, JSON.stringify(stUpdates));
   try {
     const stTask = await stClient.updateTask(task.st_task_id, stUpdates);
+    console.log('ST updateTask response:', stTask ? 'success' : 'null response');
     if (stTask) {
       await supabase
         .from('ar_collection_tasks')
