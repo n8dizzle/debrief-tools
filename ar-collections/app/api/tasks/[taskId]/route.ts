@@ -70,6 +70,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       status,
       priority,
       assigned_to,
+      st_assigned_to,
       due_date,
       outcome,
       outcome_notes,
@@ -87,6 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (status !== undefined) updates.status = status;
     if (priority !== undefined) updates.priority = priority;
     if (assigned_to !== undefined) updates.assigned_to = assigned_to || null;
+    if (st_assigned_to !== undefined) updates.st_assigned_to = st_assigned_to || null;
     if (due_date !== undefined) updates.due_date = due_date || null;
     if (outcome !== undefined) updates.outcome = outcome;
     if (outcome_notes !== undefined) updates.outcome_notes = outcome_notes;
