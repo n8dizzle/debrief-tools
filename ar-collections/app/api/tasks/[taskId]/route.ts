@@ -107,6 +107,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.sync_status = 'pending_push';
     }
 
+    console.log('Updating task', taskId, 'with:', updates);
+
     const { data, error } = await supabase
       .from('ar_collection_tasks')
       .update(updates)
@@ -123,13 +125,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       console.error('Error updating task:', error);
-      return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
+      return NextResponse.json({ error: `Failed to update task: ${error.message}`, details: error }, { status: 500 });
     }
 
     return NextResponse.json({ task: data });
   } catch (error) {
     console.error('Task API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: `Internal server error: ${message}` }, { status: 500 });
   }
 }
 
