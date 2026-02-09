@@ -1287,19 +1287,16 @@ export class ServiceTitanClient {
 
   /**
    * Update a task in ServiceTitan
+   * Throws on error so callers can handle/log appropriately
    */
-  async updateTask(taskId: number, updates: STTaskUpdate): Promise<STTask | null> {
-    try {
-      const response = await this.request<STTask>(
-        'PATCH',
-        `taskmanagement/v2/tenant/${this.tenantId}/tasks/${taskId}`,
-        { body: updates }
-      );
-      return response;
-    } catch (error) {
-      console.error(`Failed to update task ${taskId}:`, error);
-      return null;
-    }
+  async updateTask(taskId: number, updates: STTaskUpdate): Promise<STTask> {
+    // Try POST to /tasks/{id} - some APIs use this pattern for updates
+    const response = await this.request<STTask>(
+      'POST',
+      `taskmanagement/v2/tenant/${this.tenantId}/tasks/${taskId}`,
+      { body: updates }
+    );
+    return response;
   }
 
   // ============================================

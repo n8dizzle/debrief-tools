@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ARCollectionTaskExtended, ARSTTaskType, ARSTTaskSource, ARSTEmployee, ARTaskStatus, ARTaskPriority } from '@/lib/supabase';
+import { ARCollectionTaskExtended, ARSTTaskType, ARSTTaskSource, ARSTEmployee } from '@/lib/supabase';
 import { formatDate } from '@/lib/ar-utils';
-import TaskCompleteModal from '@/components/TaskCompleteModal';
 
 type StatusTab = 'todo' | 'in_progress' | 'canceled' | 'completed' | 'all';
 
@@ -20,34 +19,12 @@ interface TaskDetailModalProps {
   task: ARCollectionTaskExtended | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: (taskId: string, updates: Partial<ARCollectionTaskExtended>) => Promise<void>;
   taskTypes: ARSTTaskType[];
   taskSources: ARSTTaskSource[];
   employees: ARSTEmployee[];
 }
 
-function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSources, employees }: TaskDetailModalProps) {
-  const [status, setStatus] = useState<ARTaskStatus>('pending');
-  const [priority, setPriority] = useState<ARTaskPriority>('normal');
-  const [assignedTo, setAssignedTo] = useState<number | null>(null);
-  const [dueDate, setDueDate] = useState<string>('');
-  const [title, setTitle] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (task) {
-      setStatus(task.status);
-      setPriority(task.priority);
-      setAssignedTo(task.st_assigned_to || null);
-      setDueDate(task.due_date || '');
-      setTitle(task.title || '');
-      setDescription(task.description || '');
-      setError(null);
-    }
-  }, [task]);
-
+function TaskDetailModal({ task, isOpen, onClose, taskTypes, taskSources, employees }: TaskDetailModalProps) {
   if (!isOpen || !task) return null;
 
   // Helper functions to look up names from config
@@ -77,48 +54,19 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
     return '-';
   };
 
-  const handleSave = async () => {
-    console.log('handleSave called');
-    setSaving(true);
-    setError(null);
-    try {
-      // Temporarily skip st_assigned_to to test if that's causing the issue
-      const updateData: Record<string, unknown> = {
-        status,
-        priority,
-        due_date: dueDate || null,
-        title,
-        description,
-      };
-      // Only include st_assigned_to if it changed
-      // if (assignedTo !== task.st_assigned_to) {
-      //   updateData.st_assigned_to = assignedTo;
-      // }
-      console.log('Calling onUpdate with:', updateData);
-      await onUpdate(task.id, updateData);
-      console.log('onUpdate completed successfully');
-      onClose();
-    } catch (err) {
-      console.error('Failed to update task:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save task');
-    } finally {
-      setSaving(false);
-    }
+  const statusLabels: Record<string, string> = {
+    pending: 'To Do',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+    cancelled: 'Canceled',
   };
 
-  const statusOptions: { value: ARTaskStatus; label: string }[] = [
-    { value: 'pending', label: 'To Do' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'cancelled', label: 'Canceled' },
-  ];
-
-  const priorityOptions: { value: ARTaskPriority; label: string }[] = [
-    { value: 'urgent', label: 'Urgent' },
-    { value: 'high', label: 'High' },
-    { value: 'normal', label: 'Normal' },
-    { value: 'low', label: 'Low' },
-  ];
+  const statusColors: Record<string, string> = {
+    pending: '#3b82f6',
+    in_progress: '#f59e0b',
+    completed: '#22c55e',
+    cancelled: '#6b7280',
+  };
 
   const priorityColors: Record<string, string> = {
     urgent: '#ef4444',
@@ -145,9 +93,18 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
               Task Details
             </h2>
             {task.st_task_id && (
-              <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+              <a
+                href={`https://go.servicetitan.com/#/TaskManagement/Task/${task.st_task_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-2 py-0.5 rounded flex items-center gap-1 hover:opacity-80"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-green)' }}
+              >
                 ST #{task.st_task_id}
-              </span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             )}
           </div>
           <button
@@ -168,37 +125,51 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
             <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Task Name
             </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm"
+            <div className="text-base font-medium" style={{ color: 'var(--christmas-cream)' }}>
+              {task.title || '-'}
+            </div>
+          </div>
+
+          {/* Status & Priority Row */}
+          <div className="flex items-center gap-4">
+            <span
+              className="px-3 py-1.5 rounded-lg text-sm font-medium"
               style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--christmas-cream)',
-                border: '1px solid var(--border-subtle)',
+                backgroundColor: `${statusColors[task.status]}20`,
+                color: statusColors[task.status],
               }}
-            />
+            >
+              {statusLabels[task.status] || task.status}
+            </span>
+            <span
+              className="px-3 py-1.5 rounded-lg text-sm font-medium capitalize"
+              style={{
+                backgroundColor: `${priorityColors[task.priority]}20`,
+                color: priorityColors[task.priority],
+              }}
+            >
+              {task.priority} Priority
+            </span>
           </div>
 
           {/* Two Column Grid for Details */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-            {/* Task Type (Read-only) */}
+            {/* Task Type */}
             <div>
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Task Type
               </label>
-              <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {getTypeName()}
               </div>
             </div>
 
-            {/* Task Source (Read-only) */}
+            {/* Task Source */}
             <div>
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Task Source
               </label>
-              <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {getSourceName()}
               </div>
             </div>
@@ -208,98 +179,33 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Assigned To
               </label>
-              <select
-                value={assignedTo || ''}
-                onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--christmas-cream)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <option value="">Unassigned</option>
-                {employees.map(emp => (
-                  <option key={emp.st_employee_id} value={emp.st_employee_id}>{emp.name}</option>
-                ))}
-              </select>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {getAssigneeName()}
+              </div>
             </div>
 
-            {/* Created By (Read-only) */}
+            {/* Created By */}
             <div>
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Created By
               </label>
-              <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {task.created_by_user?.name || '-'}
               </div>
             </div>
           </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-medium mb-2 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-              Status
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {statusOptions.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setStatus(opt.value)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: status === opt.value ? 'var(--christmas-green)' : 'var(--bg-secondary)',
-                    color: status === opt.value ? 'white' : 'var(--text-secondary)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Priority */}
-          <div>
-            <label className="block text-xs font-medium mb-2 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-              Priority
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {priorityOptions.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setPriority(opt.value)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: priority === opt.value ? priorityColors[opt.value] : 'var(--bg-secondary)',
-                    color: priority === opt.value ? 'white' : 'var(--text-secondary)',
-                    border: `1px solid ${priority === opt.value ? priorityColors[opt.value] : 'var(--border-subtle)'}`,
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Description */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--christmas-cream)',
-                border: '1px solid var(--border-subtle)',
-              }}
-              placeholder="Add task description..."
-            />
-          </div>
+          {task.description && (
+            <div>
+              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Description
+              </label>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {task.description}
+              </div>
+            </div>
+          )}
 
           {/* Linked Records Section */}
           <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -367,8 +273,8 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
             <h3 className="text-xs font-medium mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Dates
             </h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {/* Created On (Read-only) */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              {/* Created On */}
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Created On</label>
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -378,46 +284,64 @@ function TaskDetailModal({ task, isOpen, onClose, onUpdate, taskTypes, taskSourc
 
               {/* Due Date */}
               <div>
-                <label className="block text-xs font-medium mb-1 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: 'var(--bg-secondary)',
-                    color: 'var(--christmas-cream)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                />
+                <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Due Date</label>
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {task.due_date ? formatDate(task.due_date) : '-'}
+                </span>
+              </div>
+
+              {/* Completed On */}
+              {task.completed_at && (
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Completed On</label>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {formatDate(task.completed_at)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Outcome (if completed) */}
+          {task.status === 'completed' && task.outcome && (
+            <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <h3 className="text-xs font-medium mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Outcome
+              </h3>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {task.outcome}
+                {task.outcome_notes && (
+                  <p className="mt-2" style={{ color: 'var(--text-muted)' }}>{task.outcome_notes}</p>
+                )}
               </div>
             </div>
+          )}
+
+          {/* Edit in ServiceTitan notice */}
+          <div className="pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              To edit this task, please use{' '}
+              <a
+                href="https://go.servicetitan.com/#/TaskManagement"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+                style={{ color: 'var(--christmas-green)' }}
+              >
+                ServiceTitan Task Management
+              </a>
+            </p>
           </div>
         </div>
 
         {/* Sticky Footer */}
         <div className="sticky bottom-0 border-t" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
-          {error && (
-            <div className="px-6 py-3" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
-              <p className="text-sm" style={{ color: '#ef4444' }}>{error}</p>
-            </div>
-          )}
           <div className="flex items-center justify-end gap-3 px-6 py-4">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm transition-colors hover:bg-white/10"
-              style={{ color: 'var(--text-secondary)' }}
+              className="px-4 py-2 rounded-lg text-sm transition-colors btn-primary"
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn btn-primary"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
+              Close
             </button>
           </div>
         </div>
@@ -544,12 +468,47 @@ export default function TasksPage() {
   const [employees, setEmployees] = useState<ARSTEmployee[]>([]);
   const [selectedTask, setSelectedTask] = useState<ARCollectionTaskExtended | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchTasks();
     fetchConfig();
+    fetchLastSync();
   }, [activeTab, filters]);
+
+  async function fetchLastSync() {
+    try {
+      const response = await fetch('/api/tasks/sync/last', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLastSyncAt(data.last_sync_at);
+      }
+    } catch (err) {
+      console.error('Failed to fetch last task sync:', err);
+    }
+  }
+
+  async function handleSyncFromST() {
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/tasks/sync', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        await fetchTasks();
+        await fetchLastSync();
+      }
+    } catch (err) {
+      console.error('Failed to sync tasks:', err);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -633,30 +592,6 @@ export default function TasksPage() {
     }
   }
 
-  async function handleUpdateTask(taskId: string, updates: Partial<ARCollectionTaskExtended>) {
-    console.log('handleUpdateTask called with:', taskId, updates);
-    const response = await fetch(`/api/tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(updates),
-    });
-
-    console.log('API response status:', response.status);
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      console.error('API error:', data);
-      throw new Error(data.error || 'Failed to update task');
-    }
-
-    const result = await response.json();
-    console.log('API success:', result);
-
-    await fetchTasks();
-    console.log('fetchTasks completed');
-  }
-
   const tabs: { id: StatusTab; label: string }[] = [
     { id: 'todo', label: 'To Do' },
     { id: 'in_progress', label: 'In Progress' },
@@ -730,10 +665,51 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-          Task Management
-        </h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              Task Management
+            </h1>
+            <a
+              href="https://go.servicetitan.com/#/TaskManagement"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg transition-colors hover:bg-white/10"
+              style={{ color: 'var(--christmas-green)' }}
+              title="Open in ServiceTitan"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+            {tasks.length} tasks
+            {lastSyncAt && (
+              <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                • Last synced {new Date(lastSyncAt).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={handleSyncFromST}
+          disabled={syncing}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-80 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+        >
+          <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {syncing ? 'Syncing...' : 'Sync Tasks'}
+        </button>
       </div>
 
       {/* Status Tabs */}
@@ -890,18 +866,19 @@ export default function TasksPage() {
                 <th style={{ width: '100px' }}>Status</th>
                 <th style={{ width: '100px' }}>Due Date</th>
                 <th style={{ width: '140px' }}>Assigned To</th>
+                <th style={{ width: '50px' }}></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={9} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
                     Loading tasks...
                   </td>
                 </tr>
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={9} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
                     No tasks found
                   </td>
                 </tr>
@@ -958,6 +935,23 @@ export default function TasksPage() {
                         {getAssigneeName(task)}
                       </span>
                     </td>
+                    <td>
+                      {task.st_task_id && (
+                        <a
+                          href={`https://go.servicetitan.com/#/TaskManagement/Task/${task.st_task_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded hover:bg-white/10 inline-flex"
+                          style={{ color: 'var(--christmas-green)' }}
+                          title="Open in ServiceTitan"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -971,7 +965,6 @@ export default function TasksPage() {
         task={selectedTask}
         isOpen={!!selectedTask}
         onClose={() => setSelectedTask(null)}
-        onUpdate={handleUpdateTask}
         taskTypes={taskTypes}
         taskSources={taskSources}
         employees={employees}

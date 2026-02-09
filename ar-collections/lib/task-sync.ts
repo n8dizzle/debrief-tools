@@ -270,9 +270,9 @@ export async function syncTaskUpdateToST(
     outcome?: string;
     completed_at?: string;
   }
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   if (!task.st_task_id) {
-    return false;
+    return { success: false, error: 'No st_task_id on task' };
   }
 
   const stClient = getServiceTitanClient();
@@ -346,38 +346,89 @@ export async function syncTaskUpdateToST(
   // Only call ST API if we have updates to send
   if (Object.keys(stUpdates).length === 0) {
     console.log('No ST updates to send');
-    return true; // Nothing to sync
+    return { success: true }; // Nothing to sync
   }
 
   console.log('Calling ST updateTask with:', task.st_task_id, JSON.stringify(stUpdates));
   try {
     const stTask = await stClient.updateTask(task.st_task_id, stUpdates);
     console.log('ST updateTask response:', stTask ? 'success' : 'null response');
-    if (stTask) {
-      await supabase
-        .from('ar_collection_tasks')
-        .update({
-          sync_status: 'synced',
-          st_synced_at: new Date().toISOString(),
-          sync_error: null,
-        })
-        .eq('id', task.id);
 
-      return true;
-    }
+    await supabase
+      .from('ar_collection_tasks')
+      .update({
+        sync_status: 'synced',
+        st_synced_at: new Date().toISOString(),
+        sync_error: null,
+      })
+      .eq('id', task.id);
+
+    return { success: true };
   } catch (error) {
-    console.error('Failed to sync task update to ST:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Failed to sync task update to ST:', errorMsg);
 
     await supabase
       .from('ar_collection_tasks')
       .update({
         sync_status: 'push_failed',
-        sync_error: error instanceof Error ? error.message : 'Unknown error',
+        sync_error: errorMsg,
       })
       .eq('id', task.id);
+
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Refresh status of all existing synced tasks by querying ST directly
+ * This catches tasks that were cancelled/completed in ST but not returned by job queries
+ */
+export async function refreshExistingTaskStatuses(): Promise<{ updated: number; errors: string[] }> {
+  const stClient = getServiceTitanClient();
+  const supabase = getServerSupabase();
+
+  const result = { updated: 0, errors: [] as string[] };
+
+  // Get all tasks that have st_task_id
+  const { data: tasks, error } = await supabase
+    .from('ar_collection_tasks')
+    .select('id, st_task_id, status')
+    .not('st_task_id', 'is', null);
+
+  if (error || !tasks || tasks.length === 0) {
+    console.log('No tasks to refresh or error:', error);
+    return result;
   }
 
-  return false;
+  // Filter out already completed/cancelled tasks locally
+  const activeTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
+
+  console.log(`Refreshing status for ${activeTasks.length} active tasks from ST (${tasks.length} total)`);
+
+  // Query each task individually from ST
+  for (const task of activeTasks) {
+    try {
+      console.log(`Fetching ST task ${task.st_task_id}...`);
+      const stTask = await stClient.getTaskById(task.st_task_id);
+
+      if (stTask) {
+        console.log(`ST task ${task.st_task_id} status: ${stTask.status}`);
+        // Update local task with current ST status
+        await updateTaskFromST(task.id, stTask);
+        result.updated++;
+      } else {
+        console.log(`ST task ${task.st_task_id} returned null`);
+      }
+
+      // Small delay between API calls
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } catch (error) {
+      result.errors.push(`Task ${task.st_task_id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -395,15 +446,22 @@ export async function pullTasksFromST(): Promise<SyncResult> {
     errors: [],
   };
 
+  // First, refresh status of all existing synced tasks
+  // This catches tasks that were cancelled/completed in ST
+  const refreshResult = await refreshExistingTaskStatuses();
+  result.updated += refreshResult.updated;
+  result.errors.push(...refreshResult.errors);
+
   // Get all open AR job IDs
   const jobIds = await getOpenARJobIds();
   if (jobIds.length === 0) {
+    result.success = result.errors.length === 0;
     return result;
   }
 
   console.log(`Pulling tasks for ${jobIds.length} open AR jobs`);
 
-  // Get all existing ST task IDs we already have
+  // Get all existing ST task IDs we already have (refresh the list after status updates)
   const { data: existingTasks } = await supabase
     .from('ar_collection_tasks')
     .select('st_task_id, id, sync_status, updated_at')
@@ -425,21 +483,12 @@ export async function pullTasksFromST(): Promise<SyncResult> {
         for (const stTask of stTasks) {
           const existing = existingStTaskIds.get(stTask.id);
 
-          if (existing) {
-            // Task exists - check if ST modified after our sync
-            const stModified = stTask.modifiedOn ? new Date(stTask.modifiedOn) : null;
-            const ourUpdated = existing.updated_at ? new Date(existing.updated_at) : null;
-
-            if (stModified && ourUpdated && stModified > ourUpdated) {
-              // ST is newer - update our record (ST wins for status)
-              await updateTaskFromST(existing.id, stTask);
-              result.updated++;
-            }
-          } else {
+          if (!existing) {
             // New task from ST - create local record
             await createTaskFromST(stTask, jobId);
             result.pulled++;
           }
+          // Skip existing tasks - they were already updated in refreshExistingTaskStatuses
         }
       } catch (error) {
         result.errors.push(`Job ${jobId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -520,14 +569,18 @@ async function updateTaskFromST(taskId: string, stTask: STTask): Promise<void> {
     InProgress: 'in_progress',
     Completed: 'completed',
     Cancelled: 'cancelled',
+    Canceled: 'cancelled', // US spelling variant
   };
 
-  await supabase
+  const mappedStatus = statusMap[stTask.status || 'Open'] || 'pending';
+  console.log(`Updating task ${taskId}: ST status "${stTask.status}" -> local status "${mappedStatus}"`);
+
+  const { error } = await supabase
     .from('ar_collection_tasks')
     .update({
       title: stTask.subject || undefined,
       description: stTask.description || undefined,
-      status: statusMap[stTask.status || 'Open'] || 'pending',
+      status: mappedStatus,
       due_date: stTask.dueDate || null,
       completed_at: stTask.completedOn || null,
       st_resolution_id: stTask.resolutionId || null,
@@ -536,6 +589,10 @@ async function updateTaskFromST(taskId: string, stTask: STTask): Promise<void> {
       sync_error: null,
     })
     .eq('id', taskId);
+
+  if (error) {
+    console.error(`Failed to update task ${taskId}:`, error);
+  }
 }
 
 /**

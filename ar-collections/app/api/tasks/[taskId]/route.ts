@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getServerSupabase, ARCollectionTaskExtended } from '@/lib/supabase';
-import { syncTaskUpdateToST } from '@/lib/task-sync';
+import { getServerSupabase } from '@/lib/supabase';
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -120,43 +119,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (fetchError) {
       console.error('Error fetching updated task:', JSON.stringify(fetchError, null, 2));
-
-      // Even if the full fetch failed, try to sync to ST with a simpler query
-      const { data: simpleTask } = await supabase
-        .from('ar_collection_tasks')
-        .select('id, st_task_id, sync_status')
-        .eq('id', taskId)
-        .single();
-
-      if (simpleTask?.st_task_id) {
-        try {
-          const syncUpdates: {
-            status?: string;
-            priority?: string;
-            title?: string;
-            description?: string;
-            due_date?: string | null;
-            st_assigned_to?: number | null;
-            outcome?: string;
-            completed_at?: string;
-          } = {};
-
-          if (status !== undefined) syncUpdates.status = status;
-          if (priority !== undefined) syncUpdates.priority = priority;
-          if (title !== undefined) syncUpdates.title = title;
-          if (description !== undefined) syncUpdates.description = description;
-          if (due_date !== undefined) syncUpdates.due_date = due_date;
-          if (st_assigned_to !== undefined) syncUpdates.st_assigned_to = st_assigned_to;
-          if (outcome !== undefined) syncUpdates.outcome = outcome;
-          if (status === 'completed') syncUpdates.completed_at = new Date().toISOString();
-
-          console.log('Syncing to ST (fallback) with updates:', JSON.stringify(syncUpdates));
-          await syncTaskUpdateToST(simpleTask as ARCollectionTaskExtended, syncUpdates);
-        } catch (syncError) {
-          console.error('Failed to sync task to ST:', syncError);
-        }
-      }
-
       return NextResponse.json({
         task: null,
         message: 'Task updated but fetch failed',
@@ -164,40 +126,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Immediately sync to ServiceTitan if task has ST link
-    console.log('Task update - st_task_id:', data?.st_task_id, 'sync_status:', data?.sync_status);
-    if (data?.st_task_id) {
-      try {
-        const syncUpdates: {
-          status?: string;
-          priority?: string;
-          title?: string;
-          description?: string;
-          due_date?: string | null;
-          st_assigned_to?: number | null;
-          outcome?: string;
-          completed_at?: string;
-        } = {};
-
-        if (status !== undefined) syncUpdates.status = status;
-        if (priority !== undefined) syncUpdates.priority = priority;
-        if (title !== undefined) syncUpdates.title = title;
-        if (description !== undefined) syncUpdates.description = description;
-        if (due_date !== undefined) syncUpdates.due_date = due_date;
-        if (st_assigned_to !== undefined) syncUpdates.st_assigned_to = st_assigned_to;
-        if (outcome !== undefined) syncUpdates.outcome = outcome;
-        if (status === 'completed') syncUpdates.completed_at = new Date().toISOString();
-
-        console.log('Syncing to ST with updates:', JSON.stringify(syncUpdates));
-        const syncResult = await syncTaskUpdateToST(data as ARCollectionTaskExtended, syncUpdates);
-        console.log('ST sync result:', syncResult);
-      } catch (syncError) {
-        console.error('Failed to sync task to ST (non-blocking):', syncError);
-        // Don't fail the request if ST sync fails - it will retry on next cron
-      }
-    } else {
-      console.log('Skipping ST sync - no st_task_id');
-    }
+    // Note: ServiceTitan Task Management API does not support task updates (only creation)
+    // Task updates are stored locally only. New tasks are synced to ST on creation.
 
     return NextResponse.json({ task: data });
   } catch (error) {
