@@ -115,7 +115,7 @@ export interface STTaskCreate {
   priority?: 'Low' | 'Normal' | 'High' | 'Urgent';
   dueDate?: string;
   name: string;
-  body: string;
+  description?: string;
   isClosed: boolean;
   assignedToId: number;
   reportedById: number;

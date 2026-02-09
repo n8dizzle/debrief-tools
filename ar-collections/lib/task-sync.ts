@@ -155,13 +155,11 @@ export async function pushTaskToST(task: ARCollectionTaskExtended): Promise<{ su
   }
 
   // Build the ST task create payload
-  const taskBody = task.description && task.description.trim() ? task.description : 'Task created from AR Collections';
-
   const stTaskData: STTaskCreate = {
     employeeTaskSourceId: sourceId,
     employeeTaskTypeId: task.st_type_id,
     name: task.title,
-    body: taskBody,
+    description: task.description && task.description.trim() ? task.description : undefined,
     dueDate: task.due_date || undefined,
     isClosed: false,
     priority: priorityMap[task.priority] || 'Normal',
