@@ -172,8 +172,11 @@ export default function GBPPerformancePage() {
   }, [dateRange]);
 
   useEffect(() => {
-    fetchInsights();
-    fetchDailyData();
+    async function loadData() {
+      await fetchInsights();  // Populates cache on miss
+      fetchDailyData();       // Then reads from cache
+    }
+    loadData();
   }, [fetchInsights, fetchDailyData]);
 
   const handleSyncData = async () => {

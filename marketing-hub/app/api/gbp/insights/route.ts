@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
-import { getGoogleBusinessClient, AggregatedInsights } from '@/lib/google-business';
+import { getGoogleBusinessClient, AggregatedInsights, DailyMetricTimeSeries } from '@/lib/google-business';
 import { hasPermission, UserPermissions } from '@/lib/permissions';
 import { getSTMetricsForLocations, STLocationMetrics } from '@/lib/st-metrics';
 
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
       google_location_id: loc.google_location_id,
     }));
 
-    const freshInsights = await gbClient.getMultiLocationInsights(locationData, periodDays);
+    const freshInsights = await gbClient.getMultiLocationInsights(locationData, periodDays, startDateStr, endDateStr);
 
     // Merge YoY and YTD data into the fresh insights
     const insightsWithComparisons = addComparisonData(freshInsights, locations, yoyData, ytdData);
@@ -205,10 +205,47 @@ export async function GET(request: NextRequest) {
     const stMetrics = await stMetricsPromise;
     const insightsWithST = mergeSTMetrics(insightsWithComparisons, stMetrics);
 
-    // Cache the results (background, don't wait)
-    cacheInsightsData(supabase, freshInsights, locations, startDateStr, endDateStr).catch(err => {
-      console.error('Failed to cache insights:', err);
-    });
+    // Cache the raw daily time series synchronously so the daily chart endpoint has data
+    if (freshInsights.rawLocationTimeSeries && freshInsights.rawLocationTimeSeries.length > 0) {
+      try {
+        const allRecords: Array<{
+          location_id: string;
+          date: string;
+          views_maps: number;
+          views_search: number;
+          website_clicks: number;
+          phone_calls: number;
+          direction_requests: number;
+          bookings: number;
+          fetched_at: string;
+        }> = [];
+
+        const fetchedAt = new Date().toISOString();
+        for (const { locationId, timeSeries } of freshInsights.rawLocationTimeSeries) {
+          const records = buildDailyRecordsFromTimeSeries(timeSeries, locationId, fetchedAt);
+          allRecords.push(...records);
+        }
+
+        if (allRecords.length > 0) {
+          const BATCH_SIZE = 500;
+          for (let i = 0; i < allRecords.length; i += BATCH_SIZE) {
+            const batch = allRecords.slice(i, i + BATCH_SIZE);
+            const { error: upsertError } = await supabase
+              .from('gbp_insights_cache')
+              .upsert(batch, {
+                onConflict: 'location_id,date',
+                ignoreDuplicates: false,
+              });
+            if (upsertError) {
+              console.error('[GBP Cache] Upsert error:', upsertError);
+            }
+          }
+          console.log(`[GBP Cache] Cached ${allRecords.length} daily records for ${startDateStr} to ${endDateStr}`);
+        }
+      } catch (err) {
+        console.error('[GBP Cache] Failed to cache daily data:', err);
+      }
+    }
 
     return NextResponse.json({
       insights: insightsWithST,
@@ -643,52 +680,68 @@ function mergeSTMetrics(
   };
 }
 
-// Helper: Cache insights data to database
-// Note: This caches aggregate data per location for the queried period.
-// For proper daily caching, use the /api/gbp/insights/sync endpoint which
-// fetches raw daily time series data from the Google API.
-async function cacheInsightsData(
-  supabase: ReturnType<typeof getServerSupabase>,
-  insights: AggregatedInsights,
-  locations: Array<{ id: string; google_location_id: string; short_name?: string; name: string }>,
-  startDate: string,
-  endDate: string
-): Promise<void> {
-  // The getMultiLocationInsights function only returns aggregated totals,
-  // not daily breakdowns. To properly cache daily data, we need to call
-  // getLocationInsights for each location and parse the time series.
-  //
-  // For now, trigger a background sync to populate daily data:
-  console.log(`[GBP Cache] Triggering background sync for ${locations.length} locations...`);
+// Helper: Build daily cache records from raw Google API time series data
+function buildDailyRecordsFromTimeSeries(
+  timeSeries: DailyMetricTimeSeries[],
+  locationId: string,
+  fetchedAt: string
+): Array<{
+  location_id: string;
+  date: string;
+  views_maps: number;
+  views_search: number;
+  website_clicks: number;
+  phone_calls: number;
+  direction_requests: number;
+  bookings: number;
+  fetched_at: string;
+}> {
+  const dateMap = new Map<string, {
+    mapsDesktop: number;
+    mapsMobile: number;
+    searchDesktop: number;
+    searchMobile: number;
+    websiteClicks: number;
+    phoneCalls: number;
+    directionRequests: number;
+  }>();
 
-  // Fetch the CRON_SECRET from env to call the sync endpoint
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    console.warn('[GBP Cache] CRON_SECRET not configured, skipping background sync');
-    return;
-  }
+  for (const series of timeSeries) {
+    if (!series.timeSeries?.datedValues) continue;
+    for (const dv of series.timeSeries.datedValues) {
+      const dateStr = `${dv.date.year}-${String(dv.date.month).padStart(2, '0')}-${String(dv.date.day).padStart(2, '0')}`;
+      const value = parseInt(dv.value || '0', 10);
 
-  // Get base URL from env or construct from request
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3002';
+      if (!dateMap.has(dateStr)) {
+        dateMap.set(dateStr, {
+          mapsDesktop: 0, mapsMobile: 0,
+          searchDesktop: 0, searchMobile: 0,
+          websiteClicks: 0, phoneCalls: 0, directionRequests: 0,
+        });
+      }
 
-  try {
-    // Call the sync endpoint in the background
-    const response = await fetch(`${baseUrl}/api/gbp/insights/sync`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cronSecret}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('[GBP Cache] Background sync failed:', error);
-    } else {
-      const result = await response.json();
-      console.log(`[GBP Cache] Background sync complete: ${result.total_rows_upserted} rows upserted`);
+      const metrics = dateMap.get(dateStr)!;
+      switch (series.dailyMetric) {
+        case 'BUSINESS_IMPRESSIONS_DESKTOP_MAPS': metrics.mapsDesktop = value; break;
+        case 'BUSINESS_IMPRESSIONS_MOBILE_MAPS': metrics.mapsMobile = value; break;
+        case 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH': metrics.searchDesktop = value; break;
+        case 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH': metrics.searchMobile = value; break;
+        case 'WEBSITE_CLICKS': metrics.websiteClicks = value; break;
+        case 'CALL_CLICKS': metrics.phoneCalls = value; break;
+        case 'BUSINESS_DIRECTION_REQUESTS': metrics.directionRequests = value; break;
+      }
     }
-  } catch (err) {
-    console.error('[GBP Cache] Background sync error:', err);
   }
+
+  return Array.from(dateMap.entries()).map(([date, metrics]) => ({
+    location_id: locationId,
+    date,
+    views_maps: metrics.mapsDesktop + metrics.mapsMobile,
+    views_search: metrics.searchDesktop + metrics.searchMobile,
+    website_clicks: metrics.websiteClicks,
+    phone_calls: metrics.phoneCalls,
+    direction_requests: metrics.directionRequests,
+    bookings: 0,
+    fetched_at: fetchedAt,
+  }));
 }

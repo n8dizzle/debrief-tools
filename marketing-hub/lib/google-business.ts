@@ -849,26 +849,43 @@ export class GoogleBusinessClient {
       name: string;
       google_location_id: string;
     }>,
-    days: number = 30
-  ): Promise<AggregatedInsights> {
-    const endDate = new Date();
-    // Account for 2-3 day data delay from Google
-    endDate.setDate(endDate.getDate() - 3);
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - days + 1);
-
-    // Previous period for comparison
-    const prevEndDate = new Date(startDate);
-    prevEndDate.setDate(prevEndDate.getDate() - 1);
-    const prevStartDate = new Date(prevEndDate);
-    prevStartDate.setDate(prevStartDate.getDate() - days + 1);
-
+    days: number = 30,
+    startDateOverride?: string,
+    endDateOverride?: string
+  ): Promise<AggregatedInsights & { rawLocationTimeSeries: Array<{ locationId: string; timeSeries: DailyMetricTimeSeries[] }> }> {
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-    const currentPeriod = { start: formatDate(startDate), end: formatDate(endDate) };
-    const previousPeriod = { start: formatDate(prevStartDate), end: formatDate(prevEndDate) };
+    let currentPeriod: { start: string; end: string };
+    let previousPeriod: { start: string; end: string };
+
+    if (startDateOverride && endDateOverride) {
+      // Use the exact dates requested by the caller
+      currentPeriod = { start: startDateOverride, end: endDateOverride };
+      // Calculate previous period from actual date range
+      const rangeStart = new Date(startDateOverride + 'T00:00:00');
+      const rangeEnd = new Date(endDateOverride + 'T00:00:00');
+      const rangeDays = Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const prevEnd = new Date(rangeStart);
+      prevEnd.setDate(prevEnd.getDate() - 1);
+      const prevStart = new Date(prevEnd);
+      prevStart.setDate(prevStart.getDate() - rangeDays + 1);
+      previousPeriod = { start: formatDate(prevStart), end: formatDate(prevEnd) };
+    } else {
+      // Legacy: compute date range from days param
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() - 3);
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - days + 1);
+      const prevEndDate = new Date(startDate);
+      prevEndDate.setDate(prevEndDate.getDate() - 1);
+      const prevStartDate = new Date(prevEndDate);
+      prevStartDate.setDate(prevStartDate.getDate() - days + 1);
+      currentPeriod = { start: formatDate(startDate), end: formatDate(endDate) };
+      previousPeriod = { start: formatDate(prevStartDate), end: formatDate(prevEndDate) };
+    }
 
     // Fetch current period for all locations in parallel
+    const rawLocationTimeSeries: Array<{ locationId: string; timeSeries: DailyMetricTimeSeries[] }> = [];
     const currentPromises = locations.map(async (loc) => {
       try {
         const insights = await this.getLocationInsights(
@@ -876,6 +893,13 @@ export class GoogleBusinessClient {
           currentPeriod.start,
           currentPeriod.end
         );
+        // Collect raw time series for caching
+        if (insights.multiDailyMetricTimeSeries) {
+          rawLocationTimeSeries.push({
+            locationId: loc.id,
+            timeSeries: insights.multiDailyMetricTimeSeries,
+          });
+        }
         return this.aggregateLocationInsights(insights, loc.id, loc.name, currentPeriod);
       } catch (error) {
         console.error(`Failed to fetch insights for ${loc.name}:`, error);
@@ -948,6 +972,7 @@ export class GoogleBusinessClient {
       current,
       previous,
       byLocation: currentResults,
+      rawLocationTimeSeries,
     };
   }
 }
