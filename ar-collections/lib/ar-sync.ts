@@ -348,10 +348,11 @@ async function upsertInvoiceFromReport(
   const customerTypeLower = (stCustomer?.type || '').toLowerCase();
   const customerType = customerTypeLower.includes('commercial') ? 'commercial' : 'residential';
 
-  // Calculate exact days outstanding from invoice date
+  // Calculate exact days outstanding from invoice/transaction date
+  const invoiceDateStr = row.transactionDate || row.createdDate;
   let daysOutstanding = 0;
-  if (row.createdDate) {
-    const invoiceDateObj = new Date(row.createdDate);
+  if (invoiceDateStr) {
+    const invoiceDateObj = new Date(invoiceDateStr);
     const now = new Date();
     daysOutstanding = Math.max(0, Math.floor((now.getTime() - invoiceDateObj.getTime()) / (1000 * 60 * 60 * 24)));
   }
@@ -369,7 +370,7 @@ async function upsertInvoiceFromReport(
   }
 
   // Parse dates from report
-  const invoiceDate = row.createdDate ? row.createdDate.split('T')[0] : new Date().toISOString().split('T')[0];
+  const invoiceDate = invoiceDateStr ? invoiceDateStr.split('T')[0] : new Date().toISOString().split('T')[0];
   const dueDate = row.paymentDueDate ? row.paymentDueDate.split('T')[0] : invoiceDate;
 
   const invoiceData = {
