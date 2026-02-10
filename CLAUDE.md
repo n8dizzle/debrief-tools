@@ -55,6 +55,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Internal Portal** (`/internal-portal`) | https://portal.christmasair.com | Next.js | 3000 |
 | **AR Collections** (`/ar-collections`) | https://ar.christmasair.com | Next.js | 3003 |
 | **Job Tracker** (`/job-tracker`) | https://track.christmasair.com | Next.js | 3004 |
+| **AP Payments** (`/ap-payments`) | https://ap.christmasair.com | Next.js | 3005 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -182,6 +183,18 @@ const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-
 - Sync job status (cron: every 2 hours)
 - Pull customer info and job details
 
+### AP Payments
+
+**Subcontractor Payment Tracking** - Manage contractor payments for install jobs
+- Dashboard with summary stats (unassigned jobs, outstanding payments, total paid)
+- Install jobs synced from ServiceTitan (HVAC + Plumbing install business units)
+- Job assignment: In-House or Contractor with auto-suggested rates
+- Contractor management with rate cards (per trade + job type)
+- Payment workflow: None → Requested → Approved → Paid
+- Activity log for all assignment and payment changes
+- Cron sync every 2 hours during business hours + daily 6am full sync
+- Database tables: ap_contractors, ap_contractor_rates, ap_install_jobs, ap_activity_log, ap_sync_log
+
 ### Internal Portal (Admin)
 
 **User Management** (`/admin/users`) - Centralized user provisioning
@@ -257,6 +270,11 @@ Key tables:
 - `tracker_templates`, `tracker_template_milestones` - Reusable milestone templates
 - `tracker_activity` - Audit log for tracker changes
 - `tracker_notifications` - Notification send history
+- `ap_contractors` - Subcontractor records
+- `ap_contractor_rates` - Rate cards per contractor/trade/job type
+- `ap_install_jobs` - Install jobs synced from ServiceTitan with assignment and payment tracking
+- `ap_activity_log` - Audit trail for assignment and payment changes
+- `ap_sync_log` - Cron sync operation history
 
 ### Permission Groups
 ```typescript
@@ -277,6 +295,9 @@ can_view_invoices, can_update_invoices, can_log_communications, can_view_reports
 
 // job_tracker
 can_view_trackers, can_manage_trackers, can_manage_templates, can_sync_data
+
+// ap_payments
+can_view_jobs, can_manage_assignments, can_manage_payments, can_manage_contractors, can_sync_data
 ```
 
 ## Deployment
@@ -306,6 +327,7 @@ cd marketing-hub && vercel --prod
 cd internal-portal && vercel --prod
 cd ar-collections && vercel --prod
 cd job-tracker && vercel --prod
+cd ap-payments && vercel --prod
 ```
 
 Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
@@ -344,6 +366,13 @@ All Vercel crons use UTC. Times shown are Central Time (CT). During daylight sav
 | `/api/cron/sync` | `0 0 * * 2-6` | 6pm Mon-Fri | End of day sync |
 | `/api/cron/weekly-slack` | `0 * * * *` | Every hour | Slack notifications |
 
+### AP Payments (`ap-payments/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/cron/sync` | `0 12 * * *` | 6am daily | Full sync of install jobs from ServiceTitan |
+| `/api/cron/sync` | `0 14,16,18,20,22 * * 1-5` | 8am-4pm Mon-Fri every 2hrs | Intraday install job sync |
+
 ### Data Freshness Notes
 
 | Data Source | Delay | Sync Frequency |
@@ -353,6 +382,7 @@ All Vercel crons use UTC. Times shown are Central Time (CT). During daylight sav
 | ServiceTitan Calls | Near real-time | Hourly |
 | Google Reviews | Near real-time | Hourly |
 | AR Invoices | Near real-time | Hourly (business hours) |
+| AP Install Jobs | Near real-time | Every 2 hours (business hours) |
 
 ## Environment Variables
 
@@ -393,6 +423,16 @@ RESEND_API_KEY                                               # Email notificatio
 NEXT_PUBLIC_APP_URL=https://track.christmasair.com          # For tracker links
 ```
 
+### AP Payments
+Same as Daily Dash:
+```
+NEXTAUTH_URL, NEXTAUTH_SECRET
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+SERVICETITAN_CLIENT_ID, SERVICETITAN_CLIENT_SECRET, SERVICETITAN_TENANT_ID, SERVICETITAN_APP_KEY
+CRON_SECRET
+```
+
 ## DNS (Namecheap)
 - debrief.christmasair.com → A record → 64.225.12.86
 - dash.christmasair.com → CNAME → Vercel
@@ -400,6 +440,7 @@ NEXT_PUBLIC_APP_URL=https://track.christmasair.com          # For tracker links
 - portal.christmasair.com → CNAME → Vercel
 - ar.christmasair.com → CNAME → Vercel
 - track.christmasair.com → CNAME → Vercel
+- ap.christmasair.com → CNAME → Vercel
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
@@ -421,9 +462,23 @@ cd ar-collections && npm run dev   # http://localhost:3003
 
 # Terminal 5 - Job Tracker
 cd job-tracker && npm run dev      # http://localhost:3004
+
+# Terminal 6 - AP Payments
+cd ap-payments && npm run dev      # http://localhost:3005
 ```
 
 ## Recent Changes Summary
+
+**Feb 9, 2026**:
+- **AP Payments MVP** - Subcontractor payment tracking at ap.christmasair.com
+  - Dashboard with summary stats (unassigned jobs, outstanding/paid amounts)
+  - Install jobs synced from ServiceTitan (HVAC + Plumbing install business units)
+  - Job assignment modal: In-House or Contractor with rate card auto-fill
+  - Contractor management with rate cards per trade/job type
+  - Payment workflow: None → Requested → Approved → Paid with timestamps
+  - Activity log for all changes
+  - Database tables: ap_contractors, ap_contractor_rates, ap_install_jobs, ap_activity_log, ap_sync_log
+  - Cron: Every 2 hours Mon-Fri + daily 6am full sync
 
 **Feb 4, 2026**:
 - **Cron Schedules Added** - Set up automated syncs across all apps:

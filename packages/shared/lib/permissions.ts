@@ -60,6 +60,14 @@ export interface JobTrackerPermissions {
   can_sync_data?: boolean;
 }
 
+export interface APPaymentsPermissions {
+  can_view_jobs?: boolean;
+  can_manage_assignments?: boolean;
+  can_manage_payments?: boolean;
+  can_manage_contractors?: boolean;
+  can_sync_data?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -72,6 +80,7 @@ export interface UserPermissions {
   admin_panel?: AdminPanelPermissions;
   ar_collections?: ARCollectionsPermissions;
   job_tracker?: JobTrackerPermissions;
+  ap_payments?: APPaymentsPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -242,6 +251,37 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_templates',
         label: 'Manage templates',
         description: 'Create and edit milestone templates',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan sync',
+      },
+    ],
+  },
+  {
+    app: 'ap_payments',
+    label: 'AP Payments',
+    permissions: [
+      {
+        key: 'can_view_jobs',
+        label: 'View jobs',
+        description: 'View install jobs and dashboard',
+      },
+      {
+        key: 'can_manage_assignments',
+        label: 'Manage assignments',
+        description: 'Assign jobs to contractors or in-house',
+      },
+      {
+        key: 'can_manage_payments',
+        label: 'Manage payments',
+        description: 'Update payment status (request, approve, mark paid)',
+      },
+      {
+        key: 'can_manage_contractors',
+        label: 'Manage contractors',
+        description: 'Add/edit contractors and rate cards',
       },
       {
         key: 'can_sync_data',
