@@ -992,7 +992,7 @@ export default function InvoicesPage() {
             border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
           }}
         >
-          Membership
+          Membership Invoice
         </button>
         <button
           onClick={() => setFilters(prev => ({
@@ -1006,7 +1006,7 @@ export default function InvoicesPage() {
             border: filters.invoiceType === 'service' ? '1px solid #60a5fa' : '1px solid var(--border-subtle)',
           }}
         >
-          Non-Membership
+          Non-Membership Invoice
         </button>
 
         {/* Clear All Filters */}
