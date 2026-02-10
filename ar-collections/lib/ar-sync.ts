@@ -348,28 +348,24 @@ async function upsertInvoiceFromReport(
   const customerTypeLower = (stCustomer?.type || '').toLowerCase();
   const customerType = customerTypeLower.includes('commercial') ? 'commercial' : 'residential';
 
-  // Calculate days outstanding and aging bucket from report data
-  let agingBucket: 'current' | '30' | '60' | '90+';
-  let daysOutstanding: number;
+  // Calculate exact days outstanding from invoice date
+  let daysOutstanding = 0;
+  if (row.createdDate) {
+    const invoiceDateObj = new Date(row.createdDate);
+    const now = new Date();
+    daysOutstanding = Math.max(0, Math.floor((now.getTime() - invoiceDateObj.getTime()) / (1000 * 60 * 60 * 24)));
+  }
 
-  if (row.aging121Plus > 0) {
+  // Determine aging bucket from days outstanding
+  let agingBucket: 'current' | '30' | '60' | '90+';
+  if (daysOutstanding > 90) {
     agingBucket = '90+';
-    daysOutstanding = 121;
-  } else if (row.aging120 > 0) {
-    agingBucket = '90+';
-    daysOutstanding = 100;
-  } else if (row.aging90 > 0) {
-    agingBucket = '90+';
-    daysOutstanding = 75;
-  } else if (row.aging60 > 0) {
+  } else if (daysOutstanding > 60) {
     agingBucket = '60';
-    daysOutstanding = 45;
-  } else if (row.aging30 > 0) {
+  } else if (daysOutstanding > 30) {
     agingBucket = '30';
-    daysOutstanding = 15;
   } else {
     agingBucket = 'current';
-    daysOutstanding = 0;
   }
 
   // Parse dates from report

@@ -979,7 +979,7 @@ export default function InvoicesPage() {
 
         <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
 
-        {/* Membership Invoices Chip */}
+        {/* Membership Invoice Chips */}
         <button
           onClick={() => setFilters(prev => ({
             ...prev,
@@ -992,7 +992,21 @@ export default function InvoicesPage() {
             border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
           }}
         >
-          Membership Invoices
+          Membership
+        </button>
+        <button
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            invoiceType: prev.invoiceType === 'service' ? '' : 'service'
+          }))}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: filters.invoiceType === 'service' ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-secondary)',
+            color: filters.invoiceType === 'service' ? '#60a5fa' : 'var(--text-secondary)',
+            border: filters.invoiceType === 'service' ? '1px solid #60a5fa' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Non-Membership
         </button>
 
         {/* Clear All Filters */}
