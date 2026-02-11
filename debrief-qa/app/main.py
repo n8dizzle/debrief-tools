@@ -760,6 +760,8 @@ def _happy_call_status_from_result(result: str | None) -> str:
         return "pass"
     elif result in ("voicemail_left", "no_answer"):
         return "na"
+    elif result == "not_made":
+        return "fail"
     return "pending"
 
 
@@ -821,8 +823,8 @@ async def submit_debrief_form(
         materials_on_invoice=form_data.get("materials_on_invoice", "pending"),
         materials_on_invoice_notes=form_data.get("materials_on_invoice_notes"),
 
-        happy_call_result=form_data.get("happy_call_result") or None,
-        happy_call=_happy_call_status_from_result(form_data.get("happy_call_result")),
+        happy_call_result=(form_data.get("happy_call_result") or ("not_made" if form_data.get("happy_call_made") == "no" else None)),
+        happy_call=_happy_call_status_from_result(form_data.get("happy_call_result") or ("not_made" if form_data.get("happy_call_made") == "no" else None)),
         happy_call_notes=form_data.get("happy_call_notes"),
 
         g3_contact_needed=form_data.get("g3_contact_needed") == "true",
