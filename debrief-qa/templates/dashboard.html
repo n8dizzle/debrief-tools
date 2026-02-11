@@ -2,11 +2,63 @@
 
 {% block content %}
 <div class="space-y-6">
-    <h1 class="text-2xl font-bold text-christmas-cream">Dashboard</h1>
+    <!-- Header Row: Title + Global Date Picker -->
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-christmas-cream">Dashboard</h1>
+        <!-- Global Date Picker -->
+        <div id="date-picker-wrapper" class="relative">
+            <button id="date-picker-trigger" onclick="toggleDatePicker()"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-dark-card border border-dark-border text-christmas-cream hover:border-gray-500 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span id="date-picker-label">Last Month</span>
+                <svg id="date-picker-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div id="date-picker-dropdown" class="hidden absolute right-0 top-full mt-2 w-72 rounded-lg shadow-xl z-50 bg-dark-card border border-dark-border">
+                <!-- Presets -->
+                <div class="p-2 border-b border-dark-border">
+                    <div class="grid grid-cols-2 gap-1" id="date-presets">
+                        <button onclick="selectPreset('last-month')" data-preset="last-month" class="preset-btn px-3 py-2 text-sm rounded-md text-left bg-christmas-green text-white">Last Month</button>
+                        <button onclick="selectPreset('this-month')" data-preset="this-month" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">This Month</button>
+                        <button onclick="selectPreset('last-week')" data-preset="last-week" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Last Week</button>
+                        <button onclick="selectPreset('week-to-date')" data-preset="week-to-date" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Week to Date</button>
+                        <button onclick="selectPreset('month-to-date')" data-preset="month-to-date" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Month to Date</button>
+                        <button onclick="selectPreset('quarter-to-date')" data-preset="quarter-to-date" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Quarter to Date</button>
+                        <button onclick="selectPreset('last-quarter')" data-preset="last-quarter" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Last Quarter</button>
+                        <button onclick="selectPreset('year-to-date')" data-preset="year-to-date" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Year to Date</button>
+                        <button onclick="selectPreset('yesterday')" data-preset="yesterday" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Yesterday</button>
+                        <button onclick="selectPreset('today')" data-preset="today" class="preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5">Today</button>
+                    </div>
+                </div>
+                <!-- Custom Range -->
+                <div class="p-3">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">Custom Range</div>
+                    <div class="flex gap-2 mb-3">
+                        <div class="flex-1">
+                            <label class="text-xs mb-1 block text-gray-500">Start</label>
+                            <input type="date" id="custom-date-from"
+                                class="w-full px-2 py-1.5 rounded text-sm bg-dark-bg border border-dark-border text-christmas-cream">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs mb-1 block text-gray-500">End</label>
+                            <input type="date" id="custom-date-to"
+                                class="w-full px-2 py-1.5 rounded text-sm bg-dark-bg border border-dark-border text-christmas-cream">
+                        </div>
+                    </div>
+                    <button onclick="applyCustomRange()"
+                        class="w-full py-2 rounded-lg text-sm font-medium bg-christmas-green text-christmas-cream hover:bg-christmas-green-dark transition">
+                        Apply
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Stats Cards - Top Row -->
+    <!-- Stats Cards - Top Row (Today/This Week/This Month — always visible) -->
     <div id="stats-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Loading state -->
         <div class="bg-dark-card rounded-lg border border-dark-border p-6 animate-pulse">
             <div class="h-4 bg-dark-border rounded w-1/2 mb-4"></div>
             <div class="h-8 bg-dark-border rounded w-1/4"></div>
@@ -21,46 +73,23 @@
         </div>
     </div>
 
-    <!-- Completion by Business Unit -->
+    <!-- Completion by Business Unit (4 consolidated cards) -->
     <div id="bu-completion-container">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-3">
-                <h2 class="text-lg font-semibold text-christmas-cream">Completion by Business Unit</h2>
-                <span id="bu-overall-rate" class="text-sm text-gray-500"></span>
-            </div>
-            <div class="flex gap-1 bg-dark-bg rounded-lg p-1">
-                <button onclick="setBUDateRange('last-month')" id="bu-btn-last-month"
-                    class="px-3 py-1 text-sm rounded bg-dark-card text-christmas-cream font-medium">
-                    Last Month
-                </button>
-                <button onclick="setBUDateRange('this-month')" id="bu-btn-this-month"
-                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
-                    This Month
-                </button>
-                <button onclick="setBUDateRange('last-week')" id="bu-btn-last-week"
-                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
-                    Last Week
-                </button>
-                <button onclick="setBUDateRange('this-week')" id="bu-btn-this-week"
-                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
-                    This Week
-                </button>
-                <button onclick="setBUDateRange('custom')" id="bu-btn-custom"
-                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
-                    Custom
-                </button>
-            </div>
+        <div class="flex items-center gap-3 mb-4">
+            <h2 class="text-lg font-semibold text-christmas-cream">Completion by Business Unit</h2>
+            <span id="bu-overall-rate" class="text-sm text-gray-500"></span>
         </div>
-        <div id="bu-custom-dates" class="hidden flex items-center gap-3 mb-4">
-            <input type="date" id="bu-date-from" class="bg-dark-bg border border-dark-border text-christmas-cream rounded px-3 py-1.5 text-sm">
-            <span class="text-gray-500">to</span>
-            <input type="date" id="bu-date-to" class="bg-dark-bg border border-dark-border text-christmas-cream rounded px-3 py-1.5 text-sm">
-            <button onclick="loadBUCompletion()" class="px-3 py-1.5 text-sm bg-christmas-green hover:bg-christmas-green-dark text-christmas-cream rounded transition">
-                Apply
-            </button>
-        </div>
-        <div id="bu-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <!-- Loading state -->
+        <div id="bu-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
+                <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
+                <div class="h-8 bg-dark-border rounded w-1/3 mb-2"></div>
+                <div class="h-2 bg-dark-border rounded w-full"></div>
+            </div>
+            <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
+                <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
+                <div class="h-8 bg-dark-border rounded w-1/3 mb-2"></div>
+                <div class="h-2 bg-dark-border rounded w-full"></div>
+            </div>
             <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
                 <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
                 <div class="h-8 bg-dark-border rounded w-1/3 mb-2"></div>
@@ -77,11 +106,10 @@
     <!-- Trade Performance Cards - HVAC vs Plumbing -->
     <div id="trade-performance-container">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade (This Month)</h2>
+            <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade <span id="trade-date-label" class="text-gray-500 font-normal">(Last Month)</span></h2>
             <div class="text-sm text-gray-500">HVAC vs Plumbing</div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <!-- Loading state for 6 cards -->
             <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
                 <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
                 <div class="h-6 bg-dark-border rounded w-1/2 mb-2"></div>
@@ -251,9 +279,179 @@
 
 {% block scripts %}
 <script>
-let technicianData = null;
-let currentTechPeriod = 'this_month';
+// ===== Global Date Picker State =====
+let globalDateFrom = '';
+let globalDateTo = '';
+let globalPreset = 'last-month';
+let datePickerOpen = false;
 
+const PRESET_LABELS = {
+    'last-month': 'Last Month',
+    'this-month': 'This Month',
+    'last-week': 'Last Week',
+    'week-to-date': 'Week to Date',
+    'month-to-date': 'Month to Date',
+    'quarter-to-date': 'Quarter to Date',
+    'last-quarter': 'Last Quarter',
+    'year-to-date': 'Year to Date',
+    'yesterday': 'Yesterday',
+    'today': 'Today',
+    'custom': 'Custom Range',
+};
+
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getPresetRange(preset) {
+    const now = new Date();
+    let from, to;
+
+    switch (preset) {
+        case 'last-month':
+            to = new Date(now.getFullYear(), now.getMonth(), 0);
+            from = new Date(to.getFullYear(), to.getMonth(), 1);
+            break;
+        case 'this-month':
+            from = new Date(now.getFullYear(), now.getMonth(), 1);
+            to = now;
+            break;
+        case 'last-week': {
+            const dayOfWeek = now.getDay();
+            const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            to = new Date(now);
+            to.setDate(now.getDate() - diff - 1); // Last Sunday
+            from = new Date(to);
+            from.setDate(to.getDate() - 6); // Previous Monday
+            break;
+        }
+        case 'week-to-date': {
+            const dow = now.getDay();
+            from = new Date(now);
+            from.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+            to = now;
+            break;
+        }
+        case 'month-to-date':
+            from = new Date(now.getFullYear(), now.getMonth(), 1);
+            to = now;
+            break;
+        case 'quarter-to-date': {
+            const quarter = Math.floor(now.getMonth() / 3);
+            from = new Date(now.getFullYear(), quarter * 3, 1);
+            to = now;
+            break;
+        }
+        case 'last-quarter': {
+            const q = Math.floor(now.getMonth() / 3);
+            from = new Date(now.getFullYear(), (q - 1) * 3, 1);
+            to = new Date(now.getFullYear(), q * 3, 0);
+            break;
+        }
+        case 'year-to-date':
+            from = new Date(now.getFullYear(), 0, 1);
+            to = now;
+            break;
+        case 'yesterday': {
+            const y = new Date(now);
+            y.setDate(now.getDate() - 1);
+            from = y;
+            to = y;
+            break;
+        }
+        case 'today':
+            from = now;
+            to = now;
+            break;
+        default:
+            from = now;
+            to = now;
+    }
+
+    return { from: formatLocalDate(from), to: formatLocalDate(to) };
+}
+
+function toggleDatePicker() {
+    datePickerOpen = !datePickerOpen;
+    document.getElementById('date-picker-dropdown').classList.toggle('hidden', !datePickerOpen);
+    document.getElementById('date-picker-chevron').style.transform = datePickerOpen ? 'rotate(180deg)' : '';
+}
+
+function closeDatePicker() {
+    datePickerOpen = false;
+    document.getElementById('date-picker-dropdown').classList.add('hidden');
+    document.getElementById('date-picker-chevron').style.transform = '';
+}
+
+function updatePresetButtons() {
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        const p = btn.getAttribute('data-preset');
+        if (p === globalPreset) {
+            btn.className = 'preset-btn px-3 py-2 text-sm rounded-md text-left bg-christmas-green text-white';
+        } else {
+            btn.className = 'preset-btn px-3 py-2 text-sm rounded-md text-left text-gray-300 hover:bg-white/5';
+        }
+    });
+}
+
+function updateDateLabel() {
+    const label = document.getElementById('date-picker-label');
+    if (globalPreset === 'custom') {
+        label.textContent = `${formatDisplayDate(globalDateFrom)} - ${formatDisplayDate(globalDateTo)}`;
+    } else {
+        label.textContent = PRESET_LABELS[globalPreset] || globalPreset;
+    }
+}
+
+function selectPreset(preset) {
+    globalPreset = preset;
+    const range = getPresetRange(preset);
+    globalDateFrom = range.from;
+    globalDateTo = range.to;
+    updatePresetButtons();
+    updateDateLabel();
+    closeDatePicker();
+    onGlobalDateChange();
+}
+
+function applyCustomRange() {
+    const from = document.getElementById('custom-date-from').value;
+    const to = document.getElementById('custom-date-to').value;
+    if (!from || !to) return;
+    globalPreset = 'custom';
+    globalDateFrom = from;
+    globalDateTo = to;
+    updatePresetButtons();
+    updateDateLabel();
+    closeDatePicker();
+    onGlobalDateChange();
+}
+
+// Click outside to close
+document.addEventListener('mousedown', function(e) {
+    const wrapper = document.getElementById('date-picker-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        closeDatePicker();
+    }
+});
+
+// ===== When global date changes, reload all date-dependent sections =====
+function onGlobalDateChange() {
+    loadBUCompletion();
+    loadTechnicianStats();
+    loadTradePerformance();
+}
+
+
+// ===== Helper functions =====
 function getMetricColor(value, threshold = 80) {
     if (value === null || value === undefined) return 'text-gray-500';
     if (value >= threshold) return 'text-christmas-green-light';
@@ -266,16 +464,130 @@ function formatMetric(value) {
     return `${Math.round(value)}%`;
 }
 
+function getBUCompletionColor(rate) {
+    if (rate >= 100) return 'text-christmas-green-light';
+    if (rate >= 80) return 'text-christmas-gold';
+    return 'text-christmas-brown';
+}
+
+function getBUBarColor(rate) {
+    if (rate >= 100) return 'bg-christmas-green';
+    if (rate >= 80) return 'bg-christmas-gold';
+    return 'bg-christmas-brown';
+}
+
+
+// ===== BU Completion (consolidated 4 cards) =====
+async function loadBUCompletion() {
+    try {
+        const response = await fetch(`/api/dashboard/completion-by-bu?date_from=${globalDateFrom}&date_to=${globalDateTo}`);
+        const data = await response.json();
+
+        // Update overall rate
+        const overall = data.overall;
+        document.getElementById('bu-overall-rate').innerHTML = overall.total_jobs > 0
+            ? `<span class="${getBUCompletionColor(overall.completion_rate)} font-semibold">${overall.completion_rate}%</span> overall (${overall.debriefed_jobs}/${overall.total_jobs})`
+            : '';
+
+        if (!data.business_units || data.business_units.length === 0) {
+            document.getElementById('bu-cards-grid').innerHTML = `
+                <div class="col-span-full bg-dark-card rounded-lg border border-dark-border p-8 text-center text-gray-500">
+                    No completed jobs found for this date range.
+                </div>
+            `;
+            return;
+        }
+
+        // Aggregate into 4 groups
+        const groups = {
+            'HVAC Install': { debriefed: 0, total: 0 },
+            'HVAC Maintenance': { debriefed: 0, total: 0 },
+            'HVAC Service': { debriefed: 0, total: 0 },
+            'Plumbing': { debriefed: 0, total: 0 },
+        };
+
+        for (const bu of data.business_units) {
+            const name = (bu.name || '').toLowerCase();
+            const trade = bu.trade_type || '';
+
+            if (trade === 'Plumbing') {
+                groups['Plumbing'].debriefed += bu.debriefed_jobs;
+                groups['Plumbing'].total += bu.total_jobs;
+            } else if (trade === 'HVAC') {
+                if (name.includes('install')) {
+                    groups['HVAC Install'].debriefed += bu.debriefed_jobs;
+                    groups['HVAC Install'].total += bu.total_jobs;
+                } else if (name.includes('maintenance')) {
+                    groups['HVAC Maintenance'].debriefed += bu.debriefed_jobs;
+                    groups['HVAC Maintenance'].total += bu.total_jobs;
+                } else {
+                    // Default: Service (includes "Service", "Commercial Service", etc.)
+                    groups['HVAC Service'].debriefed += bu.debriefed_jobs;
+                    groups['HVAC Service'].total += bu.total_jobs;
+                }
+            } else {
+                // Unknown trade — put in Service as fallback
+                groups['HVAC Service'].debriefed += bu.debriefed_jobs;
+                groups['HVAC Service'].total += bu.total_jobs;
+            }
+        }
+
+        // Render 4 cards
+        let html = '';
+        const cardOrder = ['HVAC Install', 'HVAC Service', 'HVAC Maintenance', 'Plumbing'];
+        const cardColors = {
+            'HVAC Install': 'border-l-christmas-green',
+            'HVAC Service': 'border-l-christmas-green',
+            'HVAC Maintenance': 'border-l-christmas-green',
+            'Plumbing': 'border-l-blue-500',
+        };
+
+        for (const label of cardOrder) {
+            const g = groups[label];
+            if (g.total === 0) {
+                html += `
+                    <div class="bg-dark-card rounded-lg border border-dark-border border-l-4 ${cardColors[label]} p-4">
+                        <div class="text-sm font-medium text-christmas-cream mb-2">${label}</div>
+                        <div class="text-3xl font-bold text-gray-500 mb-1">--</div>
+                        <div class="w-full h-2 bg-dark-bg rounded-full overflow-hidden mb-2">
+                            <div class="h-full bg-gray-600" style="width: 0%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500">No jobs</div>
+                    </div>
+                `;
+                continue;
+            }
+            const rate = Math.round(g.debriefed / g.total * 1000) / 10;
+            html += `
+                <div class="bg-dark-card rounded-lg border border-dark-border border-l-4 ${cardColors[label]} p-4">
+                    <div class="text-sm font-medium text-christmas-cream mb-2">${label}</div>
+                    <div class="text-3xl font-bold ${getBUCompletionColor(rate)} mb-1">${rate}%</div>
+                    <div class="w-full h-2 bg-dark-bg rounded-full overflow-hidden mb-2">
+                        <div class="h-full ${getBUBarColor(rate)} transition-all duration-500" style="width: ${Math.min(rate, 100)}%"></div>
+                    </div>
+                    <div class="text-xs text-gray-500">${g.debriefed} / ${g.total} debriefed</div>
+                </div>
+            `;
+        }
+
+        document.getElementById('bu-cards-grid').innerHTML = html;
+    } catch (error) {
+        console.error('Failed to load BU completion:', error);
+        document.getElementById('bu-cards-grid').innerHTML = `
+            <div class="col-span-full bg-dark-card rounded-lg border border-dark-border p-8 text-center text-christmas-brown">
+                Failed to load completion data.
+            </div>
+        `;
+    }
+}
+
+
+// ===== Trade Performance =====
 function renderTradePerformanceCard(title, icon, hvacValue, plumbingValue, isScore = false) {
-    // For score, convert 1-10 to percentage for display (x10)
     const hvacDisplay = isScore ? (hvacValue || 0).toFixed(1) : `${hvacValue || 0}%`;
     const plumbingDisplay = isScore ? (plumbingValue || 0).toFixed(1) : `${plumbingValue || 0}%`;
-
-    // For progress bar, use percentage
     const hvacPct = isScore ? (hvacValue || 0) * 10 : (hvacValue || 0);
     const plumbingPct = isScore ? (plumbingValue || 0) * 10 : (plumbingValue || 0);
-
-    // Determine winner
     const hvacWins = hvacPct > plumbingPct;
     const plumbingWins = plumbingPct > hvacPct;
     const tie = hvacPct === plumbingPct;
@@ -287,7 +599,6 @@ function renderTradePerformanceCard(title, icon, hvacValue, plumbingValue, isSco
                 <span class="text-sm font-medium text-christmas-cream">${title}</span>
             </div>
             <div class="space-y-3">
-                <!-- HVAC -->
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-gray-500 w-12">HVAC</span>
                     <div class="flex-1 h-2 bg-dark-bg rounded-full overflow-hidden">
@@ -296,7 +607,6 @@ function renderTradePerformanceCard(title, icon, hvacValue, plumbingValue, isSco
                     <span class="text-sm font-bold ${hvacWins ? 'text-christmas-green-light' : 'text-gray-400'} w-12 text-right">${hvacDisplay}</span>
                     ${hvacWins && !tie ? '<span class="text-yellow-500">&#x1F3C6;</span>' : '<span class="w-5"></span>'}
                 </div>
-                <!-- Plumbing -->
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-gray-500 w-12">Plumb</span>
                     <div class="flex-1 h-2 bg-dark-bg rounded-full overflow-hidden">
@@ -310,70 +620,63 @@ function renderTradePerformanceCard(title, icon, hvacValue, plumbingValue, isSco
     `;
 }
 
-function renderTradePerformance(tradePerformance) {
-    if (!tradePerformance || (!tradePerformance.hvac && !tradePerformance.plumbing)) {
+async function loadTradePerformance() {
+    const dateLabel = PRESET_LABELS[globalPreset] || `${formatDisplayDate(globalDateFrom)} - ${formatDisplayDate(globalDateTo)}`;
+    document.getElementById('trade-date-label').textContent = `(${dateLabel})`;
+
+    try {
+        const response = await fetch(`/api/dashboard/trade-performance?date_from=${globalDateFrom}&date_to=${globalDateTo}`);
+        const tradePerformance = await response.json();
+
+        if (!tradePerformance || (!tradePerformance.hvac && !tradePerformance.plumbing)) {
+            document.getElementById('trade-performance-container').innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade <span class="text-gray-500 font-normal">(${dateLabel})</span></h2>
+                    <div class="text-sm text-gray-500">HVAC vs Plumbing</div>
+                </div>
+                <div class="bg-dark-card rounded-lg border border-dark-border p-8 text-center text-gray-500">
+                    No debrief data available for this period.
+                </div>
+            `;
+            return;
+        }
+
+        const hvac = tradePerformance.hvac || {};
+        const plumbing = tradePerformance.plumbing || {};
+
         document.getElementById('trade-performance-container').innerHTML = `
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade (This Month)</h2>
-                <div class="text-sm text-gray-500">HVAC vs Plumbing</div>
+                <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade <span id="trade-date-label" class="text-gray-500 font-normal">(${dateLabel})</span></h2>
+                <div class="flex items-center gap-4 text-sm">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-christmas-green rounded"></span> HVAC (${hvac.total_debriefed || 0} jobs)</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded"></span> Plumbing (${plumbing.total_debriefed || 0} jobs)</span>
+                </div>
             </div>
-            <div class="bg-dark-card rounded-lg border border-dark-border p-8 text-center text-gray-500">
-                No debrief data available yet. Complete some debriefs to see trade performance metrics.
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                ${renderTradePerformanceCard('Photos', '&#x1F4F7;', hvac.photos_pass_rate, plumbing.photos_pass_rate)}
+                ${renderTradePerformanceCard('Payment', '&#x1F4B5;', hvac.payment_pass_rate, plumbing.payment_pass_rate)}
+                ${renderTradePerformanceCard('Estimates', '&#x1F4CB;', hvac.estimates_pass_rate, plumbing.estimates_pass_rate)}
+                ${renderTradePerformanceCard('Invoice Score', '&#x1F4DD;', hvac.avg_invoice_score, plumbing.avg_invoice_score, true)}
+                ${renderTradePerformanceCard('Equipment Added', '&#x1F527;', hvac.equipment_added_rate, plumbing.equipment_added_rate)}
+                ${renderTradePerformanceCard('Materials', '&#x1F4B0;', hvac.materials_on_invoice_rate, plumbing.materials_on_invoice_rate)}
             </div>
         `;
-        return;
+    } catch (error) {
+        console.error('Failed to load trade performance:', error);
     }
-
-    const hvac = tradePerformance.hvac || {};
-    const plumbing = tradePerformance.plumbing || {};
-
-    document.getElementById('trade-performance-container').innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade (This Month)</h2>
-            <div class="flex items-center gap-4 text-sm">
-                <span class="flex items-center gap-1"><span class="w-3 h-3 bg-christmas-green rounded"></span> HVAC (${hvac.total_debriefed || 0} jobs)</span>
-                <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded"></span> Plumbing (${plumbing.total_debriefed || 0} jobs)</span>
-            </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
-            ${renderTradePerformanceCard('Photos', '&#x1F4F7;', hvac.photos_pass_rate, plumbing.photos_pass_rate)}
-            ${renderTradePerformanceCard('Payment', '&#x1F4B5;', hvac.payment_pass_rate, plumbing.payment_pass_rate)}
-            ${renderTradePerformanceCard('Estimates', '&#x1F4CB;', hvac.estimates_pass_rate, plumbing.estimates_pass_rate)}
-            ${renderTradePerformanceCard('Invoice Score', '&#x1F4DD;', hvac.avg_invoice_score, plumbing.avg_invoice_score, true)}
-            ${renderTradePerformanceCard('Equipment Added', '&#x1F527;', hvac.equipment_added_rate, plumbing.equipment_added_rate)}
-            ${renderTradePerformanceCard('Materials', '&#x1F4B0;', hvac.materials_on_invoice_rate, plumbing.materials_on_invoice_rate)}
-        </div>
-    `;
 }
 
-function renderPeriodToggle(period) {
-    return `
-        <div class="flex gap-1 bg-dark-bg rounded-lg p-1">
-            <button onclick="renderTechnicianTable('today')"
-                class="px-3 py-1 text-sm rounded ${period === 'today' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
-                Today
-            </button>
-            <button onclick="renderTechnicianTable('this_week')"
-                class="px-3 py-1 text-sm rounded ${period === 'this_week' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
-                This Week
-            </button>
-            <button onclick="renderTechnicianTable('this_month')"
-                class="px-3 py-1 text-sm rounded ${period === 'this_month' ? 'bg-dark-card text-christmas-cream font-medium' : 'text-gray-500 hover:text-christmas-cream'}">
-                This Month
-            </button>
-        </div>
-    `;
-}
 
-function renderTechnicianTable(period) {
-    currentTechPeriod = period;
-    const data = technicianData ? technicianData[period] : [];
+// ===== Technician Performance (uses global date picker) =====
+let technicianData = null;
+
+function renderTechnicianTable(data) {
+    const dateLabel = PRESET_LABELS[globalPreset] || `${formatDisplayDate(globalDateFrom)} - ${formatDisplayDate(globalDateTo)}`;
 
     if (!data || data.length === 0) {
         document.getElementById('technician-container').innerHTML = `
-            <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
-                <h2 class="text-lg font-semibold text-christmas-cream">Technician Performance</h2>
-                ${renderPeriodToggle(period)}
+            <div class="px-6 py-4 border-b border-dark-border">
+                <h2 class="text-lg font-semibold text-christmas-cream">Technician Performance <span class="text-gray-500 font-normal text-base">&mdash; ${dateLabel}</span></h2>
             </div>
             <div class="p-6 text-center text-gray-500">
                 No technician data available for this period.
@@ -383,37 +686,36 @@ function renderTechnicianTable(period) {
     }
 
     document.getElementById('technician-container').innerHTML = `
-        <div class="px-6 py-4 border-b border-dark-border flex justify-between items-center">
-            <h2 class="text-lg font-semibold text-christmas-cream">Technician Performance</h2>
-            ${renderPeriodToggle(period)}
+        <div class="px-6 py-4 border-b border-dark-border">
+            <h2 class="text-lg font-semibold text-christmas-cream">Technician Performance <span class="text-gray-500 font-normal text-base">&mdash; ${dateLabel}</span></h2>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-dark-border">
                 <thead class="bg-dark-bg">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Technician</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Total number of jobs debriefed by this technician in the selected time period.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Total number of jobs debriefed by this technician.">
                             <span class="cursor-help">Jobs</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-green uppercase bg-christmas-green/10" title="Overall performance score (0-100). Weighted average: Photos, Payment, Estimates are critical metrics; Invoice quality counts 2x.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-green uppercase bg-christmas-green/10" title="Overall performance score (0-100).">
                             <span class="cursor-help">Score</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Average invoice summary quality rating (1-10). Measures how well the tech documented the work performed and customer communication.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Average invoice summary quality rating (1-10).">
                             <span class="cursor-help">Invoice</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs with proper before/after photos uploaded. Required for quality assurance and customer documentation.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs with proper before/after photos.">
                             <span class="cursor-help">Photos</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs where payment was collected on-site. Directly impacts company cash flow.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs where payment was collected.">
                             <span class="cursor-help">Payment</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs where estimates or replacement options were discussed with the customer. Key for upselling and future business.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-christmas-brown uppercase bg-christmas-brown/10" title="CRITICAL: Percentage of jobs where estimates were offered.">
                             <span class="cursor-help">Estimates</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Percentage of jobs where membership/maintenance plans were offered to the customer. Important for recurring revenue.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Percentage of jobs where membership was offered.">
                             <span class="cursor-help">Membership</span>
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Percentage of jobs where the tech asked the customer to leave a Google review. Helps build online reputation and SEO.">
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Percentage of jobs where a Google review was requested.">
                             <span class="cursor-help">Reviews</span>
                         </th>
                     </tr>
@@ -464,9 +766,9 @@ function renderTechnicianTable(period) {
 
 async function loadTechnicianStats() {
     try {
-        const response = await fetch('/api/technician-stats');
+        const response = await fetch(`/api/technician-stats?date_from=${globalDateFrom}&date_to=${globalDateTo}`);
         technicianData = await response.json();
-        renderTechnicianTable(currentTechPeriod);
+        renderTechnicianTable(technicianData);
     } catch (error) {
         console.error('Failed to load technician stats:', error);
         document.getElementById('technician-container').innerHTML = `
@@ -480,152 +782,8 @@ async function loadTechnicianStats() {
     }
 }
 
-// ----- BU Completion -----
-let buDateFrom = '';
-let buDateTo = '';
-let currentBUPreset = 'last-month';
 
-function formatLocalDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function setBUDateRange(preset) {
-    currentBUPreset = preset;
-    const now = new Date();
-    let from, to;
-
-    if (preset === 'last-month') {
-        from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        to = new Date(now.getFullYear(), now.getMonth(), 0);
-    } else if (preset === 'this-month') {
-        from = new Date(now.getFullYear(), now.getMonth(), 1);
-        to = now;
-    } else if (preset === 'last-week') {
-        const dayOfWeek = now.getDay();
-        const lastMonday = new Date(now);
-        lastMonday.setDate(now.getDate() - dayOfWeek - 6);
-        const lastSunday = new Date(lastMonday);
-        lastSunday.setDate(lastMonday.getDate() + 6);
-        from = lastMonday;
-        to = lastSunday;
-    } else if (preset === 'this-week') {
-        const dayOfWeek = now.getDay();
-        from = new Date(now);
-        from.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-        to = now;
-    } else if (preset === 'custom') {
-        document.getElementById('bu-custom-dates').classList.remove('hidden');
-        // Update button styles
-        document.querySelectorAll('[id^="bu-btn-"]').forEach(b => {
-            b.className = 'px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream';
-        });
-        document.getElementById('bu-btn-custom').className = 'px-3 py-1 text-sm rounded bg-dark-card text-christmas-cream font-medium';
-        return;
-    }
-
-    buDateFrom = formatLocalDate(from);
-    buDateTo = formatLocalDate(to);
-
-    document.getElementById('bu-custom-dates').classList.add('hidden');
-    // Update button styles
-    document.querySelectorAll('[id^="bu-btn-"]').forEach(b => {
-        b.className = 'px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream';
-    });
-    document.getElementById(`bu-btn-${preset}`).className = 'px-3 py-1 text-sm rounded bg-dark-card text-christmas-cream font-medium';
-
-    loadBUCompletion();
-}
-
-function getBUCompletionColor(rate) {
-    if (rate >= 100) return 'text-christmas-green-light';
-    if (rate >= 80) return 'text-christmas-gold';
-    return 'text-christmas-brown';
-}
-
-function getBUBarColor(rate) {
-    if (rate >= 100) return 'bg-christmas-green';
-    if (rate >= 80) return 'bg-christmas-gold';
-    return 'bg-christmas-brown';
-}
-
-async function loadBUCompletion() {
-    // If custom, read from inputs
-    if (currentBUPreset === 'custom') {
-        buDateFrom = document.getElementById('bu-date-from').value;
-        buDateTo = document.getElementById('bu-date-to').value;
-        if (!buDateFrom || !buDateTo) return;
-    }
-
-    try {
-        const response = await fetch(`/api/dashboard/completion-by-bu?date_from=${buDateFrom}&date_to=${buDateTo}`);
-        const data = await response.json();
-
-        // Update overall rate in header
-        const overall = data.overall;
-        document.getElementById('bu-overall-rate').innerHTML = overall.total_jobs > 0
-            ? `<span class="${getBUCompletionColor(overall.completion_rate)} font-semibold">${overall.completion_rate}%</span> overall (${overall.debriefed_jobs}/${overall.total_jobs})`
-            : '';
-
-        if (!data.business_units || data.business_units.length === 0) {
-            document.getElementById('bu-cards-grid').innerHTML = `
-                <div class="col-span-full bg-dark-card rounded-lg border border-dark-border p-8 text-center text-gray-500">
-                    No completed jobs found for this date range.
-                </div>
-            `;
-            return;
-        }
-
-        // Group by trade
-        const hvacBUs = data.business_units.filter(bu => bu.trade_type === 'HVAC');
-        const plumbingBUs = data.business_units.filter(bu => bu.trade_type === 'Plumbing');
-        const otherBUs = data.business_units.filter(bu => bu.trade_type !== 'HVAC' && bu.trade_type !== 'Plumbing');
-
-        let html = '';
-
-        function renderBUCards(bus) {
-            return bus.map(bu => `
-                <div class="bg-dark-card rounded-lg border border-dark-border p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-medium text-christmas-cream">${bu.name}</span>
-                    </div>
-                    <div class="text-3xl font-bold ${getBUCompletionColor(bu.completion_rate)} mb-1">
-                        ${bu.completion_rate}%
-                    </div>
-                    <div class="w-full h-2 bg-dark-bg rounded-full overflow-hidden mb-2">
-                        <div class="h-full ${getBUBarColor(bu.completion_rate)} transition-all duration-500" style="width: ${Math.min(bu.completion_rate, 100)}%"></div>
-                    </div>
-                    <div class="text-xs text-gray-500">${bu.debriefed_jobs} / ${bu.total_jobs} debriefed</div>
-                </div>
-            `).join('');
-        }
-
-        if (hvacBUs.length > 0) {
-            html += `<div class="col-span-full text-sm font-medium text-christmas-green-light mt-1 mb-0">HVAC</div>`;
-            html += renderBUCards(hvacBUs);
-        }
-        if (plumbingBUs.length > 0) {
-            html += `<div class="col-span-full text-sm font-medium text-blue-400 mt-2 mb-0">Plumbing</div>`;
-            html += renderBUCards(plumbingBUs);
-        }
-        if (otherBUs.length > 0) {
-            html += `<div class="col-span-full text-sm font-medium text-gray-400 mt-2 mb-0">Other</div>`;
-            html += renderBUCards(otherBUs);
-        }
-
-        document.getElementById('bu-cards-grid').innerHTML = html;
-    } catch (error) {
-        console.error('Failed to load BU completion:', error);
-        document.getElementById('bu-cards-grid').innerHTML = `
-            <div class="col-span-full bg-dark-card rounded-lg border border-dark-border p-8 text-center text-christmas-brown">
-                Failed to load completion data.
-            </div>
-        `;
-    }
-}
-
+// ===== Dashboard Stats (Today/This Week/This Month — independent of date picker) =====
 async function loadDashboard() {
     try {
         const response = await fetch('/api/dashboard');
@@ -670,9 +828,6 @@ async function loadDashboard() {
                 </div>
             </div>
         `;
-
-        // Render trade performance cards
-        renderTradePerformance(data.trade_performance);
 
         // Render dispatcher performance
         if (data.dispatchers && data.dispatchers.length > 0) {
@@ -741,6 +896,8 @@ async function setupDispatchers() {
     }
 }
 
+
+// ===== Dispatcher Accuracy =====
 async function loadDispatcherAccuracy() {
     try {
         const response = await fetch('/api/spot-checks/dispatcher-stats');
@@ -764,7 +921,6 @@ async function loadDispatcherAccuracy() {
             return;
         }
 
-        // Filter to only show dispatchers with spot check data
         const withData = stats.filter(s => s.sample_size > 0);
 
         if (withData.length === 0) {
@@ -875,18 +1031,22 @@ async function loadDispatcherAccuracy() {
     }
 }
 
-// Load on page load
+
+// ===== Initialize =====
+// Set default date range (Last Month) and load everything
+const defaultRange = getPresetRange('last-month');
+globalDateFrom = defaultRange.from;
+globalDateTo = defaultRange.to;
+
 loadDashboard();
-loadTechnicianStats();
 loadDispatcherAccuracy();
-setBUDateRange('last-month');
+onGlobalDateChange(); // loads BU completion, technician stats, trade performance
 
 // Refresh every 60 seconds
 setInterval(() => {
     loadDashboard();
-    loadTechnicianStats();
     loadDispatcherAccuracy();
-    loadBUCompletion();
+    onGlobalDateChange();
 }, 60000);
 </script>
 {% endblock %}

@@ -1164,6 +1164,84 @@ async def get_completion_by_bu(
     }
 
 
+@app.get("/api/dashboard/trade-performance")
+async def get_trade_performance_by_date(
+    date_from: str,
+    date_to: str,
+    db: Session = Depends(get_db),
+):
+    """Get trade performance metrics (HVAC vs Plumbing) for a date range."""
+    central = ZoneInfo("America/Chicago")
+    utc = ZoneInfo("UTC")
+
+    try:
+        from_date = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=central)
+        to_date = datetime.strptime(date_to, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59, tzinfo=central
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    from_utc = from_date.astimezone(utc).replace(tzinfo=None)
+    to_utc = to_date.astimezone(utc).replace(tzinfo=None)
+
+    results = db.query(
+        TicketRaw.trade_type,
+        DebriefSession.photos_reviewed,
+        DebriefSession.payment_verified,
+        DebriefSession.estimates_verified,
+        DebriefSession.invoice_summary_score,
+        DebriefSession.equipment_added,
+        DebriefSession.materials_on_invoice,
+    ).join(
+        DebriefSession, TicketRaw.job_id == DebriefSession.job_id
+    ).filter(
+        and_(
+            DebriefSession.completed_at >= from_utc,
+            DebriefSession.completed_at <= to_utc,
+        )
+    ).all()
+
+    trade_data = {
+        "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
+        "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
+    }
+
+    for row in results:
+        trade = row.trade_type or "Unknown"
+        if trade not in trade_data:
+            continue
+        trade_data[trade]["count"] += 1
+        if row.photos_reviewed == "pass":
+            trade_data[trade]["photos_pass"] += 1
+        if row.payment_verified == "pass":
+            trade_data[trade]["payment_pass"] += 1
+        if row.estimates_verified == "pass":
+            trade_data[trade]["estimates_pass"] += 1
+        if row.invoice_summary_score:
+            trade_data[trade]["invoice_scores"].append(row.invoice_summary_score)
+        if row.equipment_added == "pass":
+            trade_data[trade]["equipment_pass"] += 1
+        if row.materials_on_invoice == "pass":
+            trade_data[trade]["materials_pass"] += 1
+
+    trade_performance = {}
+    for trade, data in trade_data.items():
+        count = data["count"]
+        scores = data["invoice_scores"]
+        trade_performance[trade.lower()] = {
+            "total_debriefed": count,
+            "photos_pass_rate": round(data["photos_pass"] / count * 100) if count else 0,
+            "payment_pass_rate": round(data["payment_pass"] / count * 100) if count else 0,
+            "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
+            "avg_invoice_score": round(sum(scores) / len(scores), 1) if scores else 0,
+            "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
+            "materials_on_invoice_rate": round(data["materials_pass"] / count * 100) if count else 0,
+        }
+
+    return trade_performance
+
+
 # ----- Dispatcher Management -----
 
 @app.get("/api/dispatchers", response_model=List[DispatcherResponse])
@@ -1217,24 +1295,22 @@ async def setup_dispatchers(db: Session = Depends(get_db)):
 # ----- Technician Performance -----
 
 @app.get("/api/technician-stats")
-async def get_technician_stats(db: Session = Depends(get_db)):
-    """Get technician performance statistics."""
-    # Calculate date boundaries in Central Time, then convert to UTC for database comparison
+async def get_technician_stats(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Get technician performance statistics.
+
+    When date_from/date_to are provided, returns a single list of stats for that range.
+    When omitted, returns the legacy format with today/this_week/this_month keys.
+    """
     central = ZoneInfo("America/Chicago")
-    now_central = datetime.now(central)
-    today_start_central = now_central.replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start_central = today_start_central - timedelta(days=today_start_central.weekday())
-    month_start_central = today_start_central.replace(day=1)
-
     utc = ZoneInfo("UTC")
-    today_start = today_start_central.astimezone(utc).replace(tzinfo=None)
-    week_start = week_start_central.astimezone(utc).replace(tzinfo=None)
-    month_start = month_start_central.astimezone(utc).replace(tzinfo=None)
 
-    def get_tech_stats(start_date: datetime):
-        """Get stats for all technicians from a start date."""
-        # Get all debriefed tickets with their debrief sessions from the period
-        results = db.query(
+    def get_tech_stats(start_date: datetime, end_date: datetime = None):
+        """Get stats for all technicians from a start date to optional end date."""
+        query = db.query(
             TicketRaw.tech_name,
             TicketRaw.tech_id,
             DebriefSession.invoice_summary_score,
@@ -1250,7 +1326,12 @@ async def get_technician_stats(db: Session = Depends(get_db)):
             DebriefSession, TicketRaw.job_id == DebriefSession.job_id
         ).filter(
             DebriefSession.completed_at >= start_date
-        ).all()
+        )
+
+        if end_date:
+            query = query.filter(DebriefSession.completed_at <= end_date)
+
+        results = query.all()
 
         # Aggregate by technician
         tech_data = {}
@@ -1297,7 +1378,6 @@ async def get_technician_stats(db: Session = Depends(get_db)):
             count = data["jobs_count"]
             scores = data["invoice_scores"]
 
-            # Calculate individual metrics
             avg_invoice = round(sum(scores) / len(scores), 1) if scores else None
             photos_rate = round(data["photos_pass"] / count * 100) if count else 0
             payment_rate = round(data["payment_pass"] / count * 100) if count else 0
@@ -1305,20 +1385,14 @@ async def get_technician_stats(db: Session = Depends(get_db)):
             membership_rate = round(data["membership_pass"] / count * 100) if count else 0
             reviews_rate = round(data["google_reviews_pass"] / count * 100) if count else 0
 
-            # Calculate composite score with weights:
-            # HIGH (2x): Photos, Payment, Estimates, Invoice Summary
-            # NORMAL (1x): Membership, Google Reviews
-            # Invoice is 1-10, convert to percentage (x10)
-            invoice_pct = (avg_invoice * 10) if avg_invoice else 50  # Default 50% if no score
-
-            # Weighted calculation: total weights = 10
+            invoice_pct = (avg_invoice * 10) if avg_invoice else 50
             composite = (
-                (photos_rate * 2) +      # HIGH
-                (payment_rate * 2) +      # HIGH
-                (estimates_rate * 2) +    # HIGH
-                (invoice_pct * 2) +       # HIGH (converted to %)
-                (membership_rate * 1) +   # NORMAL
-                (reviews_rate * 1)        # NORMAL
+                (photos_rate * 2) +
+                (payment_rate * 2) +
+                (estimates_rate * 2) +
+                (invoice_pct * 2) +
+                (membership_rate * 1) +
+                (reviews_rate * 1)
             ) / 10
 
             tech_stats.append({
@@ -1327,17 +1401,38 @@ async def get_technician_stats(db: Session = Depends(get_db)):
                 "jobs_debriefed": count,
                 "composite_score": round(composite, 1),
                 "avg_invoice_score": avg_invoice,
-                # Critical metrics (HIGH weight)
                 "photos_pass_rate": photos_rate,
                 "payment_pass_rate": payment_rate,
                 "estimates_pass_rate": estimates_rate,
-                # Normal metrics
                 "membership_pass_rate": membership_rate,
                 "google_reviews_pass_rate": reviews_rate,
             })
 
-        # Sort by composite_score descending
         return sorted(tech_stats, key=lambda x: x["composite_score"], reverse=True)
+
+    # If date range provided, return single list
+    if date_from and date_to:
+        try:
+            from_date = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=central)
+            to_date = datetime.strptime(date_to, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, tzinfo=central
+            )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+        from_utc = from_date.astimezone(utc).replace(tzinfo=None)
+        to_utc = to_date.astimezone(utc).replace(tzinfo=None)
+        return get_tech_stats(from_utc, to_utc)
+
+    # Legacy format: today/this_week/this_month
+    now_central = datetime.now(central)
+    today_start_central = now_central.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start_central = today_start_central - timedelta(days=today_start_central.weekday())
+    month_start_central = today_start_central.replace(day=1)
+
+    today_start = today_start_central.astimezone(utc).replace(tzinfo=None)
+    week_start = week_start_central.astimezone(utc).replace(tzinfo=None)
+    month_start = month_start_central.astimezone(utc).replace(tzinfo=None)
 
     return {
         "today": get_tech_stats(today_start),
