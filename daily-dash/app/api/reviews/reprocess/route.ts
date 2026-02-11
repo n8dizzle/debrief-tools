@@ -46,12 +46,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Build query for reviews to reprocess
-    // NEVER reprocess reviews that have been manually reviewed (mentions_reviewed = true)
+    // NEVER reprocess reviews that have human-confirmed mentions (confirmed_mentions IS NOT NULL)
     let query = supabase
       .from('google_reviews')
       .select('id, google_review_id, comment')
       .not('comment', 'is', null)
-      .or('mentions_reviewed.is.null,mentions_reviewed.eq.false')
+      .is('confirmed_mentions', null)
       .order('create_time', { ascending: false })
       .limit(limit);
 

@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
           const photoCount = review.media?.filter(m => m.mediaFormat === 'PHOTO').length || 0;
           const videoCount = review.media?.filter(m => m.mediaFormat === 'VIDEO').length || 0;
 
-          // Build review data - exclude team_members_mentioned if it was manually reviewed
+          // Build review data for upsert.
+          // IMPORTANT: Sync must NEVER write to confirmed_mentions, confirmed_at, or confirmed_by.
+          // Those columns are exclusively written by the human confirmation flow (mentions endpoint).
           const reviewData: Record<string, unknown> = {
             location_id: location.id,
             google_review_id: review.reviewId,

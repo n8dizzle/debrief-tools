@@ -109,12 +109,7 @@
             <h2 class="text-lg font-semibold text-christmas-cream">Performance by Trade <span id="trade-date-label" class="text-gray-500 font-normal">(Last Month)</span></h2>
             <div class="text-sm text-gray-500">HVAC vs Plumbing</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
-                <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
-                <div class="h-6 bg-dark-border rounded w-1/2 mb-2"></div>
-                <div class="h-3 bg-dark-border rounded w-full"></div>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
                 <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
                 <div class="h-6 bg-dark-border rounded w-1/2 mb-2"></div>
@@ -620,12 +615,11 @@ async function loadTradePerformance() {
                     <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded"></span> Plumbing (${plumbing.total_debriefed || 0} jobs)</span>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 ${renderTradePerformanceCard('Photos', '&#x1F4F7;', hvac.photos_pass_rate, plumbing.photos_pass_rate)}
                 ${renderTradePerformanceCard('Payment', '&#x1F4B5;', hvac.payment_pass_rate, plumbing.payment_pass_rate)}
                 ${renderTradePerformanceCard('Estimates', '&#x1F4CB;', hvac.estimates_pass_rate, plumbing.estimates_pass_rate)}
                 ${renderTradePerformanceCard('Invoice', '&#x1F4DD;', hvac.avg_invoice_pct, plumbing.avg_invoice_pct)}
-                ${renderTradePerformanceCard('Equipment Added', '&#x1F527;', hvac.equipment_added_rate, plumbing.equipment_added_rate)}
                 ${renderTradePerformanceCard('Materials', '&#x1F4B0;', hvac.materials_on_invoice_rate, plumbing.materials_on_invoice_rate)}
             </div>
         `;

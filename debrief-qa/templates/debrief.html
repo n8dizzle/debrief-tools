@@ -231,6 +231,7 @@
                     </div>
                     {% if debrief.estimates_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.estimates_notes }}</div>{% endif %}
                 </div>
+                {# Hidden: Membership card
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Membership</div>
                     <div class="{% if debrief.membership_verified == 'pass' %}text-christmas-green-light{% elif debrief.membership_verified == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
@@ -238,6 +239,8 @@
                     </div>
                     {% if debrief.membership_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.membership_notes }}</div>{% endif %}
                 </div>
+                #}
+                {# Hidden: Google Reviews card
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Google Reviews</div>
                     <div class="{% if debrief.google_reviews_discussed == 'pass' %}text-christmas-green-light{% elif debrief.google_reviews_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
@@ -245,6 +248,7 @@
                     </div>
                     {% if debrief.google_reviews_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.google_reviews_notes }}</div>{% endif %}
                 </div>
+                #}
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Replacement</div>
                     <div class="{% if debrief.replacement_discussed == 'pass' %}text-christmas-green-light{% elif debrief.replacement_discussed == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
@@ -252,6 +256,7 @@
                     </div>
                     {% if debrief.no_replacement_reason %}<div class="text-xs text-gray-400 mt-1">{{ debrief.no_replacement_reason }}</div>{% endif %}
                 </div>
+                {# Hidden: Equipment Added card
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Equipment Added</div>
                     <div class="{% if debrief.equipment_added == 'pass' %}text-christmas-green-light{% elif debrief.equipment_added == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
@@ -259,6 +264,7 @@
                     </div>
                     {% if debrief.equipment_added_notes %}<div class="text-xs text-gray-400 mt-1">{{ debrief.equipment_added_notes }}</div>{% endif %}
                 </div>
+                #}
                 <div class="bg-dark-bg rounded-lg p-3 border border-christmas-gold/30">
                     <div class="text-xs text-christmas-gold mb-1">Materials on Invoice 💰</div>
                     <div class="{% if debrief.materials_on_invoice == 'pass' %}text-christmas-green-light{% elif debrief.materials_on_invoice == 'fail' %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold">
@@ -287,13 +293,14 @@
             </div>
             {% endif %}
 
-            <!-- G3 Contact -->
+            {# Hidden: G3 Contact display
             {% if debrief.g3_contact_needed %}
             <div class="bg-christmas-gold/10 rounded-lg p-4 border border-christmas-gold/30">
                 <div class="text-xs text-christmas-gold mb-2">⚠️ G3 Contact Needed</div>
                 <div class="text-sm text-christmas-cream">{{ debrief.g3_notes or 'No details provided' }}</div>
             </div>
             {% endif %}
+            #}
 
             <!-- General Notes -->
             {% if debrief.general_notes %}
@@ -749,64 +756,38 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- 5. Membership -->
+            {# Hidden: Section 5 - Membership Offered
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Membership Offered
-                    <span class="{% if ticket.membership_sold %}text-christmas-green-light{% else %}text-gray-500{% endif %}">
-                        ({{ "Sold: " + (ticket.membership_type or "Unknown") if ticket.membership_sold else "Not Sold" }})
-                    </span>
-                    {% if auto_suggestions.membership_verified %}
-                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ auto_suggestions.membership_verified.value|upper }}</span>
-                    {% endif %}
-                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
-                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Membership</div>
-                        <div class="text-gray-400 font-normal">
-                            <span class="text-christmas-green-light">Pass:</span> Maintenance plan was offered and explained to customer<br>
-                            <span class="text-christmas-brown">Fail:</span> Not offered when customer was eligible<br>
-                            <span class="text-gray-500">N/A:</span> Customer already has active membership or commercial account
-                        </div>
-                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="membership_verified" value="pass" class="sr-only" required
-                            {% if auto_suggestions.membership_verified and auto_suggestions.membership_verified.value == 'pass' %}checked{% endif %}>
+                        <input type="radio" name="membership_verified" value="pass" class="sr-only">
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
-                        <input type="radio" name="membership_verified" value="fail" class="sr-only"
-                            {% if auto_suggestions.membership_verified and auto_suggestions.membership_verified.value == 'fail' %}checked{% endif %}>
+                        <input type="radio" name="membership_verified" value="fail" class="sr-only">
                         <span>✗ Fail</span>
                     </label>
                     <label class="na-option">
-                        <input type="radio" name="membership_verified" value="na" class="sr-only"
-                            {% if auto_suggestions.membership_verified and auto_suggestions.membership_verified.value == 'na' %}checked{% endif %}>
+                        <input type="radio" name="membership_verified" value="na" class="sr-only">
                         <span>N/A</span>
                     </label>
                 </div>
                 <input type="text" name="membership_notes" placeholder="Notes (optional)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
+            #}
 
-            <!-- 6. Google Reviews -->
+            {# Hidden: Section 6 - Google Reviews Discussed
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Google Reviews Discussed
-                    <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
-                    <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-72 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Google Reviews</div>
-                        <div class="text-gray-400 font-normal">
-                            <span class="text-christmas-green-light">Pass:</span> Tech asked customer to leave a Google review<br>
-                            <span class="text-christmas-brown">Fail:</span> Not mentioned to a satisfied customer<br>
-                            <span class="text-gray-500">N/A:</span> Customer was unhappy, complaint situation, or not appropriate to ask
-                        </div>
-                    </div>
                 </label>
                 <div class="radio-group">
                     <label class="pass-option">
-                        <input type="radio" name="google_reviews_discussed" value="pass" class="sr-only" required>
+                        <input type="radio" name="google_reviews_discussed" value="pass" class="sr-only">
                         <span>✓ Pass</span>
                     </label>
                     <label class="fail-option">
@@ -821,6 +802,7 @@
                 <input type="text" name="google_reviews_notes" placeholder="Notes (optional)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
+            #}
 
             <!-- 7. Replacement Discussion -->
             <div class="space-y-2">
@@ -859,7 +841,7 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- Equipment at Location Context Banner -->
+            {# Hidden: Equipment at Location Context Banner
             {% if ticket.installed_equipment_count is not none %}
             <div class="rounded-lg border border-gray-700 bg-dark-bg mb-4">
                 <div class="px-4 py-3 border-b border-dark-border flex justify-between items-center">
@@ -921,8 +903,9 @@
                 </div>
             </div>
             {% endif %}
+            #}
 
-            <!-- 8. Equipment Added to Location -->
+            {# Hidden: Section 8 - Equipment Added to ST Location?
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
                     Equipment Added to ST Location?
@@ -953,6 +936,7 @@
                 <input type="text" name="equipment_added_notes" placeholder="Notes (optional)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
+            #}
 
             <!-- Invoice Line Items Context Banner -->
             {% if ticket.invoice_items is not none %}
@@ -1089,7 +1073,7 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- 11. G3 Contact -->
+            {# Hidden: Section 11 - G3 Contact Needed?
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-christmas-cream">G3 Contact Needed?</label>
                 <div class="flex items-center space-x-4">
@@ -1105,6 +1089,7 @@
                 <input type="text" name="g3_notes" placeholder="G3 notes (if needed)"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
+            #}
 
             <hr class="border-dark-border">
 
