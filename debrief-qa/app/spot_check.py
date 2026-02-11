@@ -196,9 +196,9 @@ def calculate_dispatcher_accuracy(spot_checks: List[SpotCheck]) -> Dict:
     """
     Calculate dispatcher accuracy based on completed spot check results.
 
-    Weights (same as debrief composite score):
-    - HIGH (2x): photos, invoice_score, payment, estimates
-    - NORMAL (1x): membership, reviews, replacement, equipment
+    Weights (aligned with composite score):
+    - Photos (2x), Payment (2x), Estimates (2x), Invoice (4x)
+    - Non-scored items (1x): replacement, equipment
 
     Args:
         spot_checks: List of completed SpotCheck records
@@ -213,10 +213,10 @@ def calculate_dispatcher_accuracy(spot_checks: List[SpotCheck]) -> Dict:
             "avg_grade": None
         }
 
-    # Define items with weights
+    # Define items with weights (matching composite score weights)
     items = {
         "photos": {"correct": 0, "total": 0, "weight": 2},
-        "invoice_score": {"correct": 0, "total": 0, "weight": 2},
+        "invoice_score": {"correct": 0, "total": 0, "weight": 4},
         "payment": {"correct": 0, "total": 0, "weight": 2},
         "estimates": {"correct": 0, "total": 0, "weight": 2},
         "membership": {"correct": 0, "total": 0, "weight": 1},

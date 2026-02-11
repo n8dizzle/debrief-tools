@@ -163,10 +163,12 @@
                     {% set photos_pass = 1 if debrief.photos_reviewed == 'pass' else 0 %}
                     {% set payment_pass = 1 if debrief.payment_verified == 'pass' else 0 %}
                     {% set estimates_pass = 1 if debrief.estimates_verified == 'pass' else 0 %}
-                    {% set membership_pass = 1 if debrief.membership_verified == 'pass' else 0 %}
-                    {% set reviews_pass = 1 if debrief.google_reviews_discussed == 'pass' else 0 %}
-                    {% set invoice_pct = (debrief.invoice_summary_score or 5) * 10 %}
-                    {% set composite = ((photos_pass * 100 * 2) + (payment_pass * 100 * 2) + (estimates_pass * 100 * 2) + (invoice_pct * 2) + (membership_pass * 100 * 1) + (reviews_pass * 100 * 1)) / 10 %}
+                    {% if debrief.invoice_situation is not none %}
+                        {% set inv_pct = (33 if debrief.invoice_situation == 'pass' else 0) + (34 if debrief.invoice_work_done == 'pass' else 0) + (33 if debrief.invoice_customer_discussion == 'pass' else 0) %}
+                    {% else %}
+                        {% set inv_pct = (debrief.invoice_summary_score or 5) * 10 %}
+                    {% endif %}
+                    {% set composite = ((photos_pass * 100 * 2) + (payment_pass * 100 * 2) + (estimates_pass * 100 * 2) + (inv_pct * 4)) / 10 %}
                     <div class="text-2xl font-bold {% if composite >= 70 %}text-christmas-green-light{% elif composite >= 50 %}text-yellow-400{% else %}text-christmas-brown{% endif %}">{{ composite|round(1) }}%</div>
                 </div>
             </div>
@@ -184,10 +186,21 @@
                 </div>
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Invoice Summary</div>
+                    {% if debrief.invoice_situation is not none %}
+                    {% set inv_pass = (1 if debrief.invoice_situation == 'pass' else 0) + (1 if debrief.invoice_work_done == 'pass' else 0) + (1 if debrief.invoice_customer_discussion == 'pass' else 0) %}
+                    <div class="{% if inv_pass == 3 %}text-christmas-green-light{% elif inv_pass >= 1 %}text-yellow-400{% else %}text-christmas-brown{% endif %} font-semibold text-lg">
+                        {{ inv_pass }}/3
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1 space-y-0.5">
+                        <div class="{% if debrief.invoice_situation == 'pass' %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">{% if debrief.invoice_situation == 'pass' %}✓{% else %}✗{% endif %} Situation</div>
+                        <div class="{% if debrief.invoice_work_done == 'pass' %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">{% if debrief.invoice_work_done == 'pass' %}✓{% else %}✗{% endif %} Work Done</div>
+                        <div class="{% if debrief.invoice_customer_discussion == 'pass' %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">{% if debrief.invoice_customer_discussion == 'pass' %}✓{% else %}✗{% endif %} Discussion</div>
+                    </div>
+                    {% else %}
                     <div class="{% if debrief.invoice_summary_score and debrief.invoice_summary_score >= 7 %}text-christmas-green-light{% elif debrief.invoice_summary_score and debrief.invoice_summary_score < 7 %}text-christmas-brown{% else %}text-gray-500{% endif %} font-semibold text-lg">
                         {% if debrief.invoice_summary_score %}{{ debrief.invoice_summary_score }}/10{% else %}N/A{% endif %}
                     </div>
-                    {% if debrief.invoice_summary_score and debrief.invoice_summary_score < 7 %}<div class="text-xs text-christmas-brown mt-1">Below standard</div>{% endif %}
+                    {% endif %}
                 </div>
                 <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
                     <div class="text-xs text-gray-500 mb-1">Payment</div>
@@ -370,8 +383,49 @@
                     class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
-            <!-- AI Invoice Review Panel (if available) -->
-            {% if ticket.ai_invoice_score %}
+            <!-- AI Invoice Review Panel (if available - 3 criteria) -->
+            {% if ticket.ai_invoice_situation is not none %}
+            <div class="rounded-lg border border-blue-600/30 bg-blue-900/10 mb-4">
+                <div class="px-4 py-3 border-b border-blue-600/20 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-blue-400">🤖</span>
+                        <h3 class="text-sm font-semibold text-blue-200">AI Invoice Review</h3>
+                        <span class="px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">Suggestion</span>
+                    </div>
+                    <div class="text-right">
+                        {% set ai_pass_count = (1 if ticket.ai_invoice_situation else 0) + (1 if ticket.ai_invoice_work_done else 0) + (1 if ticket.ai_invoice_customer_discussion else 0) %}
+                        <div class="text-xl font-bold {% if ai_pass_count == 3 %}text-christmas-green-light{% elif ai_pass_count >= 1 %}text-yellow-400{% else %}text-christmas-brown{% endif %}">
+                            {{ ai_pass_count }}/3
+                        </div>
+                    </div>
+                </div>
+                <div class="px-4 py-3 space-y-2">
+                    <div class="flex items-start gap-2">
+                        <span class="mt-0.5 {% if ticket.ai_invoice_situation %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">{% if ticket.ai_invoice_situation %}✓{% else %}✗{% endif %}</span>
+                        <div>
+                            <span class="text-sm font-medium {% if ticket.ai_invoice_situation %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">Situation</span>
+                            {% if ticket.ai_invoice_situation_notes %}<span class="text-xs text-gray-400 ml-2">{{ ticket.ai_invoice_situation_notes }}</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="mt-0.5 {% if ticket.ai_invoice_work_done %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">{% if ticket.ai_invoice_work_done %}✓{% else %}✗{% endif %}</span>
+                        <div>
+                            <span class="text-sm font-medium {% if ticket.ai_invoice_work_done %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">Work Done</span>
+                            {% if ticket.ai_invoice_work_done_notes %}<span class="text-xs text-gray-400 ml-2">{{ ticket.ai_invoice_work_done_notes }}</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="mt-0.5 {% if ticket.ai_invoice_customer_discussion %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">{% if ticket.ai_invoice_customer_discussion %}✓{% else %}✗{% endif %}</span>
+                        <div>
+                            <span class="text-sm font-medium {% if ticket.ai_invoice_customer_discussion %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">Customer Discussion</span>
+                            {% if ticket.ai_invoice_customer_discussion_notes %}<span class="text-xs text-gray-400 ml-2">{{ ticket.ai_invoice_customer_discussion_notes }}</span>{% endif %}
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Review and set your own grades below.</p>
+                </div>
+            </div>
+            {% elif ticket.ai_invoice_score %}
+            <!-- Legacy AI panel (old format) -->
             <div class="rounded-lg border border-blue-600/30 bg-blue-900/10 mb-4">
                 <div class="px-4 py-3 border-b border-blue-600/20 flex justify-between items-center">
                     <div class="flex items-center gap-2">
@@ -388,42 +442,95 @@
                 {% if ticket.ai_invoice_notes %}
                 <div class="px-4 py-3">
                     <p class="text-sm text-gray-300">{{ ticket.ai_invoice_notes }}</p>
-                    <p class="text-xs text-gray-500 mt-2">Review and adjust the score below based on your own assessment.</p>
+                    <p class="text-xs text-gray-500 mt-2">Review and set your own grades below.</p>
                 </div>
                 {% endif %}
             </div>
             {% endif %}
 
-            <!-- 2. Invoice Summary Score -->
-            <div class="space-y-2">
+            <!-- 2. Invoice Summary - 3 Pass/Fail Criteria -->
+            <div class="space-y-4 bg-blue-900/5 border border-blue-600/20 rounded-lg p-4 -mx-2">
                 <label class="block text-sm font-medium text-christmas-cream group relative cursor-help">
-                    Invoice Summary Quality (1-10)
-                    {% if ticket.ai_invoice_score %}
-                    <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI suggests: {{ ticket.ai_invoice_score }}</span>
-                    {% endif %}
+                    Invoice Summary Quality
+                    <span class="text-blue-400 text-xs ml-1">(40% of composite score)</span>
                     <span class="ml-1 text-gray-500 text-xs">ⓘ</span>
                     <div class="absolute left-0 bottom-full mb-2 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-xs text-left w-80 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-                        <div class="font-semibold text-christmas-cream mb-1">How to Score Invoice Summary</div>
+                        <div class="font-semibold text-christmas-cream mb-1">How to Grade Invoice Summary</div>
                         <div class="text-gray-400 font-normal">
-                            <span class="text-christmas-green-light">8-10:</span> Clear diagnosis, detailed work description, recommendations for future, professional tone<br>
-                            <span class="text-christmas-gold">5-7:</span> Basic info present but missing details or recommendations<br>
-                            <span class="text-christmas-brown">1-4:</span> Vague, incomplete, or just "completed service"
+                            Evaluate each criterion independently as Pass or Fail.<br>
+                            All 3 must pass for full credit. Partial credit for each pass.
                         </div>
                     </div>
                 </label>
-                <div class="flex items-center space-x-4">
-                    <input type="range" name="invoice_summary_score" id="invoice-score-slider" min="1" max="10"
-                        class="w-48 h-2 rounded-lg appearance-none cursor-pointer opacity-50"
-                        oninput="setInvoiceScore(this.value)"
-                        {% if ticket.ai_invoice_score %}value="{{ ticket.ai_invoice_score }}"{% endif %}>
-                    <span id="score-display" class="text-2xl font-bold text-gray-500 w-8">{% if ticket.ai_invoice_score %}{{ ticket.ai_invoice_score }}{% else %}-{% endif %}</span>
-                    <span class="text-sm text-gray-500">/ 10</span>
-                    <span id="score-required" class="text-xs text-christmas-brown ml-2 {% if ticket.ai_invoice_score %}hidden{% endif %}">← Select a score</span>
+
+                <!-- Criterion 1: Situation -->
+                <div class="space-y-1">
+                    <label class="block text-sm text-christmas-cream">
+                        1. Situation <span class="text-gray-500 text-xs">(What was the job / what did the tech arrive to?)</span>
+                        {% if ticket.ai_invoice_situation is not none %}
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI: {% if ticket.ai_invoice_situation %}PASS{% else %}FAIL{% endif %}</span>
+                        {% endif %}
+                    </label>
+                    <div class="radio-group">
+                        <label class="pass-option">
+                            <input type="radio" name="invoice_situation" value="pass" class="sr-only" required
+                                {% if ticket.ai_invoice_situation %}checked{% endif %}>
+                            <span>✓ Pass</span>
+                        </label>
+                        <label class="fail-option">
+                            <input type="radio" name="invoice_situation" value="fail" class="sr-only"
+                                {% if ticket.ai_invoice_situation is not none and not ticket.ai_invoice_situation %}checked{% endif %}>
+                            <span>✗ Fail</span>
+                        </label>
+                    </div>
                 </div>
-                <input type="hidden" name="invoice_summary_score_set" id="invoice-score-set" value="{% if ticket.ai_invoice_score %}true{% else %}false{% endif %}">
-                <input type="text" name="invoice_summary_notes" placeholder="Notes (optional)"
-                    class="mt-2 w-full rounded-md p-2 border text-sm"
-                    {% if ticket.ai_invoice_notes %}value="{{ ticket.ai_invoice_notes }}"{% endif %}>
+
+                <!-- Criterion 2: Work Done -->
+                <div class="space-y-1">
+                    <label class="block text-sm text-christmas-cream">
+                        2. Work Done <span class="text-gray-500 text-xs">(What did the tech do / system state after?)</span>
+                        {% if ticket.ai_invoice_work_done is not none %}
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI: {% if ticket.ai_invoice_work_done %}PASS{% else %}FAIL{% endif %}</span>
+                        {% endif %}
+                    </label>
+                    <div class="radio-group">
+                        <label class="pass-option">
+                            <input type="radio" name="invoice_work_done" value="pass" class="sr-only" required
+                                {% if ticket.ai_invoice_work_done %}checked{% endif %}>
+                            <span>✓ Pass</span>
+                        </label>
+                        <label class="fail-option">
+                            <input type="radio" name="invoice_work_done" value="fail" class="sr-only"
+                                {% if ticket.ai_invoice_work_done is not none and not ticket.ai_invoice_work_done %}checked{% endif %}>
+                            <span>✗ Fail</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Criterion 3: Customer Discussion -->
+                <div class="space-y-1">
+                    <label class="block text-sm text-christmas-cream">
+                        3. Customer Discussion <span class="text-gray-500 text-xs">(What was discussed with the customer?)</span>
+                        {% if ticket.ai_invoice_customer_discussion is not none %}
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 rounded">AI: {% if ticket.ai_invoice_customer_discussion %}PASS{% else %}FAIL{% endif %}</span>
+                        {% endif %}
+                    </label>
+                    <div class="radio-group">
+                        <label class="pass-option">
+                            <input type="radio" name="invoice_customer_discussion" value="pass" class="sr-only" required
+                                {% if ticket.ai_invoice_customer_discussion %}checked{% endif %}>
+                            <span>✓ Pass</span>
+                        </label>
+                        <label class="fail-option">
+                            <input type="radio" name="invoice_customer_discussion" value="fail" class="sr-only"
+                                {% if ticket.ai_invoice_customer_discussion is not none and not ticket.ai_invoice_customer_discussion %}checked{% endif %}>
+                            <span>✗ Fail</span>
+                        </label>
+                    </div>
+                </div>
+
+                <input type="text" name="invoice_summary_notes" placeholder="Invoice notes (optional)"
+                    class="mt-2 w-full rounded-md p-2 border text-sm">
             </div>
 
             <!-- Membership Visit Context Banner (for tune-up jobs) -->
@@ -1109,12 +1216,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Clear dirty flag on submit
         form.addEventListener('submit', function(e) {
-            // Check if invoice score was set
-            const scoreSet = document.getElementById('invoice-score-set');
-            if (scoreSet && scoreSet.value === 'false') {
+            // Check that all 3 invoice criteria are selected
+            const sit = form.querySelector('input[name="invoice_situation"]:checked');
+            const work = form.querySelector('input[name="invoice_work_done"]:checked');
+            const disc = form.querySelector('input[name="invoice_customer_discussion"]:checked');
+            if (!sit || !work || !disc) {
                 e.preventDefault();
-                alert('Please select an Invoice Summary Quality score before submitting.');
-                document.getElementById('invoice-score-slider').focus();
+                alert('Please grade all 3 Invoice Summary criteria before submitting.');
                 return false;
             }
             formSubmitting = true;
@@ -1143,35 +1251,6 @@ document.querySelectorAll('a[href="/queue"]').forEach(function(link) {
     });
 });
 
-// Invoice score function - requires explicit selection
-function setInvoiceScore(value) {
-    const display = document.getElementById('score-display');
-    const slider = document.getElementById('invoice-score-slider');
-    const required = document.getElementById('score-required');
-    const scoreSet = document.getElementById('invoice-score-set');
-
-    display.textContent = value;
-    display.classList.remove('text-gray-500');
-    display.classList.add('text-christmas-green-light');
-    slider.classList.remove('opacity-50');
-    required.classList.add('hidden');
-    scoreSet.value = 'true';
-    formDirty = true;
-}
-
-// Initialize score display if AI has pre-selected a value
-document.addEventListener('DOMContentLoaded', function() {
-    const scoreSet = document.getElementById('invoice-score-set');
-    const slider = document.getElementById('invoice-score-slider');
-    const display = document.getElementById('score-display');
-
-    if (scoreSet && scoreSet.value === 'true' && slider) {
-        // AI has pre-selected a score, update styling
-        display.classList.remove('text-gray-500');
-        display.classList.add('text-christmas-green-light');
-        slider.classList.remove('opacity-50');
-    }
-});
 
 function toggleFollowup(show) {
     const details = document.getElementById('followup-details');

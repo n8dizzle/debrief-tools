@@ -18,7 +18,7 @@
             <h2 id="summary-title" class="text-lg font-semibold text-christmas-cream">Performance Summary</h2>
             <span id="summary-period" class="text-sm text-gray-500">All Time</span>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-8 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div class="text-center">
                 <div id="stat-jobs" class="text-2xl font-bold text-christmas-cream">--</div>
                 <div class="text-xs text-gray-500">Jobs</div>
@@ -27,9 +27,9 @@
                 <div id="stat-score" class="text-2xl font-bold text-christmas-green-light">--</div>
                 <div class="text-xs text-gray-500">Avg Score</div>
             </div>
-            <div class="text-center">
+            <div class="text-center bg-blue-600/10 rounded-lg py-2">
                 <div id="stat-invoice" class="text-2xl font-bold text-christmas-cream">--</div>
-                <div class="text-xs text-gray-500">Invoice Summary</div>
+                <div class="text-xs text-gray-500">Invoice (40%)</div>
             </div>
             <div class="text-center">
                 <div id="stat-photos" class="text-2xl font-bold text-christmas-cream">--</div>
@@ -42,14 +42,6 @@
             <div class="text-center">
                 <div id="stat-estimates" class="text-2xl font-bold text-christmas-cream">--</div>
                 <div class="text-xs text-gray-500">Estimates</div>
-            </div>
-            <div class="text-center">
-                <div id="stat-membership" class="text-2xl font-bold text-christmas-cream">--</div>
-                <div class="text-xs text-gray-500">Membership</div>
-            </div>
-            <div class="text-center">
-                <div id="stat-reviews" class="text-2xl font-bold text-christmas-cream">--</div>
-                <div class="text-xs text-gray-500">Reviews</div>
             </div>
         </div>
     </div>
@@ -114,7 +106,7 @@
                     <option value="followup">Has Follow-up</option>
                     <option value="failed-payment">Failed Payment</option>
                     <option value="failed-photos">Failed Photos</option>
-                    <option value="low-invoice">Low Invoice Score</option>
+                    <option value="low-invoice">Low Invoice (&lt;100%)</option>
                 </select>
             </div>
             <button onclick="clearFilters()" class="px-3 py-2 text-sm text-gray-500 hover:text-christmas-cream transition">
@@ -191,15 +183,13 @@ function updateSummaryStats() {
         document.getElementById('stat-photos').textContent = '--';
         document.getElementById('stat-payment').textContent = '--';
         document.getElementById('stat-estimates').textContent = '--';
-        document.getElementById('stat-membership').textContent = '--';
-        document.getElementById('stat-reviews').textContent = '--';
         return;
     }
 
     // Calculate aggregates
     const jobCount = data.length;
     const avgScore = Math.round(data.reduce((sum, j) => sum + (j.composite_score || 0), 0) / jobCount);
-    const avgInvoice = (data.reduce((sum, j) => sum + (j.invoice_score || 0), 0) / jobCount).toFixed(1);
+    const avgInvoicePct = Math.round(data.reduce((sum, j) => sum + (j.invoice_pct || 0), 0) / jobCount);
 
     // Calculate pass rates (excluding N/A)
     const calcPassRate = (field) => {
@@ -216,10 +206,10 @@ function updateSummaryStats() {
     scoreEl.textContent = avgScore;
     scoreEl.className = 'text-2xl font-bold ' + (avgScore >= 80 ? 'text-christmas-green-light' : avgScore >= 60 ? 'text-christmas-gold' : 'text-christmas-brown');
 
-    // Color-code invoice
+    // Color-code invoice (percentage)
     const invoiceEl = document.getElementById('stat-invoice');
-    invoiceEl.textContent = avgInvoice;
-    invoiceEl.className = 'text-2xl font-bold ' + (parseFloat(avgInvoice) >= 7 ? 'text-christmas-green-light' : parseFloat(avgInvoice) >= 5 ? 'text-christmas-gold' : 'text-christmas-brown');
+    invoiceEl.textContent = avgInvoicePct + '%';
+    invoiceEl.className = 'text-2xl font-bold ' + (avgInvoicePct >= 80 ? 'text-christmas-green-light' : avgInvoicePct >= 50 ? 'text-christmas-gold' : 'text-christmas-brown');
 
     // Set pass rates with colors
     const setPassRate = (id, value) => {
@@ -236,8 +226,6 @@ function updateSummaryStats() {
     setPassRate('stat-photos', calcPassRate('photos'));
     setPassRate('stat-payment', calcPassRate('payment'));
     setPassRate('stat-estimates', calcPassRate('estimates'));
-    setPassRate('stat-membership', calcPassRate('membership'));
-    setPassRate('stat-reviews', calcPassRate('reviews'));
 }
 
 function setDateRange(range) {
@@ -388,7 +376,7 @@ function applyClientFilters() {
         if (issuesFilter === 'followup' && !job.followup_required) return false;
         if (issuesFilter === 'failed-payment' && job.payment !== 'fail') return false;
         if (issuesFilter === 'failed-photos' && job.photos !== 'fail') return false;
-        if (issuesFilter === 'low-invoice' && job.invoice_score >= 5) return false;
+        if (issuesFilter === 'low-invoice' && job.invoice_pct >= 100) return false;
 
         return true;
     });
@@ -467,7 +455,10 @@ function renderTable() {
                                 <span class="${getScoreColor(job.composite_score)} font-bold text-lg">${job.composite_score}</span>
                             </td>
                             <td class="px-3 py-3 text-center">
-                                <span class="${job.invoice_score >= 7 ? 'text-christmas-green-light' : job.invoice_score >= 5 ? 'text-christmas-gold' : 'text-christmas-brown'}">${job.invoice_score}</span>
+                                ${job.is_new_invoice_format ?
+                                    `<span class="${job.invoice_pct >= 80 ? 'text-christmas-green-light' : job.invoice_pct >= 50 ? 'text-christmas-gold' : 'text-christmas-brown'} font-medium" title="Situation: ${job.invoice_situation || '-'}, Work Done: ${job.invoice_work_done || '-'}, Discussion: ${job.invoice_customer_discussion || '-'}">${[job.invoice_situation, job.invoice_work_done, job.invoice_customer_discussion].filter(x => x === 'pass').length}/3</span>` :
+                                    `<span class="${job.invoice_score >= 7 ? 'text-christmas-green-light' : job.invoice_score >= 5 ? 'text-christmas-gold' : 'text-christmas-brown'}">${job.invoice_score}/10</span>`
+                                }
                             </td>
                             <td class="px-3 py-3 text-center">${getStatusBadge(job.photos)}</td>
                             <td class="px-3 py-3 text-center">${getStatusBadge(job.payment)}</td>
@@ -535,7 +526,7 @@ function clearFilters() {
 }
 
 function exportCSV() {
-    const headers = ['Job #', 'Date', 'Customer', 'Technician', 'Invoice Summary', 'Score', 'Invoice', 'Photos', 'Payment', 'Estimates', 'Membership', 'Reviews', 'Checked By', 'Follow-up', 'Invoice Total'];
+    const headers = ['Job #', 'Date', 'Customer', 'Technician', 'Invoice Summary', 'Score', 'Invoice %', 'Invoice Situation', 'Invoice Work Done', 'Invoice Discussion', 'Photos', 'Payment', 'Estimates', 'Checked By', 'Follow-up', 'Invoice Total'];
     const rows = filteredData.map(job => [
         job.job_number,
         job.debriefed_at,
@@ -543,12 +534,13 @@ function exportCSV() {
         job.tech_name,
         `"${(job.invoice_summary || '').replace(/"/g, '""')}"`,
         job.composite_score,
-        job.invoice_score,
+        job.invoice_pct,
+        job.invoice_situation || '',
+        job.invoice_work_done || '',
+        job.invoice_customer_discussion || '',
         job.photos,
         job.payment,
         job.estimates,
-        job.membership,
-        job.reviews,
         job.dispatcher_name,
         job.followup_required ? 'Yes' : 'No',
         job.invoice_total
