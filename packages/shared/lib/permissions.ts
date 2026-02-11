@@ -11,6 +11,7 @@
  * - Job Tracker
  * - AP Payments
  * - Membership Manager
+ * - Celebrations
  *
  * JSONB stored in portal_users.permissions column
  */
@@ -79,6 +80,13 @@ export interface MembershipManagerPermissions {
   can_sync_data?: boolean;
 }
 
+export interface CelebrationsPermissions {
+  can_view_boards?: boolean;
+  can_create_boards?: boolean;
+  can_manage_boards?: boolean;
+  can_manage_slack?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -93,6 +101,7 @@ export interface UserPermissions {
   job_tracker?: JobTrackerPermissions;
   ap_payments?: APPaymentsPermissions;
   membership_manager?: MembershipManagerPermissions;
+  celebrations?: CelebrationsPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -330,6 +339,32 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Manually trigger ServiceTitan membership sync',
+      },
+    ],
+  },
+  {
+    app: 'celebrations',
+    label: 'Celebrations',
+    permissions: [
+      {
+        key: 'can_view_boards',
+        label: 'View boards',
+        description: 'View celebration boards and posts',
+      },
+      {
+        key: 'can_create_boards',
+        label: 'Create boards',
+        description: 'Create new celebration boards',
+      },
+      {
+        key: 'can_manage_boards',
+        label: 'Manage boards',
+        description: 'Edit, archive, and delete any board',
+      },
+      {
+        key: 'can_manage_slack',
+        label: 'Manage Slack',
+        description: 'Configure Slack channel integrations',
       },
     ],
   },
