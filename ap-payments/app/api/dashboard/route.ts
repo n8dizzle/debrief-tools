@@ -14,7 +14,8 @@ export async function GET() {
   // Get job counts by assignment type
   const { data: jobs } = await supabase
     .from('ap_install_jobs')
-    .select('assignment_type, payment_status, payment_amount, contractor_id');
+    .select('assignment_type, payment_status, payment_amount, contractor_id')
+    .or('job_total.gt.0,job_status.neq.Completed');
 
   const allJobs = jobs || [];
 

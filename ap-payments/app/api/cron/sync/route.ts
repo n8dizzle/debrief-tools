@@ -46,16 +46,27 @@ export async function POST(request: NextRequest) {
 
   try {
     const businessUnits = await st.getBusinessUnits();
-    const installBuIds = await st.getInstallBusinessUnitIds();
 
-    const [upcomingJobs, recentJobs] = await Promise.all([
-      st.getUpcomingInstallJobs(30),
-      st.getRecentInstallJobs(7),
+    // Load configured BU filter from settings
+    const { data: buSetting } = await supabase
+      .from('ap_sync_settings')
+      .select('value')
+      .eq('key', 'sync_business_units')
+      .single();
+    const allowedBUNames: string[] | undefined = buSetting?.value || undefined;
+
+    // Upcoming jobs come from appointments (which have scheduled dates)
+    // Recent completed jobs come from the jobs endpoint filtered by completedOn
+    const [upcomingResult, recentJobs] = await Promise.all([
+      st.getUpcomingInstallJobs(30, allowedBUNames),
+      st.getRecentInstallJobs(7, allowedBUNames),
     ]);
 
-    // Dedupe by job ID
+    const { jobs: upcomingJobs, appointmentMap } = upcomingResult;
+
+    // Dedupe by job ID (upcoming takes priority for appointment data)
     const jobMap = new Map<number, STJob>();
-    for (const job of [...upcomingJobs, ...recentJobs]) {
+    for (const job of [...recentJobs, ...upcomingJobs]) {
       jobMap.set(job.id, job);
     }
 
@@ -66,7 +77,7 @@ export async function POST(request: NextRequest) {
     const { data: existingJobs } = stJobIds.length > 0
       ? await supabase
           .from('ap_install_jobs')
-          .select('id, st_job_id, job_status, completed_date, job_total')
+          .select('id, st_job_id, job_status, completed_date, job_total, scheduled_date')
           .in('st_job_id', stJobIds)
       : { data: [] };
 
@@ -88,9 +99,11 @@ export async function POST(request: NextRequest) {
         const trade = tradeMap.get(job.businessUnitId) || 'hvac';
         const buName = buNameMap.get(job.businessUnitId) || null;
 
+        // Scheduled date comes from appointment start time
         let scheduledDate: string | null = null;
-        if (job.scheduledOn) {
-          scheduledDate = formatLocalDate(new Date(job.scheduledOn));
+        const apptStart = appointmentMap.get(job.id);
+        if (apptStart) {
+          scheduledDate = formatLocalDate(new Date(apptStart));
         }
 
         let completedDate: string | null = null;
@@ -103,6 +116,7 @@ export async function POST(request: NextRequest) {
             .from('ap_install_jobs')
             .update({
               job_status: job.jobStatus,
+              scheduled_date: scheduledDate || existing.scheduled_date,
               completed_date: completedDate || existing.completed_date,
               job_total: job.total ?? existing.job_total,
               summary: job.summary || undefined,

@@ -11,7 +11,7 @@ import AssignmentBadge from './AssignmentBadge';
 type SortKey =
   | 'job_number'
   | 'customer_name'
-  | 'trade'
+  | 'business_unit'
   | 'job_type_name'
   | 'date'
   | 'job_total'
@@ -30,7 +30,7 @@ interface ColumnDef {
 const COLUMNS: ColumnDef[] = [
   { key: 'job_number', label: 'Job #', defaultWidth: 100, minWidth: 70 },
   { key: 'customer_name', label: 'Customer', defaultWidth: 180, minWidth: 120 },
-  { key: 'trade', label: 'Trade', defaultWidth: 80, minWidth: 60 },
+  { key: 'business_unit', label: 'Business Unit', defaultWidth: 160, minWidth: 100 },
   { key: 'job_type_name', label: 'Type', defaultWidth: 140, minWidth: 80 },
   { key: 'date', label: 'Date', defaultWidth: 100, minWidth: 80 },
   { key: 'job_total', label: 'Job Total', defaultWidth: 100, minWidth: 80 },
@@ -56,7 +56,7 @@ function getSortValue(job: APInstallJob, key: SortKey): string | number {
   switch (key) {
     case 'job_number': return job.job_number || '';
     case 'customer_name': return (job.customer_name || '').toLowerCase();
-    case 'trade': return job.trade;
+    case 'business_unit': return (job.business_unit_name || job.trade || '').toLowerCase();
     case 'job_type_name': return (job.job_type_name || '').toLowerCase();
     case 'date': return job.scheduled_date || job.completed_date || '';
     case 'job_total': return job.job_total != null ? Number(job.job_total) : -1;
@@ -216,8 +216,8 @@ function InlineAssignmentRow({
         )}
       </td>
     ),
-    trade: (
-      <td key="trade">
+    business_unit: (
+      <td key="business_unit">
         <span
           className="badge"
           style={{
@@ -225,7 +225,7 @@ function InlineAssignmentRow({
             color: job.trade === 'hvac' ? 'var(--christmas-green-light)' : 'var(--christmas-gold)',
           }}
         >
-          {job.trade.toUpperCase()}
+          {job.business_unit_name || job.trade.toUpperCase()}
         </span>
       </td>
     ),

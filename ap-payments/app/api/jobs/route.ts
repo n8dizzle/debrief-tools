@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const supabase = getServerSupabase();
   const { searchParams } = new URL(request.url);
 
-  const trade = searchParams.get('trade');
+  const businessUnits = searchParams.get('businessUnits');
   const assignment = searchParams.get('assignment');
   const paymentStatus = searchParams.get('paymentStatus');
   const contractorId = searchParams.get('contractorId');
@@ -26,11 +26,15 @@ export async function GET(request: NextRequest) {
       *,
       contractor:ap_contractors(id, name)
     `, { count: 'exact' })
+    .or('job_total.gt.0,job_status.neq.Completed')
     .order('scheduled_date', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (trade) {
-    query = query.eq('trade', trade);
+  if (businessUnits) {
+    const buNames = businessUnits.split(',').map(s => s.trim()).filter(Boolean);
+    if (buNames.length > 0) {
+      query = query.in('business_unit_name', buNames);
+    }
   }
   if (assignment) {
     query = query.eq('assignment_type', assignment);

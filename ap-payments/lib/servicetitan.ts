@@ -21,10 +21,18 @@ export interface STJob {
   locationId: number;
   completedOn?: string;
   createdOn?: string;
-  scheduledOn?: string;
   total?: number;
   summary?: string;
   type?: { name?: string };
+  firstAppointmentId?: number;
+}
+
+export interface STAppointment {
+  id: number;
+  jobId: number;
+  start?: string;
+  end?: string;
+  status?: string;
 }
 
 export interface STCustomer {
@@ -59,7 +67,7 @@ interface STPagedResponse<T> {
   hasMore: boolean;
 }
 
-const INSTALL_BUSINESS_UNITS = [
+const DEFAULT_INSTALL_BUSINESS_UNITS = [
   'HVAC - Install',
   'Plumbing - Install',
 ];
@@ -156,10 +164,11 @@ export class ServiceTitanClient {
     return this.businessUnitsCache;
   }
 
-  async getInstallBusinessUnitIds(): Promise<number[]> {
+  async getInstallBusinessUnitIds(allowedNames?: string[]): Promise<number[]> {
+    const names = allowedNames || DEFAULT_INSTALL_BUSINESS_UNITS;
     const businessUnits = await this.getBusinessUnits();
     return businessUnits
-      .filter(bu => INSTALL_BUSINESS_UNITS.includes(bu.name))
+      .filter(bu => names.includes(bu.name))
       .map(bu => bu.id);
   }
 
@@ -215,49 +224,90 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get upcoming install jobs scheduled within the next N days.
-   * Excludes completed and canceled jobs.
+   * Get upcoming install appointments scheduled within the next N days,
+   * then return the associated jobs. ST jobs don't have scheduledOn —
+   * scheduled dates live on appointments.
    */
-  async getUpcomingInstallJobs(daysAhead: number = 30): Promise<STJob[]> {
+  async getUpcomingInstallJobs(daysAhead: number = 30, allowedBUNames?: string[]): Promise<{ jobs: STJob[]; appointmentMap: Map<number, string> }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const futureDate = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000);
 
-    // Use local time formatting, NOT toISOString() which converts to UTC
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T00:00:00`;
     const futureStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}T23:59:59`;
 
     try {
-      const installBuIds = await this.getInstallBusinessUnitIds();
+      const installBuIds = await this.getInstallBusinessUnitIds(allowedBUNames);
       if (installBuIds.length === 0) {
         console.warn('No install business units found');
-        return [];
+        return { jobs: [], appointmentMap: new Map() };
       }
 
-      // Fetch a single large page and filter client-side (avoid slow pagination)
-      const response = await this.request<STPagedResponse<STJob>>(
-        'GET',
-        `jpm/v2/tenant/${this.tenantId}/jobs`,
-        {
-          params: {
-            scheduledOnOrAfter: todayStr,
-            scheduledOnOrBefore: futureStr,
-            pageSize: '200',
-          },
+      // Fetch appointments (which have scheduled dates) per install BU
+      const results = await Promise.allSettled(
+        installBuIds.map(buId =>
+          this.request<STPagedResponse<STAppointment>>(
+            'GET',
+            `jpm/v2/tenant/${this.tenantId}/appointments`,
+            {
+              params: {
+                startsOnOrAfter: todayStr,
+                startsBefore: futureStr,
+                businessUnitId: buId.toString(),
+                pageSize: '200',
+              },
+            }
+          )
+        )
+      );
+
+      // Build jobId → earliest appointment start map
+      const appointmentMap = new Map<number, string>();
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          for (const appt of (result.value.data || [])) {
+            if (appt.jobId && appt.start) {
+              const existing = appointmentMap.get(appt.jobId);
+              if (!existing || appt.start < existing) {
+                appointmentMap.set(appt.jobId, appt.start);
+              }
+            }
+          }
         }
-      );
+      }
 
-      const installJobs = (response.data || []).filter(job =>
-        installBuIds.includes(job.businessUnitId) &&
-        !['Canceled'].includes(job.jobStatus)
-      );
+      console.log(`Found ${appointmentMap.size} upcoming install jobs from appointments across ${installBuIds.length} BUs`);
 
-      console.log(`Found ${installJobs.length} upcoming install jobs (from ${response.data?.length || 0} total)`);
-      return installJobs;
+      // Fetch the actual jobs for these appointment job IDs
+      const jobIds = Array.from(appointmentMap.keys());
+      if (jobIds.length === 0) return { jobs: [], appointmentMap };
+
+      // Fetch jobs in batches of 50 using the ids param
+      const jobs: STJob[] = [];
+      const batchSize = 50;
+      for (let i = 0; i < jobIds.length; i += batchSize) {
+        const batch = jobIds.slice(i, i + batchSize);
+        const response = await this.request<STPagedResponse<STJob>>(
+          'GET',
+          `jpm/v2/tenant/${this.tenantId}/jobs`,
+          {
+            params: {
+              ids: batch.join(','),
+              pageSize: '50',
+            },
+          }
+        );
+        const filtered = (response.data || []).filter(
+          job => !['Canceled'].includes(job.jobStatus)
+        );
+        jobs.push(...filtered);
+      }
+
+      return { jobs, appointmentMap };
     } catch (error) {
       console.error('Failed to get upcoming install jobs:', error);
-      return [];
+      return { jobs: [], appointmentMap: new Map() };
     }
   }
 
@@ -265,7 +315,7 @@ export class ServiceTitanClient {
    * Get recently completed install jobs from last N days.
    * Used for backfill and catching newly completed jobs.
    */
-  async getRecentInstallJobs(daysBehind: number = 7): Promise<STJob[]> {
+  async getRecentInstallJobs(daysBehind: number = 7, allowedBUNames?: string[]): Promise<STJob[]> {
     const today = new Date();
     today.setHours(23, 59, 59, 0);
 
@@ -276,31 +326,55 @@ export class ServiceTitanClient {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T23:59:59`;
 
     try {
-      const installBuIds = await this.getInstallBusinessUnitIds();
+      const installBuIds = await this.getInstallBusinessUnitIds(allowedBUNames);
       if (installBuIds.length === 0) return [];
 
-      // Fetch a single large page and filter client-side (avoid slow pagination)
-      const response = await this.request<STPagedResponse<STJob>>(
-        'GET',
-        `jpm/v2/tenant/${this.tenantId}/jobs`,
-        {
-          params: {
-            completedOnOrAfter: pastStr,
-            completedOnOrBefore: todayStr,
-            pageSize: '200',
-          },
+      // Fetch per install BU in parallel (ST API only accepts one businessUnitId at a time)
+      const results = await Promise.allSettled(
+        installBuIds.map(buId =>
+          this.request<STPagedResponse<STJob>>(
+            'GET',
+            `jpm/v2/tenant/${this.tenantId}/jobs`,
+            {
+              params: {
+                completedOnOrAfter: pastStr,
+                completedOnOrBefore: todayStr,
+                businessUnitId: buId.toString(),
+                pageSize: '200',
+              },
+            }
+          )
+        )
+      );
+
+      const installJobs: STJob[] = [];
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          installJobs.push(...(result.value.data || []));
         }
-      );
+      }
 
-      const installJobs = (response.data || []).filter(job =>
-        installBuIds.includes(job.businessUnitId)
-      );
-
-      console.log(`Found ${installJobs.length} recent install jobs (from ${response.data?.length || 0} total, last ${daysBehind} days)`);
+      console.log(`Found ${installJobs.length} recent install jobs across ${installBuIds.length} BUs (last ${daysBehind} days)`);
       return installJobs;
     } catch (error) {
       console.error('Failed to get recent install jobs:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get appointment details for a job (to extract scheduled date)
+   */
+  async getAppointment(appointmentId: number): Promise<STAppointment | null> {
+    try {
+      return await this.request<STAppointment>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/appointments/${appointmentId}`,
+        {}
+      );
+    } catch (error) {
+      console.error(`Failed to get appointment ${appointmentId}:`, error);
+      return null;
     }
   }
 
