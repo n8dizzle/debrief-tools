@@ -8,6 +8,9 @@
  * - Marketing Hub
  * - Admin Panel
  * - AR Collections
+ * - Job Tracker
+ * - AP Payments
+ * - Membership Manager
  *
  * JSONB stored in portal_users.permissions column
  */
@@ -47,10 +50,11 @@ export interface AdminPanelPermissions {
 }
 
 export interface ARCollectionsPermissions {
-  can_view_ar_dashboard?: boolean;
-  can_manage_collections?: boolean;
-  can_export_reports?: boolean;
-  can_write_off_accounts?: boolean;
+  can_view_invoices?: boolean;
+  can_update_invoices?: boolean;
+  can_log_communications?: boolean;
+  can_view_reports?: boolean;
+  can_manage_settings?: boolean;
 }
 
 export interface JobTrackerPermissions {
@@ -68,6 +72,13 @@ export interface APPaymentsPermissions {
   can_sync_data?: boolean;
 }
 
+export interface MembershipManagerPermissions {
+  can_view_memberships?: boolean;
+  can_manage_notes?: boolean;
+  can_view_reports?: boolean;
+  can_sync_data?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -81,6 +92,7 @@ export interface UserPermissions {
   ar_collections?: ARCollectionsPermissions;
   job_tracker?: JobTrackerPermissions;
   ap_payments?: APPaymentsPermissions;
+  membership_manager?: MembershipManagerPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -180,24 +192,29 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     label: 'AR Collections',
     permissions: [
       {
-        key: 'can_view_ar_dashboard',
-        label: 'View AR dashboard',
-        description: 'Access accounts receivable dashboard and reports',
+        key: 'can_view_invoices',
+        label: 'View invoices',
+        description: 'Access AR invoices and aging reports',
       },
       {
-        key: 'can_manage_collections',
-        label: 'Manage collections',
-        description: 'Update collection status and add notes',
+        key: 'can_update_invoices',
+        label: 'Update invoices',
+        description: 'Update invoice status, add notes, and manage collections',
       },
       {
-        key: 'can_export_reports',
-        label: 'Export reports',
-        description: 'Download AR reports and aging summaries',
+        key: 'can_log_communications',
+        label: 'Log communications',
+        description: 'Record customer communications and follow-ups',
       },
       {
-        key: 'can_write_off_accounts',
-        label: 'Write off accounts',
-        description: 'Mark accounts as written off or uncollectable',
+        key: 'can_view_reports',
+        label: 'View reports',
+        description: 'Access AR reports and analytics',
+      },
+      {
+        key: 'can_manage_settings',
+        label: 'Manage settings',
+        description: 'Configure AR collections settings',
       },
     ],
   },
@@ -287,6 +304,32 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Manually trigger ServiceTitan sync',
+      },
+    ],
+  },
+  {
+    app: 'membership_manager',
+    label: 'Membership Manager',
+    permissions: [
+      {
+        key: 'can_view_memberships',
+        label: 'View memberships',
+        description: 'View membership dashboard and member details',
+      },
+      {
+        key: 'can_manage_notes',
+        label: 'Manage notes',
+        description: 'Add and edit staff notes on memberships',
+      },
+      {
+        key: 'can_view_reports',
+        label: 'View reports',
+        description: 'Access membership reports and analytics',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan membership sync',
       },
     ],
   },
