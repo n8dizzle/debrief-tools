@@ -56,6 +56,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **AR Collections** (`/ar-collections`) | https://ar.christmasair.com | Next.js | 3003 |
 | **Job Tracker** (`/job-tracker`) | https://track.christmasair.com | Next.js | 3004 |
 | **AP Payments** (`/ap-payments`) | https://ap.christmasair.com | Next.js | 3005 |
+| **Membership Manager** (`/membership-manager`) | https://memberships.christmasair.com | Next.js | 3006 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -195,6 +196,20 @@ const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-
 - Cron sync every 2 hours during business hours + daily 6am full sync
 - Database tables: ap_contractors, ap_contractor_rates, ap_install_jobs, ap_activity_log, ap_sync_log
 
+### Membership Manager
+
+**Membership Visit Tracking** - Proactively schedule membership visits before they become overdue
+- Dashboard with active memberships, overdue visits, expiring soon, fulfillment rate
+- Action Queue: prioritized list of visits needing scheduling (daily workhorse for dispatch)
+- Membership list with search, status/type/expiry filters
+- Membership detail with customer info, visit timeline, staff notes
+- Visit timeline shows completed (green), scheduled (blue), and remaining visits
+- Staff notes for internal coordination (not synced to ServiceTitan)
+- ServiceTitan sync: membership types, memberships, recurring services, events
+- Computed aggregates: visits completed/expected, next visit due date, days until expiry
+- Cron sync every 2 hours during business hours + daily 6am full sync
+- Database tables: mm_membership_types, mm_memberships, mm_recurring_services, mm_recurring_service_events, mm_staff_notes, mm_sync_log
+
 ### Internal Portal (Admin)
 
 **User Management** (`/admin/users`) - Centralized user provisioning
@@ -275,6 +290,12 @@ Key tables:
 - `ap_install_jobs` - Install jobs synced from ServiceTitan with assignment and payment tracking
 - `ap_activity_log` - Audit trail for assignment and payment changes
 - `ap_sync_log` - Cron sync operation history
+- `mm_membership_types` - Cached membership plan templates from ServiceTitan
+- `mm_memberships` - Core membership records with computed visit aggregates
+- `mm_recurring_services` - What visits are included per membership
+- `mm_recurring_service_events` - Individual visit instances (Scheduled, Done, Cancelled)
+- `mm_staff_notes` - Local staff notes (not synced to ServiceTitan)
+- `mm_sync_log` - Membership sync audit trail
 
 ### Permission Groups
 ```typescript
@@ -298,6 +319,9 @@ can_view_trackers, can_manage_trackers, can_manage_templates, can_sync_data
 
 // ap_payments
 can_view_jobs, can_manage_assignments, can_manage_payments, can_manage_contractors, can_sync_data
+
+// membership_manager
+can_view_memberships, can_manage_notes, can_view_reports, can_sync_data
 ```
 
 ## Deployment
@@ -328,6 +352,7 @@ cd internal-portal && vercel --prod
 cd ar-collections && vercel --prod
 cd job-tracker && vercel --prod
 cd ap-payments && vercel --prod
+cd membership-manager && vercel --prod
 ```
 
 Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
@@ -373,6 +398,13 @@ All Vercel crons use UTC. Times shown are Central Time (CT). During daylight sav
 | `/api/cron/sync` | `0 12 * * *` | 6am daily | Full sync of install jobs from ServiceTitan |
 | `/api/cron/sync` | `0 14,16,18,20,22 * * 1-5` | 8am-4pm Mon-Fri every 2hrs | Intraday install job sync |
 
+### Membership Manager (`membership-manager/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/cron/sync` | `0 12 * * *` | 6am daily | Full sync of memberships from ServiceTitan |
+| `/api/cron/sync` | `0 14,16,18,20,22 * * 1-5` | 8am-4pm Mon-Fri every 2hrs | Intraday membership sync |
+
 ### Data Freshness Notes
 
 | Data Source | Delay | Sync Frequency |
@@ -383,6 +415,7 @@ All Vercel crons use UTC. Times shown are Central Time (CT). During daylight sav
 | Google Reviews | Near real-time | Hourly |
 | AR Invoices | Near real-time | Hourly (business hours) |
 | AP Install Jobs | Near real-time | Every 2 hours (business hours) |
+| Memberships | Near real-time | Every 2 hours (business hours) |
 
 ## Environment Variables
 
@@ -433,6 +466,16 @@ SERVICETITAN_CLIENT_ID, SERVICETITAN_CLIENT_SECRET, SERVICETITAN_TENANT_ID, SERV
 CRON_SECRET
 ```
 
+### Membership Manager
+Same as Daily Dash:
+```
+NEXTAUTH_URL, NEXTAUTH_SECRET
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+SERVICETITAN_CLIENT_ID, SERVICETITAN_CLIENT_SECRET, SERVICETITAN_TENANT_ID, SERVICETITAN_APP_KEY
+CRON_SECRET
+```
+
 ## DNS (Namecheap)
 - debrief.christmasair.com → A record → 64.225.12.86
 - dash.christmasair.com → CNAME → Vercel
@@ -441,6 +484,7 @@ CRON_SECRET
 - ar.christmasair.com → CNAME → Vercel
 - track.christmasair.com → CNAME → Vercel
 - ap.christmasair.com → CNAME → Vercel
+- memberships.christmasair.com → CNAME → Vercel
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
@@ -465,9 +509,23 @@ cd job-tracker && npm run dev      # http://localhost:3004
 
 # Terminal 6 - AP Payments
 cd ap-payments && npm run dev      # http://localhost:3005
+
+# Terminal 7 - Membership Manager
+cd membership-manager && npm run dev # http://localhost:3006
 ```
 
 ## Recent Changes Summary
+
+**Feb 10, 2026**:
+- **Membership Manager MVP** - Membership visit tracking at memberships.christmasair.com
+  - Dashboard with active memberships, overdue visits, expiring soon, visit fulfillment rate
+  - Action Queue: prioritized list of visits needing scheduling, sorted by most overdue
+  - Membership list with search, status/type/expiry filters, pagination
+  - Membership detail with customer info, visit timeline (color-coded by trade), staff notes
+  - ServiceTitan sync: membership types, memberships, recurring services, events
+  - Computed aggregates: visits completed/expected, next visit due date, days until expiry
+  - Database tables: mm_membership_types, mm_memberships, mm_recurring_services, mm_recurring_service_events, mm_staff_notes, mm_sync_log
+  - Cron: Every 2 hours Mon-Fri + daily 6am full sync
 
 **Feb 9, 2026**:
 - **AP Payments MVP** - Subcontractor payment tracking at ap.christmasair.com
