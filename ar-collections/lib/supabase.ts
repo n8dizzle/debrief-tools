@@ -586,6 +586,79 @@ export interface FinancingExpectedPayment {
 }
 
 // ============================================
+// QUICKBOOKS / DEPOSITS TYPES
+// ============================================
+
+export interface QBCredentials {
+  id: string;
+  realm_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  refresh_token_expires_at: string;
+  company_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QBPaymentRecord {
+  id: string;
+  qb_payment_id: string;
+  qb_customer_id: string | null;
+  qb_customer_name: string | null;
+  payment_date: string;
+  amount: number;
+  payment_method: string | null;
+  payment_method_ref: string | null;
+  deposit_to_account_ref: string | null;
+  deposit_to_account_name: string | null;
+  is_deposited: boolean;
+  deposit_date: string | null;
+  memo: string | null;
+  synced_at: string;
+  created_at: string;
+}
+
+export type QBMatchStatus = 'unmatched' | 'auto_matched' | 'manual_matched' | 'pending_review' | 'discrepancy';
+
+export interface QBPaymentReconciliation {
+  id: string;
+  st_payment_id: number | null;
+  st_invoice_id: number | null;
+  st_customer_id: number | null;
+  qb_payment_id: string | null;
+  ar_invoice_id: string | null;
+  amount: number;
+  payment_date: string;
+  payment_type: string;
+  customer_name: string | null;
+  match_status: QBMatchStatus;
+  match_confidence: number | null;
+  matched_at: string | null;
+  matched_by: string | null;
+  is_deposited: boolean;
+  deposit_date: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  invoice?: ARInvoice;
+  matcher?: PortalUser;
+}
+
+export interface QBSyncLog {
+  id: string;
+  sync_type: 'payments' | 'deposits' | 'reconciliation' | 'full';
+  started_at: string;
+  completed_at: string | null;
+  records_fetched: number;
+  records_created: number;
+  records_updated: number;
+  matches_found: number;
+  errors: string | null;
+  status: 'running' | 'completed' | 'failed';
+}
+
+// ============================================
 // AR SYNC HELPER FUNCTIONS
 // ============================================
 

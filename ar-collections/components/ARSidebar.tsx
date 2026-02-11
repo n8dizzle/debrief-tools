@@ -11,6 +11,7 @@ const overviewLinks = [
   { href: '/tasks', label: 'Tasks', icon: 'tasks' },
   { href: '/activity', label: 'Activity', icon: 'activity' },
   { href: '/financing', label: 'In-House Financing', icon: 'dollar' },
+  { href: '/deposits', label: 'Deposits', icon: 'bank' },
 ];
 
 const managementLinks = [
@@ -70,6 +71,11 @@ function NavIcon({ type }: { type: string }) {
     arrow: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+    ),
+    bank: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
       </svg>
     ),
   };

@@ -5,7 +5,7 @@ import { formatDateTime } from '@/lib/ar-utils';
 import { ARSyncLog, ARSlackSettings, ARSlackNotificationLog, ARJobStatusOption, ARSTTaskSource, ARSTTaskType, ARSTTaskResolution } from '@/lib/supabase';
 import { useARPermissions } from '@/hooks/useARPermissions';
 
-type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'st-tasks' | 'admin';
+type SettingsTab = 'sync' | 'notifications' | 'job-statuses' | 'st-tasks' | 'quickbooks' | 'admin';
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -62,10 +62,22 @@ export default function SettingsPage() {
   const [stConfigLastFetched, setStConfigLastFetched] = useState<string | null>(null);
   const [stConfigMessage, setStConfigMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // QuickBooks state
+  const [qbStatus, setQbStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    companyName: string | null;
+    lastSync?: { completedAt: string } | null;
+  } | null>(null);
+  const [qbLoading, setQbLoading] = useState(true);
+  const [qbMessage, setQbMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
   useEffect(() => {
     fetchSyncLogs();
     if (canManageSettings) {
       fetchSlackSettings();
+      fetchQBStatus();
     }
     if (isOwner) {
       fetchJobStatuses();
@@ -300,6 +312,79 @@ export default function SettingsPage() {
     }
   }
 
+  // QuickBooks functions
+  async function fetchQBStatus() {
+    try {
+      const response = await fetch('/api/quickbooks/status', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setQbStatus(data);
+      }
+    } catch (err) {
+      console.error('Error fetching QB status:', err);
+    } finally {
+      setQbLoading(false);
+    }
+  }
+
+  async function connectQuickBooks() {
+    try {
+      const response = await fetch('/api/quickbooks/auth', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.authUrl;
+      } else {
+        const error = await response.json();
+        setQbMessage({ type: 'error', text: error.error || 'Failed to connect' });
+      }
+    } catch (err) {
+      setQbMessage({ type: 'error', text: 'Failed to connect to QuickBooks' });
+    }
+  }
+
+  async function disconnectQuickBooks() {
+    if (!confirm('Are you sure you want to disconnect QuickBooks? You will need to re-authenticate to sync payments again.')) {
+      return;
+    }
+    setDisconnecting(true);
+    setQbMessage(null);
+    try {
+      const response = await fetch('/api/quickbooks/disconnect', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        setQbStatus({ configured: true, connected: false, companyName: null });
+        setQbMessage({ type: 'success', text: 'QuickBooks disconnected successfully' });
+      } else {
+        const error = await response.json();
+        setQbMessage({ type: 'error', text: error.error || 'Failed to disconnect' });
+      }
+    } catch (err) {
+      setQbMessage({ type: 'error', text: 'Failed to disconnect' });
+    } finally {
+      setDisconnecting(false);
+      setTimeout(() => setQbMessage(null), 5000);
+    }
+  }
+
+  // Handle QB OAuth callback params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qb = params.get('qb');
+    const error = params.get('error');
+
+    if (qb === 'connected') {
+      setQbMessage({ type: 'success', text: 'Successfully connected to QuickBooks!' });
+      fetchQBStatus();
+      window.history.replaceState({}, '', '/settings');
+      setActiveTab('quickbooks');
+    } else if (error && activeTab === 'quickbooks') {
+      setQbMessage({ type: 'error', text: `Connection error: ${error}` });
+      window.history.replaceState({}, '', '/settings');
+    }
+  }, []);
+
   if (!canManageSettings && !canRunManualSync) {
     return (
       <div className="card">
@@ -314,6 +399,7 @@ export default function SettingsPage() {
   const tabs: { id: SettingsTab; label: string; show: boolean }[] = [
     { id: 'sync', label: 'Data Sync', show: true },
     { id: 'notifications', label: 'Notifications', show: canManageSettings },
+    { id: 'quickbooks', label: 'QuickBooks', show: canManageSettings },
     { id: 'job-statuses', label: 'Workflow', show: isOwner },
     { id: 'st-tasks', label: 'ST Tasks', show: isOwner },
     { id: 'admin', label: 'Admin', show: isOwner },
@@ -1038,6 +1124,155 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* QuickBooks Integration Settings */}
+      {activeTab === 'quickbooks' && canManageSettings && (
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            QuickBooks Integration
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Connect QuickBooks Online to track payments from collection through bank deposit.
+          </p>
+
+          {qbMessage && (
+            <div
+              className="mb-4 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: qbMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: qbMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+              }}
+            >
+              {qbMessage.text}
+            </div>
+          )}
+
+          {qbLoading ? (
+            <div className="text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading...</div>
+          ) : qbStatus?.connected ? (
+            <div className="space-y-4">
+              {/* Connected Status */}
+              <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)' }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="var(--christmas-green)" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      Connected to QuickBooks
+                    </div>
+                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      {qbStatus.companyName || 'Company connected'}
+                    </div>
+                  </div>
+                </div>
+                <span className="badge badge-current">Active</span>
+              </div>
+
+              {/* Last Sync */}
+              {qbStatus.lastSync && (
+                <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="text-sm">
+                    <span style={{ color: 'var(--text-muted)' }}>Last synced: </span>
+                    <span style={{ color: 'var(--christmas-cream)' }}>
+                      {formatDateTime(qbStatus.lastSync.completedAt)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Disconnect */}
+              {isOwner && (
+                <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div>
+                    <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      Disconnect QuickBooks
+                    </div>
+                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      Remove the QuickBooks connection from this account
+                    </div>
+                  </div>
+                  <button
+                    onClick={disconnectQuickBooks}
+                    disabled={disconnecting}
+                    className="btn"
+                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--status-error)' }}
+                  >
+                    {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Not Connected */}
+              <div className="p-6 rounded-lg text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <svg
+                  className="w-12 h-12 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                  />
+                </svg>
+                <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                  Not Connected
+                </h3>
+                <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                  Connect your QuickBooks Online account to sync payments and track deposits.
+                </p>
+                <button onClick={connectQuickBooks} className="btn btn-primary">
+                  Connect QuickBooks
+                </button>
+              </div>
+
+              {/* What You Get */}
+              <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="font-medium mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                  What you get with QuickBooks integration:
+                </div>
+                <ul className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 mt-0.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    See payments stuck in &quot;Undeposited Funds&quot;
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 mt-0.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Auto-match QB payments to ServiceTitan invoices
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 mt-0.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Track payment reconciliation from collection to bank
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 mt-0.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Identify discrepancies between systems
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
