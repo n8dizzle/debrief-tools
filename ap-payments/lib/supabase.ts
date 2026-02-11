@@ -129,6 +129,20 @@ export interface APDashboardStats {
   last_sync: string | null;
 }
 
+export interface APContractorRateHistory {
+  id: string;
+  contractor_id: string;
+  rate_id: string | null;
+  trade: string;
+  job_type_name: string;
+  old_amount: number | null;
+  new_amount: number;
+  change_type: 'created' | 'updated';
+  changed_by: string | null;
+  effective_date: string;
+  created_at: string;
+}
+
 export interface APContractorWithStats extends APContractor {
   total_jobs: number;
   total_paid: number;

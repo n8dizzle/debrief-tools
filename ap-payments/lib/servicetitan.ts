@@ -197,6 +197,19 @@ export class ServiceTitanClient {
     }
   }
 
+  async getInvoice(invoiceId: number): Promise<any | null> {
+    try {
+      return await this.request<any>(
+        'GET',
+        `accounting/v2/tenant/${this.tenantId}/invoices/${invoiceId}`,
+        {}
+      );
+    } catch (error) {
+      console.error(`Failed to get invoice ${invoiceId}:`, error);
+      return null;
+    }
+  }
+
   async getCustomer(customerId: number): Promise<STCustomer | null> {
     try {
       return await this.request<STCustomer>(

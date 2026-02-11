@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { APInstallJob, APContractor, APContractorRate } from '@/lib/supabase';
 import { formatCurrency, formatDate } from '@/lib/ap-utils';
 import PaymentStatusBadge from './PaymentStatusBadge';
@@ -102,6 +103,7 @@ function InlineAssignmentRow({
   onPaymentStatusChange: JobsTableProps['onPaymentStatusChange'];
   columnOrder: number[];
 }) {
+  const router = useRouter();
   const [assignmentType, setAssignmentType] = useState(job.assignment_type);
   const [contractorId, setContractorId] = useState(job.contractor_id || '');
   const [paymentAmount, setPaymentAmount] = useState(
@@ -202,6 +204,20 @@ function InlineAssignmentRow({
         <span className="font-mono text-sm" style={{ color: 'var(--christmas-green-light)' }}>
           {job.job_number}
         </span>
+        {job.st_job_id && (
+          <a
+            href={`https://go.servicetitan.com/#/Job/Index/${job.st_job_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-1.5 inline-flex align-middle"
+            title="Open in ServiceTitan"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        )}
       </td>
     ),
     customer_name: (
@@ -335,8 +351,18 @@ function InlineAssignmentRow({
     ),
   };
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('select, input, button, a, textarea')) return;
+    router.push(`/jobs/${job.id}`);
+  };
+
   return (
-    <tr style={{ opacity: saving ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+    <tr
+      style={{ opacity: saving ? 0.6 : 1, transition: 'opacity 0.2s', cursor: 'pointer' }}
+      onClick={handleRowClick}
+    >
       {columnOrder.map(idx => cells[COLUMNS[idx].key])}
     </tr>
   );

@@ -53,6 +53,15 @@ export async function POST(
 
   const supabase = getServerSupabase();
 
+  // Check if rate already exists (to determine if this is create or update)
+  const { data: existing } = await supabase
+    .from('ap_contractor_rates')
+    .select('id, rate_amount')
+    .eq('contractor_id', id)
+    .eq('trade', trade)
+    .eq('job_type_name', job_type_name)
+    .single();
+
   const { data, error } = await supabase
     .from('ap_contractor_rates')
     .upsert(
@@ -74,6 +83,19 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Log rate history
+  await supabase.from('ap_contractor_rate_history').insert({
+    contractor_id: id,
+    rate_id: data.id,
+    trade,
+    job_type_name,
+    old_amount: existing?.rate_amount ?? null,
+    new_amount: rate_amount,
+    change_type: existing ? 'updated' : 'created',
+    changed_by: session.user.id || null,
+    effective_date: new Date().toISOString().split('T')[0],
+  });
+
   return NextResponse.json(data);
 }
 
@@ -91,6 +113,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const { id } = await params;
   const body = await request.json();
   const { rate_id, rate_amount } = body;
 
@@ -99,6 +122,13 @@ export async function PATCH(
   }
 
   const supabase = getServerSupabase();
+
+  // Fetch the old rate for history
+  const { data: oldRate } = await supabase
+    .from('ap_contractor_rates')
+    .select('rate_amount, trade, job_type_name')
+    .eq('id', rate_id)
+    .single();
 
   const { data, error } = await supabase
     .from('ap_contractor_rates')
@@ -110,6 +140,21 @@ export async function PATCH(
   if (error) {
     console.error('Error updating rate:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Log rate history (only if amount actually changed)
+  if (oldRate && oldRate.rate_amount !== rate_amount) {
+    await supabase.from('ap_contractor_rate_history').insert({
+      contractor_id: id,
+      rate_id,
+      trade: oldRate.trade,
+      job_type_name: oldRate.job_type_name,
+      old_amount: oldRate.rate_amount,
+      new_amount: rate_amount,
+      change_type: 'updated',
+      changed_by: session.user.id || null,
+      effective_date: new Date().toISOString().split('T')[0],
+    });
   }
 
   return NextResponse.json(data);
