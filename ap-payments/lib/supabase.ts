@@ -24,12 +24,15 @@ export function getServerSupabase() {
 // AP PAYMENTS TYPES
 // ============================================
 
+export type APContractorTrade = 'hvac' | 'plumbing' | 'both';
+
 export interface APContractor {
   id: string;
   name: string;
   contact_name: string | null;
   phone: string | null;
   email: string | null;
+  trade: APContractorTrade;
   payment_method: string | null;
   payment_notes: string | null;
   is_active: boolean;
@@ -83,6 +86,7 @@ export interface APInstallJob {
   payment_expected_date: string | null;
   payment_method: string | null;
   payment_notes: string | null;
+  is_ignored: boolean;
   synced_at: string | null;
   created_at: string;
   updated_at: string;
@@ -116,6 +120,14 @@ export interface APSyncLog {
   status: string | null;
 }
 
+export interface APMonthlyTrend {
+  month: string;        // "2026-01"
+  label: string;        // "Jan 26"
+  job_total: number;    // sum of job_total for contractor jobs
+  contractor_pay: number; // sum of payment_amount for contractor jobs
+  contractor_pct: number; // (contractor_pay / job_total) * 100
+}
+
 export interface APDashboardStats {
   total_jobs: number;
   unassigned_jobs: number;
@@ -126,6 +138,8 @@ export interface APDashboardStats {
   payments_paid: number;
   total_outstanding: number;
   total_paid: number;
+  contractor_pct: number;
+  monthly_trend: APMonthlyTrend[];
   last_sync: string | null;
 }
 

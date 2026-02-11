@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name, contact_name, phone, email, payment_method, payment_notes } = body;
+  const { name, contact_name, phone, email, trade, payment_method, payment_notes } = body;
 
   if (!name) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       contact_name: contact_name || null,
       phone: phone || null,
       email: email || null,
+      trade: trade || 'both',
       payment_method: payment_method || null,
       payment_notes: payment_notes || null,
     })

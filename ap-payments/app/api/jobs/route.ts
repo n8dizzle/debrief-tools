@@ -13,10 +13,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   const businessUnits = searchParams.get('businessUnits');
+  const trade = searchParams.get('trade');
   const assignment = searchParams.get('assignment');
   const paymentStatus = searchParams.get('paymentStatus');
   const contractorId = searchParams.get('contractorId');
   const search = searchParams.get('search');
+  const showIgnored = searchParams.get('showIgnored');
+  const start = searchParams.get('start');
+  const end = searchParams.get('end');
   const limit = parseInt(searchParams.get('limit') || '50');
   const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -30,11 +34,19 @@ export async function GET(request: NextRequest) {
     .order('scheduled_date', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  // Exclude ignored jobs by default
+  if (showIgnored !== 'true') {
+    query = query.eq('is_ignored', false);
+  }
+
   if (businessUnits) {
     const buNames = businessUnits.split(',').map(s => s.trim()).filter(Boolean);
     if (buNames.length > 0) {
       query = query.in('business_unit_name', buNames);
     }
+  }
+  if (trade) {
+    query = query.eq('trade', trade);
   }
   if (assignment) {
     query = query.eq('assignment_type', assignment);
@@ -44,6 +56,12 @@ export async function GET(request: NextRequest) {
   }
   if (contractorId) {
     query = query.eq('contractor_id', contractorId);
+  }
+  if (start) {
+    query = query.gte('completed_date', start);
+  }
+  if (end) {
+    query = query.lte('completed_date', end);
   }
   if (search) {
     query = query.or(`job_number.ilike.%${search}%,customer_name.ilike.%${search}%`);

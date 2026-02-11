@@ -11,18 +11,13 @@ export async function GET() {
 
   const supabase = getServerSupabase();
 
-  const { data, error } = await supabase
-    .from('ap_install_jobs')
-    .select('business_unit_name')
-    .not('business_unit_name', 'is', null)
-    .order('business_unit_name');
+  const { data, error } = await supabase.rpc('ap_distinct_business_units');
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Get distinct sorted names
-  const names = [...new Set((data || []).map(r => r.business_unit_name as string))];
+  const names = (data || []).map((r: { business_unit_name: string }) => r.business_unit_name);
 
   return NextResponse.json(names);
 }

@@ -7,7 +7,7 @@ import { useAPPermissions } from '@/hooks/useAPPermissions';
 
 const mainLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
-  { href: '/jobs', label: 'Jobs', icon: 'briefcase' },
+  { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase' },
   { href: '/contractors', label: 'Contractors', icon: 'users', requiresManager: true },
   { href: '/settings', label: 'Settings', icon: 'settings', requiresManager: true },
 ];

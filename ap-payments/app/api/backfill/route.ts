@@ -3,21 +3,28 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient, formatAddress, STJob } from '@/lib/servicetitan';
-import { isValidCronRequest, formatLocalDate } from '@/lib/ap-utils';
+import { formatLocalDate } from '@/lib/ap-utils';
 
 export const maxDuration = 60;
 
+/**
+ * Backfill endpoint — processes one 2-week chunk at a time.
+ * The UI calls this repeatedly until all chunks are done.
+ *
+ * Query params:
+ *   chunk=0  (0-indexed chunk number, default 0)
+ *
+ * Returns:
+ *   { done: boolean, chunk, chunks_total, jobs_processed, jobs_created, jobs_updated }
+ */
 export async function POST(request: NextRequest) {
-  const isCron = isValidCronRequest(request);
-  if (!isCron) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const role = session.user.role || 'employee';
-    if (role !== 'owner' && role !== 'manager') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const role = (session.user as any).role || 'employee';
+  if (role !== 'owner' && role !== 'manager') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const supabase = getServerSupabase();
@@ -27,22 +34,51 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ServiceTitan not configured' }, { status: 500 });
   }
 
-  const { data: syncLog } = await supabase
-    .from('ap_sync_log')
-    .insert({
-      sync_type: 'full',
-      started_at: new Date().toISOString(),
-      status: 'running',
-    })
-    .select()
-    .single();
+  // Build 2-week chunks from Jan 1 to today
+  const startDate = new Date('2026-01-01');
+  const today = new Date();
+  today.setHours(23, 59, 59, 0);
 
-  const syncId = syncLog?.id;
+  const CHUNK_DAYS = 14;
+  const chunks: { start: string; end: string }[] = [];
+  let cursor = new Date(startDate);
+  while (cursor < today) {
+    const chunkEnd = new Date(cursor.getTime() + CHUNK_DAYS * 24 * 60 * 60 * 1000);
+    const end = chunkEnd > today ? today : chunkEnd;
+    chunks.push({
+      start: formatLocalDate(cursor),
+      end: formatLocalDate(end),
+    });
+    cursor = new Date(chunkEnd.getTime());
+  }
 
+  const { searchParams } = new URL(request.url);
+  const chunkIndex = parseInt(searchParams.get('chunk') || '0', 10);
+
+  if (chunkIndex >= chunks.length) {
+    return NextResponse.json({ done: true, chunk: chunkIndex, chunks_total: chunks.length });
+  }
+
+  const chunk = chunks[chunkIndex];
   let jobsProcessed = 0;
   let jobsCreated = 0;
   let jobsUpdated = 0;
   const errors: string[] = [];
+
+  // Only create sync log on first chunk
+  let syncId: string | null = null;
+  if (chunkIndex === 0) {
+    const { data: syncLog } = await supabase
+      .from('ap_sync_log')
+      .insert({
+        sync_type: 'backfill',
+        started_at: new Date().toISOString(),
+        status: 'running',
+      })
+      .select()
+      .single();
+    syncId = syncLog?.id || null;
+  }
 
   try {
     const [businessUnits, jobTypes] = await Promise.all([
@@ -50,7 +86,6 @@ export async function POST(request: NextRequest) {
       st.getJobTypes(),
     ]);
 
-    // Load BU → trade mapping
     const { data: mappingRow } = await supabase
       .from('ap_sync_settings')
       .select('value')
@@ -59,22 +94,8 @@ export async function POST(request: NextRequest) {
 
     const buTradeMapping: Record<string, string> = mappingRow?.value || {};
 
-    // Upcoming jobs come from appointments (which have scheduled dates)
-    // Recent completed jobs come from the jobs endpoint filtered by completedOn
-    const [upcomingResult, recentJobs] = await Promise.all([
-      st.getUpcomingInstallJobs(30),
-      st.getRecentInstallJobs(7),
-    ]);
-
-    const { jobs: upcomingJobs, appointmentMap } = upcomingResult;
-
-    // Dedupe by job ID (upcoming takes priority for appointment data)
-    const jobMap = new Map<number, STJob>();
-    for (const job of [...recentJobs, ...upcomingJobs]) {
-      jobMap.set(job.id, job);
-    }
-
-    const allJobs = Array.from(jobMap.values());
+    // Fetch just this chunk's date range
+    const { jobs: allJobs, appointmentMap } = await st.getInstallJobsSince(chunk.start, chunk.end);
 
     // Get existing jobs from DB
     const stJobIds = allJobs.map(j => j.id);
@@ -89,8 +110,6 @@ export async function POST(request: NextRequest) {
       (existingJobs || []).map(j => [j.st_job_id, j])
     );
 
-    // Pre-build BU lookup maps (sync, no API calls)
-    // Use configurable BU→Trade mapping; fall back to name-based detection
     const buNameMap = new Map(businessUnits.map(bu => [bu.id, bu.name]));
     const tradeMap = new Map<number, 'hvac' | 'plumbing'>(
       businessUnits.map(bu => {
@@ -100,7 +119,6 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Process jobs - insert/update in DB
     for (const job of allJobs) {
       try {
         jobsProcessed++;
@@ -108,7 +126,6 @@ export async function POST(request: NextRequest) {
         const trade = tradeMap.get(job.businessUnitId) || 'hvac';
         const buName = buNameMap.get(job.businessUnitId) || null;
 
-        // Scheduled date comes from appointment start time
         let scheduledDate: string | null = null;
         const apptStart = appointmentMap.get(job.id);
         if (apptStart) {
@@ -165,28 +182,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Enrich new jobs with customer/location details (best-effort, 10s timeout)
+    // Enrich new jobs with customer/location details (skip if no new jobs to save time)
     const newJobs = allJobs.filter(j => !existingMap.has(j.id));
     if (newJobs.length > 0) {
       await enrichJobDetails(st, supabase, newJobs);
     }
 
+    const isDone = chunkIndex >= chunks.length - 1;
+
+    // Update sync log on last chunk or first chunk
     if (syncId) {
       await supabase
         .from('ap_sync_log')
         .update({
-          completed_at: new Date().toISOString(),
+          completed_at: isDone ? new Date().toISOString() : null,
           jobs_processed: jobsProcessed,
           jobs_created: jobsCreated,
           jobs_updated: jobsUpdated,
           errors: errors.length > 0 ? errors.join('\n') : null,
-          status: 'completed',
+          status: isDone ? 'completed' : 'running',
         })
         .eq('id', syncId);
     }
 
     return NextResponse.json({
-      success: true,
+      done: isDone,
+      chunk: chunkIndex,
+      chunks_total: chunks.length,
+      chunk_range: `${chunk.start} to ${chunk.end}`,
       jobs_processed: jobsProcessed,
       jobs_created: jobsCreated,
       jobs_updated: jobsUpdated,
@@ -194,7 +217,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Sync failed:', msg);
+    console.error(`Backfill chunk ${chunkIndex} failed:`, msg);
 
     if (syncId) {
       await supabase
@@ -210,13 +233,13 @@ export async function POST(request: NextRequest) {
         .eq('id', syncId);
     }
 
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg, chunk: chunkIndex }, { status: 500 });
   }
 }
 
 /**
  * Best-effort enrichment: fetch customer/location details for newly created jobs.
- * All fetches run in parallel with a 10s timeout to stay within function limits.
+ * Processes in small batches to avoid rate limits and timeouts.
  */
 async function enrichJobDetails(
   st: ReturnType<typeof getServiceTitanClient>,
@@ -226,63 +249,56 @@ async function enrichJobDetails(
   const customerIds = [...new Set(jobs.map(j => j.customerId))];
   const locationIds = [...new Set(jobs.map(j => j.locationId))];
 
-  const timeout = (ms: number) => new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('timeout')), ms)
-  );
+  const customerMap = new Map<number, { name: string; phone: string; email: string }>();
+  const locationMap = new Map<number, string>();
 
-  try {
-    const [customerResults, locationResults] = await Promise.race([
-      Promise.all([
-        Promise.allSettled(customerIds.map(id => st.getCustomer(id))),
-        Promise.allSettled(locationIds.map(id => st.getLocation(id))),
-      ]),
-      timeout(10000).then(() => { throw new Error('timeout'); }),
-    ]) as [PromiseSettledResult<any>[], PromiseSettledResult<any>[]];
+  const BATCH_SIZE = 5;
 
-    const customerMap = new Map<number, { name: string; phone: string; email: string }>();
-    const locationMap = new Map<number, string>();
-
-    customerResults.forEach((result, idx) => {
+  // Fetch customers in batches of 5
+  for (let i = 0; i < customerIds.length; i += BATCH_SIZE) {
+    const batch = customerIds.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(batch.map(id => st.getCustomer(id)));
+    results.forEach((result, idx) => {
       if (result.status === 'fulfilled' && result.value) {
-        customerMap.set(customerIds[idx], {
+        customerMap.set(batch[idx], {
           name: result.value.name || '',
           phone: result.value.phoneNumber || '',
           email: result.value.email || '',
         });
       }
     });
+  }
 
-    locationResults.forEach((result, idx) => {
+  // Fetch locations in batches of 5
+  for (let i = 0; i < locationIds.length; i += BATCH_SIZE) {
+    const batch = locationIds.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(batch.map(id => st.getLocation(id)));
+    results.forEach((result, idx) => {
       if (result.status === 'fulfilled' && result.value) {
-        locationMap.set(locationIds[idx], formatAddress(result.value));
+        locationMap.set(batch[idx], formatAddress(result.value));
       }
     });
+  }
 
-    // Update jobs with enriched data
-    for (const job of jobs) {
-      const customer = customerMap.get(job.customerId);
-      const address = locationMap.get(job.locationId);
-      if (customer || address) {
-        const updates: Record<string, unknown> = {};
-        if (customer?.name) updates.customer_name = customer.name;
-        if (customer?.phone) updates.customer_phone = customer.phone;
-        if (customer?.email) updates.customer_email = customer.email;
-        if (address) updates.job_address = address;
+  console.log(`Enriched ${customerMap.size}/${customerIds.length} customers, ${locationMap.size}/${locationIds.length} locations`);
 
-        if (Object.keys(updates).length > 0) {
-          await supabase
-            .from('ap_install_jobs')
-            .update(updates)
-            .eq('st_job_id', job.id);
-        }
+  // Update jobs with enriched data
+  for (const job of jobs) {
+    const customer = customerMap.get(job.customerId);
+    const address = locationMap.get(job.locationId);
+    if (customer || address) {
+      const updates: Record<string, unknown> = {};
+      if (customer?.name) updates.customer_name = customer.name;
+      if (customer?.phone) updates.customer_phone = customer.phone;
+      if (customer?.email) updates.customer_email = customer.email;
+      if (address) updates.job_address = address;
+
+      if (Object.keys(updates).length > 0) {
+        await supabase
+          .from('ap_install_jobs')
+          .update(updates)
+          .eq('st_job_id', job.id);
       }
     }
-  } catch {
-    console.log('Customer/location enrichment timed out - will retry on next sync');
   }
-}
-
-// Support both GET and POST for Vercel cron
-export async function GET(request: NextRequest) {
-  return POST(request);
 }

@@ -74,7 +74,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { name, contact_name, phone, email, payment_method, payment_notes, is_active } = body;
+  const { name, contact_name, phone, email, trade, payment_method, payment_notes, is_active } = body;
 
   const supabase = getServerSupabase();
 
@@ -86,6 +86,7 @@ export async function PATCH(
   if (contact_name !== undefined) updateData.contact_name = contact_name;
   if (phone !== undefined) updateData.phone = phone;
   if (email !== undefined) updateData.email = email;
+  if (trade !== undefined) updateData.trade = trade;
   if (payment_method !== undefined) updateData.payment_method = payment_method;
   if (payment_notes !== undefined) updateData.payment_notes = payment_notes;
   if (is_active !== undefined) updateData.is_active = is_active;

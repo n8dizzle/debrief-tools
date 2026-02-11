@@ -45,6 +45,7 @@ export default function ContractorDetailPage() {
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [trade, setTrade] = useState('both');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
 
@@ -72,6 +73,7 @@ export default function ContractorDetailPage() {
         setContactName(data.contact_name || '');
         setPhone(data.phone || '');
         setEmail(data.email || '');
+        setTrade(data.trade || 'both');
         setPaymentMethod(data.payment_method || '');
         setPaymentNotes(data.payment_notes || '');
       }
@@ -114,6 +116,7 @@ export default function ContractorDetailPage() {
           contact_name: contactName.trim() || null,
           phone: phone.trim() || null,
           email: email.trim() || null,
+          trade: trade || 'both',
           payment_method: paymentMethod || null,
           payment_notes: paymentNotes.trim() || null,
         }),
@@ -290,6 +293,14 @@ export default function ContractorDetailPage() {
                   <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Trade</label>
+                  <select className="select" value={trade} onChange={(e) => setTrade(e.target.value)}>
+                    <option value="both">Both (HVAC & Plumbing)</option>
+                    <option value="hvac">HVAC Only</option>
+                    <option value="plumbing">Plumbing Only</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Payment Method</label>
                   <select className="select" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                     <option value="">Select...</option>
@@ -322,6 +333,28 @@ export default function ContractorDetailPage() {
                 <div>
                   <div style={{ color: 'var(--text-muted)' }}>Email</div>
                   <div style={{ color: 'var(--text-primary)' }}>{contractor.email || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Trade</div>
+                  <div>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: contractor.trade === 'hvac'
+                          ? 'rgba(93, 138, 102, 0.15)'
+                          : contractor.trade === 'plumbing'
+                            ? 'rgba(184, 149, 107, 0.15)'
+                            : 'rgba(96, 165, 250, 0.15)',
+                        color: contractor.trade === 'hvac'
+                          ? 'var(--christmas-green-light)'
+                          : contractor.trade === 'plumbing'
+                            ? 'var(--christmas-gold)'
+                            : '#60a5fa',
+                      }}
+                    >
+                      {contractor.trade === 'both' ? 'HVAC & Plumbing' : (contractor.trade || 'both').toUpperCase()}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <div style={{ color: 'var(--text-muted)' }}>Payment Method</div>

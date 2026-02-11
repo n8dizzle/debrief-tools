@@ -16,6 +16,7 @@ export default function ContractorsPage() {
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [trade, setTrade] = useState('both');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -51,6 +52,7 @@ export default function ContractorsPage() {
           contact_name: contactName.trim() || null,
           phone: phone.trim() || null,
           email: email.trim() || null,
+          trade: trade || 'both',
           payment_method: paymentMethod || null,
           payment_notes: paymentNotes.trim() || null,
         }),
@@ -61,6 +63,7 @@ export default function ContractorsPage() {
         setContactName('');
         setPhone('');
         setEmail('');
+        setTrade('both');
         setPaymentMethod('');
         setPaymentNotes('');
         setShowAddForm(false);
@@ -161,6 +164,20 @@ export default function ContractorsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                Trade
+              </label>
+              <select
+                className="select"
+                value={trade}
+                onChange={(e) => setTrade(e.target.value)}
+              >
+                <option value="both">Both (HVAC & Plumbing)</option>
+                <option value="hvac">HVAC Only</option>
+                <option value="plumbing">Plumbing Only</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                 Payment Method
               </label>
               <select
@@ -233,8 +250,27 @@ export default function ContractorsPage() {
                     {contractor.phone && <span>{contractor.phone}</span>}
                     {contractor.email && <span>{contractor.email}</span>}
                   </div>
-                  {contractor.payment_method && (
-                    <div className="mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {contractor.trade && (
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor: contractor.trade === 'hvac'
+                            ? 'rgba(93, 138, 102, 0.15)'
+                            : contractor.trade === 'plumbing'
+                              ? 'rgba(184, 149, 107, 0.15)'
+                              : 'rgba(96, 165, 250, 0.15)',
+                          color: contractor.trade === 'hvac'
+                            ? 'var(--christmas-green-light)'
+                            : contractor.trade === 'plumbing'
+                              ? 'var(--christmas-gold)'
+                              : '#60a5fa',
+                        }}
+                      >
+                        {contractor.trade === 'both' ? 'HVAC & Plumbing' : contractor.trade.toUpperCase()}
+                      </span>
+                    )}
+                    {contractor.payment_method && (
                       <span
                         className="badge"
                         style={{
@@ -244,8 +280,8 @@ export default function ContractorsPage() {
                       >
                         {contractor.payment_method.replace(/_/g, ' ')}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <div className="flex-shrink-0">
                   {!contractor.is_active && (

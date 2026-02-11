@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { APInstallJob, APContractor, APContractorRate } from '@/lib/supabase';
 import { formatCurrency, formatDate } from '@/lib/ap-utils';
@@ -42,6 +43,29 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 const DEFAULT_ORDER = COLUMNS.map((_, i) => i);
+const DEFAULT_WIDTHS = COLUMNS.map(c => c.defaultWidth);
+const STORAGE_KEY_ORDER = 'ap-jobs-col-order';
+const STORAGE_KEY_WIDTHS = 'ap-jobs-col-widths';
+const STORAGE_KEY_VISIBILITY = 'ap-jobs-col-visibility';
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Validate array length matches column count (for array types)
+      if (Array.isArray(parsed) && Array.isArray(fallback) && parsed.length === (fallback as unknown[]).length) {
+        return parsed as T;
+      }
+      // For object types (visibility map), just return as-is
+      if (!Array.isArray(parsed) && typeof parsed === 'object') {
+        return parsed as T;
+      }
+    }
+  } catch { /* ignore */ }
+  return fallback;
+}
 
 // --- Sort helpers ---
 
@@ -59,7 +83,7 @@ function getSortValue(job: APInstallJob, key: SortKey): string | number {
     case 'customer_name': return (job.customer_name || '').toLowerCase();
     case 'business_unit': return (job.business_unit_name || job.trade || '').toLowerCase();
     case 'job_type_name': return (job.job_type_name || '').toLowerCase();
-    case 'date': return job.scheduled_date || job.completed_date || '';
+    case 'date': return job.completed_date || job.scheduled_date || '';
     case 'job_total': return job.job_total != null ? Number(job.job_total) : -1;
     case 'assignment_type': return ASSIGNMENT_ORDER[job.assignment_type] ?? 0;
     case 'contractor': return (job.contractor?.name || '').toLowerCase();
@@ -82,6 +106,9 @@ interface JobsTableProps {
     payment_amount?: number;
   }) => Promise<void>;
   onPaymentStatusChange: (jobId: string, newStatus: string) => Promise<void>;
+  onBulkExclude?: (jobIds: string[], isIgnored: boolean) => Promise<void>;
+  showIgnored?: boolean;
+  columnPickerContainer?: React.RefObject<HTMLDivElement | null>;
 }
 
 // --- Inline row component ---
@@ -93,6 +120,9 @@ function InlineAssignmentRow({
   canManagePayments,
   onAssign,
   onPaymentStatusChange,
+  isSelected,
+  onToggleSelect,
+  showCheckbox,
   columnOrder,
 }: {
   job: APInstallJob;
@@ -101,6 +131,9 @@ function InlineAssignmentRow({
   canManagePayments: boolean;
   onAssign: JobsTableProps['onAssign'];
   onPaymentStatusChange: JobsTableProps['onPaymentStatusChange'];
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  showCheckbox: boolean;
   columnOrder: number[];
 }) {
   const router = useRouter();
@@ -252,7 +285,7 @@ function InlineAssignmentRow({
     ),
     date: (
       <td key="date" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-        {formatDate(job.scheduled_date || job.completed_date)}
+        {formatDate(job.completed_date || job.scheduled_date)}
       </td>
     ),
     job_total: (
@@ -358,12 +391,32 @@ function InlineAssignmentRow({
     router.push(`/jobs/${job.id}`);
   };
 
+  const isIgnored = job.is_ignored;
+
   return (
     <tr
-      style={{ opacity: saving ? 0.6 : 1, transition: 'opacity 0.2s', cursor: 'pointer' }}
+      style={{
+        opacity: saving ? 0.6 : isIgnored ? 0.45 : 1,
+        transition: 'opacity 0.2s',
+        cursor: 'pointer',
+        backgroundColor: isSelected ? 'rgba(93, 138, 102, 0.08)' : undefined,
+      }}
       onClick={handleRowClick}
     >
-      {columnOrder.map(idx => cells[COLUMNS[idx].key])}
+      {showCheckbox && (
+        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', padding: '0 4px' }}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            style={{ accentColor: 'var(--christmas-green)', cursor: 'pointer' }}
+          />
+        </td>
+      )}
+      {columnOrder.map(idx => {
+        // columnOrder already filtered to visible columns
+        return cells[COLUMNS[idx].key];
+      })}
     </tr>
   );
 }
@@ -389,13 +442,65 @@ export default function JobsTable({
   canManagePayments,
   onAssign,
   onPaymentStatusChange,
+  onBulkExclude,
+  showIgnored,
+  columnPickerContainer,
 }: JobsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [colWidths, setColWidths] = useState<number[]>(() => COLUMNS.map(c => c.defaultWidth));
-  const [columnOrder, setColumnOrder] = useState<number[]>(DEFAULT_ORDER);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActing, setBulkActing] = useState(false);
+  const [colWidths, setColWidths] = useState<number[]>(() => loadFromStorage(STORAGE_KEY_WIDTHS, DEFAULT_WIDTHS));
+  const [columnOrder, setColumnOrder] = useState<number[]>(() => loadFromStorage(STORAGE_KEY_ORDER, DEFAULT_ORDER));
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
+    loadFromStorage(STORAGE_KEY_VISIBILITY, {} as Record<string, boolean>)
+  );
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const columnPickerRef = useRef<HTMLDivElement>(null);
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<number | null>(null);
+
+  // Close column picker on outside click
+  useEffect(() => {
+    if (!showColumnPicker) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (columnPickerRef.current && !columnPickerRef.current.contains(event.target as Node)) {
+        setShowColumnPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColumnPicker]);
+
+  // Column visibility helpers
+  const isColumnVisible = useCallback((key: SortKey) => columnVisibility[key] !== false, [columnVisibility]);
+
+  const toggleColumnVisibility = useCallback((key: SortKey) => {
+    setColumnVisibility(prev => {
+      const next = { ...prev, [key]: prev[key] === false };
+      try { localStorage.setItem(STORAGE_KEY_VISIBILITY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  // Filtered column order (only visible columns)
+  const visibleColumnOrder = useMemo(
+    () => columnOrder.filter(idx => isColumnVisible(COLUMNS[idx].key)),
+    [columnOrder, isColumnVisible]
+  );
+
+  // Persist column order and widths to localStorage
+  const orderRef = useRef(columnOrder);
+  const widthsRef = useRef(colWidths);
+  orderRef.current = columnOrder;
+  widthsRef.current = colWidths;
+
+  const saveLayout = useCallback(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ORDER, JSON.stringify(orderRef.current));
+      localStorage.setItem(STORAGE_KEY_WIDTHS, JSON.stringify(widthsRef.current));
+    } catch { /* ignore */ }
+  }, []);
 
   // Resize state
   const resizingCol = useRef<number | null>(null);
@@ -426,13 +531,14 @@ export default function JobsTable({
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      saveLayout();
     };
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-  }, [colWidths]);
+  }, [colWidths, saveLayout]);
 
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
@@ -477,13 +583,11 @@ export default function JobsTable({
 
     setColumnOrder(prev => {
       const next = [...prev];
-      // Remove the dragged item and insert at the drop position
       const [moved] = next.splice(dragCol, 1);
       next.splice(orderPos, 0, moved);
       return next;
     });
 
-    // Also reorder widths to match
     setColWidths(prev => {
       const next = [...prev];
       const [movedW] = next.splice(dragCol, 1);
@@ -493,7 +597,10 @@ export default function JobsTable({
 
     setDragCol(null);
     setDragOverCol(null);
-  }, [dragCol]);
+
+    // Persist after state updates
+    requestAnimationFrame(() => saveLayout());
+  }, [dragCol, saveLayout]);
 
   const handleDragEnd = useCallback(() => {
     setDragCol(null);
@@ -511,7 +618,49 @@ export default function JobsTable({
     });
   }, [jobs, sortKey, sortDir]);
 
-  const totalWidth = colWidths.reduce((s, w) => s + w, 0);
+  // Clear selection when jobs change (e.g. after bulk action or filter change)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [jobs]);
+
+  const showCheckbox = !!onBulkExclude;
+  const allOnPageSelected = sortedJobs.length > 0 && sortedJobs.every(j => selectedIds.has(j.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = useCallback(() => {
+    if (allOnPageSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedJobs.map(j => j.id)));
+    }
+  }, [allOnPageSelected, sortedJobs]);
+
+  const toggleSelect = useCallback((jobId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  }, []);
+
+  const handleBulkAction = useCallback(async (isIgnored: boolean) => {
+    if (!onBulkExclude || selectedIds.size === 0) return;
+    setBulkActing(true);
+    try {
+      await onBulkExclude(Array.from(selectedIds), isIgnored);
+      setSelectedIds(new Set());
+    } finally {
+      setBulkActing(false);
+    }
+  }, [onBulkExclude, selectedIds]);
+
+  const CHECKBOX_WIDTH = 40;
+  const visibleWidths = visibleColumnOrder.map(origIdx => {
+    const orderPos = columnOrder.indexOf(origIdx);
+    return colWidths[orderPos] ?? COLUMNS[origIdx].defaultWidth;
+  });
+  const totalWidth = visibleWidths.reduce((s, w) => s + w, 0) + (showCheckbox ? CHECKBOX_WIDTH : 0);
 
   if (isLoading) {
     return (
@@ -538,92 +687,235 @@ export default function JobsTable({
     );
   }
 
-  return (
-    <div className="card p-0 overflow-hidden">
-      <div className="table-wrapper">
-        <table className="ap-table" style={{ tableLayout: 'fixed', width: `${totalWidth}px`, minWidth: '100%' }}>
-          <colgroup>
-            {columnOrder.map((origIdx, i) => (
-              <col key={origIdx} style={{ width: `${colWidths[i]}px` }} />
+  // Determine if selected jobs are all excluded or all not-excluded (for action button labels)
+  const selectedJobs = sortedJobs.filter(j => selectedIds.has(j.id));
+  const allSelectedExcluded = selectedJobs.length > 0 && selectedJobs.every(j => j.is_ignored);
+  const allSelectedNotExcluded = selectedJobs.length > 0 && selectedJobs.every(j => !j.is_ignored);
+
+  const hiddenCount = COLUMNS.length - visibleColumnOrder.length;
+
+  const columnPickerElement = (
+    <div className="relative" ref={columnPickerRef}>
+      <button
+        className="btn btn-secondary text-xs"
+        onClick={() => setShowColumnPicker(!showColumnPicker)}
+      >
+        Columns{hiddenCount > 0 && ` (${hiddenCount} hidden)`}
+      </button>
+      {showColumnPicker && (
+        <div
+          className="absolute right-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-[200px]"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+        >
+          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+            Show/Hide Columns
+          </div>
+          <div className="space-y-1 max-h-[300px] overflow-y-auto">
+            {COLUMNS.map((col) => (
+              <label
+                key={col.key}
+                className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5"
+              >
+                <input
+                  type="checkbox"
+                  checked={isColumnVisible(col.key)}
+                  onChange={() => toggleColumnVisibility(col.key)}
+                  className="w-4 h-4"
+                  style={{ accentColor: 'var(--christmas-green)' }}
+                />
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {col.label}
+                </span>
+              </label>
             ))}
-          </colgroup>
-          <thead>
-            <tr>
-              {columnOrder.map((origIdx, orderPos) => {
-                const col = COLUMNS[origIdx];
-                const isDragging = dragCol === orderPos;
-                const isDragOver = dragOverCol === orderPos;
-                return (
-                  <th
-                    key={col.key}
-                    draggable
-                    onDragStart={(e) => handleDragStart(orderPos, e)}
-                    onDragOver={(e) => handleDragOver(orderPos, e)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(orderPos, e)}
-                    onDragEnd={handleDragEnd}
-                    style={{
-                      position: 'relative',
-                      cursor: 'grab',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      opacity: isDragging ? 0.4 : 1,
-                      borderLeft: isDragOver ? '2px solid var(--christmas-green-light)' : '2px solid transparent',
-                      transition: 'opacity 0.15s, border-color 0.15s',
-                    }}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    {/* Drag grip icon */}
-                    <span style={{ color: 'var(--text-muted)', marginRight: '4px', fontSize: '10px', opacity: 0.5 }}>⠿</span>
-                    <span>{col.label}</span>
-                    <SortIndicator direction={sortKey === col.key ? sortDir : null} />
-                    {/* Resize handle */}
-                    <span
-                      onMouseDown={(e) => {
-                        // Use the order position index into colWidths
-                        onResizeStart(orderPos, e);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onDragStart={(e) => e.stopPropagation()}
-                      draggable={false}
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: '6px',
-                        cursor: 'col-resize',
-                        zIndex: 1,
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.target as HTMLElement).style.background = 'var(--christmas-green)';
-                        (e.target as HTMLElement).style.opacity = '0.4';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.target as HTMLElement).style.background = '';
-                        (e.target as HTMLElement).style.opacity = '';
-                      }}
+          </div>
+          <div className="mt-2 pt-2 flex gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <button
+              className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
+              style={{ color: 'var(--text-muted)' }}
+              onClick={() => {
+                setColumnVisibility({});
+                try { localStorage.setItem(STORAGE_KEY_VISIBILITY, JSON.stringify({})); } catch { /* ignore */ }
+              }}
+            >
+              Show All
+            </button>
+            <button
+              className="text-xs flex-1 text-center px-2 py-1 rounded hover:bg-white/5"
+              style={{ color: 'var(--text-muted)' }}
+              onClick={() => {
+                setColumnOrder(DEFAULT_ORDER);
+                setColWidths(DEFAULT_WIDTHS);
+                setColumnVisibility({});
+                try {
+                  localStorage.removeItem(STORAGE_KEY_ORDER);
+                  localStorage.removeItem(STORAGE_KEY_WIDTHS);
+                  localStorage.removeItem(STORAGE_KEY_VISIBILITY);
+                } catch { /* ignore */ }
+              }}
+            >
+              Reset All
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Render column picker into external container via portal, or inline fallback */}
+      {columnPickerContainer?.current
+        ? createPortal(columnPickerElement, columnPickerContainer.current)
+        : <div className="flex justify-end mb-2">{columnPickerElement}</div>
+      }
+
+      {/* Floating action bar */}
+      {someSelected && onBulkExclude && (
+        <div
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg mb-3"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--christmas-green)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
+        >
+          <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+            {selectedIds.size} selected
+          </span>
+          <div className="flex-1" />
+          {(allSelectedNotExcluded || !showIgnored) && (
+            <button
+              className="btn btn-secondary text-xs py-1.5 px-3"
+              disabled={bulkActing}
+              onClick={() => handleBulkAction(true)}
+              style={{ opacity: bulkActing ? 0.6 : 1 }}
+            >
+              {bulkActing ? 'Excluding...' : 'Exclude'}
+            </button>
+          )}
+          {(allSelectedExcluded || showIgnored) && !allSelectedNotExcluded && (
+            <button
+              className="btn btn-primary text-xs py-1.5 px-3"
+              disabled={bulkActing}
+              onClick={() => handleBulkAction(false)}
+              style={{ opacity: bulkActing ? 0.6 : 1 }}
+            >
+              {bulkActing ? 'Restoring...' : 'Restore'}
+            </button>
+          )}
+          <button
+            className="text-xs px-2 py-1"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <div className="card p-0 overflow-hidden">
+        <div className="table-wrapper">
+          <table className="ap-table" style={{ tableLayout: 'fixed', width: `${totalWidth}px`, minWidth: '100%' }}>
+            <colgroup>
+              {showCheckbox && <col style={{ width: `${CHECKBOX_WIDTH}px` }} />}
+              {visibleColumnOrder.map((origIdx, i) => (
+                <col key={origIdx} style={{ width: `${visibleWidths[i]}px` }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                {showCheckbox && (
+                  <th style={{ width: `${CHECKBOX_WIDTH}px`, padding: '0 4px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={allOnPageSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allOnPageSelected; }}
+                      onChange={toggleSelectAll}
+                      style={{ accentColor: 'var(--christmas-green)', cursor: 'pointer' }}
+                      title="Select all on page"
                     />
                   </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {sortedJobs.map((job) => (
-              <InlineAssignmentRow
-                key={job.id}
-                job={job}
-                contractors={contractors}
-                canManageAssignments={canManageAssignments}
-                canManagePayments={canManagePayments}
-                onAssign={onAssign}
-                onPaymentStatusChange={onPaymentStatusChange}
-                columnOrder={columnOrder}
-              />
-            ))}
-          </tbody>
-        </table>
+                )}
+                {visibleColumnOrder.map((origIdx) => {
+                  const col = COLUMNS[origIdx];
+                  const orderPos = columnOrder.indexOf(origIdx);
+                  const isDragging = dragCol === orderPos;
+                  const isDragOver = dragOverCol === orderPos;
+                  return (
+                    <th
+                      key={col.key}
+                      draggable
+                      onDragStart={(e) => handleDragStart(orderPos, e)}
+                      onDragOver={(e) => handleDragOver(orderPos, e)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(orderPos, e)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        position: 'relative',
+                        cursor: 'grab',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        opacity: isDragging ? 0.4 : 1,
+                        borderLeft: isDragOver ? '2px solid var(--christmas-green-light)' : '2px solid transparent',
+                        transition: 'opacity 0.15s, border-color 0.15s',
+                      }}
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {/* Drag grip icon */}
+                      <span style={{ color: 'var(--text-muted)', marginRight: '4px', fontSize: '10px', opacity: 0.5 }}>⠿</span>
+                      <span>{col.label}</span>
+                      <SortIndicator direction={sortKey === col.key ? sortDir : null} />
+                      {/* Resize handle */}
+                      <span
+                        onMouseDown={(e) => {
+                          onResizeStart(orderPos, e);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onDragStart={(e) => e.stopPropagation()}
+                        draggable={false}
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: '6px',
+                          cursor: 'col-resize',
+                          zIndex: 1,
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.target as HTMLElement).style.background = 'var(--christmas-green)';
+                          (e.target as HTMLElement).style.opacity = '0.4';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.target as HTMLElement).style.background = '';
+                          (e.target as HTMLElement).style.opacity = '';
+                        }}
+                      />
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedJobs.map((job) => (
+                <InlineAssignmentRow
+                  key={job.id}
+                  job={job}
+                  contractors={contractors}
+                  canManageAssignments={canManageAssignments}
+                  canManagePayments={canManagePayments}
+                  onAssign={onAssign}
+                  onPaymentStatusChange={onPaymentStatusChange}
+                  isSelected={selectedIds.has(job.id)}
+                  onToggleSelect={() => toggleSelect(job.id)}
+                  showCheckbox={showCheckbox}
+                  columnOrder={visibleColumnOrder}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

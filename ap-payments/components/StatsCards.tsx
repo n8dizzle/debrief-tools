@@ -11,8 +11,8 @@ interface StatsCardsProps {
 export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => (
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map(i => (
           <div key={i} className="card animate-pulse">
             <div className="h-4 w-24 rounded" style={{ background: 'var(--border-subtle)' }} />
             <div className="h-8 w-16 rounded mt-2" style={{ background: 'var(--border-subtle)' }} />
@@ -36,6 +36,12 @@ export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
       color: 'var(--text-primary)',
     },
     {
+      label: 'Contractor %',
+      value: stats.contractor_jobs > 0 ? `${stats.contractor_pct}%` : 'N/A',
+      subtext: 'pay / job total',
+      color: 'var(--text-primary)',
+    },
+    {
       label: 'Payments Outstanding',
       value: formatCurrency(stats.total_outstanding),
       subtext: `${stats.payments_requested + stats.payments_approved} pending`,
@@ -49,7 +55,7 @@ export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
       {cards.map((card) => (
         <div key={card.label} className="card">
           <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
