@@ -8,6 +8,9 @@
  * - Marketing Hub
  * - Admin Panel
  * - AR Collections
+ * - Job Tracker
+ * - AP Payments
+ * - Membership Manager
  *
  * JSONB stored in portal_users.permissions column
  */
@@ -54,6 +57,28 @@ export interface ARCollectionsPermissions {
   can_manage_settings?: boolean;
 }
 
+export interface JobTrackerPermissions {
+  can_view_trackers?: boolean;
+  can_manage_trackers?: boolean;
+  can_manage_templates?: boolean;
+  can_sync_data?: boolean;
+}
+
+export interface APPaymentsPermissions {
+  can_view_jobs?: boolean;
+  can_manage_assignments?: boolean;
+  can_manage_payments?: boolean;
+  can_manage_contractors?: boolean;
+  can_sync_data?: boolean;
+}
+
+export interface MembershipManagerPermissions {
+  can_view_memberships?: boolean;
+  can_manage_notes?: boolean;
+  can_view_reports?: boolean;
+  can_sync_data?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -65,6 +90,9 @@ export interface UserPermissions {
   marketing_hub?: MarketingHubPermissions;
   admin_panel?: AdminPanelPermissions;
   ar_collections?: ARCollectionsPermissions;
+  job_tracker?: JobTrackerPermissions;
+  ap_payments?: APPaymentsPermissions;
+  membership_manager?: MembershipManagerPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -219,6 +247,89 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_settings',
         label: 'Manage settings',
         description: 'Configure AR collections settings',
+      },
+    ],
+  },
+  {
+    app: 'job_tracker',
+    label: 'Job Tracker',
+    permissions: [
+      {
+        key: 'can_view_trackers',
+        label: 'View trackers',
+        description: 'Access job tracker dashboard and view all trackers',
+      },
+      {
+        key: 'can_manage_trackers',
+        label: 'Manage trackers',
+        description: 'Create, edit, and update job trackers and milestones',
+      },
+      {
+        key: 'can_manage_templates',
+        label: 'Manage templates',
+        description: 'Create and edit milestone templates',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan sync',
+      },
+    ],
+  },
+  {
+    app: 'ap_payments',
+    label: 'AP Payments',
+    permissions: [
+      {
+        key: 'can_view_jobs',
+        label: 'View jobs',
+        description: 'View install jobs and dashboard',
+      },
+      {
+        key: 'can_manage_assignments',
+        label: 'Manage assignments',
+        description: 'Assign jobs to contractors or in-house',
+      },
+      {
+        key: 'can_manage_payments',
+        label: 'Manage payments',
+        description: 'Update payment status (request, approve, mark paid)',
+      },
+      {
+        key: 'can_manage_contractors',
+        label: 'Manage contractors',
+        description: 'Add/edit contractors and rate cards',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan sync',
+      },
+    ],
+  },
+  {
+    app: 'membership_manager',
+    label: 'Membership Manager',
+    permissions: [
+      {
+        key: 'can_view_memberships',
+        label: 'View memberships',
+        description: 'View membership dashboard and member details',
+      },
+      {
+        key: 'can_manage_notes',
+        label: 'Manage notes',
+        description: 'Add and edit staff notes on memberships',
+      },
+      {
+        key: 'can_view_reports',
+        label: 'View reports',
+        description: 'Access membership reports and analytics',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan membership sync',
       },
     ],
   },
