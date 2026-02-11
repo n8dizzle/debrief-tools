@@ -85,8 +85,23 @@ export interface STPayment {
   customerId?: number;
   amount: number;
   date?: string;
-  type?: { name?: string };
+  paidOn?: string;
+  type?: { id?: number; name?: string };
   status?: string;
+  // Additional fields from ST API
+  typeId?: number;
+  memo?: string;
+  checkNumber?: string;
+  authCode?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  active?: boolean;
+  appliedOn?: string;
+  // Customer info (for matching)
+  customer?: {
+    id?: number;
+    name?: string;
+  };
 }
 
 export interface STTask {
@@ -604,6 +619,61 @@ export class ServiceTitanClient {
     );
 
     return response.data || [];
+  }
+
+  /**
+   * Get all recent payments (for deposit reconciliation)
+   * Fetches all payments within a date range
+   */
+  async getRecentPayments(options: {
+    fromDate?: string;
+    toDate?: string;
+    pageSize?: number;
+  } = {}): Promise<STPayment[]> {
+    const allPayments: STPayment[] = [];
+    let page = 1;
+    const pageSize = options.pageSize || 100;
+    const maxPages = 20; // Safety limit
+
+    // Default to last 30 days if no date specified
+    const fromDate = options.fromDate || (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      return d.toISOString().split('T')[0];
+    })();
+
+    while (page <= maxPages) {
+      const params: Record<string, string> = {
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        createdOnOrAfter: `${fromDate}T00:00:00`,
+      };
+
+      if (options.toDate) {
+        params.createdBefore = `${options.toDate}T23:59:59`;
+      }
+
+      try {
+        const response = await this.request<STPagedResponse<STPayment>>(
+          'GET',
+          `accounting/v2/tenant/${this.tenantId}/payments`,
+          { params }
+        );
+
+        allPayments.push(...(response.data || []));
+
+        if (!response.hasMore || !response.data || response.data.length === 0) {
+          break;
+        }
+        page++;
+      } catch (error) {
+        console.error(`Failed to fetch payments page ${page}:`, error);
+        break;
+      }
+    }
+
+    console.log(`[ServiceTitan] Fetched ${allPayments.length} payments from ${fromDate}`);
+    return allPayments;
   }
 
   /**
