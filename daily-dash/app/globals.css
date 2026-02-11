@@ -68,3 +68,49 @@ a {
 a:hover {
   color: var(--christmas-green);
 }
+
+/* Reusable table styles (matches AR Collections) */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dash-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.dash-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.dash-table tbody tr:hover {
+  background: var(--bg-card-hover);
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-on-track { background: rgba(93, 138, 102, 0.15); color: #6B9B75; }
+.badge-off-track { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.badge-done { background: rgba(184, 149, 107, 0.15); color: #B8956B; }
