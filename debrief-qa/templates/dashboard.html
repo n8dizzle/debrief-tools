@@ -21,6 +21,59 @@
         </div>
     </div>
 
+    <!-- Completion by Business Unit -->
+    <div id="bu-completion-container">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <h2 class="text-lg font-semibold text-christmas-cream">Completion by Business Unit</h2>
+                <span id="bu-overall-rate" class="text-sm text-gray-500"></span>
+            </div>
+            <div class="flex gap-1 bg-dark-bg rounded-lg p-1">
+                <button onclick="setBUDateRange('last-month')" id="bu-btn-last-month"
+                    class="px-3 py-1 text-sm rounded bg-dark-card text-christmas-cream font-medium">
+                    Last Month
+                </button>
+                <button onclick="setBUDateRange('this-month')" id="bu-btn-this-month"
+                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
+                    This Month
+                </button>
+                <button onclick="setBUDateRange('last-week')" id="bu-btn-last-week"
+                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
+                    Last Week
+                </button>
+                <button onclick="setBUDateRange('this-week')" id="bu-btn-this-week"
+                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
+                    This Week
+                </button>
+                <button onclick="setBUDateRange('custom')" id="bu-btn-custom"
+                    class="px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream">
+                    Custom
+                </button>
+            </div>
+        </div>
+        <div id="bu-custom-dates" class="hidden flex items-center gap-3 mb-4">
+            <input type="date" id="bu-date-from" class="bg-dark-bg border border-dark-border text-christmas-cream rounded px-3 py-1.5 text-sm">
+            <span class="text-gray-500">to</span>
+            <input type="date" id="bu-date-to" class="bg-dark-bg border border-dark-border text-christmas-cream rounded px-3 py-1.5 text-sm">
+            <button onclick="loadBUCompletion()" class="px-3 py-1.5 text-sm bg-christmas-green hover:bg-christmas-green-dark text-christmas-cream rounded transition">
+                Apply
+            </button>
+        </div>
+        <div id="bu-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- Loading state -->
+            <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
+                <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
+                <div class="h-8 bg-dark-border rounded w-1/3 mb-2"></div>
+                <div class="h-2 bg-dark-border rounded w-full"></div>
+            </div>
+            <div class="bg-dark-card rounded-lg border border-dark-border p-4 animate-pulse">
+                <div class="h-4 bg-dark-border rounded w-2/3 mb-3"></div>
+                <div class="h-8 bg-dark-border rounded w-1/3 mb-2"></div>
+                <div class="h-2 bg-dark-border rounded w-full"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Trade Performance Cards - HVAC vs Plumbing -->
     <div id="trade-performance-container">
         <div class="flex items-center justify-between mb-4">
@@ -427,6 +480,152 @@ async function loadTechnicianStats() {
     }
 }
 
+// ----- BU Completion -----
+let buDateFrom = '';
+let buDateTo = '';
+let currentBUPreset = 'last-month';
+
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function setBUDateRange(preset) {
+    currentBUPreset = preset;
+    const now = new Date();
+    let from, to;
+
+    if (preset === 'last-month') {
+        from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        to = new Date(now.getFullYear(), now.getMonth(), 0);
+    } else if (preset === 'this-month') {
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        to = now;
+    } else if (preset === 'last-week') {
+        const dayOfWeek = now.getDay();
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - dayOfWeek - 6);
+        const lastSunday = new Date(lastMonday);
+        lastSunday.setDate(lastMonday.getDate() + 6);
+        from = lastMonday;
+        to = lastSunday;
+    } else if (preset === 'this-week') {
+        const dayOfWeek = now.getDay();
+        from = new Date(now);
+        from.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+        to = now;
+    } else if (preset === 'custom') {
+        document.getElementById('bu-custom-dates').classList.remove('hidden');
+        // Update button styles
+        document.querySelectorAll('[id^="bu-btn-"]').forEach(b => {
+            b.className = 'px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream';
+        });
+        document.getElementById('bu-btn-custom').className = 'px-3 py-1 text-sm rounded bg-dark-card text-christmas-cream font-medium';
+        return;
+    }
+
+    buDateFrom = formatLocalDate(from);
+    buDateTo = formatLocalDate(to);
+
+    document.getElementById('bu-custom-dates').classList.add('hidden');
+    // Update button styles
+    document.querySelectorAll('[id^="bu-btn-"]').forEach(b => {
+        b.className = 'px-3 py-1 text-sm rounded text-gray-500 hover:text-christmas-cream';
+    });
+    document.getElementById(`bu-btn-${preset}`).className = 'px-3 py-1 text-sm rounded bg-dark-card text-christmas-cream font-medium';
+
+    loadBUCompletion();
+}
+
+function getBUCompletionColor(rate) {
+    if (rate >= 100) return 'text-christmas-green-light';
+    if (rate >= 80) return 'text-christmas-gold';
+    return 'text-christmas-brown';
+}
+
+function getBUBarColor(rate) {
+    if (rate >= 100) return 'bg-christmas-green';
+    if (rate >= 80) return 'bg-christmas-gold';
+    return 'bg-christmas-brown';
+}
+
+async function loadBUCompletion() {
+    // If custom, read from inputs
+    if (currentBUPreset === 'custom') {
+        buDateFrom = document.getElementById('bu-date-from').value;
+        buDateTo = document.getElementById('bu-date-to').value;
+        if (!buDateFrom || !buDateTo) return;
+    }
+
+    try {
+        const response = await fetch(`/api/dashboard/completion-by-bu?date_from=${buDateFrom}&date_to=${buDateTo}`);
+        const data = await response.json();
+
+        // Update overall rate in header
+        const overall = data.overall;
+        document.getElementById('bu-overall-rate').innerHTML = overall.total_jobs > 0
+            ? `<span class="${getBUCompletionColor(overall.completion_rate)} font-semibold">${overall.completion_rate}%</span> overall (${overall.debriefed_jobs}/${overall.total_jobs})`
+            : '';
+
+        if (!data.business_units || data.business_units.length === 0) {
+            document.getElementById('bu-cards-grid').innerHTML = `
+                <div class="col-span-full bg-dark-card rounded-lg border border-dark-border p-8 text-center text-gray-500">
+                    No completed jobs found for this date range.
+                </div>
+            `;
+            return;
+        }
+
+        // Group by trade
+        const hvacBUs = data.business_units.filter(bu => bu.trade_type === 'HVAC');
+        const plumbingBUs = data.business_units.filter(bu => bu.trade_type === 'Plumbing');
+        const otherBUs = data.business_units.filter(bu => bu.trade_type !== 'HVAC' && bu.trade_type !== 'Plumbing');
+
+        let html = '';
+
+        function renderBUCards(bus) {
+            return bus.map(bu => `
+                <div class="bg-dark-card rounded-lg border border-dark-border p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-christmas-cream">${bu.name}</span>
+                    </div>
+                    <div class="text-3xl font-bold ${getBUCompletionColor(bu.completion_rate)} mb-1">
+                        ${bu.completion_rate}%
+                    </div>
+                    <div class="w-full h-2 bg-dark-bg rounded-full overflow-hidden mb-2">
+                        <div class="h-full ${getBUBarColor(bu.completion_rate)} transition-all duration-500" style="width: ${Math.min(bu.completion_rate, 100)}%"></div>
+                    </div>
+                    <div class="text-xs text-gray-500">${bu.debriefed_jobs} / ${bu.total_jobs} debriefed</div>
+                </div>
+            `).join('');
+        }
+
+        if (hvacBUs.length > 0) {
+            html += `<div class="col-span-full text-sm font-medium text-christmas-green-light mt-1 mb-0">HVAC</div>`;
+            html += renderBUCards(hvacBUs);
+        }
+        if (plumbingBUs.length > 0) {
+            html += `<div class="col-span-full text-sm font-medium text-blue-400 mt-2 mb-0">Plumbing</div>`;
+            html += renderBUCards(plumbingBUs);
+        }
+        if (otherBUs.length > 0) {
+            html += `<div class="col-span-full text-sm font-medium text-gray-400 mt-2 mb-0">Other</div>`;
+            html += renderBUCards(otherBUs);
+        }
+
+        document.getElementById('bu-cards-grid').innerHTML = html;
+    } catch (error) {
+        console.error('Failed to load BU completion:', error);
+        document.getElementById('bu-cards-grid').innerHTML = `
+            <div class="col-span-full bg-dark-card rounded-lg border border-dark-border p-8 text-center text-christmas-brown">
+                Failed to load completion data.
+            </div>
+        `;
+    }
+}
+
 async function loadDashboard() {
     try {
         const response = await fetch('/api/dashboard');
@@ -680,12 +879,14 @@ async function loadDispatcherAccuracy() {
 loadDashboard();
 loadTechnicianStats();
 loadDispatcherAccuracy();
+setBUDateRange('last-month');
 
 // Refresh every 60 seconds
 setInterval(() => {
     loadDashboard();
     loadTechnicianStats();
     loadDispatcherAccuracy();
+    loadBUCompletion();
 }, 60000);
 </script>
 {% endblock %}

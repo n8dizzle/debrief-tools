@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, case
 from dotenv import load_dotenv
 
 from .database import (
@@ -1074,6 +1074,93 @@ async def get_dashboard(db: Session = Depends(get_db)):
         "dispatchers": dispatcher_stats,
         "pending_count": pending_count,
         "trade_performance": get_trade_performance(month_start),
+    }
+
+
+@app.get("/api/dashboard/completion-by-bu")
+async def get_completion_by_bu(
+    date_from: str,
+    date_to: str,
+    db: Session = Depends(get_db),
+):
+    """Get debrief completion rates grouped by business unit for a date range."""
+    central = ZoneInfo("America/Chicago")
+    utc = ZoneInfo("UTC")
+
+    try:
+        from_date = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=central)
+        # End of day for to_date
+        to_date = datetime.strptime(date_to, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59, tzinfo=central
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    # Convert to naive UTC for DB comparison
+    from_utc = from_date.astimezone(utc).replace(tzinfo=None)
+    to_utc = to_date.astimezone(utc).replace(tzinfo=None)
+
+    # Get enabled business unit IDs
+    enabled_bus = db.query(BusinessUnit).filter(BusinessUnit.is_enabled == True).all()
+    enabled_bu_ids = [bu.id for bu in enabled_bus]
+
+    if not enabled_bu_ids:
+        return {"business_units": [], "overall": {"total_jobs": 0, "debriefed_jobs": 0, "completion_rate": 0}}
+
+    # Query jobs grouped by business unit
+    results = db.query(
+        TicketRaw.business_unit_id,
+        TicketRaw.business_unit_name,
+        TicketRaw.trade_type,
+        func.count().label("total_jobs"),
+        func.sum(
+            case((TicketRaw.debrief_status == TicketStatus.COMPLETED, 1), else_=0)
+        ).label("debriefed_jobs"),
+    ).filter(
+        and_(
+            TicketRaw.completed_at >= from_utc,
+            TicketRaw.completed_at <= to_utc,
+            TicketRaw.business_unit_id.in_(enabled_bu_ids),
+        )
+    ).group_by(
+        TicketRaw.business_unit_id,
+        TicketRaw.business_unit_name,
+        TicketRaw.trade_type,
+    ).all()
+
+    bu_list = []
+    overall_total = 0
+    overall_debriefed = 0
+
+    for row in results:
+        total = row.total_jobs or 0
+        debriefed = row.debriefed_jobs or 0
+        rate = round(debriefed / total * 100, 1) if total > 0 else 0
+        overall_total += total
+        overall_debriefed += debriefed
+
+        bu_list.append({
+            "business_unit_id": row.business_unit_id,
+            "name": row.business_unit_name or f"BU {row.business_unit_id}",
+            "trade_type": row.trade_type or "Unknown",
+            "total_jobs": total,
+            "debriefed_jobs": debriefed,
+            "completion_rate": rate,
+        })
+
+    # Sort: HVAC first, then alphabetical by name
+    trade_order = {"HVAC": 0, "Plumbing": 1}
+    bu_list.sort(key=lambda x: (trade_order.get(x["trade_type"], 99), x["name"]))
+
+    overall_rate = round(overall_debriefed / overall_total * 100, 1) if overall_total > 0 else 0
+
+    return {
+        "business_units": bu_list,
+        "overall": {
+            "total_jobs": overall_total,
+            "debriefed_jobs": overall_debriefed,
+            "completion_rate": overall_rate,
+        },
     }
 
 
