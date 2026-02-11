@@ -278,6 +278,7 @@
                         {% if debrief.happy_call_result == 'spoke_to_homeowner' %}Spoke to Homeowner
                         {% elif debrief.happy_call_result == 'voicemail_left' %}Voicemail Left
                         {% elif debrief.happy_call_result == 'no_answer' %}No Answer
+                        {% elif debrief.happy_call_result == 'not_made' %}Not Made
                         {% elif debrief.happy_call %}{{ debrief.happy_call|upper }}
                         {% else %}N/A{% endif %}
                     </div>
@@ -1060,14 +1061,31 @@
 
             <!-- 10. Happy Call -->
             <div class="space-y-2">
-                <label class="block text-sm font-medium text-christmas-cream">Happy Call</label>
-                <select name="happy_call_result"
-                    class="w-full rounded-md p-2 border text-sm bg-dark-bg text-christmas-cream border-dark-border">
-                    <option value="">Select outcome...</option>
-                    <option value="spoke_to_homeowner" {% if debrief and debrief.happy_call_result == 'spoke_to_homeowner' %}selected{% endif %}>Spoke to Homeowner</option>
-                    <option value="voicemail_left" {% if debrief and debrief.happy_call_result == 'voicemail_left' %}selected{% endif %}>Voicemail Left</option>
-                    <option value="no_answer" {% if debrief and debrief.happy_call_result == 'no_answer' %}selected{% endif %}>No Answer</option>
-                </select>
+                <label class="block text-sm font-medium text-christmas-cream">Happy Call Made?</label>
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center text-gray-300">
+                        <input type="radio" name="happy_call_made" value="yes" class="mr-2" required
+                            {% if debrief and debrief.happy_call_result and debrief.happy_call_result != 'not_made' %}checked{% endif %}
+                            onchange="toggleHappyCallDropdown(true)">
+                        <span>Yes</span>
+                    </label>
+                    <label class="flex items-center text-gray-300">
+                        <input type="radio" name="happy_call_made" value="no" class="mr-2"
+                            {% if debrief and debrief.happy_call_result == 'not_made' %}checked{% endif %}
+                            onchange="toggleHappyCallDropdown(false)">
+                        <span>No</span>
+                    </label>
+                </div>
+                <div id="happy-call-details" class="{% if not debrief or not debrief.happy_call_result or debrief.happy_call_result == 'not_made' %}hidden{% endif %} space-y-2 mt-2">
+                    <label class="block text-xs text-gray-500">Disposition</label>
+                    <select name="happy_call_result" id="happy-call-result"
+                        class="w-full rounded-md p-2 border text-sm bg-dark-bg text-christmas-cream border-dark-border">
+                        <option value="">Select outcome...</option>
+                        <option value="spoke_to_homeowner" {% if debrief and debrief.happy_call_result == 'spoke_to_homeowner' %}selected{% endif %}>Spoke to Homeowner</option>
+                        <option value="voicemail_left" {% if debrief and debrief.happy_call_result == 'voicemail_left' %}selected{% endif %}>Voicemail Left</option>
+                        <option value="no_answer" {% if debrief and debrief.happy_call_result == 'no_answer' %}selected{% endif %}>No Answer</option>
+                    </select>
+                </div>
                 <input type="text" name="happy_call_notes" placeholder="Notes (optional)"
                     value="{{ debrief.happy_call_notes if debrief and debrief.happy_call_notes else '' }}"
                     class="mt-2 w-full rounded-md p-2 border text-sm">
@@ -1223,6 +1241,17 @@ document.querySelectorAll('a[href="/queue"]').forEach(function(link) {
     });
 });
 
+
+function toggleHappyCallDropdown(show) {
+    const details = document.getElementById('happy-call-details');
+    const select = document.getElementById('happy-call-result');
+    if (show) {
+        details.classList.remove('hidden');
+    } else {
+        details.classList.add('hidden');
+        select.value = '';
+    }
+}
 
 function toggleFollowup(show) {
     const details = document.getElementById('followup-details');
