@@ -754,6 +754,15 @@ def _is_new_format(record) -> bool:
     return getattr(record, 'invoice_situation', None) is not None
 
 
+def _happy_call_status_from_result(result: str | None) -> str:
+    """Derive happy_call CheckStatus from the dropdown result value."""
+    if result == "spoke_to_homeowner":
+        return "pass"
+    elif result in ("voicemail_left", "no_answer"):
+        return "na"
+    return "pending"
+
+
 @app.post("/api/job/{job_id}/debrief/form")
 async def submit_debrief_form(
     job_id: int,
@@ -812,7 +821,8 @@ async def submit_debrief_form(
         materials_on_invoice=form_data.get("materials_on_invoice", "pending"),
         materials_on_invoice_notes=form_data.get("materials_on_invoice_notes"),
 
-        happy_call=form_data.get("happy_call", "pending"),
+        happy_call_result=form_data.get("happy_call_result") or None,
+        happy_call=_happy_call_status_from_result(form_data.get("happy_call_result")),
         happy_call_notes=form_data.get("happy_call_notes"),
 
         g3_contact_needed=form_data.get("g3_contact_needed") == "true",

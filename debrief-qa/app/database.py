@@ -268,6 +268,7 @@ class DebriefSession(Base):
 
     # Happy Call
     happy_call = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
+    happy_call_result = Column(String(30), nullable=True)  # spoke_to_homeowner, voicemail_left, no_answer
     happy_call_notes = Column(Text)
 
     # G3 Contact
