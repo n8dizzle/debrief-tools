@@ -719,6 +719,41 @@ async def submit_debrief(
     )
 
 
+def _derive_legacy_invoice_score(form_data) -> int:
+    """Derive a legacy 1-10 invoice score from the 3 pass/fail criteria."""
+    sit = form_data.get("invoice_situation")
+    work = form_data.get("invoice_work_done")
+    disc = form_data.get("invoice_customer_discussion")
+    pass_count = sum([sit == "pass", work == "pass", disc == "pass"])
+    return {0: 2, 1: 4, 2: 7, 3: 9}[pass_count]
+
+
+def _get_invoice_pct(record) -> float:
+    """Get invoice percentage from a debrief record (new or legacy format).
+
+    New format: Weighted partial credit from 3 criteria (situation=33%, work_done=34%, discussion=33%).
+    Legacy format: Derived from 1-10 score.
+    """
+    sit = getattr(record, 'invoice_situation', None)
+    if sit is not None:
+        pct = 0
+        if sit == 'pass':
+            pct += 33
+        if getattr(record, 'invoice_work_done', None) == 'pass':
+            pct += 34
+        if getattr(record, 'invoice_customer_discussion', None) == 'pass':
+            pct += 33
+        return pct
+    # Legacy fallback
+    score = getattr(record, 'invoice_summary_score', None)
+    return (score * 10) if score else 50
+
+
+def _is_new_format(record) -> bool:
+    """Check if a debrief record uses the new 3-criteria invoice format."""
+    return getattr(record, 'invoice_situation', None) is not None
+
+
 @app.post("/api/job/{job_id}/debrief/form")
 async def submit_debrief_form(
     job_id: int,
@@ -749,8 +784,12 @@ async def submit_debrief_form(
         photos_reviewed=form_data.get("photos_reviewed", "pending"),
         photos_notes=form_data.get("photos_notes"),
         
-        invoice_summary_score=int(form_data.get("invoice_summary_score", 5)),
+        invoice_summary_score=_derive_legacy_invoice_score(form_data),
         invoice_summary_notes=form_data.get("invoice_summary_notes"),
+
+        invoice_situation=form_data.get("invoice_situation"),
+        invoice_work_done=form_data.get("invoice_work_done"),
+        invoice_customer_discussion=form_data.get("invoice_customer_discussion"),
         
         payment_verified=form_data.get("payment_verified", "pending"),
         no_payment_reason=form_data.get("no_payment_reason"),
@@ -929,6 +968,9 @@ async def get_dashboard(db: Session = Depends(get_db)):
             DebriefSession.payment_verified,
             DebriefSession.estimates_verified,
             DebriefSession.invoice_summary_score,
+            DebriefSession.invoice_situation,
+            DebriefSession.invoice_work_done,
+            DebriefSession.invoice_customer_discussion,
             DebriefSession.equipment_added,
             DebriefSession.materials_on_invoice,
         ).join(
@@ -939,8 +981,8 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
         # Initialize trade data
         trade_data = {
-            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
-            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
+            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
+            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
         }
 
         for row in results:
@@ -955,8 +997,15 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 trade_data[trade]["payment_pass"] += 1
             if row.estimates_verified == "pass":
                 trade_data[trade]["estimates_pass"] += 1
-            if row.invoice_summary_score:
-                trade_data[trade]["invoice_scores"].append(row.invoice_summary_score)
+            # Invoice: use new 3-criteria format if available
+            if row.invoice_situation is not None:
+                pct = 0
+                if row.invoice_situation == 'pass': pct += 33
+                if row.invoice_work_done == 'pass': pct += 34
+                if row.invoice_customer_discussion == 'pass': pct += 33
+                trade_data[trade]["invoice_pcts"].append(pct)
+            elif row.invoice_summary_score:
+                trade_data[trade]["invoice_pcts"].append(row.invoice_summary_score * 10)
             if row.equipment_added == "pass":
                 trade_data[trade]["equipment_pass"] += 1
             if row.materials_on_invoice == "pass":
@@ -966,14 +1015,14 @@ async def get_dashboard(db: Session = Depends(get_db)):
         trade_performance = {}
         for trade, data in trade_data.items():
             count = data["count"]
-            scores = data["invoice_scores"]
+            invoice_pcts = data["invoice_pcts"]
 
             trade_performance[trade.lower()] = {
                 "total_debriefed": count,
                 "photos_pass_rate": round(data["photos_pass"] / count * 100) if count else 0,
                 "payment_pass_rate": round(data["payment_pass"] / count * 100) if count else 0,
                 "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
-                "avg_invoice_score": round(sum(scores) / len(scores), 1) if scores else 0,
+                "avg_invoice_pct": round(sum(invoice_pcts) / len(invoice_pcts), 1) if invoice_pcts else 0,
                 "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
                 "materials_on_invoice_rate": round(data["materials_pass"] / count * 100) if count else 0,
             }
@@ -1191,6 +1240,9 @@ async def get_trade_performance_by_date(
         DebriefSession.payment_verified,
         DebriefSession.estimates_verified,
         DebriefSession.invoice_summary_score,
+        DebriefSession.invoice_situation,
+        DebriefSession.invoice_work_done,
+        DebriefSession.invoice_customer_discussion,
         DebriefSession.equipment_added,
         DebriefSession.materials_on_invoice,
     ).join(
@@ -1203,8 +1255,8 @@ async def get_trade_performance_by_date(
     ).all()
 
     trade_data = {
-        "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
-        "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_scores": [], "equipment_pass": 0, "materials_pass": 0},
+        "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
+        "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
     }
 
     for row in results:
@@ -1218,8 +1270,15 @@ async def get_trade_performance_by_date(
             trade_data[trade]["payment_pass"] += 1
         if row.estimates_verified == "pass":
             trade_data[trade]["estimates_pass"] += 1
-        if row.invoice_summary_score:
-            trade_data[trade]["invoice_scores"].append(row.invoice_summary_score)
+        # Invoice: use new 3-criteria format if available
+        if row.invoice_situation is not None:
+            pct = 0
+            if row.invoice_situation == 'pass': pct += 33
+            if row.invoice_work_done == 'pass': pct += 34
+            if row.invoice_customer_discussion == 'pass': pct += 33
+            trade_data[trade]["invoice_pcts"].append(pct)
+        elif row.invoice_summary_score:
+            trade_data[trade]["invoice_pcts"].append(row.invoice_summary_score * 10)
         if row.equipment_added == "pass":
             trade_data[trade]["equipment_pass"] += 1
         if row.materials_on_invoice == "pass":
@@ -1228,13 +1287,13 @@ async def get_trade_performance_by_date(
     trade_performance = {}
     for trade, data in trade_data.items():
         count = data["count"]
-        scores = data["invoice_scores"]
+        invoice_pcts = data["invoice_pcts"]
         trade_performance[trade.lower()] = {
             "total_debriefed": count,
             "photos_pass_rate": round(data["photos_pass"] / count * 100) if count else 0,
             "payment_pass_rate": round(data["payment_pass"] / count * 100) if count else 0,
             "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
-            "avg_invoice_score": round(sum(scores) / len(scores), 1) if scores else 0,
+            "avg_invoice_pct": round(sum(invoice_pcts) / len(invoice_pcts), 1) if invoice_pcts else 0,
             "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
             "materials_on_invoice_rate": round(data["materials_pass"] / count * 100) if count else 0,
         }
@@ -1314,6 +1373,9 @@ async def get_technician_stats(
             TicketRaw.tech_name,
             TicketRaw.tech_id,
             DebriefSession.invoice_summary_score,
+            DebriefSession.invoice_situation,
+            DebriefSession.invoice_work_done,
+            DebriefSession.invoice_customer_discussion,
             DebriefSession.photos_reviewed,
             DebriefSession.payment_verified,
             DebriefSession.estimates_verified,
@@ -1341,7 +1403,7 @@ async def get_technician_stats(
                 tech_data[tech_name] = {
                     "tech_id": row.tech_id,
                     "jobs_count": 0,
-                    "invoice_scores": [],
+                    "invoice_pcts": [],
                     "photos_pass": 0,
                     "payment_pass": 0,
                     "estimates_pass": 0,
@@ -1353,8 +1415,20 @@ async def get_technician_stats(
                 }
 
             tech_data[tech_name]["jobs_count"] += 1
-            if row.invoice_summary_score:
-                tech_data[tech_name]["invoice_scores"].append(row.invoice_summary_score)
+
+            # Invoice: use new format if available, else legacy
+            if row.invoice_situation is not None:
+                pct = 0
+                if row.invoice_situation == 'pass':
+                    pct += 33
+                if row.invoice_work_done == 'pass':
+                    pct += 34
+                if row.invoice_customer_discussion == 'pass':
+                    pct += 33
+                tech_data[tech_name]["invoice_pcts"].append(pct)
+            elif row.invoice_summary_score:
+                tech_data[tech_name]["invoice_pcts"].append(row.invoice_summary_score * 10)
+
             if row.photos_reviewed == "pass":
                 tech_data[tech_name]["photos_pass"] += 1
             if row.payment_verified == "pass":
@@ -1376,23 +1450,19 @@ async def get_technician_stats(
         tech_stats = []
         for tech_name, data in tech_data.items():
             count = data["jobs_count"]
-            scores = data["invoice_scores"]
+            invoice_pcts = data["invoice_pcts"]
 
-            avg_invoice = round(sum(scores) / len(scores), 1) if scores else None
+            avg_invoice_pct = round(sum(invoice_pcts) / len(invoice_pcts), 1) if invoice_pcts else 50
             photos_rate = round(data["photos_pass"] / count * 100) if count else 0
             payment_rate = round(data["payment_pass"] / count * 100) if count else 0
             estimates_rate = round(data["estimates_pass"] / count * 100) if count else 0
-            membership_rate = round(data["membership_pass"] / count * 100) if count else 0
-            reviews_rate = round(data["google_reviews_pass"] / count * 100) if count else 0
 
-            invoice_pct = (avg_invoice * 10) if avg_invoice else 50
+            # New composite: Photos 20%, Payment 20%, Estimates 20%, Invoice 40%
             composite = (
                 (photos_rate * 2) +
                 (payment_rate * 2) +
                 (estimates_rate * 2) +
-                (invoice_pct * 2) +
-                (membership_rate * 1) +
-                (reviews_rate * 1)
+                (avg_invoice_pct * 4)
             ) / 10
 
             tech_stats.append({
@@ -1400,12 +1470,10 @@ async def get_technician_stats(
                 "tech_id": data["tech_id"],
                 "jobs_debriefed": count,
                 "composite_score": round(composite, 1),
-                "avg_invoice_score": avg_invoice,
+                "avg_invoice_pct": round(avg_invoice_pct, 1),
                 "photos_pass_rate": photos_rate,
                 "payment_pass_rate": payment_rate,
                 "estimates_pass_rate": estimates_rate,
-                "membership_pass_rate": membership_rate,
-                "google_reviews_pass_rate": reviews_rate,
             })
 
         return sorted(tech_stats, key=lambda x: x["composite_score"], reverse=True)
@@ -1514,18 +1582,14 @@ async def get_debrief_history(
         photos_pass = 1 if debrief.photos_reviewed == "pass" else 0
         payment_pass = 1 if debrief.payment_verified == "pass" else 0
         estimates_pass = 1 if debrief.estimates_verified == "pass" else 0
-        membership_pass = 1 if debrief.membership_verified == "pass" else 0
-        reviews_pass = 1 if debrief.google_reviews_discussed == "pass" else 0
-        invoice_score = debrief.invoice_summary_score or 5
+        invoice_pct = _get_invoice_pct(debrief)
 
-        invoice_pct = invoice_score * 10
+        # New formula: Photos 20%, Payment 20%, Estimates 20%, Invoice 40%
         composite = (
             (photos_pass * 100 * 2) +
             (payment_pass * 100 * 2) +
             (estimates_pass * 100 * 2) +
-            (invoice_pct * 2) +
-            (membership_pass * 100 * 1) +
-            (reviews_pass * 100 * 1)
+            (invoice_pct * 4)
         ) / 10
 
         # Check if a spot check exists for this debrief
@@ -1547,7 +1611,13 @@ async def get_debrief_history(
             "debriefed_at": debrief.completed_at.isoformat() if debrief.completed_at else None,
             "dispatcher_name": dispatcher_name or "Unknown",
             "composite_score": round(composite, 1),
-            "invoice_score": invoice_score,
+            "invoice_score": debrief.invoice_summary_score,
+            "invoice_pct": round(invoice_pct, 1),
+            # Invoice 3-criteria (new format)
+            "invoice_situation": debrief.invoice_situation,
+            "invoice_work_done": debrief.invoice_work_done,
+            "invoice_customer_discussion": debrief.invoice_customer_discussion,
+            "is_new_invoice_format": _is_new_format(debrief),
             # Status fields
             "photos": debrief.photos_reviewed,
             "payment": debrief.payment_verified,
@@ -2194,7 +2264,6 @@ async def submit_spot_check(
 
     # Item-by-item verification
     spot_check.photos_correct = form_data.get("photos_correct") == "true"
-    spot_check.invoice_score_correct = form_data.get("invoice_score_correct") == "true"
     spot_check.payment_correct = form_data.get("payment_correct") == "true"
     spot_check.estimates_correct = form_data.get("estimates_correct") == "true"
     spot_check.membership_correct = form_data.get("membership_correct") == "true"
@@ -2202,10 +2271,31 @@ async def submit_spot_check(
     spot_check.replacement_correct = form_data.get("replacement_correct") == "true"
     spot_check.equipment_correct = form_data.get("equipment_correct") == "true"
 
-    # Corrected invoice score if provided
-    corrected_score = form_data.get("corrected_invoice_score")
-    if corrected_score:
-        spot_check.corrected_invoice_score = int(corrected_score)
+    # Invoice verification: new 3-criteria or legacy single score
+    if form_data.get("invoice_situation_correct") is not None:
+        # New 3-criteria format
+        spot_check.invoice_situation_correct = form_data.get("invoice_situation_correct") == "true"
+        spot_check.invoice_work_done_correct = form_data.get("invoice_work_done_correct") == "true"
+        spot_check.invoice_customer_discussion_correct = form_data.get("invoice_customer_discussion_correct") == "true"
+        # Corrected values if provided
+        if form_data.get("corrected_invoice_situation"):
+            spot_check.corrected_invoice_situation = form_data.get("corrected_invoice_situation")
+        if form_data.get("corrected_invoice_work_done"):
+            spot_check.corrected_invoice_work_done = form_data.get("corrected_invoice_work_done")
+        if form_data.get("corrected_invoice_customer_discussion"):
+            spot_check.corrected_invoice_customer_discussion = form_data.get("corrected_invoice_customer_discussion")
+        # Derive legacy invoice_score_correct from 3 criteria (all must be correct)
+        spot_check.invoice_score_correct = all([
+            spot_check.invoice_situation_correct,
+            spot_check.invoice_work_done_correct,
+            spot_check.invoice_customer_discussion_correct,
+        ])
+    else:
+        # Legacy single score format
+        spot_check.invoice_score_correct = form_data.get("invoice_score_correct") == "true"
+        corrected_score = form_data.get("corrected_invoice_score")
+        if corrected_score:
+            spot_check.corrected_invoice_score = int(corrected_score)
 
     # Item notes
     spot_check.photos_notes = form_data.get("photos_notes")

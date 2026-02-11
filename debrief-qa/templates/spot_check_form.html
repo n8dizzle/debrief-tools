@@ -63,7 +63,11 @@
                     <span class="font-semibold text-christmas-cream ml-2">{{ original_dispatcher.name if original_dispatcher else 'Unknown' }}</span>
                 </div>
                 <div class="text-sm text-gray-500">
+                    {% if debrief.invoice_situation is not none %}
+                    Invoice: <span class="font-semibold text-christmas-cream">{{ ['pass' == debrief.invoice_situation, 'pass' == debrief.invoice_work_done, 'pass' == debrief.invoice_customer_discussion]|select|list|length }}/3</span>
+                    {% else %}
                     Invoice Score: <span class="font-semibold text-christmas-cream">{{ debrief.invoice_summary_score or '--' }}/10</span>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -243,7 +247,75 @@
                     <input type="text" name="photos_notes" placeholder="Notes (optional)" class="mt-1 w-full rounded-md p-2 border text-sm">
                 </div>
 
-                <!-- Invoice Score -->
+                <!-- Invoice Verification -->
+                {% if debrief.invoice_situation is not none %}
+                <!-- New 3-criteria format -->
+                <div class="space-y-2 md:col-span-2">
+                    <label class="block text-sm font-medium text-blue-400">
+                        Invoice Summary (3 Criteria)
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Situation -->
+                        <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                            <div class="text-xs text-gray-500 mb-1">Situation <span class="{% if debrief.invoice_situation == 'pass' %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">({{ debrief.invoice_situation|upper }})</span></div>
+                            <div class="flex gap-3 mt-2">
+                                <label class="flex items-center gap-1 text-sm text-gray-300">
+                                    <input type="radio" name="invoice_situation_correct" value="true" class="text-christmas-green" required>
+                                    <span class="text-christmas-green-light">Correct</span>
+                                </label>
+                                <label class="flex items-center gap-1 text-sm text-gray-300">
+                                    <input type="radio" name="invoice_situation_correct" value="false" class="text-christmas-brown">
+                                    <span class="text-christmas-brown">Incorrect</span>
+                                </label>
+                            </div>
+                            <select name="corrected_invoice_situation" class="mt-2 w-full rounded-md p-1.5 border text-xs">
+                                <option value="">-- correction (if needed) --</option>
+                                <option value="pass">Pass</option>
+                                <option value="fail">Fail</option>
+                            </select>
+                        </div>
+                        <!-- Work Done -->
+                        <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                            <div class="text-xs text-gray-500 mb-1">Work Done <span class="{% if debrief.invoice_work_done == 'pass' %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">({{ debrief.invoice_work_done|upper }})</span></div>
+                            <div class="flex gap-3 mt-2">
+                                <label class="flex items-center gap-1 text-sm text-gray-300">
+                                    <input type="radio" name="invoice_work_done_correct" value="true" class="text-christmas-green" required>
+                                    <span class="text-christmas-green-light">Correct</span>
+                                </label>
+                                <label class="flex items-center gap-1 text-sm text-gray-300">
+                                    <input type="radio" name="invoice_work_done_correct" value="false" class="text-christmas-brown">
+                                    <span class="text-christmas-brown">Incorrect</span>
+                                </label>
+                            </div>
+                            <select name="corrected_invoice_work_done" class="mt-2 w-full rounded-md p-1.5 border text-xs">
+                                <option value="">-- correction (if needed) --</option>
+                                <option value="pass">Pass</option>
+                                <option value="fail">Fail</option>
+                            </select>
+                        </div>
+                        <!-- Customer Discussion -->
+                        <div class="bg-dark-bg rounded-lg p-3 border border-dark-border">
+                            <div class="text-xs text-gray-500 mb-1">Discussion <span class="{% if debrief.invoice_customer_discussion == 'pass' %}text-christmas-green-light{% else %}text-christmas-brown{% endif %}">({{ debrief.invoice_customer_discussion|upper }})</span></div>
+                            <div class="flex gap-3 mt-2">
+                                <label class="flex items-center gap-1 text-sm text-gray-300">
+                                    <input type="radio" name="invoice_customer_discussion_correct" value="true" class="text-christmas-green" required>
+                                    <span class="text-christmas-green-light">Correct</span>
+                                </label>
+                                <label class="flex items-center gap-1 text-sm text-gray-300">
+                                    <input type="radio" name="invoice_customer_discussion_correct" value="false" class="text-christmas-brown">
+                                    <span class="text-christmas-brown">Incorrect</span>
+                                </label>
+                            </div>
+                            <select name="corrected_invoice_customer_discussion" class="mt-2 w-full rounded-md p-1.5 border text-xs">
+                                <option value="">-- correction (if needed) --</option>
+                                <option value="pass">Pass</option>
+                                <option value="fail">Fail</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Legacy single invoice score -->
                 <div class="space-y-2">
                     <label class="block text-sm font-medium text-christmas-cream">
                         Invoice Score
@@ -261,6 +333,7 @@
                     </div>
                     <input type="number" name="corrected_invoice_score" min="1" max="10" placeholder="Your score (if different)" class="mt-1 w-full rounded-md p-2 border text-sm">
                 </div>
+                {% endif %}
 
                 <!-- Payment -->
                 <div class="space-y-2">

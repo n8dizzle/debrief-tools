@@ -165,10 +165,18 @@ class TicketRaw(Base):
     # Full payload for future use
     raw_payload = Column(JSON)
 
-    # AI Invoice Review Results
+    # AI Invoice Review Results (legacy single score)
     ai_invoice_score = Column(Integer, nullable=True)  # 1-10
     ai_invoice_notes = Column(Text, nullable=True)     # Pre-populated notes for reviewer
     ai_reviewed_at = Column(DateTime, nullable=True)
+
+    # AI Invoice Review - 3 Criteria (new format)
+    ai_invoice_situation = Column(Boolean, nullable=True)
+    ai_invoice_work_done = Column(Boolean, nullable=True)
+    ai_invoice_customer_discussion = Column(Boolean, nullable=True)
+    ai_invoice_situation_notes = Column(Text, nullable=True)
+    ai_invoice_work_done_notes = Column(Text, nullable=True)
+    ai_invoice_customer_discussion_notes = Column(Text, nullable=True)
 
     # Debrief status
     debrief_status = Column(SQLEnum(TicketStatus, values_callable=lambda x: [e.value for e in x]), default=TicketStatus.PENDING)
@@ -220,10 +228,15 @@ class DebriefSession(Base):
     # Photos
     photos_reviewed = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
     photos_notes = Column(Text)
-    
-    # Invoice Summary (1-10 score)
+
+    # Invoice Summary (legacy 1-10 score, still populated for backward compat)
     invoice_summary_score = Column(Integer)  # 1-10
     invoice_summary_notes = Column(Text)
+
+    # Invoice Summary - 3 Criteria (new format: pass/fail)
+    invoice_situation = Column(String(10), nullable=True)        # 'pass' or 'fail'
+    invoice_work_done = Column(String(10), nullable=True)        # 'pass' or 'fail'
+    invoice_customer_discussion = Column(String(10), nullable=True)  # 'pass' or 'fail'
     
     # Payment
     payment_verified = Column(SQLEnum(CheckStatus, values_callable=lambda x: [e.value for e in x]), default=CheckStatus.PENDING)
@@ -318,7 +331,15 @@ class SpotCheck(Base):
     materials_correct = Column(Boolean, nullable=True)
 
     # Corrections (if dispatcher was wrong)
-    corrected_invoice_score = Column(Integer, nullable=True)  # Manager's corrected score (1-10)
+    corrected_invoice_score = Column(Integer, nullable=True)  # Manager's corrected score (1-10) - legacy
+
+    # Invoice 3-criteria verification (new format)
+    invoice_situation_correct = Column(Boolean, nullable=True)
+    invoice_work_done_correct = Column(Boolean, nullable=True)
+    invoice_customer_discussion_correct = Column(Boolean, nullable=True)
+    corrected_invoice_situation = Column(String(10), nullable=True)
+    corrected_invoice_work_done = Column(String(10), nullable=True)
+    corrected_invoice_customer_discussion = Column(String(10), nullable=True)
 
     # Item-specific notes
     photos_notes = Column(Text, nullable=True)
