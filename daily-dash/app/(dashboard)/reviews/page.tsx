@@ -78,6 +78,9 @@ interface Review {
   reply_time: string | null;
   create_time: string;
   team_members_mentioned: string[] | null;
+  confirmed_mentions: string[] | null;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
   mentions_reviewed: boolean | null;
   media: ReviewMedia[] | null;
   photo_count: number | null;
@@ -1213,7 +1216,7 @@ function ReviewCard({
   review: Review;
   canReply: boolean;
   onReplySuccess: (reviewId: string, reply: string) => void;
-  onMentionsUpdate: (reviewId: string, mentions: string[] | null) => void;
+  onMentionsUpdate: (reviewId: string, mentions: string[]) => void;
   teamMembers: string[];
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -1223,8 +1226,13 @@ function ReviewCard({
   const [isEditingMentions, setIsEditingMentions] = useState(false);
   const [editedMentions, setEditedMentions] = useState<string[]>([]);
   const [savingMentions, setSavingMentions] = useState(false);
+  const [mentionError, setMentionError] = useState<string | null>(null);
   const [markingReviewed, setMarkingReviewed] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+
+  // Use confirmed_mentions if available, otherwise fall back to AI-detected
+  const effectiveMentions = review.confirmed_mentions ?? review.team_members_mentioned;
+  const isConfirmed = review.confirmed_mentions !== null && review.confirmed_mentions !== undefined;
 
   const timeAgo = useMemo(() => {
     const now = new Date();
@@ -1251,7 +1259,7 @@ function ReviewCard({
     return () => window.removeEventListener('resize', checkTruncation);
   }, [review.comment]);
 
-  const hasTeamMentions = review.team_members_mentioned && review.team_members_mentioned.length > 0;
+  const hasTeamMentions = effectiveMentions && effectiveMentions.length > 0;
 
   return (
     <div
@@ -1422,10 +1430,14 @@ function ReviewCard({
                     ))
                   }
                 </select>
+                {mentionError && (
+                  <p className="text-xs mt-1" style={{ color: '#EF4444' }}>{mentionError}</p>
+                )}
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={async () => {
                       setSavingMentions(true);
+                      setMentionError(null);
                       try {
                         const res = await fetch(`/api/reviews/${review.id}/mentions`, {
                           method: 'PATCH',
@@ -1433,11 +1445,15 @@ function ReviewCard({
                           credentials: 'include',
                           body: JSON.stringify({ mentions: editedMentions }),
                         });
+                        const data = await res.json();
                         if (res.ok) {
-                          onMentionsUpdate(review.id, editedMentions.length > 0 ? editedMentions : null);
+                          onMentionsUpdate(review.id, editedMentions);
                           setIsEditingMentions(false);
+                        } else {
+                          setMentionError(data.error || 'Failed to save mentions');
                         }
                       } catch (err) {
+                        setMentionError('Network error - failed to save mentions');
                         console.error('Failed to save mentions:', err);
                       } finally {
                         setSavingMentions(false);
@@ -1452,7 +1468,8 @@ function ReviewCard({
                   <button
                     onClick={() => {
                       setIsEditingMentions(false);
-                      setEditedMentions(review.team_members_mentioned || []);
+                      setMentionError(null);
+                      setEditedMentions(effectiveMentions || []);
                     }}
                     className="px-2 py-1 text-xs rounded"
                     style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--christmas-cream)' }}
@@ -1464,7 +1481,7 @@ function ReviewCard({
             ) : (
               /* View mode */
               <div className="flex flex-wrap items-center gap-1">
-                {hasTeamMentions && review.team_members_mentioned!.map((name, idx) => (
+                {hasTeamMentions && effectiveMentions!.map((name, idx) => (
                   <span
                     key={idx}
                     className="text-xs px-2 py-0.5 rounded-full"
@@ -1476,14 +1493,14 @@ function ReviewCard({
                     {name}
                   </span>
                 ))}
-                {review.mentions_reviewed ? (
+                {isConfirmed ? (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1"
                     style={{
                       backgroundColor: 'rgba(52, 102, 67, 0.2)',
                       color: 'var(--christmas-green)',
                     }}
-                    title="Mentions have been reviewed"
+                    title={`Confirmed${review.confirmed_by ? ` by ${review.confirmed_by}` : ''}`}
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1498,10 +1515,10 @@ function ReviewCard({
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           credentials: 'include',
-                          body: JSON.stringify({ mentions: review.team_members_mentioned || [] }),
+                          body: JSON.stringify({ mentions: effectiveMentions || [] }),
                         });
                         if (res.ok) {
-                          onMentionsUpdate(review.id, review.team_members_mentioned);
+                          onMentionsUpdate(review.id, effectiveMentions || []);
                         }
                       } catch (err) {
                         console.error('Failed to mark as reviewed:', err);
@@ -1515,7 +1532,7 @@ function ReviewCard({
                       backgroundColor: 'rgba(255,255,255,0.1)',
                       color: 'var(--text-muted)',
                     }}
-                    title="Mark mentions as reviewed"
+                    title="Confirm these mentions"
                   >
                     {markingReviewed ? (
                       <span className="w-3 h-3 border border-current rounded-full border-t-transparent animate-spin" />
@@ -1529,7 +1546,8 @@ function ReviewCard({
                 {canReply && (
                   <button
                     onClick={() => {
-                      setEditedMentions(review.team_members_mentioned || []);
+                      setEditedMentions(effectiveMentions || []);
+                      setMentionError(null);
                       setIsEditingMentions(true);
                     }}
                     className="text-xs px-1.5 py-0.5 rounded-full transition-colors hover:opacity-80"
@@ -1754,11 +1772,16 @@ export default function ReviewsPage() {
     reviewsCache.clear();
   }, []);
 
-  // Handle mentions update - update local state and mark as reviewed
-  const handleMentionsUpdate = useCallback((reviewId: string, mentions: string[] | null) => {
+  // Handle mentions update - update confirmed_mentions in local state
+  const handleMentionsUpdate = useCallback((reviewId: string, mentions: string[]) => {
     setReviews(prev => prev.map(r =>
       r.id === reviewId
-        ? { ...r, team_members_mentioned: mentions, mentions_reviewed: true }
+        ? {
+            ...r,
+            confirmed_mentions: mentions,
+            confirmed_at: new Date().toISOString(),
+            mentions_reviewed: true,
+          }
         : r
     ));
     // Clear cache since data changed

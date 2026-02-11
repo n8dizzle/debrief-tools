@@ -981,7 +981,6 @@ async def get_dashboard(db: Session = Depends(get_db)):
             DebriefSession.invoice_situation,
             DebriefSession.invoice_work_done,
             DebriefSession.invoice_customer_discussion,
-            DebriefSession.equipment_added,
             DebriefSession.materials_on_invoice,
         ).join(
             DebriefSession, TicketRaw.job_id == DebriefSession.job_id
@@ -991,8 +990,8 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
         # Initialize trade data
         trade_data = {
-            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
-            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
+            "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "materials_pass": 0},
+            "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "materials_pass": 0},
         }
 
         for row in results:
@@ -1016,8 +1015,6 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 trade_data[trade]["invoice_pcts"].append(pct)
             elif row.invoice_summary_score:
                 trade_data[trade]["invoice_pcts"].append(row.invoice_summary_score * 10)
-            if row.equipment_added == "pass":
-                trade_data[trade]["equipment_pass"] += 1
             if row.materials_on_invoice == "pass":
                 trade_data[trade]["materials_pass"] += 1
 
@@ -1033,7 +1030,6 @@ async def get_dashboard(db: Session = Depends(get_db)):
                 "payment_pass_rate": round(data["payment_pass"] / count * 100) if count else 0,
                 "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
                 "avg_invoice_pct": round(sum(invoice_pcts) / len(invoice_pcts), 1) if invoice_pcts else 0,
-                "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
                 "materials_on_invoice_rate": round(data["materials_pass"] / count * 100) if count else 0,
             }
 
@@ -1253,7 +1249,6 @@ async def get_trade_performance_by_date(
         DebriefSession.invoice_situation,
         DebriefSession.invoice_work_done,
         DebriefSession.invoice_customer_discussion,
-        DebriefSession.equipment_added,
         DebriefSession.materials_on_invoice,
     ).join(
         DebriefSession, TicketRaw.job_id == DebriefSession.job_id
@@ -1265,8 +1260,8 @@ async def get_trade_performance_by_date(
     ).all()
 
     trade_data = {
-        "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
-        "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "equipment_pass": 0, "materials_pass": 0},
+        "HVAC": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "materials_pass": 0},
+        "Plumbing": {"count": 0, "photos_pass": 0, "payment_pass": 0, "estimates_pass": 0, "invoice_pcts": [], "materials_pass": 0},
     }
 
     for row in results:
@@ -1289,8 +1284,6 @@ async def get_trade_performance_by_date(
             trade_data[trade]["invoice_pcts"].append(pct)
         elif row.invoice_summary_score:
             trade_data[trade]["invoice_pcts"].append(row.invoice_summary_score * 10)
-        if row.equipment_added == "pass":
-            trade_data[trade]["equipment_pass"] += 1
         if row.materials_on_invoice == "pass":
             trade_data[trade]["materials_pass"] += 1
 
@@ -1304,7 +1297,6 @@ async def get_trade_performance_by_date(
             "payment_pass_rate": round(data["payment_pass"] / count * 100) if count else 0,
             "estimates_pass_rate": round(data["estimates_pass"] / count * 100) if count else 0,
             "avg_invoice_pct": round(sum(invoice_pcts) / len(invoice_pcts), 1) if invoice_pcts else 0,
-            "equipment_added_rate": round(data["equipment_pass"] / count * 100) if count else 0,
             "materials_on_invoice_rate": round(data["materials_pass"] / count * 100) if count else 0,
         }
 

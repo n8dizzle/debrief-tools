@@ -64,24 +64,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Clean up mentions - trim whitespace, remove empty strings
     const cleanedMentions = mentions
       ? mentions.map((m: string) => m.trim()).filter((m: string) => m.length > 0)
-      : null;
+      : [];
 
-    // Update the review and mark mentions as reviewed to prevent sync from overwriting
+    // Write to confirmed_mentions (human-confirmed), never touch team_members_mentioned (AI-detected).
+    // Use empty array [] when user clears all mentions (not NULL, which means "not yet confirmed").
     const { data, error: updateError } = await supabase
       .from('google_reviews')
       .update({
-        team_members_mentioned: cleanedMentions && cleanedMentions.length > 0 ? cleanedMentions : null,
-        mentions_reviewed: true,
+        confirmed_mentions: cleanedMentions,
+        confirmed_at: new Date().toISOString(),
+        confirmed_by: session.user.email,
+        mentions_reviewed: true, // backward compat
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select('id, team_members_mentioned, mentions_reviewed')
+      .select('id, team_members_mentioned, confirmed_mentions, mentions_reviewed')
       .single();
 
     if (updateError) {
       console.error('Failed to update mentions:', updateError);
       return NextResponse.json(
-        { error: 'Failed to update mentions' },
+        { error: `Failed to update mentions: ${updateError.message}` },
         { status: 500 }
       );
     }

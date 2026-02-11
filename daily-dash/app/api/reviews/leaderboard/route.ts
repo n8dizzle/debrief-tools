@@ -89,10 +89,11 @@ export async function GET(request: NextRequest) {
   const queryStartStr = ytdStartStr;
 
   // Fetch all reviews with mentions from YTD start
+  // Fetch both confirmed_mentions and team_members_mentioned; prefer confirmed when available
   const { data: reviews, error } = await supabase
     .from('google_reviews')
-    .select('team_members_mentioned, star_rating, create_time')
-    .not('team_members_mentioned', 'is', null)
+    .select('team_members_mentioned, confirmed_mentions, star_rating, create_time')
+    .or('team_members_mentioned.not.is.null,confirmed_mentions.not.is.null')
     .gte('create_time', `${queryStartStr}T00:00:00`)
     .lte('create_time', `${refDateStr}T23:59:59`);
 
@@ -109,7 +110,10 @@ export async function GET(request: NextRequest) {
   const leaderboard: Record<string, LeaderboardEntry> = {};
 
   reviews.forEach((review) => {
-    const mentions = review.team_members_mentioned as string[];
+    // Prefer confirmed_mentions (human-verified) over team_members_mentioned (AI-detected)
+    const confirmed = review.confirmed_mentions as string[] | null;
+    const aiDetected = review.team_members_mentioned as string[] | null;
+    const mentions = confirmed ?? aiDetected;
     if (!mentions || mentions.length === 0) return;
 
     // Get review date in Central Time as YYYY-MM-DD string

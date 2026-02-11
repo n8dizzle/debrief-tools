@@ -219,10 +219,7 @@ def calculate_dispatcher_accuracy(spot_checks: List[SpotCheck]) -> Dict:
         "invoice_score": {"correct": 0, "total": 0, "weight": 4},
         "payment": {"correct": 0, "total": 0, "weight": 2},
         "estimates": {"correct": 0, "total": 0, "weight": 2},
-        "membership": {"correct": 0, "total": 0, "weight": 1},
-        "reviews": {"correct": 0, "total": 0, "weight": 1},
         "replacement": {"correct": 0, "total": 0, "weight": 1},
-        "equipment": {"correct": 0, "total": 0, "weight": 1},
     }
 
     grades = []
@@ -249,25 +246,10 @@ def calculate_dispatcher_accuracy(spot_checks: List[SpotCheck]) -> Dict:
             if sc.estimates_correct:
                 items["estimates"]["correct"] += 1
 
-        if sc.membership_correct is not None:
-            items["membership"]["total"] += 1
-            if sc.membership_correct:
-                items["membership"]["correct"] += 1
-
-        if sc.reviews_correct is not None:
-            items["reviews"]["total"] += 1
-            if sc.reviews_correct:
-                items["reviews"]["correct"] += 1
-
         if sc.replacement_correct is not None:
             items["replacement"]["total"] += 1
             if sc.replacement_correct:
                 items["replacement"]["correct"] += 1
-
-        if sc.equipment_correct is not None:
-            items["equipment"]["total"] += 1
-            if sc.equipment_correct:
-                items["equipment"]["correct"] += 1
 
         # Collect grades
         if sc.overall_grade is not None:

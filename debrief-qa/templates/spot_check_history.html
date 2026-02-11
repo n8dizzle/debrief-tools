@@ -157,10 +157,7 @@
                             sc.invoice_score_correct == false,
                             sc.payment_correct == false,
                             sc.estimates_correct == false,
-                            sc.membership_correct == false,
-                            sc.reviews_correct == false,
-                            sc.replacement_correct == false,
-                            sc.equipment_correct == false
+                            sc.replacement_correct == false
                         ]|select|list|length %}
                         {% if wrong_count > 0 %}
                         <span class="text-christmas-gold font-medium">{{ wrong_count }}</span>
