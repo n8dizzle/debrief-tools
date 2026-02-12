@@ -4,6 +4,43 @@ import { getServerSupabase } from "@/lib/supabase";
 
 const ALLOWED_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || "christmasair.com").split(",");
 
+const isProduction =
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXTAUTH_URL?.includes("christmasair.com");
+
+const sharedCookies = isProduction
+  ? {
+      sessionToken: {
+        name: "__Secure-next-auth.session-token",
+        options: {
+          httpOnly: true,
+          sameSite: "lax" as const,
+          path: "/",
+          secure: true,
+          domain: ".christmasair.com",
+        },
+      },
+      callbackUrl: {
+        name: "__Secure-next-auth.callback-url",
+        options: {
+          sameSite: "lax" as const,
+          path: "/",
+          secure: true,
+          domain: ".christmasair.com",
+        },
+      },
+      csrfToken: {
+        name: "__Host-next-auth.csrf-token",
+        options: {
+          httpOnly: true,
+          sameSite: "lax" as const,
+          path: "/",
+          secure: true,
+        },
+      },
+    }
+  : undefined;
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -11,6 +48,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  cookies: sharedCookies,
   callbacks: {
     async signIn({ user }) {
       try {

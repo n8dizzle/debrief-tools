@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const [channelId, setChannelId] = useState('');
   const [channelName, setChannelName] = useState('');
   const [linking, setLinking] = useState(false);
+  const [backfilling, setBackfilling] = useState<string | null>(null); // tracks config id
+  const [backfillResult, setBackfillResult] = useState<Record<string, string>>({});
+  const [backfillDate, setBackfillDate] = useState('2026-01-01');
 
   useEffect(() => {
     fetchData();
@@ -82,6 +85,29 @@ export default function SettingsPage() {
 
     await fetch(`/api/boards/${boardId}/slack?id=${configId}`, { method: 'DELETE' });
     await fetchData();
+  }
+
+  async function handleBackfill(boardId: string, configId: string, channelId: string) {
+    setBackfilling(configId);
+    setBackfillResult((prev) => ({ ...prev, [configId]: '' }));
+    try {
+      const since = new Date(backfillDate + 'T00:00:00').toISOString();
+      const res = await fetch(`/api/boards/${boardId}/slack/backfill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ since, channel_id: channelId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBackfillResult((prev) => ({ ...prev, [configId]: `Imported ${data.imported} posts (${data.skipped} duplicates skipped)` }));
+      } else {
+        setBackfillResult((prev) => ({ ...prev, [configId]: `Error: ${data.error}` }));
+      }
+    } catch (err) {
+      setBackfillResult((prev) => ({ ...prev, [configId]: 'Failed to backfill' }));
+    } finally {
+      setBackfilling(null);
+    }
   }
 
   if (!canManageSlack) {
@@ -187,18 +213,49 @@ export default function SettingsPage() {
                       → {board?.title || 'Unknown board'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleUnlink(boardId, config.id)}
-                    className="text-xs px-3 py-1 rounded"
-                    style={{ color: 'var(--status-error)' }}
-                  >
-                    Unlink
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={backfillDate}
+                        onChange={(e) => setBackfillDate(e.target.value)}
+                        className="input text-xs py-1 px-2"
+                        style={{ width: '140px' }}
+                      />
+                      <button
+                        onClick={() => handleBackfill(boardId, config.id, config.slack_channel_id)}
+                        disabled={backfilling === config.id}
+                        className="text-xs px-3 py-1 rounded whitespace-nowrap"
+                        style={{
+                          background: 'var(--christmas-green)',
+                          color: 'var(--christmas-cream)',
+                          opacity: backfilling === config.id ? 0.5 : 1,
+                        }}
+                      >
+                        {backfilling === config.id ? 'Importing...' : 'Backfill'}
+                      </button>
+                      <button
+                        onClick={() => handleUnlink(boardId, config.id)}
+                        className="text-xs px-3 py-1 rounded"
+                        style={{ color: 'var(--status-error)' }}
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                    {backfillResult[config.id] && (
+                      <span className="text-xs" style={{
+                        color: backfillResult[config.id].startsWith('Error') ? 'var(--status-error)' : 'var(--status-success)',
+                      }}>
+                        {backfillResult[config.id]}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ));
             })}
           </div>
         )}
+
       </div>
     </div>
   );
