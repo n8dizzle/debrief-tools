@@ -72,7 +72,7 @@ export default function GiphyPicker({ onSelect, onClose }: GiphyPickerProps) {
   }, [searchTimeout]);
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" style={{ zIndex: 60 }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       <div className="modal-panel">
