@@ -95,7 +95,8 @@ export async function GET(request: NextRequest) {
     .select('team_members_mentioned, confirmed_mentions, star_rating, create_time')
     .or('team_members_mentioned.not.is.null,confirmed_mentions.not.is.null')
     .gte('create_time', `${queryStartStr}T00:00:00`)
-    .lte('create_time', `${refDateStr}T23:59:59`);
+    .lte('create_time', `${refDateStr}T23:59:59`)
+    .limit(10000);
 
   if (error) {
     console.error('Error fetching reviews:', error);

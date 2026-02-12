@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
     // Get existing review IDs to detect new reviews (AI only runs once per review)
     const { data: existingReviews } = await supabase
       .from('google_reviews')
-      .select('google_review_id');
+      .select('google_review_id')
+      .limit(10000);
     const existingReviewIds = new Set(existingReviews?.map(r => r.google_review_id) || []);
 
     // Sync reviews for each location
