@@ -54,8 +54,7 @@ export async function GET(request: NextRequest) {
 
   if (hasTeamMention === 'true') {
     // Show reviews with either confirmed mentions or AI-detected mentions
-    query = query.or('confirmed_mentions.not.is.null,team_members_mentioned.not.is.null')
-      .filter('team_members_mentioned', 'neq', '{}');
+    query = query.or('confirmed_mentions.not.is.null,team_members_mentioned.not.is.null');
   }
 
   if (needsReply === 'true') {
