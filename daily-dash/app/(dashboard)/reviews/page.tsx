@@ -602,12 +602,49 @@ function GoalProgress({
   const daysElapsed = Math.ceil((now.getTime() - periodDates.start.getTime()) / (1000 * 60 * 60 * 24));
 
   const isPastPeriod = period === 'last_month' || period === 'last_quarter' || period === 'last_year';
-  const expectedPercent = isPastPeriod
-    ? 100 // Past periods should be at 100%
-    : Math.min((daysElapsed / totalPeriodDays) * 100, 100);
+
+  // Calculate expected percent based on monthly goals for year/quarter periods
+  // Simple day-based calc is wrong when monthly targets vary (e.g., summer months are higher)
+  function getExpectedPercent(): number {
+    if (isPastPeriod) return 100;
+    if (period === 'this_year' && goal > 0) {
+      // Sum completed months' goals + prorated current month
+      const currentMonth = now.getMonth() + 1;
+      const currentDay = now.getDate();
+      let expectedReviews = 0;
+      for (let m = 1; m < currentMonth; m++) {
+        expectedReviews += getMonthlyGoalValue(m);
+      }
+      const daysInCurrentMonth = new Date(now.getFullYear(), currentMonth, 0).getDate();
+      expectedReviews += getMonthlyGoalValue(currentMonth) * (currentDay / daysInCurrentMonth);
+      return Math.min((expectedReviews / goal) * 100, 100);
+    }
+    if (period === 'this_quarter' && goal > 0) {
+      // Sum completed months' goals within the quarter + prorated current month
+      const currentMonth = now.getMonth() + 1;
+      const currentDay = now.getDate();
+      const quarterStartMonth = Math.floor((currentMonth - 1) / 3) * 3 + 1;
+      let expectedReviews = 0;
+      for (let m = quarterStartMonth; m < currentMonth; m++) {
+        expectedReviews += getMonthlyGoalValue(m);
+      }
+      const daysInCurrentMonth = new Date(now.getFullYear(), currentMonth, 0).getDate();
+      expectedReviews += getMonthlyGoalValue(currentMonth) * (currentDay / daysInCurrentMonth);
+      return Math.min((expectedReviews / goal) * 100, 100);
+    }
+    // For month and rolling periods, simple day-based is fine
+    return Math.min((daysElapsed / totalPeriodDays) * 100, 100);
+  }
+
+  const expectedPercent = getExpectedPercent();
 
   const isAhead = currentPercent >= expectedPercent;
-  const difference = Math.abs(currentPercent - expectedPercent);
+  // Use relative difference (same as YTD card): how much ahead/behind vs expected
+  // e.g., 123 actual vs 100 expected = 23% ahead (not 1.8 percentage points)
+  const expectedReviews = (expectedPercent / 100) * goal;
+  const difference = expectedReviews > 0
+    ? Math.abs((reviewsInPeriod - expectedReviews) / expectedReviews) * 100
+    : 0;
 
   // Calculate business days remaining in the FULL period
   const businessDaysRemaining = fullPeriodEnd > now ? getBusinessDays(now, fullPeriodEnd) : 0;
