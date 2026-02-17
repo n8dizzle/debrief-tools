@@ -86,12 +86,22 @@ export interface APInstallJob {
   payment_expected_date: string | null;
   payment_method: string | null;
   payment_notes: string | null;
+  st_invoice_id: number | null;
+  invoice_number: string | null;
+  invoice_exported_status: string | null;
+  invoice_date: string | null;
+  labor_hours: number | null;
+  labor_cost: number | null;
+  technician_count: number | null;
+  technician_id: string | null;
+  st_technician_id: number | null;
   is_ignored: boolean;
   synced_at: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
   contractor?: APContractor;
+  technician?: { id: string; name: string; hourly_rate: number | null } | null;
 }
 
 export interface APActivityLog {
@@ -126,6 +136,9 @@ export interface APMonthlyTrend {
   job_total: number;    // sum of job_total for contractor jobs
   contractor_pay: number; // sum of payment_amount for contractor jobs
   contractor_pct: number; // (contractor_pay / job_total) * 100
+  contractor_usage_pct: number; // contractor / (contractor + in_house) * 100
+  contractor_count: number;
+  in_house_count: number;
 }
 
 export interface APDashboardStats {
@@ -139,6 +152,7 @@ export interface APDashboardStats {
   total_outstanding: number;
   total_paid: number;
   contractor_pct: number;
+  contractor_usage_pct: number;
   monthly_trend: APMonthlyTrend[];
   last_sync: string | null;
 }
@@ -162,4 +176,58 @@ export interface APContractorWithStats extends APContractor {
   total_paid: number;
   total_outstanding: number;
   rates: APContractorRate[];
+}
+
+// ============================================
+// LABOR CALCULATOR TYPES
+// ============================================
+
+export interface APTechnician {
+  id: string;
+  st_technician_id: number;
+  name: string;
+  trade: string;
+  hourly_rate: number | null;
+  is_active: boolean;
+  business_unit_id: number | null;
+  business_unit_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface APLaborOverhead {
+  id: string;
+  month: string;
+  amount: number;
+  notes: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface APLaborMonthly {
+  month: string;
+  label: string;
+  revenue: number;
+  contractor_labor: number;
+  in_house_labor: number;
+  overhead: number;
+  total_labor: number;
+  labor_pct: number;
+  job_count: number;
+  contractor_count: number;
+  in_house_count: number;
+}
+
+export interface APLaborStats {
+  total_revenue: number;
+  contractor_labor_cost: number;
+  in_house_labor_cost: number;
+  overhead_cost: number;
+  total_labor_cost: number;
+  labor_pct: number;
+  goal_pct: number;
+  monthly_breakdown: APLaborMonthly[];
+  jobs_missing_hours: number;
+  techs_missing_rates: number;
 }
