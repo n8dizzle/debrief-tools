@@ -21,7 +21,8 @@ export function getTodayDateString(): string {
 }
 
 /**
- * Format currency amount
+ * Format currency amount — use this everywhere instead of manual `$${...}`.
+ * Handles null/undefined safely. Always produces "$1,234.56" format.
  */
 export function formatCurrency(amount: number | null | undefined): string {
   if (amount == null) return '$0.00';
@@ -32,6 +33,22 @@ export function formatCurrency(amount: number | null | undefined): string {
 }
 
 /**
+ * Compact currency for chart ticks: "$1.2k", "$500"
+ */
+export function formatCurrencyCompact(v: number): string {
+  if (v >= 1000) return `$${Math.round(v / 1000)}k`;
+  return `$${v}`;
+}
+
+/**
+ * Format a rate per hour, e.g. "$25/hr"
+ */
+export function formatRate(rate: number | null | undefined): string {
+  if (rate == null) return '—';
+  return `${formatCurrency(rate)}/hr`;
+}
+
+/**
  * Format a date string for display
  */
 export function formatDate(dateStr: string | null | undefined): string {
@@ -39,8 +56,8 @@ export function formatDate(dateStr: string | null | undefined): string {
   const date = new Date(dateStr + 'T00:00:00');
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
-  const yyyy = date.getFullYear();
-  return `${mm}/${dd}/${yyyy}`;
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${mm}/${dd}/${yy}`;
 }
 
 /**
@@ -74,8 +91,9 @@ export function getAssignmentLabel(type: string): string {
  */
 export function getPaymentStatusLabel(status: string): string {
   switch (status) {
-    case 'requested': return 'Requested';
-    case 'approved': return 'Approved';
+    case 'received': return 'Received';
+    case 'pending_approval': return 'Pending Approval';
+    case 'ready_to_pay': return 'Ready to Pay';
     case 'paid': return 'Paid';
     case 'none':
     default: return 'None';

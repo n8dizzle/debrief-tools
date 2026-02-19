@@ -15,11 +15,15 @@ type SortKey =
   | 'customer_name'
   | 'business_unit'
   | 'job_type_name'
+  | 'invoice_number'
+  | 'invoice_date'
   | 'date'
+  | 'job_status'
   | 'job_total'
+  | 'invoice_exported'
   | 'assignment_type'
   | 'contractor'
-  | 'payment_amount'
+  | 'labor_cost'
   | 'payment_status';
 
 interface ColumnDef {
@@ -34,11 +38,15 @@ const COLUMNS: ColumnDef[] = [
   { key: 'customer_name', label: 'Customer', defaultWidth: 180, minWidth: 120 },
   { key: 'business_unit', label: 'Business Unit', defaultWidth: 160, minWidth: 100 },
   { key: 'job_type_name', label: 'Type', defaultWidth: 140, minWidth: 80 },
-  { key: 'date', label: 'Date', defaultWidth: 100, minWidth: 80 },
+  { key: 'invoice_number', label: 'Invoice #', defaultWidth: 110, minWidth: 80 },
+  { key: 'invoice_date', label: 'Inv Date', defaultWidth: 90, minWidth: 70 },
+  { key: 'date', label: 'Completed', defaultWidth: 100, minWidth: 80 },
+  { key: 'job_status', label: 'Status', defaultWidth: 110, minWidth: 80 },
   { key: 'job_total', label: 'Job Total', defaultWidth: 100, minWidth: 80 },
+  { key: 'invoice_exported', label: 'Exported', defaultWidth: 100, minWidth: 80 },
   { key: 'assignment_type', label: 'Assignment', defaultWidth: 120, minWidth: 100 },
   { key: 'contractor', label: 'Contractor', defaultWidth: 140, minWidth: 100 },
-  { key: 'payment_amount', label: 'Pay Amt', defaultWidth: 110, minWidth: 80 },
+  { key: 'labor_cost', label: 'Labor Cost', defaultWidth: 120, minWidth: 90 },
   { key: 'payment_status', label: 'Pay Status', defaultWidth: 110, minWidth: 80 },
 ];
 
@@ -70,11 +78,15 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 // --- Sort helpers ---
 
 const PAYMENT_STATUS_ORDER: Record<string, number> = {
-  none: 0, requested: 1, approved: 2, paid: 3,
+  none: 0, received: 1, pending_approval: 2, ready_to_pay: 3, paid: 4,
 };
 
 const ASSIGNMENT_ORDER: Record<string, number> = {
   unassigned: 0, in_house: 1, contractor: 2,
+};
+
+const JOB_STATUS_ORDER: Record<string, number> = {
+  Completed: 0, InProgress: 1, Scheduled: 2, Canceled: 3,
 };
 
 function getSortValue(job: APInstallJob, key: SortKey): string | number {
@@ -83,11 +95,19 @@ function getSortValue(job: APInstallJob, key: SortKey): string | number {
     case 'customer_name': return (job.customer_name || '').toLowerCase();
     case 'business_unit': return (job.business_unit_name || job.trade || '').toLowerCase();
     case 'job_type_name': return (job.job_type_name || '').toLowerCase();
+    case 'invoice_number': return job.invoice_number || '';
+    case 'invoice_date': return job.invoice_date || '';
     case 'date': return job.completed_date || job.scheduled_date || '';
+    case 'job_status': return JOB_STATUS_ORDER[job.job_status || ''] ?? 99;
     case 'job_total': return job.job_total != null ? Number(job.job_total) : -1;
+    case 'invoice_exported': return (job.invoice_exported_status || '').toLowerCase();
     case 'assignment_type': return ASSIGNMENT_ORDER[job.assignment_type] ?? 0;
     case 'contractor': return (job.contractor?.name || '').toLowerCase();
-    case 'payment_amount': return job.payment_amount != null ? Number(job.payment_amount) : -1;
+    case 'labor_cost': {
+      if (job.assignment_type === 'contractor') return job.payment_amount != null ? Number(job.payment_amount) : -1;
+      if (job.assignment_type === 'in_house') return job.labor_cost != null ? Number(job.labor_cost) : -1;
+      return -1;
+    }
     case 'payment_status': return PAYMENT_STATUS_ORDER[job.payment_status] ?? 0;
   }
 }
@@ -109,6 +129,9 @@ interface JobsTableProps {
   onBulkExclude?: (jobIds: string[], isIgnored: boolean) => Promise<void>;
   showIgnored?: boolean;
   columnPickerContainer?: React.RefObject<HTMLDivElement | null>;
+  sortKey?: SortKey | null;
+  sortDir?: 'asc' | 'desc';
+  onSort?: (key: SortKey, dir: 'asc' | 'desc') => void;
 }
 
 // --- Inline row component ---
@@ -283,14 +306,90 @@ function InlineAssignmentRow({
         {job.job_type_name || '—'}
       </td>
     ),
+    invoice_number: (
+      <td key="invoice_number">
+        {job.invoice_number && job.st_invoice_id ? (
+          <a
+            href={`https://go.servicetitan.com/#/Invoice/${job.st_invoice_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-sm inline-flex items-center gap-1 hover:underline"
+            style={{ color: 'var(--christmas-green-light)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {job.invoice_number}
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        ) : (
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
+        )}
+      </td>
+    ),
+    invoice_date: (
+      <td key="invoice_date" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        {formatDate(job.invoice_date)}
+      </td>
+    ),
     date: (
       <td key="date" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
         {formatDate(job.completed_date || job.scheduled_date)}
       </td>
     ),
+    job_status: (
+      <td key="job_status">
+        {job.job_status ? (
+          <span
+            className="badge"
+            style={{
+              backgroundColor:
+                job.job_status === 'Completed' ? 'rgba(34, 197, 94, 0.15)' :
+                job.job_status === 'Scheduled' ? 'rgba(59, 130, 246, 0.15)' :
+                job.job_status === 'InProgress' ? 'rgba(234, 179, 8, 0.15)' :
+                job.job_status === 'Canceled' ? 'rgba(239, 68, 68, 0.15)' :
+                'rgba(107, 114, 128, 0.15)',
+              color:
+                job.job_status === 'Completed' ? 'var(--status-success)' :
+                job.job_status === 'Scheduled' ? 'var(--status-info)' :
+                job.job_status === 'InProgress' ? 'var(--status-warning)' :
+                job.job_status === 'Canceled' ? 'var(--status-error)' :
+                'var(--text-muted)',
+            }}
+          >
+            {job.job_status}
+          </span>
+        ) : (
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
+        )}
+      </td>
+    ),
     job_total: (
       <td key="job_total" className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
         {formatCurrency(job.job_total)}
+      </td>
+    ),
+    invoice_exported: (
+      <td key="invoice_exported">
+        {job.invoice_exported_status ? (
+          <span
+            className="badge"
+            style={{
+              backgroundColor:
+                job.invoice_exported_status === 'Exported' ? 'rgba(34, 197, 94, 0.15)' :
+                job.invoice_exported_status === 'Posted' ? 'rgba(59, 130, 246, 0.15)' :
+                'rgba(234, 179, 8, 0.15)',
+              color:
+                job.invoice_exported_status === 'Exported' ? 'var(--status-success)' :
+                job.invoice_exported_status === 'Posted' ? 'var(--status-info)' :
+                'var(--status-warning)',
+            }}
+          >
+            {job.invoice_exported_status}
+          </span>
+        ) : (
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
+        )}
       </td>
     ),
     assignment_type: (
@@ -337,48 +436,84 @@ function InlineAssignmentRow({
         )}
       </td>
     ),
-    payment_amount: (
-      <td key="payment_amount" onClick={(e) => e.stopPropagation()}>
-        {canManageAssignments && assignmentType === 'contractor' ? (
-          <div className="relative" style={{ width: '100px' }}>
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-muted)' }}>$</span>
-            <input
-              ref={amountRef}
-              type="number"
-              className="input text-xs py-1 pl-5 pr-2"
-              style={{ width: '100px' }}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              onBlur={handleAmountBlur}
-              onKeyDown={handleAmountKeyDown}
-            />
-          </div>
-        ) : (
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            {job.payment_amount != null ? formatCurrency(job.payment_amount) : '—'}
+    labor_cost: (
+      <td key="labor_cost" onClick={(e) => e.stopPropagation()}>
+        {assignmentType === 'contractor' ? (
+          canManageAssignments && job.payment_status !== 'paid' ? (
+            <div className="flex items-center gap-1" style={{ width: '110px' }}>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>$</span>
+              <input
+                ref={amountRef}
+                type="number"
+                className="input text-xs py-1 px-2"
+                style={{ width: '90px' }}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                onBlur={handleAmountBlur}
+                onKeyDown={handleAmountKeyDown}
+              />
+            </div>
+          ) : (
+            <span className="text-sm font-medium" style={{ color: 'var(--christmas-gold)' }}>
+              {job.payment_amount != null ? formatCurrency(job.payment_amount) : '—'}
+            </span>
+          )
+        ) : assignmentType === 'in_house' ? (
+          <span
+            className="text-sm font-medium"
+            style={{ color: 'var(--christmas-green-light)' }}
+            title={job.labor_hours != null && job.labor_cost != null
+              ? `${job.labor_hours} total hrs — ${formatCurrency(job.labor_cost)}`
+              : job.labor_hours != null
+              ? `${job.labor_hours} hrs (no rate set)`
+              : 'Missing labor hours'}
+          >
+            {job.labor_cost != null ? formatCurrency(job.labor_cost) : (
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>
+            )}
           </span>
+        ) : (
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>
         )}
       </td>
     ),
     payment_status: (
       <td key="payment_status" onClick={(e) => e.stopPropagation()}>
         {canManagePayments && assignmentType === 'contractor' && job.payment_status !== 'paid' ? (
-          <select
-            className="select text-xs py-1 px-2"
-            style={{ width: 'auto', minWidth: '100px' }}
-            value={job.payment_status}
-            onChange={(e) => handlePaymentChange(e.target.value)}
-          >
-            <option value="none">None</option>
-            <option value="requested">Requested</option>
-            <option value="approved">Approved</option>
-            <option value="paid">Paid</option>
-          </select>
+          job.payment_status === 'pending_approval' ? (
+            <button
+              className="btn btn-primary text-xs py-1 px-3"
+              onClick={() => handlePaymentChange('ready_to_pay')}
+              title="Approve this invoice"
+            >
+              Approve
+            </button>
+          ) : (
+            <select
+              className="select text-xs py-1 px-2"
+              style={{ width: 'auto', minWidth: '120px' }}
+              value={job.payment_status}
+              onChange={(e) => handlePaymentChange(e.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="received">Received</option>
+              <option value="pending_approval">Pending Approval</option>
+              <option value="ready_to_pay">Ready to Pay</option>
+              <option value="paid">Paid</option>
+            </select>
+          )
         ) : (
-          <PaymentStatusBadge status={job.payment_status} />
+          <div className="flex items-center gap-1.5">
+            <PaymentStatusBadge status={job.payment_status} />
+            {job.invoice_source && (
+              <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                {job.invoice_source === 'manager_text' ? '(Text)' : '(Email)'}
+              </span>
+            )}
+          </div>
         )}
       </td>
     ),
@@ -445,9 +580,15 @@ export default function JobsTable({
   onBulkExclude,
   showIgnored,
   columnPickerContainer,
+  sortKey: controlledSortKey,
+  sortDir: controlledSortDir = 'asc',
+  onSort,
 }: JobsTableProps) {
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Use controlled sort if provided, otherwise manage internally
+  const [internalSortKey, setInternalSortKey] = useState<SortKey | null>(null);
+  const [internalSortDir, setInternalSortDir] = useState<'asc' | 'desc'>('asc');
+  const sortKey = onSort ? (controlledSortKey ?? null) : internalSortKey;
+  const sortDir = onSort ? controlledSortDir : internalSortDir;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkActing, setBulkActing] = useState(false);
   const [colWidths, setColWidths] = useState<number[]>(() => loadFromStorage(STORAGE_KEY_WIDTHS, DEFAULT_WIDTHS));
@@ -541,13 +682,14 @@ export default function JobsTable({
   }, [colWidths, saveLayout]);
 
   const handleSort = useCallback((key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    const newDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    if (onSort) {
+      onSort(key, newDir);
     } else {
-      setSortKey(key);
-      setSortDir('asc');
+      setInternalSortKey(key);
+      setInternalSortDir(newDir);
     }
-  }, [sortKey]);
+  }, [sortKey, sortDir, onSort]);
 
   // Drag-to-reorder handlers
   const handleDragStart = useCallback((orderPos: number, e: React.DragEvent) => {
@@ -608,6 +750,8 @@ export default function JobsTable({
   }, []);
 
   const sortedJobs = useMemo(() => {
+    // When sort is controlled externally (server-side), data arrives pre-sorted
+    if (onSort) return jobs;
     if (!sortKey) return jobs;
     return [...jobs].sort((a, b) => {
       const aVal = getSortValue(a, sortKey);
@@ -616,7 +760,7 @@ export default function JobsTable({
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [jobs, sortKey, sortDir]);
+  }, [jobs, sortKey, sortDir, onSort]);
 
   // Clear selection when jobs change (e.g. after bulk action or filter change)
   useEffect(() => {
@@ -692,15 +836,13 @@ export default function JobsTable({
   const allSelectedExcluded = selectedJobs.length > 0 && selectedJobs.every(j => j.is_ignored);
   const allSelectedNotExcluded = selectedJobs.length > 0 && selectedJobs.every(j => !j.is_ignored);
 
-  const hiddenCount = COLUMNS.length - visibleColumnOrder.length;
-
   const columnPickerElement = (
     <div className="relative" ref={columnPickerRef}>
       <button
         className="btn btn-secondary text-xs"
         onClick={() => setShowColumnPicker(!showColumnPicker)}
       >
-        Columns{hiddenCount > 0 && ` (${hiddenCount} hidden)`}
+        Columns
       </button>
       {showColumnPicker && (
         <div

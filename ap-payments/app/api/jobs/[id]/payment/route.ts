@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/ap-utils';
+import { sendPaymentStatusNotification } from '@/lib/sms-notifications';
 
 export async function PATCH(
   request: NextRequest,
@@ -19,11 +21,16 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { payment_status, payment_amount, payment_expected_date, payment_notes } = body;
+  const { payment_status, payment_amount, payment_expected_date, payment_notes, invoice_source } = body;
 
-  const validStatuses = ['none', 'requested', 'approved', 'paid'];
+  const validStatuses = ['none', 'received', 'pending_approval', 'ready_to_pay', 'paid'];
   if (payment_status && !validStatuses.includes(payment_status)) {
     return NextResponse.json({ error: 'Invalid payment status' }, { status: 400 });
+  }
+
+  const validSources = ['manager_text', 'ap_email'];
+  if (invoice_source && !validSources.includes(invoice_source)) {
+    return NextResponse.json({ error: 'Invalid invoice source' }, { status: 400 });
   }
 
   const supabase = getServerSupabase();
@@ -31,7 +38,7 @@ export async function PATCH(
   // Get current state
   const { data: currentJob } = await supabase
     .from('ap_install_jobs')
-    .select('payment_status, payment_amount, contractor_id')
+    .select('payment_status, payment_amount, contractor_id, invoice_source')
     .eq('id', id)
     .single();
 
@@ -44,17 +51,48 @@ export async function PATCH(
     updated_at: new Date().toISOString(),
   };
 
-  if (payment_status !== undefined) {
-    updateData.payment_status = payment_status;
+  // Determine the effective status (may be auto-advanced)
+  let effectiveStatus = payment_status;
+  const effectiveSource = invoice_source || currentJob.invoice_source;
 
-    if (payment_status === 'requested') {
-      updateData.payment_requested_at = new Date().toISOString();
-    } else if (payment_status === 'approved') {
-      updateData.payment_approved_at = new Date().toISOString();
-      updateData.payment_approved_by = session.user.id;
+  if (payment_status !== undefined) {
+    if (payment_status === 'received') {
+      updateData.payment_received_at = new Date().toISOString();
+      if (invoice_source) {
+        updateData.invoice_source = invoice_source;
+      }
+      // Auto-advance based on source
+      if (effectiveSource === 'manager_text') {
+        // Manager text = implicit approval, skip to ready_to_pay
+        effectiveStatus = 'ready_to_pay';
+        updateData.payment_approved_at = new Date().toISOString();
+        updateData.payment_approved_by = session.user.id;
+      } else if (effectiveSource === 'ap_email') {
+        // AP email = needs manager approval
+        effectiveStatus = 'pending_approval';
+      }
+    } else if (payment_status === 'ready_to_pay' || payment_status === 'pending_approval') {
+      // If approving from pending_approval → ready_to_pay
+      if (currentJob.payment_status === 'pending_approval' && payment_status === 'ready_to_pay') {
+        updateData.payment_approved_at = new Date().toISOString();
+        updateData.payment_approved_by = session.user.id;
+      }
     } else if (payment_status === 'paid') {
       updateData.payment_paid_at = new Date().toISOString();
+    } else if (payment_status === 'none') {
+      // Reset all payment timestamps
+      updateData.payment_received_at = null;
+      updateData.payment_approved_at = null;
+      updateData.payment_approved_by = null;
+      updateData.payment_paid_at = null;
+      updateData.invoice_source = null;
     }
+
+    updateData.payment_status = effectiveStatus;
+  }
+
+  if (invoice_source !== undefined && payment_status === undefined) {
+    updateData.invoice_source = invoice_source;
   }
 
   if (payment_amount !== undefined) {
@@ -85,15 +123,18 @@ export async function PATCH(
   let action = 'amount_changed';
   let description = '';
 
-  if (payment_status && payment_status !== currentJob.payment_status) {
-    action = `payment_${payment_status}`;
-    description = `Payment status changed from ${currentJob.payment_status} to ${payment_status}`;
+  if (payment_status && effectiveStatus !== currentJob.payment_status) {
+    action = `payment_${effectiveStatus}`;
+    description = `Payment status changed to ${effectiveStatus}`;
+    if (invoice_source) {
+      description += ` (via ${invoice_source === 'manager_text' ? 'manager text' : 'AP email'})`;
+    }
     if (payment_amount) {
-      description += ` ($${payment_amount})`;
+      description += ` (${formatCurrency(payment_amount)})`;
     }
   } else if (payment_amount !== undefined && payment_amount !== currentJob.payment_amount) {
     action = 'amount_changed';
-    description = `Payment amount changed from $${currentJob.payment_amount || 0} to $${payment_amount}`;
+    description = `Payment amount changed from ${formatCurrency(currentJob.payment_amount)} to ${formatCurrency(payment_amount)}`;
   }
 
   if (description) {
@@ -107,11 +148,17 @@ export async function PATCH(
         payment_amount: currentJob.payment_amount,
       }),
       new_value: JSON.stringify({
-        payment_status: payment_status || currentJob.payment_status,
+        payment_status: effectiveStatus || currentJob.payment_status,
         payment_amount: payment_amount ?? currentJob.payment_amount,
       }),
       performed_by: session.user.id,
     });
+  }
+
+  // Fire-and-forget SMS notification for payment status changes
+  if (effectiveStatus && effectiveStatus !== currentJob.payment_status && effectiveStatus !== 'none' && currentJob.contractor_id) {
+    sendPaymentStatusNotification(id, effectiveStatus, payment_amount ?? currentJob.payment_amount, session.user.id, effectiveSource)
+      .catch(err => console.error('SMS error:', err));
   }
 
   return NextResponse.json(updated);

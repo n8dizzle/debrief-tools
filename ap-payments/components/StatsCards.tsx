@@ -31,8 +31,9 @@ export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
       color: stats.unassigned_jobs > 0 ? 'var(--status-warning)' : 'var(--text-primary)',
     },
     {
-      label: 'Contractor Jobs',
-      value: String(stats.contractor_jobs),
+      label: 'Contractor Usage',
+      value: (stats.contractor_jobs + stats.in_house_jobs) > 0 ? `${stats.contractor_usage_pct}%` : 'N/A',
+      subtext: `${stats.contractor_jobs} of ${stats.contractor_jobs + stats.in_house_jobs} assigned`,
       color: 'var(--text-primary)',
     },
     {
@@ -44,7 +45,7 @@ export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
     {
       label: 'Payments Outstanding',
       value: formatCurrency(stats.total_outstanding),
-      subtext: `${stats.payments_requested + stats.payments_approved} pending`,
+      subtext: `${stats.payments_pending_approval} pending approval, ${stats.payments_ready_to_pay} ready to pay`,
       color: stats.total_outstanding > 0 ? 'var(--status-warning)' : 'var(--status-success)',
     },
     {

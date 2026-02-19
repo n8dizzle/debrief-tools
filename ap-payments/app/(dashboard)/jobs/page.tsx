@@ -26,6 +26,9 @@ export default function JobsPage() {
   const [total, setTotal] = useState(0);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Initialize filters from sessionStorage (persists across navigation)
   const saved = useRef(getSavedFilters());
@@ -40,9 +43,14 @@ export default function JobsPage() {
   const columnPickerRef = useRef<HTMLDivElement>(null);
   const [trade, setTrade] = useState(saved.current?.trade || '');
   const [assignment, setAssignment] = useState(saved.current?.assignment || '');
-  const [paymentStatus, setPaymentStatus] = useState(saved.current?.payment || '');
+  const [selectedPaymentStatuses, setSelectedPaymentStatuses] = useState<string[]>(saved.current?.payment || []);
+  const [paymentDropdownOpen, setPaymentDropdownOpen] = useState(false);
+  const paymentDropdownRef = useRef<HTMLDivElement>(null);
+  const [jobStatus, setJobStatus] = useState(saved.current?.jobStatus || '');
   const [contractorFilter, setContractorFilter] = useState(saved.current?.contractor || '');
   const [search, setSearch] = useState(saved.current?.q || '');
+  const [minTotal, setMinTotal] = useState(saved.current?.minTotal || '');
+  const [maxTotal, setMaxTotal] = useState(saved.current?.maxTotal || '');
   const [showIgnored, setShowIgnored] = useState(saved.current?.excluded || false);
 
   // Persist filters to sessionStorage whenever they change (skip first render to avoid overwriting)
@@ -55,11 +63,11 @@ export default function JobsPage() {
     const filters = {
       start: dateRange.start, end: dateRange.end, datePreset,
       bu: selectedBUs, trade, assignment,
-      payment: paymentStatus, contractor: contractorFilter,
-      q: search, excluded: showIgnored,
+      payment: selectedPaymentStatuses, jobStatus, contractor: contractorFilter,
+      q: search, minTotal, maxTotal, excluded: showIgnored,
     };
     try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(filters)); } catch {}
-  }, [dateRange, datePreset, selectedBUs, trade, assignment, paymentStatus, contractorFilter, search, showIgnored]);
+  }, [dateRange, datePreset, selectedBUs, trade, assignment, selectedPaymentStatuses, jobStatus, contractorFilter, search, minTotal, maxTotal, showIgnored]);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -70,11 +78,19 @@ export default function JobsPage() {
       if (selectedBUs.length > 0) params.set('businessUnits', selectedBUs.join(','));
       if (trade) params.set('trade', trade);
       if (assignment) params.set('assignment', assignment);
-      if (paymentStatus) params.set('paymentStatus', paymentStatus);
+      if (selectedPaymentStatuses.length > 0) params.set('paymentStatus', selectedPaymentStatuses.join(','));
+      if (jobStatus) params.set('jobStatus', jobStatus);
       if (contractorFilter) params.set('contractorId', contractorFilter);
       if (search) params.set('search', search);
+      if (minTotal) params.set('minTotal', minTotal);
+      if (maxTotal) params.set('maxTotal', maxTotal);
       if (showIgnored) params.set('showIgnored', 'true');
+      if (sortKey) {
+        params.set('sort', sortKey);
+        params.set('sortDir', sortDir);
+      }
       params.set('limit', '100');
+      params.set('offset', String(page * 100));
 
       const res = await fetch(`/api/jobs?${params.toString()}`);
       if (res.ok) {
@@ -87,7 +103,7 @@ export default function JobsPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, selectedBUs, trade, assignment, paymentStatus, contractorFilter, search, showIgnored]);
+  }, [dateRange, selectedBUs, trade, assignment, selectedPaymentStatuses, jobStatus, contractorFilter, search, minTotal, maxTotal, showIgnored, page, sortKey, sortDir]);
 
   const loadContractors = useCallback(async () => {
     try {
@@ -113,11 +129,14 @@ export default function JobsPage() {
     }
   }, []);
 
-  // Close BU dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (buDropdownRef.current && !buDropdownRef.current.contains(e.target as Node)) {
         setBuDropdownOpen(false);
+      }
+      if (paymentDropdownRef.current && !paymentDropdownRef.current.contains(e.target as Node)) {
+        setPaymentDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -201,19 +220,27 @@ export default function JobsPage() {
     }
   };
 
+  // Reset to first page when any filter or sort changes
+  useEffect(() => {
+    setPage(0);
+  }, [dateRange, selectedBUs, trade, assignment, selectedPaymentStatuses, jobStatus, contractorFilter, search, minTotal, maxTotal, showIgnored, sortKey, sortDir]);
+
   const clearAllFilters = () => {
     setTrade('');
     setAssignment('');
-    setPaymentStatus('');
+    setSelectedPaymentStatuses([]);
+    setJobStatus('');
     setContractorFilter('');
     setSelectedBUs([]);
+    setMinTotal('');
+    setMaxTotal('');
     setShowIgnored(false);
     setDateRange({ start: '', end: '' });
     setDatePreset(undefined);
     setSearch('');
   };
 
-  const hasActiveFilters = trade || assignment || paymentStatus || contractorFilter || selectedBUs.length > 0 || showIgnored || dateRange.start || dateRange.end || search;
+  const hasActiveFilters = trade || assignment || selectedPaymentStatuses.length > 0 || jobStatus || contractorFilter || selectedBUs.length > 0 || showIgnored || dateRange.start || dateRange.end || search || minTotal || maxTotal;
 
   return (
     <div>
@@ -228,11 +255,6 @@ export default function JobsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <DateRangePicker
-            value={dateRange}
-            onChange={(range, preset) => { setDateRange(range); setDatePreset(preset); }}
-            defaultPreset={datePreset}
-          />
           {canSyncData && (
             <button
               onClick={handleSync}
@@ -314,21 +336,21 @@ export default function JobsPage() {
 
         <span className="mx-1" style={{ color: 'var(--border-subtle)' }}>|</span>
 
-        {/* Payment Status Chips */}
+        {/* Job Status Chips */}
         {[
-          { value: 'none', label: 'No Payment', color: 'var(--text-muted)' },
-          { value: 'requested', label: 'Requested', color: '#fcd34d' },
-          { value: 'approved', label: 'Approved', color: '#60a5fa' },
-          { value: 'paid', label: 'Paid', color: '#4ade80' },
+          { value: 'Completed', label: 'Completed', color: '#4ade80' },
+          { value: 'Scheduled', label: 'Scheduled', color: '#60a5fa' },
+          { value: 'InProgress', label: 'In Progress', color: '#fcd34d' },
+          { value: 'Canceled', label: 'Canceled', color: '#f87171' },
         ].map((opt) => (
           <button
             key={opt.value}
-            onClick={() => setPaymentStatus(paymentStatus === opt.value ? '' : opt.value)}
+            onClick={() => setJobStatus(jobStatus === opt.value ? '' : opt.value)}
             className="px-3 py-1 rounded-full text-xs font-medium transition-all"
             style={{
-              backgroundColor: paymentStatus === opt.value ? `${opt.color}20` : 'var(--bg-secondary)',
-              color: paymentStatus === opt.value ? opt.color : 'var(--text-secondary)',
-              border: paymentStatus === opt.value ? `1px solid ${opt.color}` : '1px solid var(--border-subtle)',
+              backgroundColor: jobStatus === opt.value ? `${opt.color}20` : 'var(--bg-secondary)',
+              color: jobStatus === opt.value ? opt.color : 'var(--text-secondary)',
+              border: jobStatus === opt.value ? `1px solid ${opt.color}` : '1px solid var(--border-subtle)',
             }}
           >
             {opt.label}
@@ -371,8 +393,8 @@ export default function JobsPage() {
 
       {/* Filters */}
       <div className="card mb-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="col-span-2 lg:col-span-1">
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(160px, 1fr) repeat(3, minmax(120px, 1fr)) auto auto' }}>
+          <div>
             <input
               type="text"
               className="input"
@@ -459,6 +481,110 @@ export default function JobsPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+
+          {/* Payment Status multi-select dropdown */}
+          <div className="relative" ref={paymentDropdownRef}>
+            <button
+              type="button"
+              className="select text-left flex items-center justify-between"
+              onClick={() => setPaymentDropdownOpen(prev => !prev)}
+            >
+              <span className="truncate">
+                {selectedPaymentStatuses.length === 0
+                  ? 'All Statuses'
+                  : selectedPaymentStatuses.length === 1
+                    ? { none: 'No Payment', requested: 'Requested', approved: 'Approved', paid: 'Paid' }[selectedPaymentStatuses[0]] || selectedPaymentStatuses[0]
+                    : `${selectedPaymentStatuses.length} selected`}
+              </span>
+              <svg className="w-4 h-4 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {paymentDropdownOpen && (
+              <div
+                className="absolute z-50 mt-1 w-full rounded-lg shadow-lg border overflow-hidden"
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+              >
+                {selectedPaymentStatuses.length > 0 && (
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-xs font-medium hover:opacity-80"
+                    style={{ color: 'var(--christmas-green-light)', borderBottom: '1px solid var(--border-subtle)' }}
+                    onClick={() => setSelectedPaymentStatuses([])}
+                  >
+                    Clear all
+                  </button>
+                )}
+                <div>
+                  {[
+                    { value: 'none', label: 'No Payment' },
+                    { value: 'received', label: 'Received' },
+                    { value: 'pending_approval', label: 'Pending Approval' },
+                    { value: 'ready_to_pay', label: 'Ready to Pay' },
+                    { value: 'paid', label: 'Paid' },
+                  ].map((opt) => {
+                    const checked = selectedPaymentStatuses.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2 px-3 py-2 cursor-pointer text-sm"
+                        style={{
+                          color: 'var(--text-primary)',
+                          background: checked ? 'var(--bg-card-hover)' : undefined,
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = checked ? 'var(--bg-card-hover)' : '')}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedPaymentStatuses(prev =>
+                              checked ? prev.filter(s => s !== opt.value) : [...prev, opt.value]
+                            );
+                          }}
+                          className="rounded"
+                          style={{ accentColor: 'var(--christmas-green)' }}
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Job Total Range — inline min/max */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              className="input text-sm"
+              style={{ width: '5.5rem' }}
+              placeholder="Min"
+              min="0"
+              step="1"
+              value={minTotal}
+              onChange={(e) => setMinTotal(e.target.value)}
+            />
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>–</span>
+            <input
+              type="number"
+              className="input text-sm"
+              style={{ width: '5.5rem' }}
+              placeholder="Max"
+              min="0"
+              step="1"
+              value={maxTotal}
+              onChange={(e) => setMaxTotal(e.target.value)}
+            />
+          </div>
+
+          <DateRangePicker
+            value={dateRange}
+            onChange={(range, preset) => { setDateRange(range); setDatePreset(preset); }}
+            defaultPreset={datePreset}
+          />
         </div>
       </div>
 
@@ -473,7 +599,58 @@ export default function JobsPage() {
         onBulkExclude={handleBulkExclude}
         showIgnored={showIgnored}
         columnPickerContainer={columnPickerRef}
+        sortKey={sortKey as any}
+        sortDir={sortDir}
+        onSort={(key, dir) => { setSortKey(key); setSortDir(dir); }}
       />
+
+      {/* Pagination */}
+      {total > 100 && (
+        <div
+          className="flex items-center justify-between mt-4 px-4 py-3 rounded-lg"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+        >
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Showing {page * 100 + 1}–{Math.min((page + 1) * 100, total)} of {total} jobs
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => p - 1)}
+              disabled={page === 0}
+              className="btn btn-secondary text-sm py-1.5 px-3"
+              style={{ opacity: page === 0 ? 0.4 : 1 }}
+            >
+              Previous
+            </button>
+            <span className="text-sm px-2 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+              Page
+              <input
+                type="number"
+                min={1}
+                max={Math.ceil(total / 100)}
+                value={page + 1}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val >= 1 && val <= Math.ceil(total / 100)) {
+                    setPage(val - 1);
+                  }
+                }}
+                className="input text-sm text-center"
+                style={{ width: '3.5rem', padding: '2px 4px' }}
+              />
+              of {Math.ceil(total / 100)}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={(page + 1) * 100 >= total}
+              className="btn btn-secondary text-sm py-1.5 px-3"
+              style={{ opacity: (page + 1) * 100 >= total ? 0.4 : 1 }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
