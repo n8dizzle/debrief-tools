@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { APDashboardStats, APInstallJob, APContractor } from '@/lib/supabase';
-import { formatTimestamp } from '@/lib/ap-utils';
+import { formatTimestamp, formatCurrency, formatCurrencyCompact } from '@/lib/ap-utils';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import StatsCards from '@/components/StatsCards';
@@ -27,10 +27,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>(getMonthToDateRange);
+  const [trade, setTrade] = useState<'' | 'hvac' | 'plumbing'>('');
 
   const loadData = useCallback(async () => {
     try {
       const params = new URLSearchParams({ start: dateRange.start, end: dateRange.end });
+      if (trade) params.set('trade', trade);
       const [statsRes, jobsRes, contractorsRes] = await Promise.all([
         fetch(`/api/dashboard?${params}`),
         fetch('/api/jobs?limit=10'),
@@ -52,7 +54,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, trade]);
 
   useEffect(() => {
     loadData();
@@ -116,7 +118,6 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
         {canSyncData && (
           <button
             onClick={handleSync}
@@ -145,6 +146,34 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Trade Filter Chips + Date Range */}
+      <div className="flex items-center gap-2 mb-6">
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
+        <span className="mx-1" style={{ color: 'var(--border-subtle)' }}>|</span>
+        <button
+          onClick={() => setTrade(trade === 'hvac' ? '' : 'hvac')}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: trade === 'hvac' ? 'rgba(93, 138, 102, 0.2)' : 'var(--bg-secondary)',
+            color: trade === 'hvac' ? 'var(--christmas-green-light)' : 'var(--text-secondary)',
+            border: trade === 'hvac' ? '1px solid var(--christmas-green-light)' : '1px solid var(--border-subtle)',
+          }}
+        >
+          HVAC
+        </button>
+        <button
+          onClick={() => setTrade(trade === 'plumbing' ? '' : 'plumbing')}
+          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+          style={{
+            backgroundColor: trade === 'plumbing' ? 'rgba(184, 149, 107, 0.2)' : 'var(--bg-secondary)',
+            color: trade === 'plumbing' ? 'var(--christmas-gold)' : 'var(--text-secondary)',
+            border: trade === 'plumbing' ? '1px solid var(--christmas-gold)' : '1px solid var(--border-subtle)',
+          }}
+        >
+          Plumbing
+        </button>
+      </div>
+
       {/* Stats Cards */}
       <div className="mb-8">
         <StatsCards stats={stats} isLoading={loading} />
@@ -154,7 +183,7 @@ export default function DashboardPage() {
       {stats && stats.monthly_trend.length > 0 && (
         <div className="card mb-8 p-4">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-            Monthly Contractor Cost
+            Monthly Contractor Trends
           </h2>
           <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -171,7 +200,7 @@ export default function DashboardPage() {
                   tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`}
+                  tickFormatter={(v: number) => formatCurrencyCompact(v)}
                 />
                 <YAxis
                   yAxisId="pct"
@@ -192,8 +221,9 @@ export default function DashboardPage() {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any, name: any) => {
                     const v = Number(value) || 0;
-                    if (name === 'contractor_pct') return [`${v.toFixed(1)}%`, 'Contractor %'];
-                    return [`$${v.toLocaleString()}`, name === 'job_total' ? 'Job Total' : 'Contractor Pay'];
+                    if (name === 'contractor_pct') return [`${v.toFixed(1)}%`, 'Cost %'];
+                    if (name === 'contractor_usage_pct') return [`${v.toFixed(1)}%`, 'Usage %'];
+                    return [formatCurrency(v), name === 'job_total' ? 'Job Total' : 'Contractor Pay'];
                   }}
                   labelStyle={{ color: 'var(--text-muted)', marginBottom: 4 }}
                 />
@@ -206,6 +236,15 @@ export default function DashboardPage() {
                   stroke="#F5F0E1"
                   strokeWidth={2}
                   dot={{ r: 4, fill: '#F5F0E1', stroke: '#F5F0E1' }}
+                />
+                <Line
+                  yAxisId="pct"
+                  type="monotone"
+                  dataKey="contractor_usage_pct"
+                  stroke="#a78bfa"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: '#a78bfa', stroke: '#a78bfa' }}
+                  strokeDasharray="5 3"
                 />
               </ComposedChart>
             </ResponsiveContainer>

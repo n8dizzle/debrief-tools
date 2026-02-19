@@ -14,18 +14,27 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const start = searchParams.get('start');
   const end = searchParams.get('end');
+  const trade = searchParams.get('trade');
 
   const supabase = getServerSupabase();
 
   // Get job counts by assignment type
   let query = supabase
     .from('ap_install_jobs')
-    .select('assignment_type, payment_status, payment_amount, contractor_id, job_total, completed_date')
-    .eq('is_ignored', false)
-    .or('job_total.gt.0,job_status.neq.Completed');
+    .select('assignment_type, payment_status, payment_amount, contractor_id, job_total, completed_date, scheduled_date, trade')
+    .eq('is_ignored', false);
 
-  if (start) query = query.gte('completed_date', start);
-  if (end) query = query.lte('completed_date', end);
+  if (trade === 'hvac' || trade === 'plumbing') {
+    query = query.eq('trade', trade);
+  }
+
+  // Date filter: use completed_date for completed jobs, scheduled_date for non-completed
+  if (start) {
+    query = query.or(`completed_date.gte.${start},and(completed_date.is.null,scheduled_date.gte.${start}),and(completed_date.is.null,scheduled_date.is.null)`);
+  }
+  if (end) {
+    query = query.or(`completed_date.lte.${end},and(completed_date.is.null,scheduled_date.lte.${end}),and(completed_date.is.null,scheduled_date.is.null)`);
+  }
 
   const { data: jobs } = await query;
 
@@ -35,8 +44,9 @@ export async function GET(request: Request) {
   const contractor = allJobs.filter(j => j.assignment_type === 'contractor').length;
   const inHouse = allJobs.filter(j => j.assignment_type === 'in_house').length;
 
-  const requested = allJobs.filter(j => j.payment_status === 'requested').length;
-  const approved = allJobs.filter(j => j.payment_status === 'approved').length;
+  const received = allJobs.filter(j => j.payment_status === 'received').length;
+  const pendingApproval = allJobs.filter(j => j.payment_status === 'pending_approval').length;
+  const readyToPay = allJobs.filter(j => j.payment_status === 'ready_to_pay').length;
   const paid = allJobs.filter(j => j.payment_status === 'paid').length;
 
   const totalOutstanding = allJobs
@@ -53,14 +63,23 @@ export async function GET(request: Request) {
   const contractorPayTotal = contractorJobs.reduce((sum, j) => sum + (j.payment_amount || 0), 0);
   const contractorPct = contractorJobTotal > 0 ? (contractorPayTotal / contractorJobTotal) * 100 : 0;
 
-  // Monthly trend: group contractor jobs by month
-  const monthMap = new Map<string, { job_total: number; contractor_pay: number }>();
-  for (const job of contractorJobs) {
+  // Contractor usage % = contractor / (contractor + in_house)
+  const assigned = contractor + inHouse;
+  const contractorUsagePct = assigned > 0 ? (contractor / assigned) * 100 : 0;
+
+  // Monthly trend: group all jobs by month for usage stats, contractor jobs for cost stats
+  const monthMap = new Map<string, { job_total: number; contractor_pay: number; contractor_count: number; in_house_count: number }>();
+  for (const job of allJobs) {
     if (!job.completed_date) continue;
     const month = job.completed_date.substring(0, 7); // "2026-01"
-    const entry = monthMap.get(month) || { job_total: 0, contractor_pay: 0 };
-    entry.job_total += job.job_total || 0;
-    entry.contractor_pay += job.payment_amount || 0;
+    const entry = monthMap.get(month) || { job_total: 0, contractor_pay: 0, contractor_count: 0, in_house_count: 0 };
+    if (job.assignment_type === 'contractor') {
+      entry.job_total += job.job_total || 0;
+      entry.contractor_pay += job.payment_amount || 0;
+      entry.contractor_count++;
+    } else if (job.assignment_type === 'in_house') {
+      entry.in_house_count++;
+    }
     monthMap.set(month, entry);
   }
 
@@ -68,6 +87,7 @@ export async function GET(request: Request) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, data]) => {
       const [yr, mo] = month.split('-');
+      const monthAssigned = data.contractor_count + data.in_house_count;
       return {
         month,
         label: `${MONTH_LABELS[parseInt(mo, 10) - 1]} ${yr.slice(2)}`,
@@ -76,6 +96,11 @@ export async function GET(request: Request) {
         contractor_pct: data.job_total > 0
           ? Math.round((data.contractor_pay / data.job_total) * 1000) / 10
           : 0,
+        contractor_usage_pct: monthAssigned > 0
+          ? Math.round((data.contractor_count / monthAssigned) * 1000) / 10
+          : 0,
+        contractor_count: data.contractor_count,
+        in_house_count: data.in_house_count,
       };
     });
 
@@ -93,12 +118,14 @@ export async function GET(request: Request) {
     unassigned_jobs: unassigned,
     contractor_jobs: contractor,
     in_house_jobs: inHouse,
-    payments_requested: requested,
-    payments_approved: approved,
+    payments_received: received,
+    payments_pending_approval: pendingApproval,
+    payments_ready_to_pay: readyToPay,
     payments_paid: paid,
     total_outstanding: totalOutstanding,
     total_paid: totalPaid,
     contractor_pct: Math.round(contractorPct * 10) / 10,
+    contractor_usage_pct: Math.round(contractorUsagePct * 10) / 10,
     monthly_trend: monthlyTrend,
     last_sync: lastSync?.completed_at || null,
   };

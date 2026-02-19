@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/ap-utils';
+import { sendAssignmentNotification } from '@/lib/sms-notifications';
 
 export async function POST(
   request: NextRequest,
@@ -59,11 +61,21 @@ export async function POST(
     updateData.contractor_id = null;
     updateData.payment_amount = null;
     updateData.payment_status = 'none';
+    updateData.invoice_source = null;
+    updateData.payment_received_at = null;
+    updateData.payment_approved_at = null;
+    updateData.payment_approved_by = null;
+    updateData.payment_paid_at = null;
   } else {
     // unassigned
     updateData.contractor_id = null;
     updateData.payment_amount = null;
     updateData.payment_status = 'none';
+    updateData.invoice_source = null;
+    updateData.payment_received_at = null;
+    updateData.payment_approved_at = null;
+    updateData.payment_approved_by = null;
+    updateData.payment_paid_at = null;
   }
 
   const { data: updated, error } = await supabase
@@ -87,7 +99,7 @@ export async function POST(
 
   const contractorName = updated?.contractor?.name;
   const description = assignment_type === 'contractor'
-    ? `Assigned to ${contractorName}${payment_amount ? ` for $${payment_amount}` : ''}`
+    ? `Assigned to ${contractorName}${payment_amount ? ` for ${formatCurrency(payment_amount)}` : ''}`
     : assignment_type === 'in_house'
     ? 'Assigned as in-house'
     : 'Unassigned';
@@ -109,6 +121,12 @@ export async function POST(
     }),
     performed_by: session.user.id,
   });
+
+  // Fire-and-forget SMS notification for contractor assignments
+  if (assignment_type === 'contractor' && contractor_id) {
+    sendAssignmentNotification(id, contractor_id, payment_amount, session.user.id)
+      .catch(err => console.error('SMS error:', err));
+  }
 
   return NextResponse.json(updated);
 }
