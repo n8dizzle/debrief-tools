@@ -61,7 +61,7 @@ export function getFieldError(
   field: string
 ): string | undefined {
   if (!errors) return undefined;
-  const fieldError = errors.errors.find((e) => e.path[0] === field);
+  const fieldError = errors.issues.find((e) => e.path[0] === field);
   return fieldError?.message;
 }
 
