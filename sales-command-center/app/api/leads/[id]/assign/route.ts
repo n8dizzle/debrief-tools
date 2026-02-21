@@ -58,7 +58,7 @@ export async function POST(
       .order(queueField, { ascending: false })
       .limit(1);
 
-    const maxPosition = maxData && maxData.length > 0 ? maxData[0][queueField] : 1;
+    const maxPosition = maxData && maxData.length > 0 ? (maxData[0] as any)[queueField] : 1;
 
     // Move the assigned advisor to the back
     await supabase
@@ -75,7 +75,7 @@ export async function POST(
       .gt(queueField, 1);
 
     if (otherAdvisors) {
-      for (const advisor of otherAdvisors) {
+      for (const advisor of otherAdvisors as any[]) {
         await supabase
           .from('comfort_advisors')
           .update({ [queueField]: advisor[queueField] - 1 })

@@ -515,7 +515,7 @@ export async function syncTechniciansFromServiceTitan(
 // Get all teams from technicians
 export async function getTeams(config: ServiceTitanConfig): Promise<string[]> {
   const technicians = await syncTechniciansFromServiceTitan(config);
-  const teams = [...new Set(technicians.map(t => t.team).filter(Boolean))];
+  const teams = [...new Set(technicians.map(t => t.team).filter(Boolean))] as string[];
   return teams.sort();
 }
 

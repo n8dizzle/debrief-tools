@@ -133,7 +133,7 @@ export async function sendMarketedLeadNotification(lead: MarketedLeadNotificatio
   ];
 
   // Add phone and scheduled date if available
-  const detailFields: { type: string; text: string }[] = [];
+  const detailFields: { type: 'plain_text' | 'mrkdwn'; text: string }[] = [];
   if (lead.customerPhone) {
     detailFields.push({
       type: 'mrkdwn',
@@ -301,7 +301,7 @@ export async function sendTGLNotification(lead: LeadNotification): Promise<{ ok:
   }
 
   // Add phone and scheduled date if available
-  const detailFields: { type: string; text: string }[] = [];
+  const detailFields: { type: 'plain_text' | 'mrkdwn'; text: string }[] = [];
   if (lead.customerPhone) {
     detailFields.push({
       type: 'mrkdwn',
