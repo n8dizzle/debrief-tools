@@ -6,8 +6,18 @@ import { sendSMS, formatPhoneE164 } from './twilio';
 import { sendEmail } from './email';
 import { getServerSupabase } from './supabase';
 import { formatCurrency } from './ap-utils';
+import { DEFAULT_TEMPLATES } from './notification-templates';
 
 // --------------- Helpers ---------------
+
+export interface NotificationToggles {
+  assignment_contractor?: boolean;
+  assignment_internal?: boolean;
+  pending_approval_manager?: boolean;
+  ready_to_pay_internal?: boolean;
+  paid_contractor?: boolean;
+  paid_internal?: boolean;
+}
 
 interface NotificationPhone {
   name: string;
@@ -62,6 +72,25 @@ async function getInstallManagerPhones(): Promise<NotificationPhone[]> {
 
   if (!data?.value || !Array.isArray(data.value)) return [];
   return data.value as NotificationPhone[];
+}
+
+/**
+ * Get notification toggles. Defaults to all enabled if not configured.
+ */
+async function getNotificationToggles(): Promise<NotificationToggles> {
+  const supabase = getServerSupabase();
+  const { data } = await supabase
+    .from('ap_sync_settings')
+    .select('value')
+    .eq('key', 'notification_toggles')
+    .single();
+
+  return (data?.value as NotificationToggles) || {};
+}
+
+/** Check if a notification type is enabled (defaults to true if not set) */
+function isEnabled(toggles: NotificationToggles, key: keyof NotificationToggles): boolean {
+  return toggles[key] !== false;
 }
 
 /**
@@ -158,13 +187,39 @@ async function sendEmailToRecipients(recipients: NotificationEmail[], subject: s
   }
 }
 
+// --------------- Template loading & rendering ---------------
+
+/**
+ * Load custom notification templates from ap_sync_settings, falling back to defaults.
+ */
+async function getNotificationTemplates(): Promise<Record<string, string>> {
+  const supabase = getServerSupabase();
+  const { data } = await supabase
+    .from('ap_sync_settings')
+    .select('value')
+    .eq('key', 'notification_templates')
+    .single();
+
+  const custom = (data?.value as Record<string, string>) || {};
+  return { ...DEFAULT_TEMPLATES, ...custom };
+}
+
+/**
+ * Replace {variable} placeholders in a template string with actual values.
+ */
+function renderTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key) => {
+    return vars[key] !== undefined ? vars[key] : match;
+  });
+}
+
 // --------------- Job info helper ---------------
 
 async function getJobInfo(jobId: string) {
   const supabase = getServerSupabase();
   const { data } = await supabase
     .from('ap_install_jobs')
-    .select('job_number, customer_name, trade, contractor_id, payment_amount, payment_method, invoice_source, contractor:ap_contractors(id, name, phone)')
+    .select('job_number, customer_name, job_address, trade, contractor_id, payment_amount, payment_method, invoice_source, contractor:ap_contractors(id, name, phone)')
     .eq('id', jobId)
     .single();
   return data;
@@ -181,17 +236,29 @@ export async function sendAssignmentNotification(
   paymentAmount: number | null,
   sentBy: string
 ) {
-  const job = await getJobInfo(jobId);
+  const [job, toggles, templates] = await Promise.all([getJobInfo(jobId), getNotificationToggles(), getNotificationTemplates()]);
   if (!job) return;
 
-  const contractorArr = job.contractor as unknown as { id: string; name: string; phone: string | null }[] | null;
-  const contractor = contractorArr?.[0] ?? null;
+  // Supabase returns many-to-one joins as object or array depending on client version
+  const rawContractor = job.contractor as unknown;
+  const contractor = Array.isArray(rawContractor) ? rawContractor[0] ?? null : (rawContractor as { id: string; name: string; phone: string | null } | null);
   const amountStr = paymentAmount != null ? formatCurrency(paymentAmount) : 'TBD';
   const tradeLabel = job.trade === 'plumbing' ? 'Plumbing' : 'HVAC';
 
+  const vars: Record<string, string> = {
+    job_number: job.job_number || '',
+    customer_name: job.customer_name || 'Customer',
+    contractor_name: contractor?.name || 'contractor',
+    amount: amountStr,
+    trade: tradeLabel,
+    address: job.job_address || '',
+    payment_method: '',
+    source_label: '',
+  };
+
   // Send SMS to contractor
-  if (contractor?.phone && formatPhoneE164(contractor.phone)) {
-    const msg = `Christmas Air: Job #${job.job_number} (${job.customer_name || 'Customer'}, ${tradeLabel}) assigned to you. Amount: ${amountStr}`;
+  if (isEnabled(toggles, 'assignment_contractor') && contractor?.phone && formatPhoneE164(contractor.phone)) {
+    const msg = renderTemplate(templates.assignment_contractor, vars);
     await sendAndLog({
       to: contractor.phone,
       message: msg,
@@ -204,31 +271,28 @@ export async function sendAssignmentNotification(
     });
   }
 
-  // Send SMS to internal team
-  const teamPhones = await getInternalTeamPhones();
-  for (const member of teamPhones) {
-    if (!formatPhoneE164(member.phone)) continue;
-    const msg = `AP: Job #${job.job_number} assigned to ${contractor?.name || 'contractor'} for ${amountStr}`;
-    await sendAndLog({
-      to: member.phone,
-      message: msg,
-      job_id: jobId,
-      contractor_id: contractorId,
-      recipient_type: 'internal',
-      recipient_name: member.name,
-      event_type: 'assignment',
-      sent_by: sentBy,
-    });
-  }
+  // Send SMS + email to internal team
+  if (isEnabled(toggles, 'assignment_internal')) {
+    const msg = renderTemplate(templates.assignment_internal, vars);
+    const teamPhones = await getInternalTeamPhones();
+    for (const member of teamPhones) {
+      if (!formatPhoneE164(member.phone)) continue;
+      await sendAndLog({
+        to: member.phone,
+        message: msg,
+        job_id: jobId,
+        contractor_id: contractorId,
+        recipient_type: 'internal',
+        recipient_name: member.name,
+        event_type: 'assignment',
+        sent_by: sentBy,
+      });
+    }
 
-  // Send email to internal team
-  const teamEmails = await getInternalTeamEmails();
-  await sendEmailToRecipients(
-    teamEmails,
-    `Job #${job.job_number} Assigned`,
-    `Job #${job.job_number} (${job.customer_name || 'Customer'}, ${tradeLabel}) assigned to ${contractor?.name || 'contractor'} for ${amountStr}.`,
-    jobId
-  );
+    const teamEmails = await getInternalTeamEmails();
+    const subject = renderTemplate(templates.subject_assignment_internal, vars);
+    await sendEmailToRecipients(teamEmails, subject, msg, jobId);
+  }
 }
 
 /**
@@ -241,25 +305,37 @@ export async function sendPaymentStatusNotification(
   sentBy: string,
   invoiceSource?: string | null
 ) {
-  const job = await getJobInfo(jobId);
+  const [job, toggles, templates] = await Promise.all([getJobInfo(jobId), getNotificationToggles(), getNotificationTemplates()]);
   if (!job) return;
 
-  const contractorArr = job.contractor as unknown as { id: string; name: string; phone: string | null }[] | null;
-  const contractor = contractorArr?.[0] ?? null;
+  // Supabase returns many-to-one joins as object or array depending on client version
+  const rawContractor = job.contractor as unknown;
+  const contractor = Array.isArray(rawContractor) ? rawContractor[0] ?? null : (rawContractor as { id: string; name: string; phone: string | null } | null);
   const amountStr = amount != null ? formatCurrency(amount) : 'TBD';
   const eventType = `payment_${newStatus}`;
 
   // Notification routing based on status and invoice source
   const source = invoiceSource || job.invoice_source;
 
-  if (newStatus === 'pending_approval') {
-    // Notify install manager: invoice received via AP email, needs approval
+  const vars: Record<string, string> = {
+    job_number: job.job_number || '',
+    customer_name: job.customer_name || 'Customer',
+    contractor_name: contractor?.name || 'contractor',
+    amount: amountStr,
+    trade: job.trade === 'plumbing' ? 'Plumbing' : 'HVAC',
+    address: job.job_address || '',
+    payment_method: job.payment_method ? ` via ${job.payment_method}` : '',
+    source_label: source === 'manager_text' ? ' (via manager)' : '',
+  };
+
+  if (newStatus === 'pending_approval' && isEnabled(toggles, 'pending_approval_manager')) {
+    const msg = renderTemplate(templates.pending_approval_manager, vars);
     const managerPhones = await getInstallManagerPhones();
     for (const manager of managerPhones) {
       if (!formatPhoneE164(manager.phone)) continue;
       await sendAndLog({
         to: manager.phone,
-        message: `AP: Invoice received for Job #${job.job_number} (${contractor?.name || 'contractor'}, ${amountStr}) — please approve at ap.christmasair.com`,
+        message: msg,
         job_id: jobId,
         contractor_id: contractor?.id || null,
         recipient_type: 'internal',
@@ -268,26 +344,20 @@ export async function sendPaymentStatusNotification(
         sent_by: sentBy,
       });
     }
-    // Email install managers
     const managerEmails = await getInstallManagerEmails();
-    await sendEmailToRecipients(
-      managerEmails,
-      `Invoice Needs Approval — Job #${job.job_number}`,
-      `Invoice of ${amountStr} received for Job #${job.job_number} (${contractor?.name || 'contractor'}). Please review and approve.`,
-      jobId
-    );
+    const subject = renderTemplate(templates.subject_pending_approval_manager, vars);
+    await sendEmailToRecipients(managerEmails, subject, msg, jobId);
     return;
   }
 
-  if (newStatus === 'ready_to_pay') {
-    // Notify AP team: invoice is approved and ready to pay
+  if (newStatus === 'ready_to_pay' && isEnabled(toggles, 'ready_to_pay_internal')) {
+    const msg = renderTemplate(templates.ready_to_pay_internal, vars);
     const teamPhones = await getInternalTeamPhones();
     for (const member of teamPhones) {
       if (!formatPhoneE164(member.phone)) continue;
-      const sourceLabel = source === 'manager_text' ? ' (via manager)' : '';
       await sendAndLog({
         to: member.phone,
-        message: `AP: Job #${job.job_number} (${contractor?.name || 'contractor'}, ${amountStr}) approved and ready to pay${sourceLabel}.`,
+        message: msg,
         job_id: jobId,
         contractor_id: contractor?.id || null,
         recipient_type: 'internal',
@@ -296,23 +366,18 @@ export async function sendPaymentStatusNotification(
         sent_by: sentBy,
       });
     }
-    // Email AP team
     const teamEmails = await getInternalTeamEmails();
-    await sendEmailToRecipients(
-      teamEmails,
-      `Ready to Pay — Job #${job.job_number}`,
-      `Job #${job.job_number} (${contractor?.name || 'contractor'}) approved for ${amountStr}. Ready to process payment.`,
-      jobId
-    );
+    const subject = renderTemplate(templates.subject_ready_to_pay_internal, vars);
+    await sendEmailToRecipients(teamEmails, subject, msg, jobId);
     return;
   }
 
   if (newStatus === 'paid') {
-    // Notify contractor: payment sent
-    if (contractor?.phone && formatPhoneE164(contractor.phone)) {
+    if (isEnabled(toggles, 'paid_contractor') && contractor?.phone && formatPhoneE164(contractor.phone)) {
+      const msg = renderTemplate(templates.paid_contractor, vars);
       await sendAndLog({
         to: contractor.phone,
-        message: `Christmas Air: Payment of ${amountStr} for Job #${job.job_number} sent${job.payment_method ? ` via ${job.payment_method}` : ''}.`,
+        message: msg,
         job_id: jobId,
         contractor_id: contractor.id,
         recipient_type: 'contractor',
@@ -322,30 +387,27 @@ export async function sendPaymentStatusNotification(
       });
     }
 
-    // Notify internal team
-    const teamPhones = await getInternalTeamPhones();
-    for (const member of teamPhones) {
-      if (!formatPhoneE164(member.phone)) continue;
-      await sendAndLog({
-        to: member.phone,
-        message: `AP: Payment of ${amountStr} paid for Job #${job.job_number} (${contractor?.name || 'contractor'}).`,
-        job_id: jobId,
-        contractor_id: contractor?.id || null,
-        recipient_type: 'internal',
-        recipient_name: member.name,
-        event_type: eventType,
-        sent_by: sentBy,
-      });
-    }
+    if (isEnabled(toggles, 'paid_internal')) {
+      const msg = renderTemplate(templates.paid_internal, vars);
+      const teamPhones = await getInternalTeamPhones();
+      for (const member of teamPhones) {
+        if (!formatPhoneE164(member.phone)) continue;
+        await sendAndLog({
+          to: member.phone,
+          message: msg,
+          job_id: jobId,
+          contractor_id: contractor?.id || null,
+          recipient_type: 'internal',
+          recipient_name: member.name,
+          event_type: eventType,
+          sent_by: sentBy,
+        });
+      }
 
-    // Email AP team
-    const teamEmails = await getInternalTeamEmails();
-    await sendEmailToRecipients(
-      teamEmails,
-      `Payment Paid — Job #${job.job_number}`,
-      `Payment of ${amountStr} paid for Job #${job.job_number} (${contractor?.name || 'contractor'}).`,
-      jobId
-    );
+      const teamEmails = await getInternalTeamEmails();
+      const subject = renderTemplate(templates.subject_paid_internal, vars);
+      await sendEmailToRecipients(teamEmails, subject, msg, jobId);
+    }
     return;
   }
 }
