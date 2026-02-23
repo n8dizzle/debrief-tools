@@ -78,7 +78,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 // --- Sort helpers ---
 
 const PAYMENT_STATUS_ORDER: Record<string, number> = {
-  none: 0, received: 1, pending_approval: 2, ready_to_pay: 3, paid: 4,
+  none: 0, pending_approval: 1, ready_to_pay: 2, paid: 3,
 };
 
 const ASSIGNMENT_ORDER: Record<string, number> = {
@@ -499,7 +499,6 @@ function InlineAssignmentRow({
               onChange={(e) => handlePaymentChange(e.target.value)}
             >
               <option value="none">None</option>
-              <option value="received">Received</option>
               <option value="pending_approval">Pending Approval</option>
               <option value="ready_to_pay">Ready to Pay</option>
               <option value="paid">Paid</option>
@@ -761,6 +760,21 @@ export default function JobsTable({
       return 0;
     });
   }, [jobs, sortKey, sortDir, onSort]);
+
+  // Summation totals for footer
+  const totals = useMemo(() => {
+    let jobTotal = 0;
+    let laborCost = 0;
+    for (const job of sortedJobs) {
+      jobTotal += job.job_total || 0;
+      if (job.assignment_type === 'contractor') {
+        laborCost += job.payment_amount || 0;
+      } else if (job.assignment_type === 'in_house') {
+        laborCost += job.labor_cost || 0;
+      }
+    }
+    return { jobTotal, laborCost };
+  }, [sortedJobs]);
 
   // Clear selection when jobs change (e.g. after bulk action or filter change)
   useEffect(() => {
@@ -1056,6 +1070,36 @@ export default function JobsTable({
                 />
               ))}
             </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid var(--border-default)' }}>
+                {showCheckbox && <td />}
+                {visibleColumnOrder.map((origIdx) => {
+                  const col = COLUMNS[origIdx];
+                  if (col.key === 'job_total') {
+                    return (
+                      <td key={col.key} className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                        {formatCurrency(totals.jobTotal)}
+                      </td>
+                    );
+                  }
+                  if (col.key === 'labor_cost') {
+                    return (
+                      <td key={col.key} className="text-sm font-semibold" style={{ color: 'var(--christmas-gold)' }}>
+                        {formatCurrency(totals.laborCost)}
+                      </td>
+                    );
+                  }
+                  if (col.key === 'job_number') {
+                    return (
+                      <td key={col.key} className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        {sortedJobs.length} jobs
+                      </td>
+                    );
+                  }
+                  return <td key={col.key} />;
+                })}
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

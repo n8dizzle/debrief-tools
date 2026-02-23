@@ -587,11 +587,9 @@ export default function JobDetailPage() {
                   color: paymentStatus === 'paid' ? 'var(--status-success)' :
                     paymentStatus === 'ready_to_pay' ? '#60a5fa' :
                     paymentStatus === 'pending_approval' ? '#fcd34d' :
-                    paymentStatus === 'received' ? '#fb923c' :
                     'var(--text-secondary)',
                 }}>
                   {paymentStatus === 'none' ? 'No Invoice' :
-                   paymentStatus === 'received' ? 'Received' :
                    paymentStatus === 'pending_approval' ? 'Pending Approval' :
                    paymentStatus === 'ready_to_pay' ? 'Ready to Pay' :
                    'Paid'}
@@ -611,7 +609,7 @@ export default function JobDetailPage() {
                     placeholder="0.00"
                     step="0.01"
                     min="0"
-                    disabled={!canManagePayments || paymentStatus === 'paid'}
+                    disabled={!canManagePayments}
                   />
                 </div>
               </div>
@@ -625,7 +623,7 @@ export default function JobDetailPage() {
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
                   placeholder="Payment notes..."
-                  disabled={!canManagePayments || paymentStatus === 'paid'}
+                  disabled={!canManagePayments}
                   style={{ resize: 'vertical' }}
                 />
               </div>
@@ -644,25 +642,25 @@ export default function JobDetailPage() {
               {/* Workflow action buttons */}
               {canManagePayments && paymentStatus === 'none' && (
                 <div className="space-y-2 pt-1">
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Record invoice received:</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>How was the invoice received?</p>
                   <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => handleSavePayment('received', 'manager_text')}
+                      onClick={() => handleSavePayment('ready_to_pay', 'manager_text')}
                       disabled={saving || !paymentAmount}
                       className="btn btn-primary text-xs py-2"
                       style={{ opacity: saving || !paymentAmount ? 0.5 : 1 }}
-                      title="Manager already approved via text"
+                      title="Manager approved — ready to pay"
                     >
-                      {saving ? '...' : 'Manager Text'}
+                      {saving ? '...' : 'Via Manager'}
                     </button>
                     <button
-                      onClick={() => handleSavePayment('received', 'ap_email')}
+                      onClick={() => handleSavePayment('pending_approval', 'ap_email')}
                       disabled={saving || !paymentAmount}
                       className="btn btn-secondary text-xs py-2"
                       style={{ opacity: saving || !paymentAmount ? 0.5 : 1 }}
-                      title="Received via AP email, needs approval"
+                      title="Received via AP email — needs manager approval"
                     >
-                      {saving ? '...' : 'AP Email'}
+                      {saving ? '...' : 'Via AP Email'}
                     </button>
                   </div>
                   {!paymentAmount && (
@@ -682,7 +680,7 @@ export default function JobDetailPage() {
                     {saving ? 'Saving...' : 'Approve'}
                   </button>
                   <button
-                    onClick={() => handleSavePayment('received')}
+                    onClick={() => handleSavePayment('none')}
                     disabled={saving}
                     className="btn btn-secondary flex-1 text-sm"
                     style={{ opacity: saving ? 0.5 : 1 }}
@@ -703,15 +701,27 @@ export default function JobDetailPage() {
                 </button>
               )}
 
-              {canManagePayments && paymentStatus === 'received' && (
-                <button
-                  onClick={() => handleSavePayment()}
-                  disabled={saving}
-                  className="btn btn-secondary w-full text-sm"
-                  style={{ opacity: saving ? 0.5 : 1 }}
-                >
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+              {canManagePayments && paymentStatus === 'paid' && (
+                <div className="space-y-2 pt-1">
+                  {(paymentAmount !== String(job.payment_amount ?? '') || paymentNotes !== (job.payment_notes || '')) && (
+                    <button
+                      onClick={() => handleSavePayment()}
+                      disabled={saving}
+                      className="btn btn-primary w-full text-sm"
+                      style={{ opacity: saving ? 0.5 : 1 }}
+                    >
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleSavePayment('ready_to_pay')}
+                    disabled={saving}
+                    className="btn btn-secondary w-full text-sm"
+                    style={{ opacity: saving ? 0.5 : 1 }}
+                  >
+                    {saving ? 'Saving...' : 'Undo Paid → Ready to Pay'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
