@@ -754,97 +754,12 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Default Hourly Rates */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-              Default Hourly Rates
-            </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-              Fallback rates used when a technician doesn&apos;t have a specific hourly rate set. Applied per-trade for labor cost calculations.
-            </p>
-
-            {ratesSaveMessage && (
-              <div
-                className="mb-4 p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: ratesSaveMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: ratesSaveMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}
-              >
-                {ratesSaveMessage.text}
-              </div>
-            )}
-
-            <div className="space-y-3 mb-4">
-              {(['hvac', 'plumbing'] as const).map(trade => (
-                <div
-                  key={trade}
-                  className="flex items-center justify-between p-3 rounded-lg"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                    {trade === 'hvac' ? 'HVAC' : 'Plumbing'} Default Rate
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      placeholder="0.00"
-                      value={defaultRates[trade] || ''}
-                      onChange={e => setDefaultRates(prev => ({
-                        ...prev,
-                        [trade]: e.target.value ? Number(e.target.value) : 0,
-                      }))}
-                      className="w-24 text-sm py-1.5 px-2 rounded-md text-right"
-                      style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--christmas-cream)',
-                        border: '1px solid var(--border-subtle)',
-                      }}
-                    />
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>/hr</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSaveDefaultRates}
-                disabled={savingRates || !hasRatesChanges}
-                className="btn btn-primary"
-                style={{ opacity: savingRates || !hasRatesChanges ? 0.5 : 1 }}
-              >
-                {savingRates ? 'Saving...' : 'Save Rates'}
-              </button>
-              {hasRatesChanges && (
-                <button
-                  onClick={() => setDefaultRates({ ...savedDefaultRates })}
-                  className="btn btn-secondary text-sm"
-                >
-                  Discard
-                </button>
-              )}
-            </div>
-
-            <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                <div className="flex gap-2">
-                  <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--christmas-green-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>These rates are used only when a technician has no individual rate set. Individual technician rates (Technicians tab) always take priority.</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
       {/* Technicians Tab */}
       {activeTab === 'technicians' && (
+        <div className="space-y-6">
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -987,6 +902,94 @@ export default function SettingsPage() {
               </table>
             </div>
           )}
+        </div>
+
+        {/* Default Hourly Rates */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            Default Hourly Rates
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Fallback rates used when a technician doesn&apos;t have a specific hourly rate set. Applied per-trade for labor cost calculations.
+          </p>
+
+          {ratesSaveMessage && (
+            <div
+              className="mb-4 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: ratesSaveMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: ratesSaveMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+              }}
+            >
+              {ratesSaveMessage.text}
+            </div>
+          )}
+
+          <div className="space-y-3 mb-4">
+            {(['hvac', 'plumbing'] as const).map(trade => (
+              <div
+                key={trade}
+                className="flex items-center justify-between p-3 rounded-lg"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
+                <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  {trade === 'hvac' ? 'HVAC' : 'Plumbing'} Default Rate
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    placeholder="0.00"
+                    value={defaultRates[trade] || ''}
+                    onChange={e => setDefaultRates(prev => ({
+                      ...prev,
+                      [trade]: e.target.value ? Number(e.target.value) : 0,
+                    }))}
+                    className="w-24 text-sm py-1.5 px-2 rounded-md text-right"
+                    style={{
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--christmas-cream)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  />
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>/hr</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveDefaultRates}
+              disabled={savingRates || !hasRatesChanges}
+              className="btn btn-primary"
+              style={{ opacity: savingRates || !hasRatesChanges ? 0.5 : 1 }}
+            >
+              {savingRates ? 'Saving...' : 'Save Rates'}
+            </button>
+            {hasRatesChanges && (
+              <button
+                onClick={() => setDefaultRates({ ...savedDefaultRates })}
+                className="btn btn-secondary text-sm"
+              >
+                Discard
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex gap-2">
+                <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--christmas-green-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>These rates are used only when a technician has no individual rate set. Individual technician rates always take priority.</span>
+              </div>
+            </div>
+          </div>
+        </div>
         </div>
       )}
 
