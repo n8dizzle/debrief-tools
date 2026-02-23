@@ -6,6 +6,14 @@ import { APContractorWithStats, APContractorRate, APContractorRateHistory } from
 import { formatCurrency, formatDate, formatTimestamp } from '@/lib/ap-utils';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 
+function formatPhone(phone: string | null): string {
+  if (!phone) return '—';
+  const digits = phone.replace(/\D/g, '');
+  const d = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  return phone;
+}
+
 interface PaymentJob {
   id: string;
   job_number: string;
@@ -328,7 +336,7 @@ export default function ContractorDetailPage() {
                 </div>
                 <div>
                   <div style={{ color: 'var(--text-muted)' }}>Phone</div>
-                  <div style={{ color: 'var(--text-primary)' }}>{contractor.phone || '—'}</div>
+                  <div style={{ color: 'var(--text-primary)' }}>{formatPhone(contractor.phone)}</div>
                 </div>
                 <div>
                   <div style={{ color: 'var(--text-muted)' }}>Email</div>

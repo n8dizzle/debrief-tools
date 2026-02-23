@@ -1,15 +1,25 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { APContractor } from '@/lib/supabase';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 
+function formatPhone(phone: string | null): string {
+  if (!phone) return '—';
+  const digits = phone.replace(/\D/g, '');
+  const d = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  return phone;
+}
+
 export default function ContractorsPage() {
+  const router = useRouter();
   const { canManageContractors } = useAPPermissions();
   const [contractors, setContractors] = useState<APContractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active');
 
   // Add form state
   const [name, setName] = useState('');
@@ -76,30 +86,26 @@ export default function ContractorsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--christmas-cream)' }}>
-          Contractors
-        </h1>
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="card animate-pulse">
-              <div className="h-6 w-48 rounded" style={{ background: 'var(--border-subtle)' }} />
-              <div className="h-4 w-32 rounded mt-2" style={{ background: 'var(--border-subtle)' }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const filtered = contractors.filter((c) => {
+    if (filter === 'active') return c.is_active;
+    if (filter === 'inactive') return !c.is_active;
+    return true;
+  });
+
+  const activeCount = contractors.filter(c => c.is_active).length;
+  const inactiveCount = contractors.filter(c => !c.is_active).length;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-          Contractors
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            Contractors
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            {activeCount} active{inactiveCount > 0 && `, ${inactiveCount} inactive`}
+          </p>
+        </div>
         {canManageContractors && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
@@ -218,87 +224,123 @@ export default function ContractorsPage() {
         </form>
       )}
 
-      {/* Contractors List */}
-      {contractors.length === 0 ? (
+      {/* Filter Chips */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Show:</span>
+        {([
+          { value: 'active', label: 'Active', color: 'var(--status-success)' },
+          { value: 'all', label: 'All', color: 'var(--text-secondary)' },
+          { value: 'inactive', label: 'Inactive', color: 'var(--status-error)' },
+        ] as const).map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setFilter(opt.value)}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+            style={{
+              backgroundColor: filter === opt.value ? `${opt.color}20` : 'var(--bg-secondary)',
+              color: filter === opt.value ? opt.color : 'var(--text-secondary)',
+              border: filter === opt.value ? `1px solid ${opt.color}` : '1px solid var(--border-subtle)',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="card">
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-12 rounded" style={{ background: 'var(--border-subtle)' }} />
+            ))}
+          </div>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card text-center py-12">
           <div className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>
-            No contractors yet
+            {contractors.length === 0 ? 'No contractors yet' : 'No contractors match this filter'}
           </div>
           <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Add your first contractor to get started
+            {contractors.length === 0 ? 'Add your first contractor to get started' : 'Try a different filter'}
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {contractors.map((contractor) => (
-            <Link
-              key={contractor.id}
-              href={`/contractors/${contractor.id}`}
-              className="card block transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg" style={{ color: 'var(--christmas-cream)' }}>
-                    {contractor.name}
-                  </h3>
-                  {contractor.contact_name && (
-                    <div className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      {contractor.contact_name}
-                    </div>
-                  )}
-                  <div className="flex gap-4 mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {contractor.phone && <span>{contractor.phone}</span>}
-                    {contractor.email && <span>{contractor.email}</span>}
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {contractor.trade && (
+        <div className="card p-0 overflow-hidden">
+          <div className="table-wrapper">
+            <table className="ap-table" style={{ minWidth: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Trade</th>
+                  <th>Payment Method</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    style={{ cursor: 'pointer', opacity: !c.is_active ? 0.5 : 1 }}
+                    onClick={() => router.push(`/contractors/${c.id}`)}
+                  >
+                    <td>
+                      <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        {c.name}
+                      </span>
+                    </td>
+                    <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {c.contact_name || '—'}
+                    </td>
+                    <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {formatPhone(c.phone)}
+                    </td>
+                    <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {c.email || '—'}
+                    </td>
+                    <td>
                       <span
                         className="badge"
                         style={{
-                          backgroundColor: contractor.trade === 'hvac'
+                          backgroundColor: c.trade === 'hvac'
                             ? 'rgba(93, 138, 102, 0.15)'
-                            : contractor.trade === 'plumbing'
+                            : c.trade === 'plumbing'
                               ? 'rgba(184, 149, 107, 0.15)'
                               : 'rgba(96, 165, 250, 0.15)',
-                          color: contractor.trade === 'hvac'
+                          color: c.trade === 'hvac'
                             ? 'var(--christmas-green-light)'
-                            : contractor.trade === 'plumbing'
+                            : c.trade === 'plumbing'
                               ? 'var(--christmas-gold)'
                               : '#60a5fa',
                         }}
                       >
-                        {contractor.trade === 'both' ? 'HVAC & Plumbing' : contractor.trade.toUpperCase()}
+                        {c.trade === 'both' ? 'HVAC & Plumbing' : c.trade.toUpperCase()}
                       </span>
-                    )}
-                    {contractor.payment_method && (
+                    </td>
+                    <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {c.payment_method ? c.payment_method.replace(/_/g, ' ') : '—'}
+                    </td>
+                    <td>
                       <span
                         className="badge"
                         style={{
-                          backgroundColor: 'rgba(93, 138, 102, 0.15)',
-                          color: 'var(--christmas-green-light)',
+                          backgroundColor: c.is_active
+                            ? 'rgba(34, 197, 94, 0.15)'
+                            : 'rgba(239, 68, 68, 0.15)',
+                          color: c.is_active ? 'var(--status-success)' : '#f87171',
                         }}
                       >
-                        {contractor.payment_method.replace(/_/g, ' ')}
+                        {c.is_active ? 'Active' : 'Inactive'}
                       </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex-shrink-0">
-                  {!contractor.is_active && (
-                    <span
-                      className="badge"
-                      style={{
-                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                        color: '#f87171',
-                      }}
-                    >
-                      Inactive
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
-          ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
