@@ -23,7 +23,7 @@ export async function PATCH(
   const body = await request.json();
   const { payment_status, payment_amount, payment_expected_date, payment_notes, invoice_source } = body;
 
-  const validStatuses = ['none', 'received', 'pending_approval', 'ready_to_pay', 'paid'];
+  const validStatuses = ['none', 'pending_approval', 'ready_to_pay', 'paid'];
   if (payment_status && !validStatuses.includes(payment_status)) {
     return NextResponse.json({ error: 'Invalid payment status' }, { status: 400 });
   }
@@ -51,31 +51,23 @@ export async function PATCH(
     updated_at: new Date().toISOString(),
   };
 
-  // Determine the effective status (may be auto-advanced)
-  let effectiveStatus = payment_status;
+  const effectiveStatus = payment_status;
   const effectiveSource = invoice_source || currentJob.invoice_source;
 
   if (payment_status !== undefined) {
-    if (payment_status === 'received') {
+    if (invoice_source) {
+      updateData.invoice_source = invoice_source;
+    }
+
+    if (payment_status === 'ready_to_pay') {
       updateData.payment_received_at = new Date().toISOString();
-      if (invoice_source) {
-        updateData.invoice_source = invoice_source;
-      }
-      // Auto-advance based on source
-      if (effectiveSource === 'manager_text') {
-        // Manager text = implicit approval, skip to ready_to_pay
-        effectiveStatus = 'ready_to_pay';
-        updateData.payment_approved_at = new Date().toISOString();
-        updateData.payment_approved_by = session.user.id;
-      } else if (effectiveSource === 'ap_email') {
-        // AP email = needs manager approval
-        effectiveStatus = 'pending_approval';
-      }
-    } else if (payment_status === 'ready_to_pay' || payment_status === 'pending_approval') {
-      // If approving from pending_approval → ready_to_pay
-      if (currentJob.payment_status === 'pending_approval' && payment_status === 'ready_to_pay') {
-        updateData.payment_approved_at = new Date().toISOString();
-        updateData.payment_approved_by = session.user.id;
+      updateData.payment_approved_at = new Date().toISOString();
+      updateData.payment_approved_by = session.user.id;
+    } else if (payment_status === 'pending_approval') {
+      updateData.payment_received_at = new Date().toISOString();
+      // If approving from pending_approval → ready_to_pay handled separately
+      if (currentJob.payment_status === 'paid') {
+        updateData.payment_paid_at = null;
       }
     } else if (payment_status === 'paid') {
       updateData.payment_paid_at = new Date().toISOString();
@@ -86,6 +78,16 @@ export async function PATCH(
       updateData.payment_approved_by = null;
       updateData.payment_paid_at = null;
       updateData.invoice_source = null;
+    }
+
+    // If approving from pending_approval → ready_to_pay
+    if (currentJob.payment_status === 'pending_approval' && payment_status === 'ready_to_pay') {
+      updateData.payment_approved_at = new Date().toISOString();
+      updateData.payment_approved_by = session.user.id;
+    }
+    // If reverting from paid → ready_to_pay, clear paid timestamp
+    if (currentJob.payment_status === 'paid' && payment_status === 'ready_to_pay') {
+      updateData.payment_paid_at = null;
     }
 
     updateData.payment_status = effectiveStatus;

@@ -6,6 +6,7 @@ import { formatTimestamp } from '@/lib/ap-utils';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { DateRangePicker, DateRange, DateRangePreset } from '@/components/DateRangePicker';
 import JobsTable from '@/components/JobsTable';
+import WorkflowModal from '@/components/WorkflowModal';
 
 const FILTER_KEY = 'ap-jobs-filters';
 
@@ -52,6 +53,7 @@ export default function JobsPage() {
   const [minTotal, setMinTotal] = useState(saved.current?.minTotal || '');
   const [maxTotal, setMaxTotal] = useState(saved.current?.maxTotal || '');
   const [showIgnored, setShowIgnored] = useState(saved.current?.excluded || false);
+  const [showWorkflow, setShowWorkflow] = useState(false);
 
   // Persist filters to sessionStorage whenever they change (skip first render to avoid overwriting)
   const skipFirstSave = useRef(true);
@@ -246,9 +248,21 @@ export default function JobsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-            Payment Tracker
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              Payment Tracker
+            </h1>
+            <button
+              onClick={() => setShowWorkflow(true)}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              title="Payment workflow guide"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+              </svg>
+            </button>
+          </div>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             {total} total jobs
             {lastSync && <> &middot; Last sync: {formatTimestamp(lastSync)}</>}
@@ -518,7 +532,6 @@ export default function JobsPage() {
                 <div>
                   {[
                     { value: 'none', label: 'No Payment' },
-                    { value: 'received', label: 'Received' },
                     { value: 'pending_approval', label: 'Pending Approval' },
                     { value: 'ready_to_pay', label: 'Ready to Pay' },
                     { value: 'paid', label: 'Paid' },
@@ -651,6 +664,8 @@ export default function JobsPage() {
           </div>
         </div>
       )}
+
+      <WorkflowModal isOpen={showWorkflow} onClose={() => setShowWorkflow(false)} />
     </div>
   );
 }

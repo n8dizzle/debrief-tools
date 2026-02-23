@@ -12,7 +12,6 @@ const actionLabels: Record<string, { label: string; color: string }> = {
   job_synced: { label: 'Synced', color: 'var(--text-muted)' },
   assigned_inhouse: { label: 'Assigned In-House', color: 'var(--status-info)' },
   assigned_contractor: { label: 'Assigned Contractor', color: '#c084fc' },
-  payment_received: { label: 'Invoice Received', color: '#fb923c' },
   payment_pending_approval: { label: 'Pending Approval', color: 'var(--status-warning)' },
   payment_ready_to_pay: { label: 'Ready to Pay', color: 'var(--status-info)' },
   payment_paid: { label: 'Paid', color: 'var(--status-success)' },
