@@ -22,7 +22,7 @@ function detectTrade(buName: string): 'hvac' | 'plumbing' {
   return buName.toLowerCase().includes('plumb') ? 'plumbing' : 'hvac';
 }
 
-type SettingsTab = 'sync' | 'technicians' | 'trade-mapping' | 'notifications' | 'history';
+type SettingsTab = 'sync' | 'technicians' | 'trade-mapping' | 'notifications';
 
 export default function SettingsPage() {
   const { isManager, isOwner, canSyncData } = useAPPermissions();
@@ -590,7 +590,6 @@ export default function SettingsPage() {
     { id: 'technicians', label: 'Technicians' },
     { id: 'trade-mapping', label: 'Trade Mapping' },
     { id: 'notifications', label: 'Notifications' },
-    { id: 'history', label: 'Sync History' },
   ];
 
   return (
@@ -751,6 +750,103 @@ export default function SettingsPage() {
                   )}
                 </div>
               </>
+            )}
+          </div>
+
+          {/* Sync History */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                Sync History
+              </h2>
+              <button
+                onClick={loadSyncHistory}
+                className="text-sm"
+                style={{ color: 'var(--christmas-green-light)' }}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Loading...
+              </div>
+            ) : syncHistory.length === 0 ? (
+              <div className="p-6 rounded-lg text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No sync history yet. Run a manual sync to get started.</p>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="ap-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Status</th>
+                      <th>Duration</th>
+                      <th>Processed</th>
+                      <th>Created</th>
+                      <th>Updated</th>
+                      <th>Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncHistory.map(entry => (
+                      <tr key={entry.id}>
+                        <td className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                          {formatTimestamp(entry.started_at)}
+                        </td>
+                        <td>
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor:
+                                entry.status === 'completed' ? 'rgba(34, 197, 94, 0.15)' :
+                                entry.status === 'running' ? 'rgba(59, 130, 246, 0.15)' :
+                                'rgba(239, 68, 68, 0.15)',
+                              color:
+                                entry.status === 'completed' ? 'var(--status-success)' :
+                                entry.status === 'running' ? 'var(--status-info)' :
+                                'var(--status-error)',
+                            }}
+                          >
+                            {entry.status}
+                          </span>
+                        </td>
+                        <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {formatDuration(entry.started_at, entry.completed_at)}
+                        </td>
+                        <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {entry.jobs_processed}
+                        </td>
+                        <td className="text-sm" style={{ color: 'var(--status-success)' }}>
+                          {entry.jobs_created > 0 ? `+${entry.jobs_created}` : '0'}
+                        </td>
+                        <td className="text-sm" style={{ color: 'var(--status-info)' }}>
+                          {entry.jobs_updated > 0 ? entry.jobs_updated : '0'}
+                        </td>
+                        <td className="text-sm">
+                          {entry.errors ? (
+                            <span
+                              className="cursor-help"
+                              title={entry.errors}
+                              style={{ color: 'var(--status-error)' }}
+                            >
+                              Yes
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -1867,104 +1963,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Sync History Tab */}
-      {activeTab === 'history' && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-              Sync History
-            </h2>
-            <button
-              onClick={loadSyncHistory}
-              className="text-sm"
-              style={{ color: 'var(--christmas-green-light)' }}
-            >
-              Refresh
-            </button>
-          </div>
-
-          {loadingHistory ? (
-            <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading...
-            </div>
-          ) : syncHistory.length === 0 ? (
-            <div className="p-6 rounded-lg text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No sync history yet. Run a manual sync to get started.</p>
-            </div>
-          ) : (
-            <div className="table-wrapper">
-              <table className="ap-table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Duration</th>
-                    <th>Processed</th>
-                    <th>Created</th>
-                    <th>Updated</th>
-                    <th>Errors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {syncHistory.map(entry => (
-                    <tr key={entry.id}>
-                      <td className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                        {formatTimestamp(entry.started_at)}
-                      </td>
-                      <td>
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor:
-                              entry.status === 'completed' ? 'rgba(34, 197, 94, 0.15)' :
-                              entry.status === 'running' ? 'rgba(59, 130, 246, 0.15)' :
-                              'rgba(239, 68, 68, 0.15)',
-                            color:
-                              entry.status === 'completed' ? 'var(--status-success)' :
-                              entry.status === 'running' ? 'var(--status-info)' :
-                              'var(--status-error)',
-                          }}
-                        >
-                          {entry.status}
-                        </span>
-                      </td>
-                      <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {formatDuration(entry.started_at, entry.completed_at)}
-                      </td>
-                      <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {entry.jobs_processed}
-                      </td>
-                      <td className="text-sm" style={{ color: 'var(--status-success)' }}>
-                        {entry.jobs_created > 0 ? `+${entry.jobs_created}` : '0'}
-                      </td>
-                      <td className="text-sm" style={{ color: 'var(--status-info)' }}>
-                        {entry.jobs_updated > 0 ? entry.jobs_updated : '0'}
-                      </td>
-                      <td className="text-sm">
-                        {entry.errors ? (
-                          <span
-                            className="cursor-help"
-                            title={entry.errors}
-                            style={{ color: 'var(--status-error)' }}
-                          >
-                            Yes
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
