@@ -12,11 +12,14 @@ export async function GET() {
 
   const supabase = getServerSupabase();
 
-  const [phonesRes, emailsRes, mgrPhonesRes, mgrEmailsRes] = await Promise.all([
+  const [phonesRes, emailsRes, mgrPhonesRes, mgrEmailsRes, togglesRes, templatesRes, smsLogRes] = await Promise.all([
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_phones').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_emails').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'install_manager_phones').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'install_manager_emails').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'notification_toggles').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'notification_templates').single(),
+    supabase.from('ap_sms_log').select('*').order('created_at', { ascending: false }).limit(50),
   ]);
 
   return NextResponse.json({
@@ -24,6 +27,9 @@ export async function GET() {
     notification_emails: emailsRes.data?.value || [],
     install_manager_phones: mgrPhonesRes.data?.value || [],
     install_manager_emails: mgrEmailsRes.data?.value || [],
+    notification_toggles: togglesRes.data?.value || {},
+    notification_templates: templatesRes.data?.value || {},
+    sms_log: smsLogRes.data || [],
   });
 }
 
@@ -40,7 +46,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { notification_phones, notification_emails, install_manager_phones, install_manager_emails } = body;
+  const { notification_phones, notification_emails, install_manager_phones, install_manager_emails, notification_toggles, notification_templates } = body;
 
   const supabase = getServerSupabase();
   const now = new Date().toISOString();
@@ -81,11 +87,44 @@ export async function PATCH(request: NextRequest) {
     return null;
   }
 
+  // Upsert notification toggles (simple object, no validation needed beyond type check)
+  async function upsertToggles(toggles: unknown) {
+    if (toggles === undefined) return null;
+    if (typeof toggles !== 'object' || toggles === null) {
+      return { error: 'notification_toggles must be an object' };
+    }
+    const { error } = await supabase
+      .from('ap_sync_settings')
+      .upsert({ key: 'notification_toggles', value: toggles, updated_at: now }, { onConflict: 'key' });
+    if (error) return { error: error.message };
+    return null;
+  }
+
+  // Upsert notification templates (object with string values)
+  async function upsertTemplates(templates: unknown) {
+    if (templates === undefined) return null;
+    if (typeof templates !== 'object' || templates === null) {
+      return { error: 'notification_templates must be an object' };
+    }
+    for (const [, val] of Object.entries(templates as Record<string, unknown>)) {
+      if (typeof val !== 'string') {
+        return { error: 'Each notification_templates value must be a string' };
+      }
+    }
+    const { error } = await supabase
+      .from('ap_sync_settings')
+      .upsert({ key: 'notification_templates', value: templates, updated_at: now }, { onConflict: 'key' });
+    if (error) return { error: error.message };
+    return null;
+  }
+
   const results = await Promise.all([
     upsertPhones('notification_phones', notification_phones),
     upsertEmails('notification_emails', notification_emails),
     upsertPhones('install_manager_phones', install_manager_phones),
     upsertEmails('install_manager_emails', install_manager_emails),
+    upsertToggles(notification_toggles),
+    upsertTemplates(notification_templates),
   ]);
 
   const firstError = results.find(r => r?.error);

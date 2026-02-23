@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatTimestamp, formatCurrency } from '@/lib/ap-utils';
+import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VARIABLES } from '@/lib/notification-templates';
 import type { APTechnician } from '@/lib/supabase';
 
 interface SyncLogEntry {
@@ -72,6 +73,21 @@ export default function SettingsPage() {
   const [savedNotifEmails, setSavedNotifEmails] = useState<{ name: string; email: string }[]>([]);
   const [savingEmails, setSavingEmails] = useState(false);
   const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Notification toggles state
+  const [toggles, setToggles] = useState<Record<string, boolean>>({});
+  const [savedToggles, setSavedToggles] = useState<Record<string, boolean>>({});
+  const [savingToggles, setSavingToggles] = useState(false);
+  const [toggleMessage, setToggleMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // SMS log state
+  const [smsLog, setSmsLog] = useState<{ id: string; recipient_phone: string; recipient_name: string | null; recipient_type: string; event_type: string; message: string; status: string; created_at: string; job_id: string | null }[]>([]);
+
+  // Message templates state
+  const [msgTemplates, setMsgTemplates] = useState<Record<string, string>>({});
+  const [savedMsgTemplates, setSavedMsgTemplates] = useState<Record<string, string>>({});
+  const [savingTemplates, setSavingTemplates] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Install manager notification state
   const [mgrPhones, setMgrPhones] = useState<{ name: string; phone: string }[]>([]);
@@ -151,6 +167,13 @@ export default function SettingsPage() {
         const mgEmails = data.install_manager_emails || [];
         setMgrEmails(mgEmails);
         setSavedMgrEmails(mgEmails);
+        const t = data.notification_toggles || {};
+        setToggles(t);
+        setSavedToggles(t);
+        const tpl = data.notification_templates || {};
+        setMsgTemplates(tpl);
+        setSavedMsgTemplates(tpl);
+        setSmsLog(data.sms_log || []);
       }
     } catch (err) {
       console.error('Failed to load notification settings:', err);
@@ -281,6 +304,52 @@ export default function SettingsPage() {
     }
   };
 
+  const handleBackfill = async () => {
+    setBackfilling(true);
+    setBackfillResult(null);
+
+    let chunk = 0;
+    let totalProcessed = 0;
+    let totalCreated = 0;
+    let totalUpdated = 0;
+
+    try {
+      while (true) {
+        setBackfillResult({
+          type: 'success',
+          text: `Processing chunk ${chunk + 1}... (${totalCreated} created, ${totalUpdated} updated so far)`,
+        });
+
+        const res = await fetch(`/api/backfill?chunk=${chunk}`, { method: 'POST' });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setBackfillResult({ type: 'error', text: data.error || `Backfill failed on chunk ${chunk + 1}` });
+          break;
+        }
+
+        totalProcessed += data.jobs_processed || 0;
+        totalCreated += data.jobs_created || 0;
+        totalUpdated += data.jobs_updated || 0;
+
+        if (data.done) {
+          setBackfillResult({
+            type: 'success',
+            text: `Backfill complete: ${totalProcessed} jobs processed, ${totalCreated} created, ${totalUpdated} updated across ${data.chunks_total} chunks`,
+          });
+          await Promise.all([loadSyncHistory(), loadSettings()]);
+          break;
+        }
+
+        chunk++;
+      }
+    } catch {
+      setBackfillResult({ type: 'error', text: 'Backfill request failed' });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const handleSyncTechnicians = async () => {
     setSyncingTechs(true);
     setTechSyncResult(null);
@@ -323,52 +392,6 @@ export default function SettingsPage() {
       console.error('Failed to save technician:', err);
     } finally {
       setSavingTech(false);
-    }
-  };
-
-  const handleBackfill = async () => {
-    setBackfilling(true);
-    setBackfillResult(null);
-
-    let chunk = 0;
-    let totalProcessed = 0;
-    let totalCreated = 0;
-    let totalUpdated = 0;
-
-    try {
-      while (true) {
-        setBackfillResult({
-          type: 'success',
-          text: `Processing chunk ${chunk + 1}... (${totalCreated} created, ${totalUpdated} updated so far)`,
-        });
-
-        const res = await fetch(`/api/backfill?chunk=${chunk}`, { method: 'POST' });
-        const data = await res.json();
-
-        if (!res.ok) {
-          setBackfillResult({ type: 'error', text: data.error || `Backfill failed on chunk ${chunk + 1}` });
-          break;
-        }
-
-        totalProcessed += data.jobs_processed || 0;
-        totalCreated += data.jobs_created || 0;
-        totalUpdated += data.jobs_updated || 0;
-
-        if (data.done) {
-          setBackfillResult({
-            type: 'success',
-            text: `Backfill complete: ${totalProcessed} jobs processed, ${totalCreated} created, ${totalUpdated} updated across ${data.chunks_total} chunks`,
-          });
-          await Promise.all([loadSyncHistory(), loadSettings()]);
-          break;
-        }
-
-        chunk++;
-      }
-    } catch (err) {
-      setBackfillResult({ type: 'error', text: 'Backfill request failed' });
-    } finally {
-      setBackfilling(false);
     }
   };
 
@@ -489,6 +512,106 @@ export default function SettingsPage() {
 
   const hasNotifChanges = JSON.stringify(notifPhones) !== JSON.stringify(savedNotifPhones);
   const hasEmailChanges = JSON.stringify(notifEmails) !== JSON.stringify(savedNotifEmails);
+  const hasToggleChanges = JSON.stringify(toggles) !== JSON.stringify(savedToggles);
+  const hasTemplateChanges = JSON.stringify(msgTemplates) !== JSON.stringify(savedMsgTemplates);
+
+  const getTemplateValue = (key: string) => {
+    return msgTemplates[key] !== undefined ? msgTemplates[key] : DEFAULT_TEMPLATES[key] || '';
+  };
+
+  const handleTemplateChange = (key: string, value: string) => {
+    setMsgTemplates(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleResetTemplate = (key: string) => {
+    setMsgTemplates(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleSaveTemplates = async () => {
+    setSavingTemplates(true);
+    setTemplateMessage(null);
+    try {
+      // Only save templates that differ from defaults
+      const customTemplates: Record<string, string> = {};
+      for (const [key, value] of Object.entries(msgTemplates)) {
+        if (value !== DEFAULT_TEMPLATES[key]) {
+          customTemplates[key] = value;
+        }
+      }
+      const res = await fetch('/api/settings/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_templates: customTemplates }),
+      });
+      if (res.ok) {
+        setSavedMsgTemplates({ ...customTemplates });
+        setMsgTemplates({ ...customTemplates });
+        setTemplateMessage({ type: 'success', text: 'Message templates saved' });
+        setTimeout(() => setTemplateMessage(null), 4000);
+      } else {
+        setTemplateMessage({ type: 'error', text: 'Failed to save templates' });
+      }
+    } catch {
+      setTemplateMessage({ type: 'error', text: 'Failed to save templates' });
+    } finally {
+      setSavingTemplates(false);
+    }
+  };
+
+  const insertVariable = (key: string, variable: string) => {
+    const textarea = document.getElementById(`template-${key}`) as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const current = getTemplateValue(key);
+    const newValue = current.substring(0, start) + variable + current.substring(end);
+    handleTemplateChange(key, newValue);
+    // Restore cursor position after React re-render
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + variable.length, start + variable.length);
+    }, 0);
+  };
+
+  const toggleKeys: { key: string; label: string; description: string }[] = [
+    { key: 'assignment_contractor', label: 'Assignment → Contractor', description: 'Text contractor when a job is assigned to them' },
+    { key: 'assignment_internal', label: 'Assignment → Internal Team', description: 'Text/email team when a job is assigned' },
+    { key: 'pending_approval_manager', label: 'Pending Approval → Install Managers', description: 'Text/email managers when AP email invoice needs approval' },
+    { key: 'ready_to_pay_internal', label: 'Ready to Pay → Internal Team', description: 'Text/email team when invoice is approved' },
+    { key: 'paid_contractor', label: 'Paid → Contractor', description: 'Text contractor when payment is sent' },
+    { key: 'paid_internal', label: 'Paid → Internal Team', description: 'Text/email team when payment is marked paid' },
+  ];
+
+  const handleToggleChange = (key: string) => {
+    setToggles(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
+  };
+
+  const handleSaveToggles = async () => {
+    setSavingToggles(true);
+    setToggleMessage(null);
+    try {
+      const res = await fetch('/api/settings/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_toggles: toggles }),
+      });
+      if (res.ok) {
+        setSavedToggles({ ...toggles });
+        setToggleMessage({ type: 'success', text: 'Notification settings saved' });
+        setTimeout(() => setToggleMessage(null), 4000);
+      } else {
+        setToggleMessage({ type: 'error', text: 'Failed to save' });
+      }
+    } catch {
+      setToggleMessage({ type: 'error', text: 'Failed to save' });
+    } finally {
+      setSavingToggles(false);
+    }
+  };
 
   const handleSaveNotifEmails = async () => {
     setSavingEmails(true);
@@ -633,49 +756,6 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Historical Backfill */}
-          <div className="card">
-            <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div>
-                <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                  Historical Backfill
-                </div>
-                <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  Pull all jobs since Jan 1, 2026. This may take up to 60 seconds.
-                </div>
-              </div>
-              {canSyncData && (
-                <button
-                  onClick={handleBackfill}
-                  disabled={backfilling}
-                  className="btn btn-secondary"
-                  style={{ opacity: backfilling ? 0.6 : 1, whiteSpace: 'nowrap' }}
-                >
-                  {backfilling ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Backfilling...
-                    </>
-                  ) : 'Run Backfill'}
-                </button>
-              )}
-            </div>
-            {backfillResult && (
-              <div
-                className="mt-3 p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: backfillResult.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: backfillResult.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}
-              >
-                {backfillResult.text}
-              </div>
-            )}
           </div>
 
           {/* Fix Missing Customers */}
@@ -1184,9 +1264,338 @@ export default function SettingsPage() {
 
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
+        <div className="space-y-6">
+
+        {/* Notification Toggles */}
         <div className="card">
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            SMS Notifications
+            Notification Toggles
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Enable or disable automatic notifications per event type. Manual texts from the job detail page are always allowed.
+          </p>
+
+          {toggleMessage && (
+            <div
+              className="mb-4 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: toggleMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: toggleMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+              }}
+            >
+              {toggleMessage.text}
+            </div>
+          )}
+
+          {loadingNotif ? (
+            <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading...
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1 mb-4">
+                {toggleKeys.map(({ key, label, description }) => {
+                  const enabled = toggles[key] !== false;
+                  return (
+                    <label
+                      key={key}
+                      className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:opacity-90"
+                      style={{ backgroundColor: 'var(--bg-secondary)' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={() => handleToggleChange(key)}
+                        className="w-4 h-4 rounded flex-shrink-0"
+                        style={{ accentColor: 'var(--christmas-green)' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium" style={{ color: enabled ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                          {label}
+                        </div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {description}
+                        </div>
+                      </div>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                        style={{
+                          backgroundColor: enabled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+                          color: enabled ? 'var(--status-success)' : 'var(--text-muted)',
+                        }}
+                      >
+                        {enabled ? 'ON' : 'OFF'}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {hasToggleChanges && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveToggles}
+                    disabled={savingToggles}
+                    className="btn btn-primary"
+                    style={{ opacity: savingToggles ? 0.5 : 1 }}
+                  >
+                    {savingToggles ? 'Saving...' : 'Save Toggles'}
+                  </button>
+                  <button
+                    onClick={() => setToggles({ ...savedToggles })}
+                    className="btn btn-secondary text-sm"
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Message Templates */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            Message Templates
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Customize notification messages. Use variables like <code style={{ color: 'var(--christmas-green-light)', fontSize: '12px' }}>{'{job_number}'}</code> that get replaced with actual values at send time.
+          </p>
+
+          {templateMessage && (
+            <div
+              className="mb-4 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: templateMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: templateMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+              }}
+            >
+              {templateMessage.text}
+            </div>
+          )}
+
+          {loadingNotif ? (
+            <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading...
+            </div>
+          ) : (
+            <>
+              {/* SMS / Message Body Templates */}
+              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                SMS / Email Body
+              </h3>
+              <div className="space-y-4 mb-6">
+                {TEMPLATE_KEYS.filter(t => t.group === 'message').map(({ key, label }) => {
+                  const value = getTemplateValue(key);
+                  const isCustom = msgTemplates[key] !== undefined && msgTemplates[key] !== DEFAULT_TEMPLATES[key];
+                  return (
+                    <div
+                      key={key}
+                      className="p-3 rounded-lg"
+                      style={{ backgroundColor: 'var(--bg-secondary)' }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          {label}
+                        </label>
+                        {isCustom && (
+                          <button
+                            onClick={() => handleResetTemplate(key)}
+                            className="text-[11px] px-2 py-0.5 rounded"
+                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                          >
+                            Reset to Default
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        id={`template-${key}`}
+                        value={value}
+                        onChange={e => handleTemplateChange(key, e.target.value)}
+                        rows={2}
+                        className="w-full text-sm py-2 px-3 rounded-md resize-y"
+                        style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--christmas-cream)',
+                          border: `1px solid ${isCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                          lineHeight: '1.5',
+                        }}
+                      />
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {TEMPLATE_VARIABLES.map(v => (
+                          <button
+                            key={v}
+                            onClick={() => insertVariable(key, v)}
+                            className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80"
+                            style={{
+                              backgroundColor: 'rgba(93, 138, 102, 0.15)',
+                              color: 'var(--christmas-green-light)',
+                              border: '1px solid rgba(93, 138, 102, 0.25)',
+                            }}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Email Subject Templates */}
+              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Email Subjects
+              </h3>
+              <div className="space-y-3 mb-4">
+                {TEMPLATE_KEYS.filter(t => t.group === 'subject').map(({ key, label }) => {
+                  const value = getTemplateValue(key);
+                  const isCustom = msgTemplates[key] !== undefined && msgTemplates[key] !== DEFAULT_TEMPLATES[key];
+                  return (
+                    <div
+                      key={key}
+                      className="p-3 rounded-lg"
+                      style={{ backgroundColor: 'var(--bg-secondary)' }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          {label}
+                        </label>
+                        {isCustom && (
+                          <button
+                            onClick={() => handleResetTemplate(key)}
+                            className="text-[11px] px-2 py-0.5 rounded"
+                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        id={`template-${key}`}
+                        value={value}
+                        onChange={e => handleTemplateChange(key, e.target.value)}
+                        className="w-full text-sm py-1.5 px-3 rounded-md"
+                        style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--christmas-cream)',
+                          border: `1px solid ${isCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {hasTemplateChanges && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveTemplates}
+                    disabled={savingTemplates}
+                    className="btn btn-primary"
+                    style={{ opacity: savingTemplates ? 0.5 : 1 }}
+                  >
+                    {savingTemplates ? 'Saving...' : 'Save Templates'}
+                  </button>
+                  <button
+                    onClick={() => setMsgTemplates({ ...savedMsgTemplates })}
+                    className="btn btn-secondary text-sm"
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* SMS / Email Log */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            Recent Notifications
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Last 50 SMS notifications sent by the system.
+          </p>
+
+          {smsLog.length === 0 ? (
+            <div className="p-4 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+              No notifications sent yet.
+            </div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="ap-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Recipient</th>
+                    <th>Type</th>
+                    <th>Event</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {smsLog.map(sms => (
+                    <tr key={sms.id}>
+                      <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                        {formatTimestamp(sms.created_at)}
+                      </td>
+                      <td className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                        {sms.recipient_name || sms.recipient_phone}
+                      </td>
+                      <td>
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: sms.recipient_type === 'contractor' ? 'rgba(184, 149, 107, 0.15)' : 'rgba(93, 138, 102, 0.15)',
+                            color: sms.recipient_type === 'contractor' ? 'var(--christmas-gold)' : 'var(--christmas-green-light)',
+                          }}
+                        >
+                          {sms.recipient_type}
+                        </span>
+                      </td>
+                      <td className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {sms.event_type}
+                      </td>
+                      <td>
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: sms.status === 'sent' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: sms.status === 'sent' ? 'var(--status-success)' : 'var(--status-error)',
+                          }}
+                        >
+                          {sms.status}
+                        </span>
+                      </td>
+                      <td className="text-xs max-w-[200px] truncate" style={{ color: 'var(--text-muted)' }} title={sms.message}>
+                        {sms.message}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Recipients Section */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            SMS Recipients
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
             Team members who receive SMS notifications when jobs are assigned or payment statuses change.
@@ -1617,6 +2026,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       )}
 
