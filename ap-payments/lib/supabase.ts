@@ -52,7 +52,7 @@ export interface APContractorRate {
 }
 
 export type APAssignmentType = 'unassigned' | 'in_house' | 'contractor';
-export type APPaymentStatus = 'none' | 'received' | 'pending_approval' | 'ready_to_pay' | 'paid';
+export type APPaymentStatus = 'none' | 'pending_approval' | 'ready_to_pay' | 'paid';
 export type APInvoiceSource = 'manager_text' | 'ap_email' | null;
 
 export interface APInstallJob {
@@ -144,12 +144,20 @@ export interface APMonthlyTrend {
   in_house_count: number;
 }
 
+export interface APContractorBreakdown {
+  contractor_id: string;
+  contractor_name: string;
+  total_paid: number;
+  total_outstanding: number;
+  job_count: number;
+}
+
 export interface APDashboardStats {
   total_jobs: number;
   unassigned_jobs: number;
   contractor_jobs: number;
   in_house_jobs: number;
-  payments_received: number;
+  awaiting_invoice: number;
   payments_pending_approval: number;
   payments_ready_to_pay: number;
   payments_paid: number;
@@ -158,6 +166,7 @@ export interface APDashboardStats {
   contractor_pct: number;
   contractor_usage_pct: number;
   monthly_trend: APMonthlyTrend[];
+  contractor_breakdown: APContractorBreakdown[];
   last_sync: string | null;
 }
 
@@ -182,7 +191,7 @@ export interface APSmsLog {
   recipient_type: 'contractor' | 'internal';
   recipient_phone: string;
   recipient_name: string | null;
-  event_type: 'assignment' | 'payment_received' | 'payment_pending_approval' | 'payment_ready_to_pay' | 'payment_paid' | 'manual';
+  event_type: 'assignment' | 'payment_pending_approval' | 'payment_ready_to_pay' | 'payment_paid' | 'manual';
   message: string;
   status: 'pending' | 'sent' | 'failed';
   twilio_sid: string | null;

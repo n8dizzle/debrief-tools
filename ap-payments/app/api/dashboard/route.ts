@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getServerSupabase, APDashboardStats, APMonthlyTrend } from '@/lib/supabase';
+import { getServerSupabase, APDashboardStats, APMonthlyTrend, APContractorBreakdown } from '@/lib/supabase';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const contractor = allJobs.filter(j => j.assignment_type === 'contractor').length;
   const inHouse = allJobs.filter(j => j.assignment_type === 'in_house').length;
 
-  const received = allJobs.filter(j => j.payment_status === 'received').length;
+  const awaitingInvoice = allJobs.filter(j => j.assignment_type === 'contractor' && (j.payment_status === 'none' || !j.payment_status)).length;
   const pendingApproval = allJobs.filter(j => j.payment_status === 'pending_approval').length;
   const readyToPay = allJobs.filter(j => j.payment_status === 'ready_to_pay').length;
   const paid = allJobs.filter(j => j.payment_status === 'paid').length;
@@ -104,6 +104,41 @@ export async function GET(request: Request) {
       };
     });
 
+  // Contractor breakdown: group contractor-assigned jobs by contractor_id
+  const contractorMap = new Map<string, { total_paid: number; total_outstanding: number; job_count: number }>();
+  for (const job of allJobs) {
+    if (job.assignment_type !== 'contractor' || !job.contractor_id) continue;
+    const entry = contractorMap.get(job.contractor_id) || { total_paid: 0, total_outstanding: 0, job_count: 0 };
+    entry.job_count++;
+    if (job.payment_status === 'paid') {
+      entry.total_paid += job.payment_amount || 0;
+    } else if (job.payment_status !== 'none') {
+      entry.total_outstanding += job.payment_amount || 0;
+    }
+    contractorMap.set(job.contractor_id, entry);
+  }
+
+  // Fetch contractor names
+  let contractorBreakdown: APContractorBreakdown[] = [];
+  if (contractorMap.size > 0) {
+    const { data: contractors } = await supabase
+      .from('ap_contractors')
+      .select('id, name')
+      .in('id', Array.from(contractorMap.keys()));
+
+    const nameMap = new Map((contractors || []).map((c: { id: string; name: string }) => [c.id, c.name]));
+
+    contractorBreakdown = Array.from(contractorMap.entries())
+      .map(([id, data]) => ({
+        contractor_id: id,
+        contractor_name: nameMap.get(id) || 'Unknown',
+        total_paid: Math.round(data.total_paid * 100) / 100,
+        total_outstanding: Math.round(data.total_outstanding * 100) / 100,
+        job_count: data.job_count,
+      }))
+      .sort((a, b) => (b.total_paid + b.total_outstanding) - (a.total_paid + a.total_outstanding));
+  }
+
   // Get last sync time
   const { data: lastSync } = await supabase
     .from('ap_sync_log')
@@ -118,7 +153,7 @@ export async function GET(request: Request) {
     unassigned_jobs: unassigned,
     contractor_jobs: contractor,
     in_house_jobs: inHouse,
-    payments_received: received,
+    awaiting_invoice: awaitingInvoice,
     payments_pending_approval: pendingApproval,
     payments_ready_to_pay: readyToPay,
     payments_paid: paid,
@@ -127,6 +162,7 @@ export async function GET(request: Request) {
     contractor_pct: Math.round(contractorPct * 10) / 10,
     contractor_usage_pct: Math.round(contractorUsagePct * 10) / 10,
     monthly_trend: monthlyTrend,
+    contractor_breakdown: contractorBreakdown,
     last_sync: lastSync?.completed_at || null,
   };
 

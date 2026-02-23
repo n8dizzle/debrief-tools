@@ -11,8 +11,8 @@ interface StatsCardsProps {
 export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {[1, 2, 3, 4, 5].map(i => (
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        {[1, 2, 3, 4, 5, 6].map(i => (
           <div key={i} className="card animate-pulse">
             <div className="h-4 w-24 rounded" style={{ background: 'var(--border-subtle)' }} />
             <div className="h-8 w-16 rounded mt-2" style={{ background: 'var(--border-subtle)' }} />
@@ -29,6 +29,12 @@ export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
       label: 'Unassigned Jobs',
       value: String(stats.unassigned_jobs),
       color: stats.unassigned_jobs > 0 ? 'var(--status-warning)' : 'var(--text-primary)',
+    },
+    {
+      label: 'Awaiting Invoice',
+      value: String(stats.awaiting_invoice),
+      subtext: 'contractor, no invoice yet',
+      color: stats.awaiting_invoice > 0 ? 'var(--christmas-gold)' : 'var(--text-primary)',
     },
     {
       label: 'Contractor Usage',
@@ -56,7 +62,7 @@ export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
       {cards.map((card) => (
         <div key={card.label} className="card">
           <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
