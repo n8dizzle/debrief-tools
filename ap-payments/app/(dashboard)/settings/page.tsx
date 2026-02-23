@@ -103,10 +103,6 @@ export default function SettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [enriching, setEnriching] = useState(false);
-  const [enrichResult, setEnrichResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [enrichingInvoices, setEnrichingInvoices] = useState(false);
-  const [enrichInvoiceResult, setEnrichInvoiceResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadSettings = useCallback(async () => {
     setLoadingMapping(true);
@@ -395,83 +391,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleEnrich = async () => {
-    setEnriching(true);
-    setEnrichResult(null);
-    let totalEnriched = 0;
 
-    try {
-      while (true) {
-        setEnrichResult({
-          type: 'success',
-          text: `Enriching customer data... (${totalEnriched} updated so far)`,
-        });
-
-        const res = await fetch('/api/backfill/enrich', { method: 'POST' });
-        const data = await res.json();
-
-        if (!res.ok) {
-          setEnrichResult({ type: 'error', text: data.error || 'Enrichment failed' });
-          break;
-        }
-
-        totalEnriched += data.enriched || 0;
-
-        if (data.done) {
-          setEnrichResult({
-            type: 'success',
-            text: totalEnriched > 0
-              ? `Done! Updated customer info for ${totalEnriched} jobs.`
-              : 'All jobs already have customer data.',
-          });
-          break;
-        }
-      }
-    } catch {
-      setEnrichResult({ type: 'error', text: 'Enrichment request failed' });
-    } finally {
-      setEnriching(false);
-    }
-  };
-
-  const handleEnrichInvoices = async () => {
-    setEnrichingInvoices(true);
-    setEnrichInvoiceResult(null);
-    let totalEnriched = 0;
-
-    try {
-      while (true) {
-        setEnrichInvoiceResult({
-          type: 'success',
-          text: `Enriching invoice data... (${totalEnriched} updated so far)`,
-        });
-
-        const res = await fetch('/api/backfill/enrich-invoices', { method: 'POST' });
-        const data = await res.json();
-
-        if (!res.ok) {
-          setEnrichInvoiceResult({ type: 'error', text: data.error || 'Invoice enrichment failed' });
-          break;
-        }
-
-        totalEnriched += data.enriched || 0;
-
-        if (data.done) {
-          setEnrichInvoiceResult({
-            type: 'success',
-            text: totalEnriched > 0
-              ? `Done! Updated invoice info for ${totalEnriched} jobs.`
-              : 'All jobs already have invoice data.',
-          });
-          break;
-        }
-      }
-    } catch {
-      setEnrichInvoiceResult({ type: 'error', text: 'Invoice enrichment request failed' });
-    } finally {
-      setEnrichingInvoices(false);
-    }
-  };
 
   const handleSaveNotifPhones = async () => {
     setSavingNotif(true);
@@ -756,92 +676,6 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Fix Missing Customers */}
-          <div className="card">
-            <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div>
-                <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                  Fix Missing Customers
-                </div>
-                <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  Fetch customer names and addresses for jobs that are missing them.
-                </div>
-              </div>
-              {canSyncData && (
-                <button
-                  onClick={handleEnrich}
-                  disabled={enriching}
-                  className="btn btn-secondary"
-                  style={{ opacity: enriching ? 0.6 : 1, whiteSpace: 'nowrap' }}
-                >
-                  {enriching ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Enriching...
-                    </>
-                  ) : 'Fix Customers'}
-                </button>
-              )}
-            </div>
-            {enrichResult && (
-              <div
-                className="mt-3 p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: enrichResult.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: enrichResult.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}
-              >
-                {enrichResult.text}
-              </div>
-            )}
-          </div>
-
-          {/* Fix Missing Invoices */}
-          <div className="card">
-            <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div>
-                <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                  Fix Missing Invoices
-                </div>
-                <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  Fetch invoice numbers and export status for jobs that are missing them.
-                </div>
-              </div>
-              {canSyncData && (
-                <button
-                  onClick={handleEnrichInvoices}
-                  disabled={enrichingInvoices}
-                  className="btn btn-secondary"
-                  style={{ opacity: enrichingInvoices ? 0.6 : 1, whiteSpace: 'nowrap' }}
-                >
-                  {enrichingInvoices ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Enriching...
-                    </>
-                  ) : 'Fix Invoices'}
-                </button>
-              )}
-            </div>
-            {enrichInvoiceResult && (
-              <div
-                className="mt-3 p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: enrichInvoiceResult.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: enrichInvoiceResult.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}
-              >
-                {enrichInvoiceResult.text}
-              </div>
-            )}
           </div>
 
           {/* Allowed Business Units */}
