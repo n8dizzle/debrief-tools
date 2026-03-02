@@ -60,18 +60,31 @@ async function getInternalTeamEmails(): Promise<NotificationEmail[]> {
 }
 
 /**
- * Get install manager phone numbers from ap_sync_settings
+ * Get manager phone numbers by trade, falling back to generic install_manager_phones
  */
-async function getInstallManagerPhones(): Promise<NotificationPhone[]> {
+async function getManagerPhonesByTrade(trade: string): Promise<NotificationPhone[]> {
   const supabase = getServerSupabase();
+  const tradeKey = trade === 'plumbing' ? 'plumbing_manager_phones' : 'hvac_manager_phones';
+
   const { data } = await supabase
+    .from('ap_sync_settings')
+    .select('value')
+    .eq('key', tradeKey)
+    .single();
+
+  if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
+    return data.value as NotificationPhone[];
+  }
+
+  // Fallback to generic install manager phones
+  const { data: fallback } = await supabase
     .from('ap_sync_settings')
     .select('value')
     .eq('key', 'install_manager_phones')
     .single();
 
-  if (!data?.value || !Array.isArray(data.value)) return [];
-  return data.value as NotificationPhone[];
+  if (!fallback?.value || !Array.isArray(fallback.value)) return [];
+  return fallback.value as NotificationPhone[];
 }
 
 /**
@@ -94,18 +107,31 @@ function isEnabled(toggles: NotificationToggles, key: keyof NotificationToggles)
 }
 
 /**
- * Get install manager email addresses from ap_sync_settings
+ * Get manager email addresses by trade, falling back to generic install_manager_emails
  */
-async function getInstallManagerEmails(): Promise<NotificationEmail[]> {
+async function getManagerEmailsByTrade(trade: string): Promise<NotificationEmail[]> {
   const supabase = getServerSupabase();
+  const tradeKey = trade === 'plumbing' ? 'plumbing_manager_emails' : 'hvac_manager_emails';
+
   const { data } = await supabase
+    .from('ap_sync_settings')
+    .select('value')
+    .eq('key', tradeKey)
+    .single();
+
+  if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
+    return data.value as NotificationEmail[];
+  }
+
+  // Fallback to generic install manager emails
+  const { data: fallback } = await supabase
     .from('ap_sync_settings')
     .select('value')
     .eq('key', 'install_manager_emails')
     .single();
 
-  if (!data?.value || !Array.isArray(data.value)) return [];
-  return data.value as NotificationEmail[];
+  if (!fallback?.value || !Array.isArray(fallback.value)) return [];
+  return fallback.value as NotificationEmail[];
 }
 
 /**
@@ -330,7 +356,7 @@ export async function sendPaymentStatusNotification(
 
   if (newStatus === 'pending_approval' && isEnabled(toggles, 'pending_approval_manager')) {
     const msg = renderTemplate(templates.pending_approval_manager, vars);
-    const managerPhones = await getInstallManagerPhones();
+    const managerPhones = await getManagerPhonesByTrade(job.trade || 'hvac');
     for (const manager of managerPhones) {
       if (!formatPhoneE164(manager.phone)) continue;
       await sendAndLog({
@@ -344,7 +370,7 @@ export async function sendPaymentStatusNotification(
         sent_by: sentBy,
       });
     }
-    const managerEmails = await getInstallManagerEmails();
+    const managerEmails = await getManagerEmailsByTrade(job.trade || 'hvac');
     const subject = renderTemplate(templates.subject_pending_approval_manager, vars);
     await sendEmailToRecipients(managerEmails, subject, msg, jobId);
     return;
@@ -389,9 +415,17 @@ export async function sendPaymentStatusNotification(
 
     if (isEnabled(toggles, 'paid_internal')) {
       const msg = renderTemplate(templates.paid_internal, vars);
-      const teamPhones = await getInternalTeamPhones();
-      for (const member of teamPhones) {
-        if (!formatPhoneE164(member.phone)) continue;
+
+      // Send to internal team + trade-specific managers (deduped by phone/email)
+      const [teamPhones, managerPhones] = await Promise.all([
+        getInternalTeamPhones(),
+        getManagerPhonesByTrade(job.trade || 'hvac'),
+      ]);
+      const seenPhones = new Set<string>();
+      for (const member of [...teamPhones, ...managerPhones]) {
+        const normalized = formatPhoneE164(member.phone);
+        if (!normalized || seenPhones.has(normalized)) continue;
+        seenPhones.add(normalized);
         await sendAndLog({
           to: member.phone,
           message: msg,
@@ -404,9 +438,19 @@ export async function sendPaymentStatusNotification(
         });
       }
 
-      const teamEmails = await getInternalTeamEmails();
+      const [teamEmails, managerEmails] = await Promise.all([
+        getInternalTeamEmails(),
+        getManagerEmailsByTrade(job.trade || 'hvac'),
+      ]);
+      const seenEmails = new Set<string>();
+      const dedupedEmails = [...teamEmails, ...managerEmails].filter(e => {
+        const lower = e.email.toLowerCase();
+        if (seenEmails.has(lower)) return false;
+        seenEmails.add(lower);
+        return true;
+      });
       const subject = renderTemplate(templates.subject_paid_internal, vars);
-      await sendEmailToRecipients(teamEmails, subject, msg, jobId);
+      await sendEmailToRecipients(dedupedEmails, subject, msg, jobId);
     }
     return;
   }

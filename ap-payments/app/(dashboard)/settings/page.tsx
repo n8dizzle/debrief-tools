@@ -89,15 +89,25 @@ export default function SettingsPage() {
   const [savingTemplates, setSavingTemplates] = useState(false);
   const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Install manager notification state
-  const [mgrPhones, setMgrPhones] = useState<{ name: string; phone: string }[]>([]);
-  const [savedMgrPhones, setSavedMgrPhones] = useState<{ name: string; phone: string }[]>([]);
-  const [savingMgr, setSavingMgr] = useState(false);
-  const [mgrMessage, setMgrMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [mgrEmails, setMgrEmails] = useState<{ name: string; email: string }[]>([]);
-  const [savedMgrEmails, setSavedMgrEmails] = useState<{ name: string; email: string }[]>([]);
-  const [savingMgrEmails, setSavingMgrEmails] = useState(false);
-  const [mgrEmailMessage, setMgrEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // HVAC manager notification state
+  const [hvacMgrPhones, setHvacMgrPhones] = useState<{ name: string; phone: string }[]>([]);
+  const [savedHvacMgrPhones, setSavedHvacMgrPhones] = useState<{ name: string; phone: string }[]>([]);
+  const [savingHvacMgr, setSavingHvacMgr] = useState(false);
+  const [hvacMgrMessage, setHvacMgrMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [hvacMgrEmails, setHvacMgrEmails] = useState<{ name: string; email: string }[]>([]);
+  const [savedHvacMgrEmails, setSavedHvacMgrEmails] = useState<{ name: string; email: string }[]>([]);
+  const [savingHvacMgrEmails, setSavingHvacMgrEmails] = useState(false);
+  const [hvacMgrEmailMessage, setHvacMgrEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Plumbing manager notification state
+  const [plumbMgrPhones, setPlumbMgrPhones] = useState<{ name: string; phone: string }[]>([]);
+  const [savedPlumbMgrPhones, setSavedPlumbMgrPhones] = useState<{ name: string; phone: string }[]>([]);
+  const [savingPlumbMgr, setSavingPlumbMgr] = useState(false);
+  const [plumbMgrMessage, setPlumbMgrMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [plumbMgrEmails, setPlumbMgrEmails] = useState<{ name: string; email: string }[]>([]);
+  const [savedPlumbMgrEmails, setSavedPlumbMgrEmails] = useState<{ name: string; email: string }[]>([]);
+  const [savingPlumbMgrEmails, setSavingPlumbMgrEmails] = useState(false);
+  const [plumbMgrEmailMessage, setPlumbMgrEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Manual sync
   const [syncing, setSyncing] = useState(false);
@@ -157,12 +167,18 @@ export default function SettingsPage() {
         const emails = data.notification_emails || [];
         setNotifEmails(emails);
         setSavedNotifEmails(emails);
-        const mgPhones = data.install_manager_phones || [];
-        setMgrPhones(mgPhones);
-        setSavedMgrPhones(mgPhones);
-        const mgEmails = data.install_manager_emails || [];
-        setMgrEmails(mgEmails);
-        setSavedMgrEmails(mgEmails);
+        const hvacPhones = data.hvac_manager_phones || [];
+        setHvacMgrPhones(hvacPhones);
+        setSavedHvacMgrPhones(hvacPhones);
+        const hvacEmails = data.hvac_manager_emails || [];
+        setHvacMgrEmails(hvacEmails);
+        setSavedHvacMgrEmails(hvacEmails);
+        const plumbPhones = data.plumbing_manager_phones || [];
+        setPlumbMgrPhones(plumbPhones);
+        setSavedPlumbMgrPhones(plumbPhones);
+        const plumbEmails = data.plumbing_manager_emails || [];
+        setPlumbMgrEmails(plumbEmails);
+        setSavedPlumbMgrEmails(plumbEmails);
         const t = data.notification_toggles || {};
         setToggles(t);
         setSavedToggles(t);
@@ -500,7 +516,7 @@ export default function SettingsPage() {
   const toggleKeys: { key: string; label: string; description: string }[] = [
     { key: 'assignment_contractor', label: 'Assignment → Contractor', description: 'Text contractor when a job is assigned to them' },
     { key: 'assignment_internal', label: 'Assignment → Internal Team', description: 'Text/email team when a job is assigned' },
-    { key: 'pending_approval_manager', label: 'Pending Approval → Install Managers', description: 'Text/email managers when AP email invoice needs approval' },
+    { key: 'pending_approval_manager', label: 'Pending Approval → Trade Managers', description: 'Text/email HVAC or Plumbing managers when AP email invoice needs approval' },
     { key: 'ready_to_pay_internal', label: 'Ready to Pay → Internal Team', description: 'Text/email team when invoice is approved' },
     { key: 'paid_contractor', label: 'Paid → Contractor', description: 'Text contractor when payment is sent' },
     { key: 'paid_internal', label: 'Paid → Internal Team', description: 'Text/email team when payment is marked paid' },
@@ -1753,31 +1769,31 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Install Manager Notifications */}
+          {/* HVAC Install Manager Notifications */}
           <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border-default)' }}>
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
-              Install Manager Notifications
+              HVAC Install Manager
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Install managers receive approval requests when invoices arrive via AP email. They do NOT receive routine payment notifications.
+              Receives approval requests for <strong>HVAC</strong> jobs when invoices arrive via AP email.
             </p>
 
-            {mgrMessage && (
+            {hvacMgrMessage && (
               <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
-                backgroundColor: mgrMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: mgrMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+                backgroundColor: hvacMgrMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: hvacMgrMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
               }}>
-                {mgrMessage.text}
+                {hvacMgrMessage.text}
               </div>
             )}
 
-            {/* Manager Phones */}
+            {/* HVAC Manager Phones */}
             <div className="mb-4">
               <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
                 Phone Numbers
               </label>
               <div className="space-y-2 mb-3">
-                {mgrPhones.map((entry, idx) => (
+                {hvacMgrPhones.map((entry, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <input
                       type="text"
@@ -1785,9 +1801,9 @@ export default function SettingsPage() {
                       placeholder="Name"
                       value={entry.name}
                       onChange={(e) => {
-                        const next = [...mgrPhones];
+                        const next = [...hvacMgrPhones];
                         next[idx] = { ...next[idx], name: e.target.value };
-                        setMgrPhones(next);
+                        setHvacMgrPhones(next);
                       }}
                     />
                     <input
@@ -1796,13 +1812,13 @@ export default function SettingsPage() {
                       placeholder="(555) 123-4567"
                       value={entry.phone}
                       onChange={(e) => {
-                        const next = [...mgrPhones];
+                        const next = [...hvacMgrPhones];
                         next[idx] = { ...next[idx], phone: e.target.value };
-                        setMgrPhones(next);
+                        setHvacMgrPhones(next);
                       }}
                     />
                     <button
-                      onClick={() => setMgrPhones(mgrPhones.filter((_, i) => i !== idx))}
+                      onClick={() => setHvacMgrPhones(hvacMgrPhones.filter((_, i) => i !== idx))}
                       className="p-1.5 rounded hover:opacity-80"
                       style={{ color: 'var(--status-error)' }}
                     >
@@ -1812,47 +1828,47 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 ))}
-                {mgrPhones.length === 0 && (
+                {hvacMgrPhones.length === 0 && (
                   <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No install manager phones configured.
+                    No HVAC manager phones configured. Will fall back to generic install manager list.
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setMgrPhones([...mgrPhones, { name: '', phone: '' }])} className="btn btn-secondary text-sm">
+                <button onClick={() => setHvacMgrPhones([...hvacMgrPhones, { name: '', phone: '' }])} className="btn btn-secondary text-sm">
                   + Add Phone
                 </button>
-                {JSON.stringify(mgrPhones) !== JSON.stringify(savedMgrPhones) && (
+                {JSON.stringify(hvacMgrPhones) !== JSON.stringify(savedHvacMgrPhones) && (
                   <>
                     <button
                       onClick={async () => {
-                        setSavingMgr(true);
+                        setSavingHvacMgr(true);
                         try {
-                          const valid = mgrPhones.filter(p => p.name.trim() && p.phone.trim());
+                          const valid = hvacMgrPhones.filter(p => p.name.trim() && p.phone.trim());
                           const res = await fetch('/api/settings/notifications', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ install_manager_phones: valid }),
+                            body: JSON.stringify({ hvac_manager_phones: valid }),
                           });
                           if (res.ok) {
-                            setSavedMgrPhones(valid);
-                            setMgrPhones(valid);
-                            setMgrMessage({ type: 'success', text: 'Saved!' });
+                            setSavedHvacMgrPhones(valid);
+                            setHvacMgrPhones(valid);
+                            setHvacMgrMessage({ type: 'success', text: 'Saved!' });
                           } else {
-                            setMgrMessage({ type: 'error', text: 'Failed to save' });
+                            setHvacMgrMessage({ type: 'error', text: 'Failed to save' });
                           }
                         } finally {
-                          setSavingMgr(false);
-                          setTimeout(() => setMgrMessage(null), 3000);
+                          setSavingHvacMgr(false);
+                          setTimeout(() => setHvacMgrMessage(null), 3000);
                         }
                       }}
-                      disabled={savingMgr}
+                      disabled={savingHvacMgr}
                       className="btn btn-primary"
-                      style={{ opacity: savingMgr ? 0.5 : 1 }}
+                      style={{ opacity: savingHvacMgr ? 0.5 : 1 }}
                     >
-                      {savingMgr ? 'Saving...' : 'Save'}
+                      {savingHvacMgr ? 'Saving...' : 'Save'}
                     </button>
-                    <button onClick={() => setMgrPhones([...savedMgrPhones])} className="btn btn-secondary text-sm">
+                    <button onClick={() => setHvacMgrPhones([...savedHvacMgrPhones])} className="btn btn-secondary text-sm">
                       Discard
                     </button>
                   </>
@@ -1860,23 +1876,23 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Manager Emails */}
+            {/* HVAC Manager Emails */}
             <div>
               <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
                 Email Addresses
               </label>
 
-              {mgrEmailMessage && (
+              {hvacMgrEmailMessage && (
                 <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
-                  backgroundColor: mgrEmailMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: mgrEmailMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+                  backgroundColor: hvacMgrEmailMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: hvacMgrEmailMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
                 }}>
-                  {mgrEmailMessage.text}
+                  {hvacMgrEmailMessage.text}
                 </div>
               )}
 
               <div className="space-y-2 mb-3">
-                {mgrEmails.map((entry, idx) => (
+                {hvacMgrEmails.map((entry, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <input
                       type="text"
@@ -1884,9 +1900,9 @@ export default function SettingsPage() {
                       placeholder="Name"
                       value={entry.name}
                       onChange={(e) => {
-                        const next = [...mgrEmails];
+                        const next = [...hvacMgrEmails];
                         next[idx] = { ...next[idx], name: e.target.value };
-                        setMgrEmails(next);
+                        setHvacMgrEmails(next);
                       }}
                     />
                     <input
@@ -1895,13 +1911,13 @@ export default function SettingsPage() {
                       placeholder="email@example.com"
                       value={entry.email}
                       onChange={(e) => {
-                        const next = [...mgrEmails];
+                        const next = [...hvacMgrEmails];
                         next[idx] = { ...next[idx], email: e.target.value };
-                        setMgrEmails(next);
+                        setHvacMgrEmails(next);
                       }}
                     />
                     <button
-                      onClick={() => setMgrEmails(mgrEmails.filter((_, i) => i !== idx))}
+                      onClick={() => setHvacMgrEmails(hvacMgrEmails.filter((_, i) => i !== idx))}
                       className="p-1.5 rounded hover:opacity-80"
                       style={{ color: 'var(--status-error)' }}
                     >
@@ -1911,47 +1927,254 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 ))}
-                {mgrEmails.length === 0 && (
+                {hvacMgrEmails.length === 0 && (
                   <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No install manager emails configured.
+                    No HVAC manager emails configured. Will fall back to generic install manager list.
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setMgrEmails([...mgrEmails, { name: '', email: '' }])} className="btn btn-secondary text-sm">
+                <button onClick={() => setHvacMgrEmails([...hvacMgrEmails, { name: '', email: '' }])} className="btn btn-secondary text-sm">
                   + Add Email
                 </button>
-                {JSON.stringify(mgrEmails) !== JSON.stringify(savedMgrEmails) && (
+                {JSON.stringify(hvacMgrEmails) !== JSON.stringify(savedHvacMgrEmails) && (
                   <>
                     <button
                       onClick={async () => {
-                        setSavingMgrEmails(true);
+                        setSavingHvacMgrEmails(true);
                         try {
-                          const valid = mgrEmails.filter(e => e.name.trim() && e.email.trim());
+                          const valid = hvacMgrEmails.filter(e => e.name.trim() && e.email.trim());
                           const res = await fetch('/api/settings/notifications', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ install_manager_emails: valid }),
+                            body: JSON.stringify({ hvac_manager_emails: valid }),
                           });
                           if (res.ok) {
-                            setSavedMgrEmails(valid);
-                            setMgrEmails(valid);
-                            setMgrEmailMessage({ type: 'success', text: 'Saved!' });
+                            setSavedHvacMgrEmails(valid);
+                            setHvacMgrEmails(valid);
+                            setHvacMgrEmailMessage({ type: 'success', text: 'Saved!' });
                           } else {
-                            setMgrEmailMessage({ type: 'error', text: 'Failed to save' });
+                            setHvacMgrEmailMessage({ type: 'error', text: 'Failed to save' });
                           }
                         } finally {
-                          setSavingMgrEmails(false);
-                          setTimeout(() => setMgrEmailMessage(null), 3000);
+                          setSavingHvacMgrEmails(false);
+                          setTimeout(() => setHvacMgrEmailMessage(null), 3000);
                         }
                       }}
-                      disabled={savingMgrEmails}
+                      disabled={savingHvacMgrEmails}
                       className="btn btn-primary"
-                      style={{ opacity: savingMgrEmails ? 0.5 : 1 }}
+                      style={{ opacity: savingHvacMgrEmails ? 0.5 : 1 }}
                     >
-                      {savingMgrEmails ? 'Saving...' : 'Save'}
+                      {savingHvacMgrEmails ? 'Saving...' : 'Save'}
                     </button>
-                    <button onClick={() => setMgrEmails([...savedMgrEmails])} className="btn btn-secondary text-sm">
+                    <button onClick={() => setHvacMgrEmails([...savedHvacMgrEmails])} className="btn btn-secondary text-sm">
+                      Discard
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Plumbing Install Manager Notifications */}
+          <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border-default)' }}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
+              Plumbing Install Manager
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Receives approval requests for <strong>Plumbing</strong> jobs when invoices arrive via AP email.
+            </p>
+
+            {plumbMgrMessage && (
+              <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
+                backgroundColor: plumbMgrMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: plumbMgrMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+              }}>
+                {plumbMgrMessage.text}
+              </div>
+            )}
+
+            {/* Plumbing Manager Phones */}
+            <div className="mb-4">
+              <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                Phone Numbers
+              </label>
+              <div className="space-y-2 mb-3">
+                {plumbMgrPhones.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="input text-sm flex-1"
+                      placeholder="Name"
+                      value={entry.name}
+                      onChange={(e) => {
+                        const next = [...plumbMgrPhones];
+                        next[idx] = { ...next[idx], name: e.target.value };
+                        setPlumbMgrPhones(next);
+                      }}
+                    />
+                    <input
+                      type="tel"
+                      className="input text-sm flex-1"
+                      placeholder="(555) 123-4567"
+                      value={entry.phone}
+                      onChange={(e) => {
+                        const next = [...plumbMgrPhones];
+                        next[idx] = { ...next[idx], phone: e.target.value };
+                        setPlumbMgrPhones(next);
+                      }}
+                    />
+                    <button
+                      onClick={() => setPlumbMgrPhones(plumbMgrPhones.filter((_, i) => i !== idx))}
+                      className="p-1.5 rounded hover:opacity-80"
+                      style={{ color: 'var(--status-error)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {plumbMgrPhones.length === 0 && (
+                  <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                    No Plumbing manager phones configured. Will fall back to generic install manager list.
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPlumbMgrPhones([...plumbMgrPhones, { name: '', phone: '' }])} className="btn btn-secondary text-sm">
+                  + Add Phone
+                </button>
+                {JSON.stringify(plumbMgrPhones) !== JSON.stringify(savedPlumbMgrPhones) && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        setSavingPlumbMgr(true);
+                        try {
+                          const valid = plumbMgrPhones.filter(p => p.name.trim() && p.phone.trim());
+                          const res = await fetch('/api/settings/notifications', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ plumbing_manager_phones: valid }),
+                          });
+                          if (res.ok) {
+                            setSavedPlumbMgrPhones(valid);
+                            setPlumbMgrPhones(valid);
+                            setPlumbMgrMessage({ type: 'success', text: 'Saved!' });
+                          } else {
+                            setPlumbMgrMessage({ type: 'error', text: 'Failed to save' });
+                          }
+                        } finally {
+                          setSavingPlumbMgr(false);
+                          setTimeout(() => setPlumbMgrMessage(null), 3000);
+                        }
+                      }}
+                      disabled={savingPlumbMgr}
+                      className="btn btn-primary"
+                      style={{ opacity: savingPlumbMgr ? 0.5 : 1 }}
+                    >
+                      {savingPlumbMgr ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={() => setPlumbMgrPhones([...savedPlumbMgrPhones])} className="btn btn-secondary text-sm">
+                      Discard
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Plumbing Manager Emails */}
+            <div>
+              <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                Email Addresses
+              </label>
+
+              {plumbMgrEmailMessage && (
+                <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
+                  backgroundColor: plumbMgrEmailMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: plumbMgrEmailMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+                }}>
+                  {plumbMgrEmailMessage.text}
+                </div>
+              )}
+
+              <div className="space-y-2 mb-3">
+                {plumbMgrEmails.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="input text-sm flex-1"
+                      placeholder="Name"
+                      value={entry.name}
+                      onChange={(e) => {
+                        const next = [...plumbMgrEmails];
+                        next[idx] = { ...next[idx], name: e.target.value };
+                        setPlumbMgrEmails(next);
+                      }}
+                    />
+                    <input
+                      type="email"
+                      className="input text-sm flex-1"
+                      placeholder="email@example.com"
+                      value={entry.email}
+                      onChange={(e) => {
+                        const next = [...plumbMgrEmails];
+                        next[idx] = { ...next[idx], email: e.target.value };
+                        setPlumbMgrEmails(next);
+                      }}
+                    />
+                    <button
+                      onClick={() => setPlumbMgrEmails(plumbMgrEmails.filter((_, i) => i !== idx))}
+                      className="p-1.5 rounded hover:opacity-80"
+                      style={{ color: 'var(--status-error)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {plumbMgrEmails.length === 0 && (
+                  <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                    No Plumbing manager emails configured. Will fall back to generic install manager list.
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPlumbMgrEmails([...plumbMgrEmails, { name: '', email: '' }])} className="btn btn-secondary text-sm">
+                  + Add Email
+                </button>
+                {JSON.stringify(plumbMgrEmails) !== JSON.stringify(savedPlumbMgrEmails) && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        setSavingPlumbMgrEmails(true);
+                        try {
+                          const valid = plumbMgrEmails.filter(e => e.name.trim() && e.email.trim());
+                          const res = await fetch('/api/settings/notifications', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ plumbing_manager_emails: valid }),
+                          });
+                          if (res.ok) {
+                            setSavedPlumbMgrEmails(valid);
+                            setPlumbMgrEmails(valid);
+                            setPlumbMgrEmailMessage({ type: 'success', text: 'Saved!' });
+                          } else {
+                            setPlumbMgrEmailMessage({ type: 'error', text: 'Failed to save' });
+                          }
+                        } finally {
+                          setSavingPlumbMgrEmails(false);
+                          setTimeout(() => setPlumbMgrEmailMessage(null), 3000);
+                        }
+                      }}
+                      disabled={savingPlumbMgrEmails}
+                      className="btn btn-primary"
+                      style={{ opacity: savingPlumbMgrEmails ? 0.5 : 1 }}
+                    >
+                      {savingPlumbMgrEmails ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={() => setPlumbMgrEmails([...savedPlumbMgrEmails])} className="btn btn-secondary text-sm">
                       Discard
                     </button>
                   </>

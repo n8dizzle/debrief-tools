@@ -12,11 +12,15 @@ export async function GET() {
 
   const supabase = getServerSupabase();
 
-  const [phonesRes, emailsRes, mgrPhonesRes, mgrEmailsRes, togglesRes, templatesRes, smsLogRes] = await Promise.all([
+  const [phonesRes, emailsRes, mgrPhonesRes, mgrEmailsRes, hvacMgrPhonesRes, hvacMgrEmailsRes, plumbMgrPhonesRes, plumbMgrEmailsRes, togglesRes, templatesRes, smsLogRes] = await Promise.all([
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_phones').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_emails').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'install_manager_phones').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'install_manager_emails').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'hvac_manager_phones').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'hvac_manager_emails').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'plumbing_manager_phones').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'plumbing_manager_emails').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_toggles').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_templates').single(),
     supabase.from('ap_sms_log').select('*').order('created_at', { ascending: false }).limit(50),
@@ -27,6 +31,10 @@ export async function GET() {
     notification_emails: emailsRes.data?.value || [],
     install_manager_phones: mgrPhonesRes.data?.value || [],
     install_manager_emails: mgrEmailsRes.data?.value || [],
+    hvac_manager_phones: hvacMgrPhonesRes.data?.value || [],
+    hvac_manager_emails: hvacMgrEmailsRes.data?.value || [],
+    plumbing_manager_phones: plumbMgrPhonesRes.data?.value || [],
+    plumbing_manager_emails: plumbMgrEmailsRes.data?.value || [],
     notification_toggles: togglesRes.data?.value || {},
     notification_templates: templatesRes.data?.value || {},
     sms_log: smsLogRes.data || [],
@@ -46,7 +54,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { notification_phones, notification_emails, install_manager_phones, install_manager_emails, notification_toggles, notification_templates } = body;
+  const { notification_phones, notification_emails, install_manager_phones, install_manager_emails, hvac_manager_phones, hvac_manager_emails, plumbing_manager_phones, plumbing_manager_emails, notification_toggles, notification_templates } = body;
 
   const supabase = getServerSupabase();
   const now = new Date().toISOString();
@@ -123,6 +131,10 @@ export async function PATCH(request: NextRequest) {
     upsertEmails('notification_emails', notification_emails),
     upsertPhones('install_manager_phones', install_manager_phones),
     upsertEmails('install_manager_emails', install_manager_emails),
+    upsertPhones('hvac_manager_phones', hvac_manager_phones),
+    upsertEmails('hvac_manager_emails', hvac_manager_emails),
+    upsertPhones('plumbing_manager_phones', plumbing_manager_phones),
+    upsertEmails('plumbing_manager_emails', plumbing_manager_emails),
     upsertToggles(notification_toggles),
     upsertTemplates(notification_templates),
   ]);
