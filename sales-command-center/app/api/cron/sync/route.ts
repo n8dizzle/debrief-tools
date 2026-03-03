@@ -16,7 +16,10 @@ export async function GET() {
 
     const response = await fetch(`${baseUrl}/api/leads/poll`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-cron-secret': process.env.CRON_SECRET || '',
+      },
     });
 
     const data = await response.json();
