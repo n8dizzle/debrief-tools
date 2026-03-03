@@ -11,7 +11,7 @@ function dbToAppAdvisor(dbAdvisor: DbComfortAdvisor): ComfortAdvisor {
     phone: dbAdvisor.phone || '',
     avatar: dbAdvisor.avatar || undefined,
     active: dbAdvisor.active,
-    inQueue: dbAdvisor.in_queue ?? true,
+    inQueue: dbAdvisor.in_queue ?? false,
     tglQueuePosition: dbAdvisor.tgl_queue_position,
     marketedQueuePosition: dbAdvisor.marketed_queue_position,
     salesMTD: Number(dbAdvisor.sales_mtd) || 0,

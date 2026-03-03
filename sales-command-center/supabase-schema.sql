@@ -105,7 +105,22 @@ CREATE POLICY "Allow all operations on leads" ON leads FOR ALL USING (true) WITH
 CREATE POLICY "Allow all operations on comfort_advisors" ON comfort_advisors FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on service_titan_config" ON service_titan_config FOR ALL USING (true) WITH CHECK (true);
 
+-- Ensure in_queue column exists (safe to run on existing tables)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'comfort_advisors' AND column_name = 'in_queue'
+  ) THEN
+    ALTER TABLE comfort_advisors ADD COLUMN in_queue BOOLEAN DEFAULT true;
+  END IF;
+END $$;
+
+-- Set any NULL in_queue values to true (for advisors synced before this column existed)
+UPDATE comfort_advisors SET in_queue = true WHERE in_queue IS NULL;
+
 -- Function to update advisor queue positions after assignment
+-- Only rotates advisors who are active AND in the queue
 CREATE OR REPLACE FUNCTION rotate_queue_positions(
   p_advisor_id UUID,
   p_queue_type TEXT
@@ -120,33 +135,35 @@ BEGIN
     FROM comfort_advisors WHERE id = p_advisor_id;
 
     SELECT MAX(tgl_queue_position) INTO v_max_position
-    FROM comfort_advisors WHERE active = true;
+    FROM comfort_advisors WHERE active = true AND in_queue = true;
 
     -- Move assigned advisor to back of queue
     UPDATE comfort_advisors SET tgl_queue_position = v_max_position WHERE id = p_advisor_id;
 
-    -- Move everyone else up
+    -- Move everyone else up (only in-queue advisors)
     UPDATE comfort_advisors
     SET tgl_queue_position = tgl_queue_position - 1
     WHERE tgl_queue_position > 1
     AND id != p_advisor_id
-    AND active = true;
+    AND active = true
+    AND in_queue = true;
   ELSE
     SELECT marketed_queue_position INTO v_current_position
     FROM comfort_advisors WHERE id = p_advisor_id;
 
     SELECT MAX(marketed_queue_position) INTO v_max_position
-    FROM comfort_advisors WHERE active = true;
+    FROM comfort_advisors WHERE active = true AND in_queue = true;
 
     -- Move assigned advisor to back of queue
     UPDATE comfort_advisors SET marketed_queue_position = v_max_position WHERE id = p_advisor_id;
 
-    -- Move everyone else up
+    -- Move everyone else up (only in-queue advisors)
     UPDATE comfort_advisors
     SET marketed_queue_position = marketed_queue_position - 1
     WHERE marketed_queue_position > 1
     AND id != p_advisor_id
-    AND active = true;
+    AND active = true
+    AND in_queue = true;
   END IF;
 END;
 $$ LANGUAGE plpgsql;

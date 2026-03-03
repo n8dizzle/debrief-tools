@@ -1005,8 +1005,38 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (action === 'getForms') {
+      const token = await authenticateServiceTitan(config);
+      const attempts: Record<string, any> = {};
+
+      // Try several possible Forms API paths
+      const paths = [
+        `https://api.servicetitan.io/forms/v2/tenant/${config.tenantId}/forms?pageSize=100`,
+        `https://api.servicetitan.io/forms/v2/tenant/${config.tenantId}/form-definitions?pageSize=100`,
+        `https://api.servicetitan.io/service/v2/tenant/${config.tenantId}/forms?pageSize=100`,
+        `https://api.servicetitan.io/forms/v1/tenant/${config.tenantId}/forms?pageSize=100`,
+      ];
+
+      for (const path of paths) {
+        try {
+          const res = await fetch(path, {
+            headers: { Authorization: `Bearer ${token}`, 'ST-App-Key': config.appKey },
+          });
+          const text = await res.text();
+          let parsed: any;
+          try { parsed = JSON.parse(text); } catch { parsed = text; }
+          attempts[path] = { status: res.status, data: parsed };
+          if (res.ok) break; // Stop at first success
+        } catch (err: any) {
+          attempts[path] = { error: err.message };
+        }
+      }
+
+      return NextResponse.json({ success: true, attempts });
+    }
+
     return NextResponse.json(
-      { success: false, error: 'Invalid action. Supported actions: test, sync, syncSales, syncAdvisors, create, status, testSlack, slackStatus, checkWebhooks, getJobTypes, getUnassignedJobs' },
+      { success: false, error: 'Invalid action. Supported actions: test, sync, syncSales, syncAdvisors, create, status, testSlack, slackStatus, checkWebhooks, getJobTypes, getUnassignedJobs, getForms' },
       { status: 400 }
     );
   } catch (error: any) {

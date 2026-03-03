@@ -11,8 +11,8 @@ import {
 const HVAC_SALES_BU_ID = '33643795';
 const MKTG_LEAD_JOB_TYPE_ID = '52687000';
 
-// Tag name for TGL leads
-const TGL_TAG_NAME = 'TGL Request';
+// TGL Form name in ServiceTitan
+const TGL_FORM_NAME = 'TGL Form';
 
 // Status ordering for forward-only progression
 const STATUS_ORDER = ['New Lead', 'Assigned', 'Quoted', 'Sold', 'Install Scheduled', 'Completed'];
@@ -59,9 +59,10 @@ interface ServiceTitanAppointment {
   status: string;
 }
 
-interface ServiceTitanTagType {
+interface ServiceTitanFormSubmission {
   id: number;
-  name: string;
+  jobId?: number;
+  createdOn: string;
 }
 
 /**
@@ -523,8 +524,45 @@ async function syncExistingLeadStatuses(
   return { synced: details.length, details };
 }
 
+/**
+ * Rotate queue positions entirely in application code, filtering only in-queue advisors.
+ * Replaces the rotate_queue_positions SQL RPC which didn't respect in_queue.
+ */
+async function rotateQueue(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  assignedAdvisorId: string,
+  queueType: 'marketed' | 'tgl',
+  advisors: any[]
+) {
+  const posField = queueType === 'marketed' ? 'marketed_queue_position' : 'tgl_queue_position';
+  const inQueue = advisors.filter((a) => a.active && a.in_queue);
+  if (inQueue.length === 0) return;
+
+  const maxPos = Math.max(...inQueue.map((a) => a[posField]));
+
+  await Promise.all(
+    inQueue.map((a) => {
+      const newPos = a.id === assignedAdvisorId
+        ? maxPos
+        : a[posField] > 1
+          ? a[posField] - 1
+          : a[posField];
+      return supabase
+        .from('comfort_advisors')
+        .update({ [posField]: newPos })
+        .eq('id', a.id);
+    })
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Allow requests from cron (CRON_SECRET header) or authenticated sessions
+    const cronSecret = request.headers.get('x-cron-secret');
+    if (cronSecret !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Check if Service Titan is configured
     if (!isServiceTitanConfigured()) {
       return NextResponse.json({
@@ -537,15 +575,46 @@ export async function POST(request: NextRequest) {
     const token = await authenticateServiceTitan(config);
     const supabase = createServerSupabaseClient();
 
+    // ── DEBUG: List available forms ────────────────────────────────────────────
+    const body = await request.json().catch(() => ({}));
+    if (body?.action === 'getForms') {
+      const paths = [
+        `https://api.servicetitan.io/forms/v2/tenant/${config.tenantId}/forms?pageSize=100`,
+        `https://api.servicetitan.io/forms/v2/tenant/${config.tenantId}/form-definitions?pageSize=100`,
+        `https://api.servicetitan.io/forms/v1/tenant/${config.tenantId}/forms?pageSize=100`,
+        `https://api.servicetitan.io/service/v2/tenant/${config.tenantId}/forms?pageSize=100`,
+      ];
+      const results: Record<string, any> = {};
+      for (const path of paths) {
+        try {
+          const res = await fetch(path, {
+            headers: { Authorization: `Bearer ${token}`, 'ST-App-Key': config.appKey },
+          });
+          const text = await res.text();
+          try { results[path] = { status: res.status, data: JSON.parse(text) }; }
+          catch { results[path] = { status: res.status, raw: text.slice(0, 300) }; }
+        } catch (e: any) {
+          results[path] = { error: e.message };
+        }
+      }
+      return NextResponse.json({ success: true, results });
+    }
+
     // ── STEP 1: Sync existing lead statuses from ST estimates ──────────────────
     const syncResult = await syncExistingLeadStatuses(config, token, supabase);
 
-    // ── STEP 2: Get the TGL tag ID ─────────────────────────────────────────────
-    let tglTagId: number | null = null;
+    const startDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // ── STEP 2: Find "TGL Form" and fetch recent submissions ──────────────────
+    // Form submissions are a one-time event, eliminating duplicate notifications
+    // that occurred with the tag-based approach (tags persist through job updates).
+    const tglJobIdsFromForms: string[] = [];
+    let tglFormFound = false;
+
     try {
-      const tagsResponse = await fetch(
-        `https://api.servicetitan.io/settings/v2/tenant/${config.tenantId}/tag-types?` +
-          new URLSearchParams({ pageSize: '200' }),
+      const formsResponse = await fetch(
+        `https://api.servicetitan.io/forms/v2/tenant/${config.tenantId}/forms?` +
+          new URLSearchParams({ pageSize: '100' }),
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -554,22 +623,50 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      if (tagsResponse.ok) {
-        const tagsData = await tagsResponse.json();
-        const tglTag = (tagsData.data || []).find(
-          (t: ServiceTitanTagType) => t.name === TGL_TAG_NAME
+      if (formsResponse.ok) {
+        const formsData = await formsResponse.json();
+        // Exact match only — excludes "TGL Form - Luke", "TGL Form - Christina Commercial", etc.
+        const tglForms = (formsData.data || []).filter(
+          (f: { id: number; name: string; published: boolean }) =>
+            f.name.trim() === TGL_FORM_NAME && f.published
         );
-        if (tglTag) {
-          tglTagId = tglTag.id;
+
+        if (tglForms.length > 0) {
+          tglFormFound = true;
+
+          // Fetch submissions for each matching TGL form
+          for (const tglForm of tglForms) {
+            const subsResponse = await fetch(
+              `https://api.servicetitan.io/forms/v2/tenant/${config.tenantId}/submissions?` +
+                new URLSearchParams({
+                  formId: tglForm.id.toString(),
+                  createdOnOrAfter: startDate.toISOString(),
+                  pageSize: '200',
+                }),
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'ST-App-Key': config.appKey,
+                },
+              }
+            );
+
+            if (subsResponse.ok) {
+              const subsData = await subsResponse.json();
+              for (const sub of (subsData.data || []) as ServiceTitanFormSubmission[]) {
+                if (sub.jobId) {
+                  tglJobIdsFromForms.push(sub.jobId.toString());
+                }
+              }
+            }
+          }
         }
       }
-    } catch (tagError) {
-      console.error('Failed to fetch tag types:', tagError);
+    } catch (formError) {
+      console.error('Failed to fetch TGL form submissions:', formError);
     }
 
     // ── STEP 3: Fetch recent jobs from Service Titan ───────────────────────────
-    const startDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
     const jobsResponse = await fetch(
       `https://api.servicetitan.io/jpm/v2/tenant/${config.tenantId}/jobs?` +
         new URLSearchParams({
@@ -599,9 +696,34 @@ export async function POST(request: NextRequest) {
         job.jobTypeId?.toString() === MKTG_LEAD_JOB_TYPE_ID
     );
 
-    const tglJobs = tglTagId
-      ? allJobs.filter((job) => job.tagTypeIds?.includes(tglTagId!))
-      : [];
+    // TGL: build job objects from form submission job IDs.
+    // Some jobs won't be in allJobs (job itself wasn't recently modified), so fetch those individually.
+    const tglJobMap = new Map<string, ServiceTitanJob>();
+    for (const job of allJobs) {
+      if (tglJobIdsFromForms.includes(job.id.toString())) {
+        tglJobMap.set(job.id.toString(), job);
+      }
+    }
+
+    const missingTglJobIds = tglJobIdsFromForms.filter((id) => !tglJobMap.has(id));
+    for (const jobId of missingTglJobIds) {
+      try {
+        const jobRes = await fetch(
+          `https://api.servicetitan.io/jpm/v2/tenant/${config.tenantId}/jobs/${jobId}`,
+          { headers: { Authorization: `Bearer ${token}`, 'ST-App-Key': config.appKey } }
+        );
+        if (jobRes.ok) {
+          tglJobMap.set(jobId, await jobRes.json());
+        }
+      } catch (err) {
+        console.error(`Failed to fetch TGL job ${jobId}:`, err);
+      }
+    }
+
+    // Exclude HVAC - Sales BU (those are marketed leads, not TGLs)
+    const tglJobs = [...tglJobMap.values()].filter(
+      (job) => job.businessUnitId?.toString() !== HVAC_SALES_BU_ID
+    );
 
     // ── STEP 5: Skip jobs already in our system ───────────────────────────────
     const allJobIds = [...marketedLeadJobs, ...tglJobs].map((j) => j.id.toString());
@@ -726,10 +848,7 @@ export async function POST(request: NextRequest) {
 
           // Only rotate queue when we used round-robin (not when ST assigned)
           if (!stAssigned) {
-            await supabase.rpc('rotate_queue_positions', {
-              p_advisor_id: advisor.id,
-              p_queue_type: 'marketed',
-            });
+            await rotateQueue(supabase, advisor.id, 'marketed', marketedAdvisors || []);
           }
 
           results.push({
@@ -813,10 +932,7 @@ export async function POST(request: NextRequest) {
           }
 
           // Rotate TGL queue
-          await supabase.rpc('rotate_queue_positions', {
-            p_advisor_id: advisor.id,
-            p_queue_type: 'tgl',
-          });
+          await rotateQueue(supabase, advisor.id, 'tgl', tglAdvisors || []);
 
           results.push({
             jobId: job.id,
@@ -864,7 +980,8 @@ export async function POST(request: NextRequest) {
       },
       totalMarketedJobs: marketedLeadJobs.length,
       totalTglJobs: tglJobs.length,
-      tglTagFound: tglTagId !== null,
+      tglFormFound,
+      tglFormSubmissions: tglJobIdsFromForms.length,
       slackConfigured,
     });
   } catch (error: any) {
@@ -897,7 +1014,7 @@ export async function GET() {
         slackChannel: 'Uses SLACK_WEBHOOK_URL',
       },
       tgl: {
-        trigger: `Tag: "${TGL_TAG_NAME}"`,
+        trigger: `ServiceTitan form submission: "${TGL_FORM_NAME}"`,
         slackChannel: 'Uses SLACK_TGL_WEBHOOK_URL',
       },
     },
