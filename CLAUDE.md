@@ -57,6 +57,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Job Tracker** (`/job-tracker`) | https://track.christmasair.com | Next.js | 3004 |
 | **AP Payments** (`/ap-payments`) | https://ap.christmasair.com | Next.js | 3005 |
 | **Membership Manager** (`/membership-manager`) | https://memberships.christmasair.com | Next.js | 3006 |
+| **Doc Dispatch** (`/doc-dispatch`) | https://docs.christmasair.com | Next.js | 3007 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -353,6 +354,7 @@ cd ar-collections && vercel --prod
 cd job-tracker && vercel --prod
 cd ap-payments && vercel --prod
 cd membership-manager && vercel --prod
+cd doc-dispatch && vercel --prod
 ```
 
 Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
@@ -485,6 +487,7 @@ CRON_SECRET
 - track.christmasair.com → CNAME → Vercel
 - ap.christmasair.com → CNAME → Vercel
 - memberships.christmasair.com → CNAME → Vercel
+- docs.christmasair.com → CNAME → Vercel
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
