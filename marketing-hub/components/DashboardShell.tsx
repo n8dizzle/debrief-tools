@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import MarketingSidebar from './MarketingSidebar';
+import { AnalyticsTracker } from './AnalyticsTracker';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <AnalyticsTracker app="marketing_hub" />
       <MarketingSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Mobile header with hamburger */}

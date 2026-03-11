@@ -6,13 +6,17 @@ import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePermissions } from "@/hooks/usePermissions";
+import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 
 const navItems = [
   { name: "Dashboard", href: "/admin", icon: "home" },
   { name: "Users", href: "/admin/users", icon: "users" },
+  { name: "App Access", href: "/admin/access", icon: "shield", ownerOnly: true },
+  { name: "Idea Board", href: "/suggestions", icon: "lightbulb" },
   { name: "Departments", href: "/admin/departments", icon: "building", ownerOnly: true },
   { name: "Tools", href: "/admin/tools", icon: "tools", ownerOnly: true },
   { name: "Stats", href: "/admin/stats", icon: "chart" },
+  { name: "App Analytics", href: "/admin/analytics", icon: "analytics" },
   { name: "Audit Log", href: "/admin/audit", icon: "clipboard", ownerOnly: true },
 ];
 
@@ -44,9 +48,24 @@ function NavIcon({ name }: { name: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
       </svg>
     ),
+    lightbulb: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    ),
+    shield: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
     building: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    analytics: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     ),
   };
@@ -87,6 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--bg-primary)' }}>
+      <AnalyticsTracker app="internal_portal" />
       {/* Sidebar */}
       <aside
         className="w-64 border-r flex flex-col"

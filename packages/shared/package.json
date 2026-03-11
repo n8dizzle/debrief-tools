@@ -10,7 +10,8 @@
     "./auth": "./lib/auth.ts",
     "./types": "./lib/types.ts",
     "./components": "./components/index.ts",
-    "./components/DateRangePicker": "./components/DateRangePicker.tsx"
+    "./components/DateRangePicker": "./components/DateRangePicker.tsx",
+    "./components/AnalyticsTracker": "./components/AnalyticsTracker.tsx"
   },
   "peerDependencies": {
     "next-auth": "^4.24.0",
