@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import { AnalyticsTracker } from './AnalyticsTracker';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <AnalyticsTracker app="job_tracker" />
       {/* Mobile Header */}
       <header
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3"
