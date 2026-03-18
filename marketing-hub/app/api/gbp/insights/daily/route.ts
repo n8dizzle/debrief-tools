@@ -43,22 +43,35 @@ export async function GET(request: NextRequest) {
   const supabase = getServerSupabase();
 
   try {
-    // Fetch daily data from cache
-    // Note: Supabase default limit is 1000 rows. For 8 locations × 365 days = 2920 rows
-    const { data: dailyData, error } = await supabase
-      .from('gbp_insights_cache')
-      .select('date, views_maps, views_search, website_clicks, phone_calls, direction_requests, location:google_locations(short_name)')
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .order('date', { ascending: true })
-      .limit(5000);
+    // Fetch daily data from cache with pagination
+    // Supabase has a 1000-row server-side limit per request
+    // For 8 locations × 365 days = 2920 rows, we need multiple pages
+    const PAGE_SIZE = 1000;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let dailyData: any[] = [];
+    let page = 0;
 
-    if (error) {
-      console.error('Failed to fetch daily data:', error);
-      return NextResponse.json({ error: 'Failed to fetch daily data' }, { status: 500 });
+    while (true) {
+      const { data: pageData, error: pageError } = await supabase
+        .from('gbp_insights_cache')
+        .select('date, views_maps, views_search, website_clicks, phone_calls, direction_requests, location:google_locations(short_name)')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (pageError) {
+        console.error('Failed to fetch daily data:', pageError);
+        return NextResponse.json({ error: 'Failed to fetch daily data' }, { status: 500 });
+      }
+
+      if (!pageData || pageData.length === 0) break;
+      dailyData = dailyData.concat(pageData);
+      if (pageData.length < PAGE_SIZE) break;
+      page++;
     }
 
-    console.log(`[GBP Daily] Query ${startDate} to ${endDate}: ${dailyData?.length || 0} rows returned`);
+    console.log(`[GBP Daily] Query ${startDate} to ${endDate}: ${dailyData.length} rows returned (${page + 1} pages)`);
 
     // Aggregate by date (sum all locations per day) with per-location breakdown
     interface LocationBreakdown {

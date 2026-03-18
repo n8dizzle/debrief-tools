@@ -346,6 +346,7 @@ export default function GBPPerformancePage() {
         avgPerDay={dailyData?.avgPerDay || { views: 0, clicks: 0, calls: 0, directions: 0 }}
         isLoading={dailyLoading}
         title="Daily Performance"
+        dateRange={dateRange}
       />
 
       {/* Location Summary Table */}

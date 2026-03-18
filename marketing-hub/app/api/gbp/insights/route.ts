@@ -132,22 +132,41 @@ export async function GET(request: NextRequest) {
     const ytdStart = `${new Date(endDateStr).getFullYear()}-01-01`;
     const ytdEnd = endDateStr;
 
-    // Always fetch YoY and YTD data from cache (we have 18 months of history)
-    const [yoyResult, ytdResult] = await Promise.all([
-      supabase
-        .from('gbp_insights_cache')
-        .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
-        .gte('date', yoyStartStr)
-        .lte('date', yoyEndStr),
-      supabase
-        .from('gbp_insights_cache')
-        .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
-        .gte('date', ytdStart)
-        .lte('date', ytdEnd),
-    ]);
+    // Helper to fetch all rows with pagination (Supabase limits to 1000 per request)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function fetchAllRows(query: () => any): Promise<any[]> {
+      const PAGE_SIZE = 1000;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let allData: any[] = [];
+      let page = 0;
+      while (true) {
+        const { data, error } = await query().range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < PAGE_SIZE) break;
+        page++;
+      }
+      return allData;
+    }
 
-    const yoyData = yoyResult.data || [];
-    const ytdData = ytdResult.data || [];
+    // Always fetch YoY and YTD data from cache (we have 18 months of history)
+    const [yoyData, ytdData] = await Promise.all([
+      fetchAllRows(() =>
+        supabase
+          .from('gbp_insights_cache')
+          .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
+          .gte('date', yoyStartStr)
+          .lte('date', yoyEndStr)
+      ),
+      fetchAllRows(() =>
+        supabase
+          .from('gbp_insights_cache')
+          .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
+          .gte('date', ytdStart)
+          .lte('date', ytdEnd)
+      ),
+    ]);
 
     // Fetch ST metrics for locations with campaign names (in parallel with cache check)
     const stMetricsPromise = getSTMetricsForLocations(
@@ -158,11 +177,13 @@ export async function GET(request: NextRequest) {
 
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
-      const { data: cachedData } = await supabase
-        .from('gbp_insights_cache')
-        .select('*, location:google_locations(*)')
-        .gte('date', startDateStr)
-        .lte('date', endDateStr);
+      const cachedData = await fetchAllRows(() =>
+        supabase
+          .from('gbp_insights_cache')
+          .select('*, location:google_locations(*)')
+          .gte('date', startDateStr)
+          .lte('date', endDateStr)
+      );
 
       // If we have cached data covering most of the period, use it
       const expectedDays = periodDays * locations.length;
