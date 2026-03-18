@@ -38,6 +38,7 @@ interface DailyMetricsChartProps {
   avgPerDay: { views: number; clicks: number; calls: number; directions: number };
   isLoading?: boolean;
   title?: string;
+  dateRange?: { start: string; end: string };
 }
 
 // Order matters for button rendering - Calls first
@@ -111,11 +112,21 @@ export function DailyMetricsChart({
   avgPerDay,
   isLoading = false,
   title = 'Daily Performance',
+  dateRange,
 }: DailyMetricsChartProps) {
   const [selectedMetric, setSelectedMetric] = useState<DailyMetricType>('calls');
 
-  // Determine if we should aggregate to monthly (7+ months = ~210 days)
-  const useMonthlyView = data.length > 210;
+  // Determine if we should aggregate to monthly based on date range span (not data count)
+  // This ensures "Last Year" always shows monthly even if cache is incomplete
+  const useMonthlyView = (() => {
+    if (dateRange) {
+      const start = new Date(dateRange.start + 'T00:00:00');
+      const end = new Date(dateRange.end + 'T00:00:00');
+      const daySpan = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      return daySpan > 90; // 3+ months → monthly view
+    }
+    return data.length > 210; // fallback to old behavior
+  })();
 
   const processedData = useMemo(() => {
     return useMonthlyView ? aggregateToMonthly(data) : data;
