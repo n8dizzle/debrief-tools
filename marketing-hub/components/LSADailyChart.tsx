@@ -366,6 +366,7 @@ export function LSADailyChart({
                   fill="#5d8a66"
                   radius={[0, 0, 0, 0]}
                   maxBarSize={useMonthlyView ? 40 : 24}
+                  minPointSize={3}
                   name="HVAC"
                 />
                 <Bar
@@ -374,6 +375,7 @@ export function LSADailyChart({
                   fill="#B8956B"
                   radius={[2, 2, 0, 0]}
                   maxBarSize={useMonthlyView ? 40 : 24}
+                  minPointSize={3}
                   name="Plumbing"
                 />
               </>
@@ -383,6 +385,7 @@ export function LSADailyChart({
                 fill="#6B9DB8"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={useMonthlyView ? 40 : 24}
+                minPointSize={3}
                 fillOpacity={0.85}
               />
             ) : (
@@ -391,6 +394,7 @@ export function LSADailyChart({
                 fill="#5d8a66"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={useMonthlyView ? 40 : 24}
+                minPointSize={3}
                 fillOpacity={0.85}
               />
             )}
