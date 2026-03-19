@@ -311,7 +311,7 @@ export async function POST(request: NextRequest) {
 
 // Helper: Calculate YoY percentage change
 function calcYoYChange(current: number, previous: number): number | null {
-  if (previous === 0) return current > 0 ? 100 : null;
+  if (previous === 0) return null;
   return ((current - previous) / previous) * 100;
 }
 
