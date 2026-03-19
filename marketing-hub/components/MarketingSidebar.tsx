@@ -24,7 +24,6 @@ const navLinks = [
   { href: '/lsa', label: 'Local Service Ads', icon: 'phone' },
   { href: '/gbp', label: 'GBP Insights', icon: 'chart-bar' },
   { href: '/analytics', label: 'Website Analytics', icon: 'globe' },
-  { href: '/social', label: 'Social Media', icon: 'share' },
 ];
 
 function NavIcon({ type }: { type: string }) {
