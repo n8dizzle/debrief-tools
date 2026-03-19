@@ -146,7 +146,7 @@ export function LeadsFunnel({ stages, totalRevenue, totalSpend }: LeadsFunnelPro
             Contact → Booked
           </div>
           <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-            {stages.length >= 3 ? formatPercent((stages[2].count / stages[0].count) * 100) : '0%'}
+            {stages.length >= 3 && stages[0].count > 0 ? formatPercent((stages[2].count / stages[0].count) * 100) : '0%'}
           </div>
           <div className="text-xs" style={{ color: stages[2]?.count > 0 ? '#22c55e' : 'var(--text-muted)' }}>
             Booking Rate
