@@ -453,16 +453,30 @@ function CreateContent() {
                     Export Branded Video
                   </button>
                   {videoUrl && videoSource !== 'text' && (
-                    <a
-                      href={videoUrl}
-                      download
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(videoUrl);
+                          const blob = await res.blob();
+                          const blobUrl = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = blobUrl;
+                          a.download = `original-${Date.now()}.webm`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(blobUrl);
+                        } catch {
+                          window.open(videoUrl, '_blank');
+                        }
+                      }}
                       className="btn btn-secondary w-full py-2.5 gap-2 text-sm"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
                       Download Original (No Branding)
-                    </a>
+                    </button>
                   )}
                 </div>
               </>

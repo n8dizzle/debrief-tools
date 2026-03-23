@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 
 interface Video {
@@ -103,6 +103,24 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchVideos();
   }, [fetchVideos]);
+
+  const handleDownload = useCallback(async (url: string, filename?: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || `video-${Date.now()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // Fallback: open in new tab
+      window.open(url, '_blank');
+    }
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this video project?')) return;
@@ -241,28 +259,26 @@ export default function DashboardPage() {
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">
                     {video.rendered_url && (
-                      <a
-                        href={video.rendered_url}
-                        download
+                      <button
+                        onClick={() => handleDownload(video.rendered_url!, `${video.title}-branded.webm`)}
                         className="btn btn-primary text-xs px-3 py-1.5 gap-1"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         Download Branded
-                      </a>
+                      </button>
                     )}
                     {video.source_video_url && (
-                      <a
-                        href={video.source_video_url}
-                        download
+                      <button
+                        onClick={() => handleDownload(video.source_video_url!, `${video.title}-original.webm`)}
                         className="btn btn-secondary text-xs px-3 py-1.5 gap-1"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         Download Original
-                      </a>
+                      </button>
                     )}
                     <button
                       onClick={() => handleDelete(video.id)}
