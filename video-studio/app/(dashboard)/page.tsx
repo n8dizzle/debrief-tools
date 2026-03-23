@@ -1,6 +1,34 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+
+interface Video {
+  id: string;
+  title: string;
+  template: string;
+  video_source: string;
+  source_video_url: string | null;
+  rendered_url: string | null;
+  status: string;
+  duration_seconds: number | null;
+  creator_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  'team-update': 'Team Update',
+  'shoutout': 'Shoutout',
+  'announcement': 'Announcement',
+  'branded-video': 'Branded Video',
+};
+
+const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+  draft: { bg: 'rgba(234, 179, 8, 0.15)', color: '#fcd34d', label: 'Draft' },
+  completed: { bg: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', label: 'Completed' },
+  rendering: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', label: 'Rendering' },
+};
 
 const templates = [
   {
@@ -35,7 +63,48 @@ const templates = [
   },
 ];
 
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDuration(seconds: number | null) {
+  if (!seconds) return '--';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
 export default function DashboardPage() {
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchVideos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/videos');
+      if (res.ok) {
+        const data = await res.json();
+        setVideos(data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVideos();
+  }, [fetchVideos]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this video project?')) return;
+    const res = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setVideos(prev => prev.filter(v => v.id !== id));
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -48,98 +117,147 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Video Source Options */}
+      {/* Create Options */}
       <div className="mb-8">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           From Video
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Link
-            href="/create?source=upload"
-            className="card group cursor-pointer transition-all duration-200"
-            style={{ textDecoration: 'none' }}
-          >
-            <div
-              className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
-              style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}
-            >
+          <Link href="/create?source=upload" className="card group cursor-pointer transition-all duration-200" style={{ textDecoration: 'none' }}>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
             </div>
-            <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-              Upload Video
-            </h3>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Upload a video from your phone or computer and wrap it with branded intro, outro, and overlays
-            </p>
+            <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>Upload Video</h3>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Upload from phone or computer with branded overlays</p>
           </Link>
-          <Link
-            href="/create?source=webcam"
-            className="card group cursor-pointer transition-all duration-200"
-            style={{ textDecoration: 'none' }}
-          >
-            <div
-              className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
-              style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}
-            >
+          <Link href="/create?source=webcam" className="card group cursor-pointer transition-all duration-200" style={{ textDecoration: 'none' }}>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-              Record Webcam
-            </h3>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Record yourself and add branded intro, lower third, logo, and outro
-            </p>
+            <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>Record Webcam</h3>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Record yourself with branded intro, lower third, and outro</p>
           </Link>
         </div>
 
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          From Template
-        </h2>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>From Template</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {templates.map((template) => (
-            <Link
-              key={template.id}
-              href={`/create?template=${template.id}`}
-              className="card group cursor-pointer transition-all duration-200"
-              style={{ textDecoration: 'none' }}
-            >
-              <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
-                style={{ backgroundColor: 'rgba(93, 138, 102, 0.15)', color: 'var(--christmas-green-light)' }}
-              >
-                {template.icon}
+          {templates.map((t) => (
+            <Link key={t.id} href={`/create?template=${t.id}`} className="card group cursor-pointer transition-all duration-200" style={{ textDecoration: 'none' }}>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(93, 138, 102, 0.15)', color: 'var(--christmas-green-light)' }}>
+                {t.icon}
               </div>
-              <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-                {template.name}
-              </h3>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {template.description}
-              </p>
+              <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>{t.name}</h3>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t.description}</p>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Recent Videos (placeholder) */}
+      {/* Video Library */}
       <div>
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Recent Videos
+          My Videos
         </h2>
-        <div
-          className="card flex flex-col items-center justify-center py-12"
-          style={{ borderStyle: 'dashed' }}
-        >
-          <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            No videos yet. Create your first one above!
-          </p>
-        </div>
+
+        {loading ? (
+          <div className="card flex items-center justify-center py-8">
+            <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-default)', borderTopColor: 'var(--christmas-green)' }} />
+          </div>
+        ) : videos.length === 0 ? (
+          <div className="card flex flex-col items-center justify-center py-12" style={{ borderStyle: 'dashed' }}>
+            <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              No videos yet. Create your first one above!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {videos.map((video) => {
+              const statusStyle = STATUS_STYLES[video.status] || STATUS_STYLES.draft;
+              return (
+                <div key={video.id} className="card">
+                  {/* Thumbnail / preview area */}
+                  <div
+                    className="rounded-lg mb-3 flex items-center justify-center"
+                    style={{
+                      backgroundColor: 'var(--bg-primary)',
+                      aspectRatio: '16/9',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {video.rendered_url ? (
+                      <video
+                        src={video.rendered_url}
+                        className="w-full h-full object-cover"
+                        preload="metadata"
+                      />
+                    ) : video.source_video_url ? (
+                      <video
+                        src={video.source_video_url}
+                        className="w-full h-full object-cover"
+                        preload="metadata"
+                      />
+                    ) : (
+                      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--christmas-cream)' }}>
+                      {video.title}
+                    </h3>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap"
+                      style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
+                    >
+                      {statusStyle.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    <span>{TEMPLATE_LABELS[video.template] || video.template}</span>
+                    <span>&middot;</span>
+                    <span>{formatDuration(video.duration_seconds)}</span>
+                    <span>&middot;</span>
+                    <span>{formatDate(video.created_at)}</span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    {video.rendered_url && (
+                      <a
+                        href={video.rendered_url}
+                        download
+                        className="btn btn-primary text-xs px-3 py-1.5 gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download
+                      </a>
+                    )}
+                    <button
+                      onClick={() => handleDelete(video.id)}
+                      className="btn btn-secondary text-xs px-3 py-1.5"
+                      style={{ color: 'var(--status-error)' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
