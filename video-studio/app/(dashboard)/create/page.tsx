@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
+import { useState, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { TemplateId, TEMPLATES } from '@/remotion/constants';
+import type { AllRenderOptions } from '@/lib/canvas-renderer';
 
 const VideoPlayer = dynamic(() => import('@/components/VideoPlayer'), {
   ssr: false,
@@ -23,6 +24,7 @@ const VideoPlayer = dynamic(() => import('@/components/VideoPlayer'), {
 
 const WebcamRecorder = dynamic(() => import('@/components/WebcamRecorder'), { ssr: false });
 const VideoUploader = dynamic(() => import('@/components/VideoUploader'), { ssr: false });
+const ExportModal = dynamic(() => import('@/components/ExportModal'), { ssr: false });
 
 type VideoSource = 'text' | 'upload' | 'webcam';
 
@@ -38,6 +40,8 @@ function CreateContent() {
   // Video source state
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
+  const [showExport, setShowExport] = useState(false);
+  const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Branded video overlay options
   const [speakerName, setSpeakerName] = useState('');
@@ -107,6 +111,33 @@ function CreateContent() {
     setVideoUrl(null);
     setVideoFileName(null);
   }, []);
+
+  const getRenderOptions = useCallback((): Record<string, any> => {
+    if (videoSource !== 'text' && videoUrl) {
+      return {
+        type: 'branded-video',
+        durationInSeconds: duration,
+        introLabel: videoLabel,
+        speakerName,
+        speakerTitle,
+        showLowerThird,
+        showWatermark,
+      };
+    }
+    const base = { durationInSeconds: duration, introLabel: TEMPLATES[template]?.name || 'Video Studio' };
+    switch (template) {
+      case 'team-update':
+        return { ...base, type: 'team-update', ...teamUpdateProps };
+      case 'shoutout':
+        return { ...base, type: 'shoutout', ...shoutoutProps };
+      case 'announcement':
+        return { ...base, type: 'announcement', ...announcementProps };
+      default:
+        return { ...base, type: 'team-update', ...teamUpdateProps };
+    }
+  }, [videoSource, videoUrl, duration, videoLabel, speakerName, speakerTitle, showLowerThird, showWatermark, template, teamUpdateProps, shoutoutProps, announcementProps]);
+
+  const canExport = videoSource === 'text' || !!videoUrl;
 
   return (
     <div>
@@ -374,9 +405,20 @@ function CreateContent() {
                   props={getActiveProps()}
                   durationInSeconds={duration}
                 />
-                <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-xs mt-2 mb-4" style={{ color: 'var(--text-muted)' }}>
                   Use the controls to play/pause and scrub through the video. Changes update in real-time.
                 </p>
+                <button
+                  onClick={() => setShowExport(true)}
+                  disabled={!canExport}
+                  className="btn btn-primary w-full py-3 gap-2 text-base"
+                  style={{ opacity: canExport ? 1 : 0.5 }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Export Video
+                </button>
               </>
             ) : (
               <div
@@ -398,6 +440,27 @@ function CreateContent() {
           </div>
         </div>
       </div>
+
+      {/* Hidden video element for rendering branded videos */}
+      {videoUrl && (
+        <video
+          ref={hiddenVideoRef}
+          src={videoUrl}
+          crossOrigin="anonymous"
+          playsInline
+          muted
+          preload="auto"
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+        />
+      )}
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        renderOptions={getRenderOptions()}
+        videoElement={hiddenVideoRef.current}
+      />
     </div>
   );
 }
