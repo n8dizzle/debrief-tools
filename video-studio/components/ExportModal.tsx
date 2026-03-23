@@ -42,24 +42,27 @@ export default function ExportModal({ isOpen, onClose, renderOptions, videoEleme
       if (videoId) {
         setState('uploading');
         try {
-          // Get signed upload URL
-          const urlRes = await fetch('/api/videos/upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: `rendered-${Date.now()}.webm`, contentType: 'video/webm' }),
-          });
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-          if (urlRes.ok) {
-            const { signedUrl, storagePath, publicUrl } = await urlRes.json();
+          if (supabaseUrl && supabaseAnonKey) {
+            const randomStr = Math.random().toString(36).substring(2, 10);
+            const storagePath = `rendered/${Date.now()}-${randomStr}.webm`;
 
-            // Upload directly to Supabase
-            const uploadRes = await fetch(signedUrl, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'video/webm' },
-              body: blob,
-            });
+            const uploadRes = await fetch(
+              `${supabaseUrl}/storage/v1/object/video-studio-media/${storagePath}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseAnonKey}`,
+                  'Content-Type': 'video/webm',
+                },
+                body: blob,
+              }
+            );
 
             if (uploadRes.ok) {
+              const publicUrl = `${supabaseUrl}/storage/v1/object/public/video-studio-media/${storagePath}`;
               await fetch(`/api/videos/${videoId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },

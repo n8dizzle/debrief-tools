@@ -15,37 +15,44 @@ export default function VideoUploader({ onUpload }: VideoUploaderProps) {
 
   const handleFile = useCallback(async (file: File) => {
     setError(null);
-    setProgress('Getting upload URL...');
+    setProgress('Uploading video...');
     setIsUploading(true);
 
     try {
-      // Step 1: Get a signed upload URL from our API
-      const urlRes = await fetch('/api/videos/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, contentType: file.type }),
-      });
+      // Upload directly to Supabase Storage from the browser using the anon key
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-      if (!urlRes.ok) {
-        const urlData = await urlRes.json();
-        throw new Error(urlData.error || 'Failed to get upload URL');
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Storage not configured');
       }
 
-      const { signedUrl, token, publicUrl } = await urlRes.json();
+      // Generate a unique path
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'mp4';
+      const randomStr = Math.random().toString(36).substring(2, 10);
+      const storagePath = `recordings/${Date.now()}-${randomStr}.${ext}`;
 
-      // Step 2: Upload directly to Supabase Storage (bypasses Vercel 4.5MB limit)
-      setProgress('Uploading video...');
-      const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
-      });
+      // Upload via Supabase Storage REST API directly
+      const uploadRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/video-studio-media/${storagePath}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'Content-Type': file.type,
+            'x-upsert': 'false',
+          },
+          body: file,
+        }
+      );
 
       if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        console.error('Upload error:', errText);
         throw new Error('Upload to storage failed');
       }
+
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/video-studio-media/${storagePath}`;
 
       setProgress(null);
       onUpload(publicUrl, file.name);
