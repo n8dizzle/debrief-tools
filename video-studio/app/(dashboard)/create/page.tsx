@@ -32,16 +32,18 @@ function CreateContent() {
   const searchParams = useSearchParams();
   const templateParam = searchParams.get('template') as TemplateId | null;
   const sourceParam = searchParams.get('source') as VideoSource | null;
+  const existingVideoParam = searchParams.get('existingVideo');
+  const existingVideoIdParam = searchParams.get('videoId');
   const initialSource: VideoSource = sourceParam === 'upload' ? 'upload' : sourceParam === 'webcam' ? 'webcam' : 'text';
   const [template, setTemplate] = useState<TemplateId>(templateParam || 'team-update');
   const [duration, setDuration] = useState<number>(initialSource === 'text' ? (TEMPLATES[template]?.defaultDuration || 15) : 15);
   const [videoSource, setVideoSource] = useState<VideoSource>(initialSource);
 
   // Video source state
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoFileName, setVideoFileName] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(existingVideoParam || null);
+  const [videoFileName, setVideoFileName] = useState<string | null>(existingVideoParam ? 'Existing Recording' : null);
   const [showExport, setShowExport] = useState(false);
-  const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
+  const [savedVideoId, setSavedVideoId] = useState<string | null>(existingVideoIdParam || null);
   const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Branded video overlay options
@@ -141,7 +143,23 @@ function CreateContent() {
   const canExport = videoSource === 'text' || !!videoUrl;
 
   const handleExport = useCallback(async () => {
-    // Save draft to DB first
+    // If we already have a saved video ID (e.g. editing existing), just update it
+    if (savedVideoId) {
+      try {
+        await fetch(`/api/videos/${savedVideoId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            templateProps: videoSource === 'text' ? getTextProps() : { speakerName, speakerTitle, showLowerThird, showWatermark, videoLabel },
+            durationSeconds: duration,
+          }),
+        });
+      } catch {}
+      setShowExport(true);
+      return;
+    }
+
+    // Save new draft to DB
     try {
       const templateName = videoSource === 'text'
         ? TEMPLATES[template]?.name || template
@@ -169,7 +187,7 @@ function CreateContent() {
     }
 
     setShowExport(true);
-  }, [videoSource, template, videoLabel, videoUrl, duration, speakerName, speakerTitle, showLowerThird, showWatermark, getTextProps]);
+  }, [savedVideoId, videoSource, template, videoLabel, videoUrl, duration, speakerName, speakerTitle, showLowerThird, showWatermark, getTextProps]);
 
   return (
     <div>
