@@ -37,6 +37,15 @@ export default function WebcamRecorder({ onRecorded, maxDuration = 60 }: WebcamR
     };
   }, []);
 
+  // Assign stream to video element once it's mounted
+  useEffect(() => {
+    if (state === 'previewing' || state === 'countdown' || state === 'recording') {
+      if (videoRef.current && streamRef.current && !videoRef.current.srcObject) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+    }
+  }, [state]);
+
   const startCamera = useCallback(async () => {
     setError(null);
     try {
