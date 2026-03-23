@@ -1,21 +1,25 @@
 'use client';
 
 import { Player } from '@remotion/player';
-import { TeamUpdate, TeamUpdateProps } from '@/remotion/compositions/TeamUpdate';
-import { Shoutout, ShoutoutProps } from '@/remotion/compositions/Shoutout';
-import { Announcement, AnnouncementProps } from '@/remotion/compositions/Announcement';
+import { TeamUpdate } from '@/remotion/compositions/TeamUpdate';
+import { Shoutout } from '@/remotion/compositions/Shoutout';
+import { Announcement } from '@/remotion/compositions/Announcement';
+import { BrandedVideo } from '@/remotion/compositions/BrandedVideo';
 import { VIDEO_FPS, VIDEO_WIDTH, VIDEO_HEIGHT, TemplateId } from '@/remotion/constants';
 
+type AllTemplates = TemplateId | 'branded-video';
+
 interface VideoPlayerProps {
-  template: TemplateId;
+  template: AllTemplates;
   props: Record<string, any>;
   durationInSeconds: number;
 }
 
-const TEMPLATE_COMPONENTS: Record<TemplateId, React.ComponentType<any>> = {
+const TEMPLATE_COMPONENTS: Record<AllTemplates, React.ComponentType<any>> = {
   'team-update': TeamUpdate,
   'shoutout': Shoutout,
   'announcement': Announcement,
+  'branded-video': BrandedVideo,
 };
 
 export default function VideoPlayer({ template, props, durationInSeconds }: VideoPlayerProps) {

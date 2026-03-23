@@ -48,10 +48,56 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Create New Section */}
+      {/* Video Source Options */}
       <div className="mb-8">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Create a Video
+          From Video
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <Link
+            href="/create?source=upload"
+            className="card group cursor-pointer transition-all duration-200"
+            style={{ textDecoration: 'none' }}
+          >
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+              style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+              Upload Video
+            </h3>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Upload a video from your phone or computer and wrap it with branded intro, outro, and overlays
+            </p>
+          </Link>
+          <Link
+            href="/create?source=webcam"
+            className="card group cursor-pointer transition-all duration-200"
+            style={{ textDecoration: 'none' }}
+          >
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+              style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+              Record Webcam
+            </h3>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Record yourself and add branded intro, lower third, logo, and outro
+            </p>
+          </Link>
+        </div>
+
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          From Template
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {templates.map((template) => (
