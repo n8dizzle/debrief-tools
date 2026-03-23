@@ -85,10 +85,31 @@ export async function renderVideoToBlob(options: AllRenderOptions): Promise<Blob
   const outroFrames = 2 * FPS; // 2s outro
   const mainFrames = totalFrames - introFrames - outroFrames;
 
-  // If video source, seek to start
+  // If video source, wait for metadata then seek to start
   if (options.type === 'branded-video') {
-    options.videoElement.currentTime = 0;
-    options.videoElement.pause();
+    const vid = options.videoElement;
+    vid.pause();
+
+    // Ensure metadata is loaded so duration is available
+    if (!vid.duration || !isFinite(vid.duration)) {
+      vid.preload = 'auto';
+      vid.load();
+      await new Promise<void>((resolve) => {
+        if (vid.readyState >= 1 && isFinite(vid.duration)) {
+          resolve();
+          return;
+        }
+        const onLoaded = () => {
+          vid.removeEventListener('loadedmetadata', onLoaded);
+          resolve();
+        };
+        vid.addEventListener('loadedmetadata', onLoaded);
+        // Timeout fallback
+        setTimeout(resolve, 5000);
+      });
+    }
+
+    vid.currentTime = 0;
   }
 
   for (let frame = 0; frame < totalFrames; frame++) {
@@ -225,11 +246,13 @@ function drawBrandedVideoFrame(
   }
 
   // Advance video
-  const videoDuration = opts.videoElement.duration || (totalFrames / FPS);
-  opts.videoElement.currentTime = Math.min(
-    (frame / totalFrames) * videoDuration,
-    videoDuration - 0.01
-  );
+  const videoDuration = (isFinite(opts.videoElement.duration) && opts.videoElement.duration > 0)
+    ? opts.videoElement.duration
+    : totalFrames / FPS;
+  const targetTime = (frame / totalFrames) * videoDuration;
+  if (isFinite(targetTime) && targetTime >= 0) {
+    opts.videoElement.currentTime = Math.min(targetTime, videoDuration - 0.01);
+  }
 }
 
 // ─── Text Template Frame ─────────────────────────────────────
