@@ -42,22 +42,35 @@ export default function ExportModal({ isOpen, onClose, renderOptions, videoEleme
       if (videoId) {
         setState('uploading');
         try {
-          const formData = new FormData();
-          formData.append('file', blob, `rendered-${Date.now()}.webm`);
-          const uploadRes = await fetch('/api/videos/upload', { method: 'POST', body: formData });
-          const uploadData = await uploadRes.json();
+          // Get signed upload URL
+          const urlRes = await fetch('/api/videos/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName: `rendered-${Date.now()}.webm`, contentType: 'video/webm' }),
+          });
 
-          if (uploadRes.ok) {
-            await fetch(`/api/videos/${videoId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                renderedUrl: uploadData.url,
-                renderedStoragePath: uploadData.storagePath,
-                status: 'completed',
-              }),
+          if (urlRes.ok) {
+            const { signedUrl, storagePath, publicUrl } = await urlRes.json();
+
+            // Upload directly to Supabase
+            const uploadRes = await fetch(signedUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'video/webm' },
+              body: blob,
             });
-            onSaved?.();
+
+            if (uploadRes.ok) {
+              await fetch(`/api/videos/${videoId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  renderedUrl: publicUrl,
+                  renderedStoragePath: storagePath,
+                  status: 'completed',
+                }),
+              });
+              onSaved?.();
+            }
           }
         } catch {
           // Upload failed but render succeeded — user can still download
