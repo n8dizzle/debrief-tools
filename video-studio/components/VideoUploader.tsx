@@ -15,26 +15,40 @@ export default function VideoUploader({ onUpload }: VideoUploaderProps) {
 
   const handleFile = useCallback(async (file: File) => {
     setError(null);
-    setProgress('Uploading...');
+    setProgress('Getting upload URL...');
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/videos/upload', {
+      // Step 1: Get a signed upload URL from our API
+      const urlRes = await fetch('/api/videos/upload-url', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type }),
       });
 
-      const data = await res.json();
+      if (!urlRes.ok) {
+        const urlData = await urlRes.json();
+        throw new Error(urlData.error || 'Failed to get upload URL');
+      }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Upload failed');
+      const { signedUrl, token, publicUrl } = await urlRes.json();
+
+      // Step 2: Upload directly to Supabase Storage (bypasses Vercel 4.5MB limit)
+      setProgress('Uploading video...');
+      const uploadRes = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error('Upload to storage failed');
       }
 
       setProgress(null);
-      onUpload(data.url, file.name);
+      onUpload(publicUrl, file.name);
     } catch (err: any) {
       setError(err.message || 'Upload failed');
       setProgress(null);

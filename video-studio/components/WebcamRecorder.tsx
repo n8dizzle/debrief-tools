@@ -150,19 +150,29 @@ export default function WebcamRecorder({ onRecorded, maxDuration = 60 }: WebcamR
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
       const ext = recordedBlobRef.current.type.includes('webm') ? 'webm' : 'mp4';
-      formData.append('file', recordedBlobRef.current, `recording.${ext}`);
+      const fileName = `recording.${ext}`;
 
-      const res = await fetch('/api/videos/upload', {
+      // Get signed upload URL
+      const urlRes = await fetch('/api/videos/upload-url', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName, contentType: recordedBlobRef.current.type }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      if (!urlRes.ok) throw new Error('Failed to get upload URL');
+      const { signedUrl, publicUrl } = await urlRes.json();
 
-      onRecorded(data.url, recordedBlobRef.current);
+      // Upload directly to Supabase Storage
+      const uploadRes = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': recordedBlobRef.current.type },
+        body: recordedBlobRef.current,
+      });
+
+      if (!uploadRes.ok) throw new Error('Upload failed');
+
+      onRecorded(publicUrl, recordedBlobRef.current);
     } catch (err: any) {
       setError(err.message || 'Upload failed');
     } finally {

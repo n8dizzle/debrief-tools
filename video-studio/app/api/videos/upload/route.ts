@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 
+// Increase body size limit for video uploads
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const ALLOWED_TYPES = [
   'video/mp4',
   'video/webm',
