@@ -21,6 +21,7 @@
 // ============================================
 
 export interface DailyDashPermissions {
+  can_access?: boolean;
   can_edit_targets?: boolean;
   can_reply_reviews?: boolean;
   can_edit_huddle_notes?: boolean;
@@ -32,12 +33,14 @@ export interface InternalPortalPermissions {
 }
 
 export interface DebriefQAPermissions {
+  can_access?: boolean;
   can_view_all_jobs?: boolean;
   can_manage_users?: boolean;
   can_manage_spot_checks?: boolean;
 }
 
 export interface MarketingHubPermissions {
+  can_access?: boolean;
   can_manage_gbp_posts?: boolean;
   can_view_analytics?: boolean;
   can_view_social?: boolean;
@@ -51,6 +54,7 @@ export interface AdminPanelPermissions {
 }
 
 export interface ARCollectionsPermissions {
+  can_access?: boolean;
   can_view_invoices?: boolean;
   can_update_invoices?: boolean;
   can_log_communications?: boolean;
@@ -59,6 +63,7 @@ export interface ARCollectionsPermissions {
 }
 
 export interface JobTrackerPermissions {
+  can_access?: boolean;
   can_view_trackers?: boolean;
   can_manage_trackers?: boolean;
   can_manage_templates?: boolean;
@@ -66,6 +71,7 @@ export interface JobTrackerPermissions {
 }
 
 export interface APPaymentsPermissions {
+  can_access?: boolean;
   can_view_jobs?: boolean;
   can_manage_assignments?: boolean;
   can_manage_payments?: boolean;
@@ -74,6 +80,7 @@ export interface APPaymentsPermissions {
 }
 
 export interface MembershipManagerPermissions {
+  can_access?: boolean;
   can_view_memberships?: boolean;
   can_manage_notes?: boolean;
   can_view_reports?: boolean;
@@ -81,10 +88,49 @@ export interface MembershipManagerPermissions {
 }
 
 export interface CelebrationsPermissions {
+  can_access?: boolean;
   can_view_boards?: boolean;
   can_create_boards?: boolean;
   can_manage_boards?: boolean;
   can_manage_slack?: boolean;
+}
+
+export interface DocDispatchPermissions {
+  can_access?: boolean;
+  can_view_documents?: boolean;
+  can_manage_documents?: boolean;
+  can_email_documents?: boolean;
+}
+
+export interface PayrollTrackerPermissions {
+  can_access?: boolean;
+  can_view_dashboard?: boolean;
+  can_view_pay_amounts?: boolean;
+  can_sync_data?: boolean;
+}
+
+export interface ServiceDashboardPermissions {
+  can_access?: boolean;
+  can_view_dashboard?: boolean;
+  can_manage_settings?: boolean;
+  can_manage_attendance?: boolean;
+  can_sync_data?: boolean;
+}
+
+export interface HRHubPermissions {
+  can_access?: boolean;
+  can_view_onboardings?: boolean;
+  can_create_onboardings?: boolean;
+  can_manage_templates?: boolean;
+  can_complete_any_task?: boolean;
+  can_view_reports?: boolean;
+}
+
+export interface VideoStudioPermissions {
+  can_access?: boolean;
+  can_create_videos?: boolean;
+  can_manage_templates?: boolean;
+  can_view_all_videos?: boolean;
 }
 
 // ============================================
@@ -102,6 +148,11 @@ export interface UserPermissions {
   ap_payments?: APPaymentsPermissions;
   membership_manager?: MembershipManagerPermissions;
   celebrations?: CelebrationsPermissions;
+  doc_dispatch?: DocDispatchPermissions;
+  payroll_tracker?: PayrollTrackerPermissions;
+  service_dashboard?: ServiceDashboardPermissions;
+  hr_hub?: HRHubPermissions;
+  video_studio?: VideoStudioPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -128,6 +179,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     label: 'Daily Dash',
     permissions: [
       {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Daily Dash app',
+      },
+      {
         key: 'can_edit_targets',
         label: 'Edit targets',
         description: 'Modify revenue and KPI targets',
@@ -153,6 +209,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     app: 'marketing_hub',
     label: 'Marketing Hub',
     permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Marketing Hub app',
+      },
       {
         key: 'can_manage_gbp_posts',
         label: 'Manage GBP posts',
@@ -201,6 +262,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     label: 'AR Collections',
     permissions: [
       {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the AR Collections app',
+      },
+      {
         key: 'can_view_invoices',
         label: 'View invoices',
         description: 'Access AR invoices and aging reports',
@@ -243,6 +309,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     label: 'Debrief QA',
     permissions: [
       {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Debrief QA app',
+      },
+      {
         key: 'can_view_all_jobs',
         label: 'View all jobs',
         description: 'See jobs from all dispatchers (not just own)',
@@ -263,6 +334,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     app: 'job_tracker',
     label: 'Job Tracker',
     permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Job Tracker app',
+      },
       {
         key: 'can_view_trackers',
         label: 'View trackers',
@@ -289,6 +365,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     app: 'ap_payments',
     label: 'AP Payments',
     permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the AP Payments app',
+      },
       {
         key: 'can_view_jobs',
         label: 'View jobs',
@@ -321,6 +402,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     label: 'Membership Manager',
     permissions: [
       {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Membership Manager app',
+      },
+      {
         key: 'can_view_memberships',
         label: 'View memberships',
         description: 'View membership dashboard and member details',
@@ -347,6 +433,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     label: 'Celebrations',
     permissions: [
       {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Celebrations app',
+      },
+      {
         key: 'can_view_boards',
         label: 'View boards',
         description: 'View celebration boards and posts',
@@ -365,6 +456,151 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_slack',
         label: 'Manage Slack',
         description: 'Configure Slack channel integrations',
+      },
+    ],
+  },
+  {
+    app: 'doc_dispatch',
+    label: 'Doc Dispatch',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Doc Dispatch app',
+      },
+      {
+        key: 'can_view_documents',
+        label: 'View documents',
+        description: 'View scanned documents and AI analysis',
+      },
+      {
+        key: 'can_manage_documents',
+        label: 'Manage documents',
+        description: 'Upload, analyze, and manage documents and action items',
+      },
+      {
+        key: 'can_email_documents',
+        label: 'Email documents',
+        description: 'Send documents and action items via email',
+      },
+    ],
+  },
+  {
+    app: 'payroll_tracker',
+    label: 'Payroll Tracker',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Payroll Tracker app',
+      },
+      {
+        key: 'can_view_dashboard',
+        label: 'View dashboard',
+        description: 'View payroll dashboard, employees, and timesheets',
+      },
+      {
+        key: 'can_view_pay_amounts',
+        label: 'View pay amounts',
+        description: 'See dollar amounts for pay, performance pay, and rates',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan payroll sync',
+      },
+    ],
+  },
+  {
+    app: 'service_dashboard',
+    label: 'Service Dashboard',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Service Dashboard app',
+      },
+      {
+        key: 'can_view_dashboard',
+        label: 'View dashboard',
+        description: 'View service technician leaderboard and metrics',
+      },
+      {
+        key: 'can_manage_settings',
+        label: 'Manage settings',
+        description: 'Configure scoring weights and sync settings',
+      },
+      {
+        key: 'can_manage_attendance',
+        label: 'Manage attendance',
+        description: 'Add and remove attendance point records',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger ServiceTitan data sync',
+      },
+    ],
+  },
+  {
+    app: 'hr_hub',
+    label: 'HR Hub',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the HR Hub app',
+      },
+      {
+        key: 'can_view_onboardings',
+        label: 'View onboardings',
+        description: 'View onboarding dashboard and employee onboardings',
+      },
+      {
+        key: 'can_create_onboardings',
+        label: 'Create onboardings',
+        description: 'Create new employee onboardings',
+      },
+      {
+        key: 'can_manage_templates',
+        label: 'Manage templates',
+        description: 'Create and edit onboarding workflow templates',
+      },
+      {
+        key: 'can_complete_any_task',
+        label: 'Complete any task',
+        description: 'Complete any onboarding task regardless of assignment',
+      },
+      {
+        key: 'can_view_reports',
+        label: 'View reports',
+        description: 'Access onboarding reports and analytics',
+      },
+    ],
+  },
+  {
+    app: 'video_studio',
+    label: 'Video Studio',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Video Studio app',
+      },
+      {
+        key: 'can_create_videos',
+        label: 'Create videos',
+        description: 'Create and render branded videos',
+      },
+      {
+        key: 'can_manage_templates',
+        label: 'Manage templates',
+        description: 'Create and edit video templates',
+      },
+      {
+        key: 'can_view_all_videos',
+        label: 'View all videos',
+        description: 'View videos created by all users',
       },
     ],
   },
@@ -497,6 +733,53 @@ export function setPermission<T extends keyof UserPermissions>(
   }
 
   return result;
+}
+
+// ============================================
+// APP ACCESS UTILITIES
+// ============================================
+
+/**
+ * Check if a user can access a specific app.
+ * Uses can_access permission. Owners always have access.
+ */
+export function hasAppAccess(
+  role: UserRole,
+  permissions: UserPermissions | null | undefined,
+  app: keyof UserPermissions
+): boolean {
+  if (role === 'owner') return true;
+  const appPerms = permissions?.[app];
+  if (appPerms && 'can_access' in appPerms) {
+    return (appPerms as Record<string, boolean>)['can_access'] === true;
+  }
+  return false;
+}
+
+/**
+ * Get list of app keys the user can access.
+ * Used by the portal homepage to determine which tool links to show.
+ */
+export function getAccessibleApps(
+  role: UserRole,
+  permissions: UserPermissions | null | undefined
+): string[] {
+  if (role === 'owner') {
+    return APP_PERMISSIONS.map(g => g.app);
+  }
+
+  return APP_PERMISSIONS
+    .filter(g => {
+      // Skip apps without can_access (admin_panel, internal_portal)
+      const hasCanAccess = g.permissions.some(p => p.key === 'can_access');
+      if (!hasCanAccess) return false;
+      const appPerms = permissions?.[g.app];
+      if (appPerms && 'can_access' in appPerms) {
+        return (appPerms as Record<string, boolean>)['can_access'] === true;
+      }
+      return false;
+    })
+    .map(g => g.app);
 }
 
 // ============================================
