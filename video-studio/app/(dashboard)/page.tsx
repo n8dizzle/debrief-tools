@@ -258,6 +258,18 @@ export default function DashboardPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">
+                    {video.source_video_url && !video.rendered_url && (
+                      <Link
+                        href={`/create?source=upload&existingVideo=${encodeURIComponent(video.source_video_url)}&videoId=${video.id}`}
+                        className="btn btn-primary text-xs px-3 py-1.5 gap-1"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Add Branding
+                      </Link>
+                    )}
                     {video.rendered_url && (
                       <button
                         onClick={() => handleDownload(video.rendered_url!, `${video.title}-branded.webm`)}
