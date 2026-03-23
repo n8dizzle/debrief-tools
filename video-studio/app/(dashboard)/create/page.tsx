@@ -440,17 +440,31 @@ function CreateContent() {
                 <p className="text-xs mt-2 mb-4" style={{ color: 'var(--text-muted)' }}>
                   Use the controls to play/pause and scrub through the video. Changes update in real-time.
                 </p>
-                <button
-                  onClick={handleExport}
-                  disabled={!canExport}
-                  className="btn btn-primary w-full py-3 gap-2 text-base"
-                  style={{ opacity: canExport ? 1 : 0.5 }}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Export Video
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={handleExport}
+                    disabled={!canExport}
+                    className="btn btn-primary w-full py-3 gap-2 text-base"
+                    style={{ opacity: canExport ? 1 : 0.5 }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export Branded Video
+                  </button>
+                  {videoUrl && videoSource !== 'text' && (
+                    <a
+                      href={videoUrl}
+                      download
+                      className="btn btn-secondary w-full py-2.5 gap-2 text-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download Original (No Branding)
+                    </a>
+                  )}
+                </div>
               </>
             ) : (
               <div
