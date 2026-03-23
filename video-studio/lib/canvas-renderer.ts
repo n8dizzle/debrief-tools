@@ -59,36 +59,62 @@ export async function renderVideoToBlob(options: AllRenderOptions): Promise<Blob
   const ctx = canvas.getContext('2d')!;
 
   const canvasStream = canvas.captureStream(FPS);
-
-  // Combine canvas video track with audio from the source video
   const combinedStream = new MediaStream();
 
-  // Add canvas video track
   for (const track of canvasStream.getVideoTracks()) {
     combinedStream.addTrack(track);
   }
 
-  // If branded video, extract audio from the video element
+  // For branded video: create a FRESH video element for audio capture
+  // (createMediaElementSource can only be called once per element,
+  // and the element must not have been used for playback before)
+  let renderVideoEl: HTMLVideoElement | null = null;
   let audioContext: AudioContext | null = null;
-  let audioDestination: MediaStreamAudioDestinationNode | null = null;
-  let audioSource: MediaElementAudioSourceNode | null = null;
 
   if (options.type === 'branded-video' && options.videoElement) {
-    try {
-      audioContext = new AudioContext();
-      audioDestination = audioContext.createMediaStreamDestination();
-      audioSource = audioContext.createMediaElementSource(options.videoElement);
-      audioSource.connect(audioDestination);
-      // Also connect to speakers so we can hear during render (optional)
-      audioSource.connect(audioContext.destination);
+    const srcUrl = options.videoElement.src || options.videoElement.currentSrc;
 
-      for (const track of audioDestination.stream.getAudioTracks()) {
-        combinedStream.addTrack(track);
+    if (srcUrl) {
+      // Create fresh video element dedicated to this render
+      renderVideoEl = document.createElement('video');
+      renderVideoEl.crossOrigin = 'anonymous';
+      renderVideoEl.preload = 'auto';
+      renderVideoEl.playsInline = true;
+      renderVideoEl.src = srcUrl;
+
+      // Wait for it to be ready
+      await new Promise<void>((resolve) => {
+        const onReady = () => {
+          renderVideoEl!.removeEventListener('canplay', onReady);
+          resolve();
+        };
+        if (renderVideoEl!.readyState >= 3) {
+          resolve();
+        } else {
+          renderVideoEl!.addEventListener('canplay', onReady);
+          setTimeout(resolve, 8000); // fallback
+        }
+        renderVideoEl!.load();
+      });
+
+      // Set up audio capture on the fresh element
+      try {
+        audioContext = new AudioContext();
+        const audioDestination = audioContext.createMediaStreamDestination();
+        const audioSource = audioContext.createMediaElementSource(renderVideoEl);
+        audioSource.connect(audioDestination);
+        // Don't connect to speakers — silent render
+        for (const track of audioDestination.stream.getAudioTracks()) {
+          combinedStream.addTrack(track);
+        }
+      } catch (e) {
+        console.warn('Could not capture audio:', e);
       }
-    } catch (e) {
-      console.warn('Could not capture audio:', e);
     }
   }
+
+  // Use the render video element (with audio wired) or the original
+  const videoEl = renderVideoEl || (options.type === 'branded-video' ? options.videoElement : null);
 
   const chunks: Blob[] = [];
 
@@ -109,13 +135,8 @@ export async function renderVideoToBlob(options: AllRenderOptions): Promise<Blob
 
   const done = new Promise<Blob>((resolve) => {
     recorder.onstop = () => {
-      // Cleanup audio
-      if (audioSource) {
-        audioSource.disconnect();
-      }
-      if (audioContext) {
-        audioContext.close().catch(() => {});
-      }
+      if (audioContext) audioContext.close().catch(() => {});
+      if (renderVideoEl) renderVideoEl.remove();
       resolve(new Blob(chunks, { type: 'video/webm' }));
     };
   });
@@ -123,35 +144,14 @@ export async function renderVideoToBlob(options: AllRenderOptions): Promise<Blob
   recorder.start();
 
   const totalFrames = options.durationInSeconds * FPS;
-  const introFrames = 2 * FPS; // 2s intro
-  const outroFrames = 2 * FPS; // 2s outro
+  const introFrames = 2 * FPS;
+  const outroFrames = 2 * FPS;
   const mainFrames = totalFrames - introFrames - outroFrames;
 
-  // If video source, wait for metadata then seek to start
-  if (options.type === 'branded-video') {
-    const vid = options.videoElement;
-    vid.pause();
-
-    // Ensure metadata is loaded so duration is available
-    if (!vid.duration || !isFinite(vid.duration)) {
-      vid.preload = 'auto';
-      vid.load();
-      await new Promise<void>((resolve) => {
-        if (vid.readyState >= 1 && isFinite(vid.duration)) {
-          resolve();
-          return;
-        }
-        const onLoaded = () => {
-          vid.removeEventListener('loadedmetadata', onLoaded);
-          resolve();
-        };
-        vid.addEventListener('loadedmetadata', onLoaded);
-        // Timeout fallback
-        setTimeout(resolve, 5000);
-      });
-    }
-
-    vid.currentTime = 0;
+  // Ensure video is ready
+  if (videoEl) {
+    videoEl.pause();
+    videoEl.currentTime = 0;
   }
 
   // --- Render intro (no audio plays during intro) ---
@@ -162,24 +162,24 @@ export async function renderVideoToBlob(options: AllRenderOptions): Promise<Blob
   }
 
   // --- Render main content ---
-  if (options.type === 'branded-video') {
-    // Play video in real-time so audio is captured
-    const vid = options.videoElement;
-    vid.muted = false;
-    vid.volume = 1;
-    vid.currentTime = 0;
-    vid.play().catch(() => {});
+  if (options.type === 'branded-video' && videoEl) {
+    // Play video in real-time so audio is captured by MediaRecorder
+    videoEl.currentTime = 0;
+    videoEl.play().catch(() => {});
+
+    // Override the videoElement in options so drawBrandedVideoFrame uses our render element
+    const renderOpts = { ...options, videoElement: videoEl } as BrandedVideoRenderOptions;
 
     for (let frame = 0; frame < mainFrames; frame++) {
-      drawBrandedVideoFrame(ctx, frame, mainFrames, options);
+      drawBrandedVideoFrame(ctx, frame, mainFrames, renderOpts);
       options.onProgress(Math.round(((introFrames + frame) / totalFrames) * 100));
       await new Promise((r) => setTimeout(r, 1000 / FPS));
     }
 
-    vid.pause();
+    videoEl.pause();
   } else {
     for (let frame = 0; frame < mainFrames; frame++) {
-      drawTextFrame(ctx, frame, mainFrames, options);
+      drawTextFrame(ctx, frame, mainFrames, options as TextTemplateRenderOptions);
       options.onProgress(Math.round(((introFrames + frame) / totalFrames) * 100));
       await new Promise((r) => setTimeout(r, 1000 / FPS));
     }
