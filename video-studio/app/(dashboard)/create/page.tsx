@@ -41,6 +41,7 @@ function CreateContent() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
   const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Branded video overlay options
@@ -72,13 +73,13 @@ function CreateContent() {
     speakerTitle: '',
   });
 
-  const getTextProps = () => {
+  const getTextProps = useCallback(() => {
     switch (template) {
       case 'team-update': return teamUpdateProps;
       case 'shoutout': return shoutoutProps;
       case 'announcement': return announcementProps;
     }
-  };
+  }, [template, teamUpdateProps, shoutoutProps, announcementProps]);
 
   const getActiveTemplate = () => {
     if (videoSource === 'text') return template;
@@ -138,6 +139,37 @@ function CreateContent() {
   }, [videoSource, videoUrl, duration, videoLabel, speakerName, speakerTitle, showLowerThird, showWatermark, template, teamUpdateProps, shoutoutProps, announcementProps]);
 
   const canExport = videoSource === 'text' || !!videoUrl;
+
+  const handleExport = useCallback(async () => {
+    // Save draft to DB first
+    try {
+      const templateName = videoSource === 'text'
+        ? TEMPLATES[template]?.name || template
+        : videoLabel || 'Branded Video';
+
+      const res = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: templateName,
+          template: videoSource === 'text' ? template : 'branded-video',
+          templateProps: videoSource === 'text' ? getTextProps() : { speakerName, speakerTitle, showLowerThird, showWatermark, videoLabel },
+          videoSource,
+          sourceVideoUrl: videoUrl,
+          durationSeconds: duration,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSavedVideoId(data.id);
+      }
+    } catch {
+      // Still allow export even if save fails
+    }
+
+    setShowExport(true);
+  }, [videoSource, template, videoLabel, videoUrl, duration, speakerName, speakerTitle, showLowerThird, showWatermark, getTextProps]);
 
   return (
     <div>
@@ -409,7 +441,7 @@ function CreateContent() {
                   Use the controls to play/pause and scrub through the video. Changes update in real-time.
                 </p>
                 <button
-                  onClick={() => setShowExport(true)}
+                  onClick={handleExport}
                   disabled={!canExport}
                   className="btn btn-primary w-full py-3 gap-2 text-base"
                   style={{ opacity: canExport ? 1 : 0.5 }}
@@ -457,9 +489,10 @@ function CreateContent() {
       {/* Export Modal */}
       <ExportModal
         isOpen={showExport}
-        onClose={() => setShowExport(false)}
+        onClose={() => { setShowExport(false); setSavedVideoId(null); }}
         renderOptions={getRenderOptions()}
         videoElement={hiddenVideoRef.current}
+        videoId={savedVideoId}
       />
     </div>
   );

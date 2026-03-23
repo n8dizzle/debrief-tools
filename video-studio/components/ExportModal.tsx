@@ -8,10 +8,12 @@ interface ExportModalProps {
   onClose: () => void;
   renderOptions: Record<string, any>;
   videoElement?: HTMLVideoElement | null;
+  videoId?: string | null;
+  onSaved?: () => void;
 }
 
-export default function ExportModal({ isOpen, onClose, renderOptions, videoElement }: ExportModalProps) {
-  const [state, setState] = useState<'idle' | 'rendering' | 'done' | 'error'>('idle');
+export default function ExportModal({ isOpen, onClose, renderOptions, videoElement, videoId, onSaved }: ExportModalProps) {
+  const [state, setState] = useState<'idle' | 'rendering' | 'uploading' | 'done' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const blobRef = useRef<Blob | null>(null);
@@ -28,7 +30,6 @@ export default function ExportModal({ isOpen, onClose, renderOptions, videoEleme
         onProgress: (pct: number) => setProgress(pct),
       } as AllRenderOptions;
 
-      // If branded video, attach the video element
       if (opts.type === 'branded-video' && videoElement) {
         (opts as any).videoElement = videoElement;
       }
@@ -36,13 +37,40 @@ export default function ExportModal({ isOpen, onClose, renderOptions, videoEleme
       const blob = await renderVideoToBlob(opts);
       blobRef.current = blob;
       urlRef.current = URL.createObjectURL(blob);
+
+      // Upload rendered video and save to database
+      if (videoId) {
+        setState('uploading');
+        try {
+          const formData = new FormData();
+          formData.append('file', blob, `rendered-${Date.now()}.webm`);
+          const uploadRes = await fetch('/api/videos/upload', { method: 'POST', body: formData });
+          const uploadData = await uploadRes.json();
+
+          if (uploadRes.ok) {
+            await fetch(`/api/videos/${videoId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                renderedUrl: uploadData.url,
+                renderedStoragePath: uploadData.storagePath,
+                status: 'completed',
+              }),
+            });
+            onSaved?.();
+          }
+        } catch {
+          // Upload failed but render succeeded — user can still download
+        }
+      }
+
       setState('done');
     } catch (err: any) {
       console.error('Render error:', err);
       setError(err.message || 'Rendering failed');
       setState('error');
     }
-  }, [renderOptions, videoElement]);
+  }, [renderOptions, videoElement, videoId, onSaved]);
 
   const handleDownload = useCallback(() => {
     if (!urlRef.current) return;
@@ -123,7 +151,7 @@ export default function ExportModal({ isOpen, onClose, renderOptions, videoEleme
         )}
 
         {/* Rendering */}
-        {state === 'rendering' && (
+        {(state === 'rendering' || state === 'uploading') && (
           <div className="text-center">
             <div className="mb-4">
               <div
@@ -133,17 +161,17 @@ export default function ExportModal({ isOpen, onClose, renderOptions, videoEleme
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
-                    width: `${progress}%`,
+                    width: state === 'uploading' ? '100%' : `${progress}%`,
                     backgroundColor: 'var(--christmas-green)',
                   }}
                 />
               </div>
               <p className="text-sm mt-2 font-mono" style={{ color: 'var(--text-secondary)' }}>
-                {progress}%
+                {state === 'uploading' ? 'Saving...' : `${progress}%`}
               </p>
             </div>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Rendering video... Please keep this tab open.
+              {state === 'uploading' ? 'Uploading rendered video...' : 'Rendering video... Please keep this tab open.'}
             </p>
           </div>
         )}
