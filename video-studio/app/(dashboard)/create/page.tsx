@@ -526,7 +526,6 @@ function CreateContent() {
           src={videoUrl}
           crossOrigin="anonymous"
           playsInline
-          muted
           preload="auto"
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
         />
