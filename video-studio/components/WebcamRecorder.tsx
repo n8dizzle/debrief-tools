@@ -150,28 +150,29 @@ export default function WebcamRecorder({ onRecorded, maxDuration = 60 }: WebcamR
 
     setIsUploading(true);
     try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) throw new Error('Storage not configured');
+
       const ext = recordedBlobRef.current.type.includes('webm') ? 'webm' : 'mp4';
-      const fileName = `recording.${ext}`;
+      const randomStr = Math.random().toString(36).substring(2, 10);
+      const storagePath = `recordings/${Date.now()}-${randomStr}.${ext}`;
 
-      // Get signed upload URL
-      const urlRes = await fetch('/api/videos/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName, contentType: recordedBlobRef.current.type }),
-      });
-
-      if (!urlRes.ok) throw new Error('Failed to get upload URL');
-      const { signedUrl, publicUrl } = await urlRes.json();
-
-      // Upload directly to Supabase Storage
-      const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': recordedBlobRef.current.type },
-        body: recordedBlobRef.current,
-      });
+      const uploadRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/video-studio-media/${storagePath}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'Content-Type': recordedBlobRef.current.type,
+          },
+          body: recordedBlobRef.current,
+        }
+      );
 
       if (!uploadRes.ok) throw new Error('Upload failed');
 
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/video-studio-media/${storagePath}`;
       onRecorded(publicUrl, recordedBlobRef.current);
     } catch (err: any) {
       setError(err.message || 'Upload failed');
