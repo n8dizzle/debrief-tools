@@ -888,38 +888,52 @@ export async function POST(request: NextRequest) {
           // Send Slack DM to assigned advisor (one DM per lead)
           let slackSent = false;
           if (slackConfigured) {
-            const slackResult = await sendLeadAssignmentDM({
-              jobId: job.id.toString(),
-              jobNumber: job.jobNumber,
-              leadType: 'Marketed',
-              customerName: details.customerName,
-              customerPhone: details.customerPhone,
-              customerAddress: details.customerAddress,
-              scheduledDate: details.scheduledDate,
-              leadId: newLead.id,
-              advisor: {
-                name: advisor.name,
-                email: advisor.email,
-                phone: advisor.phone,
-              },
-            });
-            slackSent = slackResult.ok;
+            try {
+              console.log(`Sending DM for marketed lead ${job.id} to ${advisor.email}`);
+              const slackResult = await sendLeadAssignmentDM({
+                jobId: job.id.toString(),
+                jobNumber: job.jobNumber,
+                leadType: 'Marketed',
+                customerName: details.customerName,
+                customerPhone: details.customerPhone,
+                customerAddress: details.customerAddress,
+                scheduledDate: details.scheduledDate,
+                leadId: newLead.id,
+                advisor: {
+                  name: advisor.name,
+                  email: advisor.email,
+                  phone: advisor.phone,
+                },
+              });
+              slackSent = slackResult.ok;
+              console.log(`DM result for ${job.id}: ok=${slackResult.ok}, error=${slackResult.error || 'none'}`);
 
-            // Mark DM sent + log assignment
-            await supabase.from('leads').update({
-              dm_sent_at: new Date().toISOString(),
-              assigned_at: new Date().toISOString(),
-            }).eq('id', newLead.id);
+              // Log assignment (ignore errors on new columns — schema cache may lag)
+              try {
+                await supabase.from('leads').update({
+                  dm_sent_at: new Date().toISOString(),
+                  assigned_at: new Date().toISOString(),
+                }).eq('id', newLead.id);
+              } catch (updateErr) {
+                console.warn('Failed to update dm_sent_at (schema cache):', updateErr);
+              }
 
-            await supabase.from('lead_assignment_log').insert({
-              lead_id: newLead.id,
-              advisor_id: advisor.id,
-              lead_type: 'Marketed',
-              assigned_via: stAssigned ? 'service-titan' : 'round-robin',
-              queue_position: advisor.marketed_queue_position,
-              notification_status: slackResult.ok ? 'sent' : 'failed',
-              notification_error: slackResult.error || null,
-            });
+              try {
+                await supabase.from('lead_assignment_log').insert({
+                  lead_id: newLead.id,
+                  advisor_id: advisor.id,
+                  lead_type: 'Marketed',
+                  assigned_via: stAssigned ? 'service-titan' : 'round-robin',
+                  queue_position: advisor.marketed_queue_position,
+                  notification_status: slackResult.ok ? 'sent' : 'failed',
+                  notification_error: slackResult.error || null,
+                });
+              } catch (logErr) {
+                console.warn('Failed to insert assignment log:', logErr);
+              }
+            } catch (dmErr) {
+              console.error(`DM failed for marketed lead ${job.id}:`, dmErr);
+            }
           }
 
           // Only rotate queue when we used round-robin (not when ST assigned)
@@ -981,57 +995,64 @@ export async function POST(request: NextRequest) {
           // Send Slack DM to assigned advisor + confirmation to tech
           let slackSent = false;
           if (slackConfigured) {
-            const slackResult = await sendLeadAssignmentDM({
-              jobId: job.id.toString(),
-              jobNumber: job.jobNumber,
-              leadType: 'TGL',
-              customerName: details.customerName,
-              customerPhone: details.customerPhone,
-              customerAddress: details.customerAddress,
-              scheduledDate: details.scheduledDate,
-              leadId: newLead.id,
-              techName: details.techName,
-              advisor: {
-                name: advisor.name,
-                email: advisor.email,
-                phone: advisor.phone,
-              },
-            });
-            slackSent = slackResult.ok;
+            try {
+              console.log(`Sending DM for TGL ${job.id} to ${advisor.email}`);
+              const slackResult = await sendLeadAssignmentDM({
+                jobId: job.id.toString(),
+                jobNumber: job.jobNumber,
+                leadType: 'TGL',
+                customerName: details.customerName,
+                customerPhone: details.customerPhone,
+                customerAddress: details.customerAddress,
+                scheduledDate: details.scheduledDate,
+                leadId: newLead.id,
+                techName: details.techName,
+                advisor: {
+                  name: advisor.name,
+                  email: advisor.email,
+                  phone: advisor.phone,
+                },
+              });
+              slackSent = slackResult.ok;
+              console.log(`DM result for TGL ${job.id}: ok=${slackResult.ok}, error=${slackResult.error || 'none'}`);
 
-            // Send confirmation DM to the tech who submitted the TGL
-            if (details.techName) {
-              // Try to find the tech's email via ST employees (best effort)
-              try {
-                const techEmail = await findTechEmail(details.techName, config, token);
-                if (techEmail) {
-                  await sendTechConfirmationDM(
-                    techEmail,
-                    advisor.name,
-                    details.customerName,
-                    job.jobNumber
-                  );
+              // Send confirmation DM to the tech who submitted the TGL
+              if (details.techName) {
+                try {
+                  const techEmail = await findTechEmail(details.techName, config, token);
+                  if (techEmail) {
+                    await sendTechConfirmationDM(techEmail, advisor.name, details.customerName, job.jobNumber);
+                  }
+                } catch (techDmErr) {
+                  console.warn(`Could not DM tech ${details.techName}:`, techDmErr);
                 }
-              } catch (techDmErr) {
-                console.warn(`Could not DM tech ${details.techName}:`, techDmErr);
               }
+
+              try {
+                await supabase.from('leads').update({
+                  dm_sent_at: new Date().toISOString(),
+                  assigned_at: new Date().toISOString(),
+                }).eq('id', newLead.id);
+              } catch (updateErr) {
+                console.warn('Failed to update dm_sent_at:', updateErr);
+              }
+
+              try {
+                await supabase.from('lead_assignment_log').insert({
+                  lead_id: newLead.id,
+                  advisor_id: advisor.id,
+                  lead_type: 'TGL',
+                  assigned_via: 'round-robin',
+                  queue_position: advisor.tgl_queue_position,
+                  notification_status: slackResult.ok ? 'sent' : 'failed',
+                  notification_error: slackResult.error || null,
+                });
+              } catch (logErr) {
+                console.warn('Failed to insert assignment log:', logErr);
+              }
+            } catch (dmErr) {
+              console.error(`DM failed for TGL ${job.id}:`, dmErr);
             }
-
-            // Mark DM sent + log assignment
-            await supabase.from('leads').update({
-              dm_sent_at: new Date().toISOString(),
-              assigned_at: new Date().toISOString(),
-            }).eq('id', newLead.id);
-
-            await supabase.from('lead_assignment_log').insert({
-              lead_id: newLead.id,
-              advisor_id: advisor.id,
-              lead_type: 'TGL',
-              assigned_via: 'round-robin',
-              queue_position: advisor.tgl_queue_position,
-              notification_status: slackResult.ok ? 'sent' : 'failed',
-              notification_error: slackResult.error || null,
-            });
           }
 
           // Rotate TGL queue
