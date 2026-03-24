@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
 
     const advisorName = lead.advisor?.name || 'Unknown';
 
-    // Send confirmation message to Slack
-    await sendViaWebhook({
-      text: `✅ *${lead.client_name}* marked as assigned to *${advisorName}*`,
-    });
+    // Send confirmation message to Slack — DISABLED: pausing lead bot notifications
+    // await sendViaWebhook({
+    //   text: `✅ *${lead.client_name}* marked as assigned to *${advisorName}*`,
+    // });
 
     // Return a page that auto-closes
     return new NextResponse(

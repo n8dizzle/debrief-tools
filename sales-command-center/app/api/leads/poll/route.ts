@@ -810,41 +810,41 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Send Slack notification
+          // Send Slack notification — DISABLED: pausing lead bot notifications
           let slackSent = false;
-          if (slackConfigured) {
-            const currentAdvisors = await supabase
-              .from('comfort_advisors')
-              .select('id, name, phone, email, marketed_queue_position')
-              .eq('active', true)
-              .eq('in_queue', true)
-              .not('marketed_queue_position', 'is', null)
-              .order('marketed_queue_position', { ascending: true })
-              .limit(2);
-
-            const advisorList = currentAdvisors.data || [];
-            const nextAdvisor = advisorList.find((a) => a.id !== advisor.id) ?? advisorList[0];
-
-            const slackResult = await sendMarketedLeadNotification({
-              jobId: job.id.toString(),
-              jobNumber: job.jobNumber,
-              customerName: details.customerName,
-              customerPhone: details.customerPhone,
-              customerAddress: details.customerAddress,
-              scheduledDate: details.scheduledDate,
-              leadId: newLead.id,
-              recommendedAdvisor: {
-                name: advisor.name,
-                phone: advisor.phone,
-                email: advisor.email,
-                position: advisor.marketed_queue_position,
-              },
-              nextInLine: nextAdvisor
-                ? { name: nextAdvisor.name, phone: nextAdvisor.phone }
-                : { name: 'N/A', phone: '' },
-            });
-            slackSent = slackResult.ok;
-          }
+          // if (slackConfigured) {
+          //   const currentAdvisors = await supabase
+          //     .from('comfort_advisors')
+          //     .select('id, name, phone, email, marketed_queue_position')
+          //     .eq('active', true)
+          //     .eq('in_queue', true)
+          //     .not('marketed_queue_position', 'is', null)
+          //     .order('marketed_queue_position', { ascending: true })
+          //     .limit(2);
+          //
+          //   const advisorList = currentAdvisors.data || [];
+          //   const nextAdvisor = advisorList.find((a) => a.id !== advisor.id) ?? advisorList[0];
+          //
+          //   const slackResult = await sendMarketedLeadNotification({
+          //     jobId: job.id.toString(),
+          //     jobNumber: job.jobNumber,
+          //     customerName: details.customerName,
+          //     customerPhone: details.customerPhone,
+          //     customerAddress: details.customerAddress,
+          //     scheduledDate: details.scheduledDate,
+          //     leadId: newLead.id,
+          //     recommendedAdvisor: {
+          //       name: advisor.name,
+          //       phone: advisor.phone,
+          //       email: advisor.email,
+          //       position: advisor.marketed_queue_position,
+          //     },
+          //     nextInLine: nextAdvisor
+          //       ? { name: nextAdvisor.name, phone: nextAdvisor.phone }
+          //       : { name: 'N/A', phone: '' },
+          //   });
+          //   slackSent = slackResult.ok;
+          // }
 
           // Only rotate queue when we used round-robin (not when ST assigned)
           if (!stAssigned) {
@@ -902,34 +902,34 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Send Slack notification to TGL channel
+          // Send Slack notification to TGL channel — DISABLED: pausing lead bot notifications
           let slackSent = false;
-          if (slackConfigured) {
-            const nextTglAdvisorIndex = (advisorIndex + 1) % tglAdvisors.length;
-            const nextTglAdvisor = tglAdvisors[nextTglAdvisorIndex];
-
-            const slackResult = await sendTGLNotification({
-              jobId: job.id.toString(),
-              jobNumber: job.jobNumber,
-              customerName: details.customerName,
-              customerPhone: details.customerPhone,
-              customerAddress: details.customerAddress,
-              scheduledDate: details.scheduledDate,
-              techName: details.techName,
-              leadId: newLead.id,
-              recommendedAdvisor: {
-                name: advisor.name,
-                phone: advisor.phone,
-                email: advisor.email,
-                position: advisor.tgl_queue_position,
-              },
-              nextInLine: {
-                name: nextTglAdvisor.name,
-                phone: nextTglAdvisor.phone,
-              },
-            });
-            slackSent = slackResult.ok;
-          }
+          // if (slackConfigured) {
+          //   const nextTglAdvisorIndex = (advisorIndex + 1) % tglAdvisors.length;
+          //   const nextTglAdvisor = tglAdvisors[nextTglAdvisorIndex];
+          //
+          //   const slackResult = await sendTGLNotification({
+          //     jobId: job.id.toString(),
+          //     jobNumber: job.jobNumber,
+          //     customerName: details.customerName,
+          //     customerPhone: details.customerPhone,
+          //     customerAddress: details.customerAddress,
+          //     scheduledDate: details.scheduledDate,
+          //     techName: details.techName,
+          //     leadId: newLead.id,
+          //     recommendedAdvisor: {
+          //       name: advisor.name,
+          //       phone: advisor.phone,
+          //       email: advisor.email,
+          //       position: advisor.tgl_queue_position,
+          //     },
+          //     nextInLine: {
+          //       name: nextTglAdvisor.name,
+          //       phone: nextTglAdvisor.phone,
+          //     },
+          //   });
+          //   slackSent = slackResult.ok;
+          // }
 
           // Rotate TGL queue
           await rotateQueue(supabase, advisor.id, 'tgl', tglAdvisors || []);

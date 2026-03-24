@@ -20,6 +20,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // DISABLED: pausing lead bot notifications
+    // To re-enable, remove this block and uncomment the isSlackConfigured check below
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      message: 'Slack lead bot notifications are paused',
+    });
+
     // Check if Slack is configured
     if (!isSlackConfigured()) {
       console.warn('Slack notification skipped: not configured');
