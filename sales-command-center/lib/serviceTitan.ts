@@ -1,6 +1,26 @@
 // Service Titan API integration layer
 import { Lead, ServiceTitanConfig } from '@/types';
 
+/**
+ * Format a date as YYYY-MM-DD in LOCAL time (Central Time).
+ * NEVER use toISOString() — it converts to UTC, causing 6-hour date shifts in Texas.
+ * See CLAUDE.md "Timezone Rules" section.
+ */
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Format a date as ISO-like timestamp WITHOUT the Z suffix.
+ * ServiceTitan API interprets timestamps without Z as tenant's local time.
+ */
+function formatLocalTimestamp(date: Date): string {
+  return `${formatLocalDate(date)}T00:00:00`;
+}
+
 // Auth endpoints differ by environment
 const AUTH_ENDPOINTS = {
   integration: 'https://auth-integration.servicetitan.io/connect/token',
@@ -155,10 +175,10 @@ export async function syncLeadsFromServiceTitan(config: ServiceTitanConfig, opti
 
   // Add date filters if provided
   if (options?.startDate) {
-    params.append('createdOnOrAfter', options.startDate.toISOString());
+    params.append('createdOnOrAfter', formatLocalTimestamp(options.startDate));
   }
   if (options?.endDate) {
-    params.append('createdBefore', options.endDate.toISOString());
+    params.append('createdBefore', formatLocalTimestamp(options.endDate));
   }
   if (options?.status) {
     params.append('status', options.status);
@@ -240,10 +260,10 @@ export async function syncSoldEstimates(
   });
 
   if (options?.startDate) {
-    params.append('soldAfter', options.startDate.toISOString().split('T')[0]);
+    params.append('soldAfter', formatLocalDate(options.startDate));
   }
   if (options?.endDate) {
-    params.append('soldBefore', options.endDate.toISOString().split('T')[0]);
+    params.append('soldBefore', formatLocalDate(options.endDate));
   }
 
   const endpoint = `/sales/v2/tenant/${config.tenantId}/estimates?${params.toString()}`;
@@ -361,10 +381,10 @@ async function fetchAllEstimates(
   });
 
   if (options?.startDate) {
-    soldParams.append('soldAfter', options.startDate.toISOString().split('T')[0]);
+    soldParams.append('soldAfter', formatLocalDate(options.startDate));
   }
   if (options?.endDate) {
-    soldParams.append('soldBefore', options.endDate.toISOString().split('T')[0]);
+    soldParams.append('soldBefore', formatLocalDate(options.endDate));
   }
 
   const soldEndpoint = `/sales/v2/tenant/${config.tenantId}/estimates?${soldParams.toString()}`;
@@ -384,10 +404,10 @@ async function fetchAllEstimates(
   });
 
   if (options?.startDate) {
-    createdParams.append('createdOnOrAfter', options.startDate.toISOString().split('T')[0]);
+    createdParams.append('createdOnOrAfter', formatLocalDate(options.startDate));
   }
   if (options?.endDate) {
-    createdParams.append('createdBefore', options.endDate.toISOString().split('T')[0]);
+    createdParams.append('createdBefore', formatLocalDate(options.endDate));
   }
 
   const createdEndpoint = `/sales/v2/tenant/${config.tenantId}/estimates?${createdParams.toString()}`;

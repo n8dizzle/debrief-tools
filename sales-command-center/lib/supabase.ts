@@ -39,8 +39,13 @@ export interface DbLead {
   address: string | null;
   notes: string | null;
   service_titan_id: string | null;
+  service_titan_customer_id: string | null;
   unit_age: number | null;
   system_type: string | null;
+  assigned_at: string | null;
+  contacted_at: string | null;
+  dm_sent_at: string | null;
+  scott_notified_at: string | null;
   created_at: string;
 }
 

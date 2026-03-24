@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { sendMarketedLeadNotification, sendTGLNotification, isSlackConfigured } from '@/lib/slack';
+import {
+  sendLeadAssignmentDM,
+  sendTechConfirmationDM,
+  sendEmptyQueueAlert,
+  isSlackConfigured,
+} from '@/lib/slack';
 import {
   authenticateServiceTitan,
   getServiceTitanConfigFromEnv,
   isServiceTitanConfigured,
 } from '@/lib/serviceTitan';
+
+// 30-day dedup window (ms)
+const DEDUP_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Business Unit and Job Type IDs for marketed leads
 const HVAC_SALES_BU_ID = '33643795';
@@ -556,6 +564,8 @@ async function rotateQueue(
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = createServerSupabaseClient();
+
   try {
     // Allow requests from cron (CRON_SECRET header) or authenticated sessions
     const cronSecret = request.headers.get('x-cron-secret');
@@ -563,8 +573,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ── CRON LOCK: Prevent overlapping poll runs ────────────────────────────
+    const lockCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5-min stale lock
+    const { data: lockData } = await supabase
+      .from('cron_lock')
+      .select('locked_at')
+      .eq('id', 'poll')
+      .single();
+
+    if (lockData?.locked_at && lockData.locked_at > lockCutoff) {
+      return NextResponse.json({
+        success: false,
+        message: 'Poll already running (locked)',
+        lockedAt: lockData.locked_at,
+      });
+    }
+
+    // Acquire lock
+    const lockId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await supabase
+      .from('cron_lock')
+      .update({ locked_at: new Date().toISOString(), locked_by: lockId })
+      .eq('id', 'poll');
+
     // Check if Service Titan is configured
     if (!isServiceTitanConfigured()) {
+      await releaseLock(supabase);
       return NextResponse.json({
         success: false,
         error: 'Service Titan not configured',
@@ -573,7 +607,6 @@ export async function POST(request: NextRequest) {
 
     const config = getServiceTitanConfigFromEnv()!;
     const token = await authenticateServiceTitan(config);
-    const supabase = createServerSupabaseClient();
 
     // ── DEBUG: List available forms ────────────────────────────────────────────
     const body = await request.json().catch(() => ({}));
@@ -725,12 +758,14 @@ export async function POST(request: NextRequest) {
       (job) => job.businessUnitId?.toString() !== HVAC_SALES_BU_ID
     );
 
-    // ── STEP 5: Skip jobs already in our system ───────────────────────────────
+    // ── STEP 5: Skip jobs already in our system (30-day dedup window) ────────
     const allJobIds = [...marketedLeadJobs, ...tglJobs].map((j) => j.id.toString());
+    const dedupCutoff = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
     const { data: existingLeads } = await supabase
       .from('leads')
       .select('service_titan_id')
-      .in('service_titan_id', allJobIds);
+      .in('service_titan_id', allJobIds)
+      .gte('created_at', dedupCutoff);
 
     const existingJobIds = new Set((existingLeads || []).map((l) => l.service_titan_id));
 
@@ -756,6 +791,46 @@ export async function POST(request: NextRequest) {
 
     const results: any[] = [];
     const slackConfigured = isSlackConfigured();
+    const allNewJobs = [...newMarketedJobs, ...newTglJobs];
+
+    // ── EMPTY QUEUE CHECK: DM Scott if no advisors available ────────────────
+    if (allNewJobs.length > 0 && (!marketedAdvisors || marketedAdvisors.length === 0) && (!tglAdvisors || tglAdvisors.length === 0)) {
+      // Check for leads that haven't notified Scott yet
+      for (const job of allNewJobs) {
+        // Insert as unassigned "New Lead" so it doesn't get lost
+        const isMarketed = marketedLeadJobs.some(m => m.id === job.id);
+        const details = await fetchJobDetails(job, config, token);
+
+        const { data: newLead } = await supabase
+          .from('leads')
+          .insert({
+            client_name: details.customerName,
+            lead_type: isMarketed ? 'Marketed' : 'TGL',
+            source: 'Service Titan',
+            status: 'New Lead',
+            phone: details.customerPhone,
+            address: details.customerAddress,
+            service_titan_id: job.id.toString(),
+            tech_name: details.techName,
+            notes: `Job #${job.jobNumber} - No advisors in queue at time of import`,
+          })
+          .select()
+          .single();
+
+        if (newLead && slackConfigured) {
+          await sendEmptyQueueAlert(details.customerName, job.jobNumber, isMarketed ? 'Marketed' : 'TGL');
+          await supabase.from('leads').update({ scott_notified_at: new Date().toISOString() }).eq('id', newLead.id);
+        }
+
+        results.push({
+          jobId: job.id,
+          type: isMarketed ? 'Marketed' : 'TGL',
+          customerName: details.customerName,
+          assignedTo: 'NONE - empty queue',
+          success: true,
+        });
+      }
+    }
 
     // ── STEP 7: Process new marketed leads ────────────────────────────────────
     if (newMarketedJobs.length > 0 && marketedAdvisors && marketedAdvisors.length > 0) {
@@ -810,41 +885,42 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Send Slack notification — DISABLED: pausing lead bot notifications
+          // Send Slack DM to assigned advisor (one DM per lead)
           let slackSent = false;
-          // if (slackConfigured) {
-          //   const currentAdvisors = await supabase
-          //     .from('comfort_advisors')
-          //     .select('id, name, phone, email, marketed_queue_position')
-          //     .eq('active', true)
-          //     .eq('in_queue', true)
-          //     .not('marketed_queue_position', 'is', null)
-          //     .order('marketed_queue_position', { ascending: true })
-          //     .limit(2);
-          //
-          //   const advisorList = currentAdvisors.data || [];
-          //   const nextAdvisor = advisorList.find((a) => a.id !== advisor.id) ?? advisorList[0];
-          //
-          //   const slackResult = await sendMarketedLeadNotification({
-          //     jobId: job.id.toString(),
-          //     jobNumber: job.jobNumber,
-          //     customerName: details.customerName,
-          //     customerPhone: details.customerPhone,
-          //     customerAddress: details.customerAddress,
-          //     scheduledDate: details.scheduledDate,
-          //     leadId: newLead.id,
-          //     recommendedAdvisor: {
-          //       name: advisor.name,
-          //       phone: advisor.phone,
-          //       email: advisor.email,
-          //       position: advisor.marketed_queue_position,
-          //     },
-          //     nextInLine: nextAdvisor
-          //       ? { name: nextAdvisor.name, phone: nextAdvisor.phone }
-          //       : { name: 'N/A', phone: '' },
-          //   });
-          //   slackSent = slackResult.ok;
-          // }
+          if (slackConfigured) {
+            const slackResult = await sendLeadAssignmentDM({
+              jobId: job.id.toString(),
+              jobNumber: job.jobNumber,
+              leadType: 'Marketed',
+              customerName: details.customerName,
+              customerPhone: details.customerPhone,
+              customerAddress: details.customerAddress,
+              scheduledDate: details.scheduledDate,
+              leadId: newLead.id,
+              advisor: {
+                name: advisor.name,
+                email: advisor.email,
+                phone: advisor.phone,
+              },
+            });
+            slackSent = slackResult.ok;
+
+            // Mark DM sent + log assignment
+            await supabase.from('leads').update({
+              dm_sent_at: new Date().toISOString(),
+              assigned_at: new Date().toISOString(),
+            }).eq('id', newLead.id);
+
+            await supabase.from('lead_assignment_log').insert({
+              lead_id: newLead.id,
+              advisor_id: advisor.id,
+              lead_type: 'Marketed',
+              assigned_via: stAssigned ? 'service-titan' : 'round-robin',
+              queue_position: advisor.marketed_queue_position,
+              notification_status: slackResult.ok ? 'sent' : 'failed',
+              notification_error: slackResult.error || null,
+            });
+          }
 
           // Only rotate queue when we used round-robin (not when ST assigned)
           if (!stAssigned) {
@@ -902,34 +978,61 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Send Slack notification to TGL channel — DISABLED: pausing lead bot notifications
+          // Send Slack DM to assigned advisor + confirmation to tech
           let slackSent = false;
-          // if (slackConfigured) {
-          //   const nextTglAdvisorIndex = (advisorIndex + 1) % tglAdvisors.length;
-          //   const nextTglAdvisor = tglAdvisors[nextTglAdvisorIndex];
-          //
-          //   const slackResult = await sendTGLNotification({
-          //     jobId: job.id.toString(),
-          //     jobNumber: job.jobNumber,
-          //     customerName: details.customerName,
-          //     customerPhone: details.customerPhone,
-          //     customerAddress: details.customerAddress,
-          //     scheduledDate: details.scheduledDate,
-          //     techName: details.techName,
-          //     leadId: newLead.id,
-          //     recommendedAdvisor: {
-          //       name: advisor.name,
-          //       phone: advisor.phone,
-          //       email: advisor.email,
-          //       position: advisor.tgl_queue_position,
-          //     },
-          //     nextInLine: {
-          //       name: nextTglAdvisor.name,
-          //       phone: nextTglAdvisor.phone,
-          //     },
-          //   });
-          //   slackSent = slackResult.ok;
-          // }
+          if (slackConfigured) {
+            const slackResult = await sendLeadAssignmentDM({
+              jobId: job.id.toString(),
+              jobNumber: job.jobNumber,
+              leadType: 'TGL',
+              customerName: details.customerName,
+              customerPhone: details.customerPhone,
+              customerAddress: details.customerAddress,
+              scheduledDate: details.scheduledDate,
+              leadId: newLead.id,
+              techName: details.techName,
+              advisor: {
+                name: advisor.name,
+                email: advisor.email,
+                phone: advisor.phone,
+              },
+            });
+            slackSent = slackResult.ok;
+
+            // Send confirmation DM to the tech who submitted the TGL
+            if (details.techName) {
+              // Try to find the tech's email via ST employees (best effort)
+              try {
+                const techEmail = await findTechEmail(details.techName, config, token);
+                if (techEmail) {
+                  await sendTechConfirmationDM(
+                    techEmail,
+                    advisor.name,
+                    details.customerName,
+                    job.jobNumber
+                  );
+                }
+              } catch (techDmErr) {
+                console.warn(`Could not DM tech ${details.techName}:`, techDmErr);
+              }
+            }
+
+            // Mark DM sent + log assignment
+            await supabase.from('leads').update({
+              dm_sent_at: new Date().toISOString(),
+              assigned_at: new Date().toISOString(),
+            }).eq('id', newLead.id);
+
+            await supabase.from('lead_assignment_log').insert({
+              lead_id: newLead.id,
+              advisor_id: advisor.id,
+              lead_type: 'TGL',
+              assigned_via: 'round-robin',
+              queue_position: advisor.tgl_queue_position,
+              notification_status: slackResult.ok ? 'sent' : 'failed',
+              notification_error: slackResult.error || null,
+            });
+          }
 
           // Rotate TGL queue
           await rotateQueue(supabase, advisor.id, 'tgl', tglAdvisors || []);
@@ -993,7 +1096,60 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  } finally {
+    // Always release the cron lock
+    await releaseLock(supabase);
   }
+}
+
+/** Release the cron poll lock */
+async function releaseLock(supabase: ReturnType<typeof createServerSupabaseClient>) {
+  try {
+    await supabase
+      .from('cron_lock')
+      .update({ locked_at: null, locked_by: null })
+      .eq('id', 'poll');
+  } catch (err) {
+    console.error('Failed to release cron lock:', err);
+  }
+}
+
+/** Try to find a tech's email from Service Titan employees list */
+async function findTechEmail(
+  techName: string,
+  config: { tenantId: string; appKey: string },
+  token: string
+): Promise<string | null> {
+  if (!techName) return null;
+
+  try {
+    const response = await fetch(
+      `https://api.servicetitan.io/settings/v2/tenant/${config.tenantId}/technicians?` +
+        new URLSearchParams({ pageSize: '200', active: 'true' }),
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'ST-App-Key': config.appKey,
+        },
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const nameLower = techName.toLowerCase().trim();
+
+    for (const tech of data.data || []) {
+      const fullName = (tech.name || `${tech.firstName || ''} ${tech.lastName || ''}`).trim().toLowerCase();
+      if (fullName === nameLower || fullName.includes(nameLower) || nameLower.includes(fullName)) {
+        return tech.email || null;
+      }
+    }
+  } catch (err) {
+    console.warn(`Failed to look up tech email for ${techName}:`, err);
+  }
+
+  return null;
 }
 
 export async function GET() {

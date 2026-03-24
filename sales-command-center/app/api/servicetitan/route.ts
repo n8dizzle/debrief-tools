@@ -15,7 +15,7 @@ import {
   getTeams,
   authenticateServiceTitan,
 } from '@/lib/serviceTitan';
-import { isSlackConfigured, sendMarketedLeadNotification } from '@/lib/slack';
+import { isSlackConfigured, sendLeadAssignmentDM } from '@/lib/slack';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { ServiceTitanConfig } from '@/types';
 
@@ -875,35 +875,30 @@ export async function POST(request: NextRequest) {
         const currentAdvisor = advisors?.[0];
         const nextAdvisor = advisors && advisors.length > 1 ? advisors[1] : null;
 
-        // Send a test notification using current queue order
-        const result = await sendMarketedLeadNotification({
+        // Send a test DM notification
+        const result = await sendLeadAssignmentDM({
           jobId: testLead?.service_titan_id || 'TEST-123',
           jobNumber: testLead?.service_titan_id || 'TEST-123',
+          leadType: 'Marketed',
           customerName: testLead?.client_name || 'Test Customer',
           customerPhone: testLead?.phone || '(555) 123-4567',
           customerAddress: testLead?.address || '123 Test Street, Dallas, TX 75201',
           scheduledDate: new Date().toISOString(),
           leadId: testLead?.id,
-          recommendedAdvisor: {
+          advisor: {
             name: currentAdvisor?.name || 'Test Advisor',
-            phone: currentAdvisor?.phone || '(555) 987-6543',
             email: currentAdvisor?.email || 'test@example.com',
-            position: currentAdvisor?.marketed_queue_position || 1,
+            phone: currentAdvisor?.phone || '(555) 987-6543',
           },
-          nextInLine: nextAdvisor ? {
-            name: nextAdvisor.name,
-            phone: nextAdvisor.phone,
-          } : undefined,
         });
 
         return NextResponse.json({
           success: result.ok,
-          message: result.ok ? 'Test MARKETED notification sent to #ml-quote!' : 'Failed to send notification',
+          message: result.ok ? 'Test MARKETED DM sent!' : 'Failed to send DM',
           error: result.error,
           testLeadUsed: testLead?.client_name || 'Test Customer',
           assignedTo: currentAdvisor?.name || 'None',
-          nextInLineShown: nextAdvisor?.name || 'None (only 1 advisor in queue)',
-          channel: '#ml-quote',
+          method: 'DM (not channel)',
         });
       } catch (error: any) {
         return NextResponse.json({ success: false, error: error.message });
@@ -933,36 +928,28 @@ export async function POST(request: NextRequest) {
         const currentAdvisor = advisors?.[0];
         const nextAdvisor = advisors && advisors.length > 1 ? advisors[1] : advisors?.[0];
 
-        // Import sendTGLNotification
-        const { sendTGLNotification } = await import('@/lib/slack');
-
-        const result = await sendTGLNotification({
+        const result = await sendLeadAssignmentDM({
           jobId: 'TGL-TEST-123',
           jobNumber: 'TGL-TEST-123',
+          leadType: 'TGL',
           customerName: 'Test TGL Customer',
           customerPhone: '(555) 123-4567',
           customerAddress: '123 Test Street, Dallas, TX 75201',
           scheduledDate: new Date().toISOString(),
           techName: 'Test Technician',
-          recommendedAdvisor: {
+          advisor: {
             name: currentAdvisor?.name || 'Test Advisor',
-            phone: currentAdvisor?.phone || '(555) 987-6543',
             email: currentAdvisor?.email || 'test@example.com',
-            position: currentAdvisor?.tgl_queue_position || 1,
+            phone: currentAdvisor?.phone || '(555) 987-6543',
           },
-          nextInLine: nextAdvisor ? {
-            name: nextAdvisor.name,
-            phone: nextAdvisor.phone,
-          } : undefined,
         });
 
         return NextResponse.json({
           success: result.ok,
-          message: result.ok ? 'Test TGL notification sent to #tgl-estimates!' : 'Failed to send notification',
+          message: result.ok ? 'Test TGL DM sent!' : 'Failed to send DM',
           error: result.error,
           assignedTo: currentAdvisor?.name || 'Test Advisor',
-          nextInLineShown: nextAdvisor?.name || 'None',
-          channel: '#tgl-estimates',
+          method: 'DM (not channel)',
         });
       } catch (error: any) {
         return NextResponse.json({ success: false, error: error.message });

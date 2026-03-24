@@ -1,437 +1,49 @@
-import { Lead, ComfortAdvisor, SlackMessage, SlackBlock } from '@/types';
+import { SlackBlock } from '@/types';
+
+// ============================================================================
+// Slack DM-Based Lead Notification System
+//
+// NOTIFICATION FLOW:
+//   Lead detected → Round robin assigns → DB write + audit log
+//                                             ↓
+//                         ┌──────────────────────────────────────┐
+//                         │  TEST_MODE=true?                     │
+//                         │  Y → DM to TEST_DM_EMAILS only      │
+//                         │  N → DM to actual advisor            │
+//                         └──────────┬───────────────────────────┘
+//                                    ↓
+//                         sendDMByEmail(email, blocks)
+//                                    ↓
+//                         success? → log "sent"
+//                         fail?    → log "failed", surface in admin
+//
+// KEY RULES:
+// - Advisors only see THEIR OWN leads via DM. Never shared channels.
+// - No "NEXT IN LINE" in any notification. Nobody sees the queue.
+// - Each lead gets exactly ONE DM to the advisor (dm_sent_at guard).
+// - Empty queue → DM Scott once (scott_notified_at guard).
+// ============================================================================
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
-const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
-const SLACK_TGL_WEBHOOK_URL = process.env.SLACK_TGL_WEBHOOK_URL;
-const SLACK_LEADS_CHANNEL = process.env.SLACK_LEADS_CHANNEL || '#marketed-leads';
+const TEST_MODE = process.env.TEST_MODE === 'true';
+const TEST_DM_EMAILS = (process.env.TEST_DM_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 
 /**
- * Check if Slack is configured (via bot token or webhook)
+ * Check if Slack DMs are configured (requires bot token)
  */
 export function isSlackConfigured(): boolean {
-  return Boolean(SLACK_BOT_TOKEN) || Boolean(SLACK_WEBHOOK_URL);
+  return Boolean(SLACK_BOT_TOKEN);
 }
 
 /**
- * Get the webhook URL
+ * Post a message to a Slack channel or DM by channel ID
  */
-export function getSlackWebhookUrl(): string | null {
-  return SLACK_WEBHOOK_URL || null;
-}
-
-/**
- * Send a message via a specific Slack Incoming Webhook URL
- */
-export async function sendViaWebhookUrl(webhookUrl: string, payload: { text?: string; blocks?: SlackBlock[] }): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Slack webhook error:', errorText);
-      return { ok: false, error: errorText };
-    }
-
-    return { ok: true };
-  } catch (error) {
-    console.error('Failed to send via webhook:', error);
-    return { ok: false, error: String(error) };
-  }
-}
-
-/**
- * Send a message via Slack Incoming Webhook (simpler setup than bot)
- */
-export async function sendViaWebhook(payload: { text?: string; blocks?: SlackBlock[] }): Promise<{ ok: boolean; error?: string }> {
-  if (!SLACK_WEBHOOK_URL) {
-    console.warn('Slack webhook not configured: SLACK_WEBHOOK_URL missing');
-    return { ok: false, error: 'Slack webhook not configured' };
-  }
-
-  return sendViaWebhookUrl(SLACK_WEBHOOK_URL, payload);
-}
-
-/**
- * Lead notification data (used for both Marketed and TGL)
- */
-export interface LeadNotification {
-  jobId: string;
-  jobNumber: string;
-  customerName: string;
-  customerPhone?: string;
-  customerAddress?: string;
-  scheduledDate?: string;
-  leadId?: string; // Our dashboard lead ID
-  techName?: string; // For TGL - the tech who generated the lead
-  recommendedAdvisor: {
-    name: string;
-    phone?: string;
-    email?: string;
-    position: number;
-  };
-  nextInLine?: {
-    name: string;
-    phone?: string;
-  };
-}
-
-// Alias for backwards compatibility
-export type MarketedLeadNotification = LeadNotification;
-
-// Get the dashboard base URL for callback links
-function getDashboardUrl(): string {
-  if (process.env.NEXT_PUBLIC_DASHBOARD_URL) {
-    return process.env.NEXT_PUBLIC_DASHBOARD_URL;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return 'http://localhost:3000';
-}
-
-// Get the Service Titan base URL
-function getServiceTitanJobUrl(jobId: string): string {
-  // Default ST URL format - can be customized via env var
-  const baseUrl = process.env.SERVICE_TITAN_WEB_URL || 'https://go.servicetitan.com';
-  return `${baseUrl}/#/Job/${jobId}`;
-}
-
-/**
- * Send notification for a new marketed lead
- */
-export async function sendMarketedLeadNotification(lead: MarketedLeadNotification): Promise<{ ok: boolean; error?: string }> {
-  const stUrl = getServiceTitanJobUrl(lead.jobId);
-
-  const blocks: SlackBlock[] = [
-    {
-      type: 'header',
-      text: {
-        type: 'plain_text',
-        text: '📣 New Marketed Lead',
-        emoji: true,
-      },
-    },
-    {
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Customer:*\n${lead.customerName}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Job #:*\n${lead.jobNumber}`,
-        },
-      ],
-    },
-  ];
-
-  // Add phone and scheduled date if available
-  const detailFields: { type: 'plain_text' | 'mrkdwn'; text: string }[] = [];
-  if (lead.customerPhone) {
-    detailFields.push({
-      type: 'mrkdwn',
-      text: `*Phone:*\n${lead.customerPhone}`,
-    });
-  }
-  if (lead.scheduledDate) {
-    detailFields.push({
-      type: 'mrkdwn',
-      text: `*Scheduled:*\n${new Date(lead.scheduledDate).toLocaleString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      })}`,
-    });
-  }
-
-  if (detailFields.length > 0) {
-    blocks.push({
-      type: 'section',
-      fields: detailFields,
-    });
-  }
-
-  if (lead.customerAddress) {
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Address:*\n${lead.customerAddress}`,
-      },
-    });
-  }
-
-  // Divider
-  blocks.push({ type: 'divider' } as any);
-
-  // Recommended advisor section with emphasis
-  blocks.push({
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: `🎯 *Assign to: ${lead.recommendedAdvisor.name}*\n_Queue Position #${lead.recommendedAdvisor.position}_`,
-    },
-  });
-
-  // Advisor contact info
-  if (lead.recommendedAdvisor.phone || lead.recommendedAdvisor.email) {
-    const contactParts = [];
-    if (lead.recommendedAdvisor.phone) contactParts.push(`📞 ${lead.recommendedAdvisor.phone}`);
-    if (lead.recommendedAdvisor.email) contactParts.push(`✉️ ${lead.recommendedAdvisor.email}`);
-
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: contactParts.join('  •  '),
-        },
-      ],
-    } as any);
-  }
-
-  // Action buttons
-  const dashboardUrl = getDashboardUrl();
-  const markAssignedUrl = `${dashboardUrl}/api/leads/mark-assigned?stId=${lead.jobId}`;
-
-  blocks.push({
-    type: 'actions',
-    elements: [
-      {
-        type: 'button',
-        text: {
-          type: 'plain_text',
-          text: '📋 Open in Service Titan',
-          emoji: true,
-        },
-        url: stUrl,
-        action_id: 'open_servicetitan',
-        style: 'primary',
-      },
-      {
-        type: 'button',
-        text: {
-          type: 'plain_text',
-          text: '✅ Mark Assigned',
-          emoji: true,
-        },
-        url: markAssignedUrl,
-        action_id: 'mark_assigned',
-      },
-    ],
-  } as any);
-
-  // Add prominent "NEXT IN LINE" section at the end (shows who gets the NEXT lead)
-  if (lead.nextInLine) {
-    blocks.push({ type: 'divider' } as any);
-
-    const phoneLink = lead.nextInLine.phone
-      ? `<tel:${lead.nextInLine.phone.replace(/\D/g, '')}|📞 ${lead.nextInLine.phone}>`
-      : '_No phone on file_';
-
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*📱 NEXT IN LINE FOR UPCOMING LEADS:*\n\n*${lead.nextInLine.name.toUpperCase()}*\n${phoneLink}`,
-      },
-    });
-  }
-
-  // Try webhook first, then bot token
-  if (SLACK_WEBHOOK_URL) {
-    return sendViaWebhook({ blocks, text: `New Marketed Lead: ${lead.customerName} - Assign to ${lead.recommendedAdvisor.name}` });
-  } else {
-    return postToSlack({
-      channel: SLACK_LEADS_CHANNEL,
-      blocks,
-      text: `New Marketed Lead: ${lead.customerName} - Assign to ${lead.recommendedAdvisor.name}`
-    });
-  }
-}
-
-/**
- * Send notification for a new TGL (Tech Generated Lead)
- */
-export async function sendTGLNotification(lead: LeadNotification): Promise<{ ok: boolean; error?: string }> {
-  const stUrl = getServiceTitanJobUrl(lead.jobId);
-
-  const blocks: SlackBlock[] = [
-    {
-      type: 'header',
-      text: {
-        type: 'plain_text',
-        text: '🔧 New Tech Generated Lead',
-        emoji: true,
-      },
-    },
-    {
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Customer:*\n${lead.customerName}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Job #:*\n${lead.jobNumber}`,
-        },
-      ],
-    },
-  ];
-
-  // Add tech name if available
-  if (lead.techName) {
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Generated by:* ${lead.techName}`,
-      },
-    });
-  }
-
-  // Add phone and scheduled date if available
-  const detailFields: { type: 'plain_text' | 'mrkdwn'; text: string }[] = [];
-  if (lead.customerPhone) {
-    detailFields.push({
-      type: 'mrkdwn',
-      text: `*Phone:*\n${lead.customerPhone}`,
-    });
-  }
-  if (lead.scheduledDate) {
-    detailFields.push({
-      type: 'mrkdwn',
-      text: `*Scheduled:*\n${new Date(lead.scheduledDate).toLocaleString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      })}`,
-    });
-  }
-
-  if (detailFields.length > 0) {
-    blocks.push({
-      type: 'section',
-      fields: detailFields,
-    });
-  }
-
-  if (lead.customerAddress) {
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Address:*\n${lead.customerAddress}`,
-      },
-    });
-  }
-
-  // Divider
-  blocks.push({ type: 'divider' } as any);
-
-  // Recommended advisor section with emphasis
-  blocks.push({
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: `🎯 *Assign to: ${lead.recommendedAdvisor.name}*\n_TGL Queue Position #${lead.recommendedAdvisor.position}_`,
-    },
-  });
-
-  // Advisor contact info
-  if (lead.recommendedAdvisor.phone || lead.recommendedAdvisor.email) {
-    const contactParts = [];
-    if (lead.recommendedAdvisor.phone) contactParts.push(`📞 ${lead.recommendedAdvisor.phone}`);
-    if (lead.recommendedAdvisor.email) contactParts.push(`✉️ ${lead.recommendedAdvisor.email}`);
-
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: contactParts.join('  •  '),
-        },
-      ],
-    } as any);
-  }
-
-  // Action buttons
-  const dashboardUrl = getDashboardUrl();
-  const markAssignedUrl = `${dashboardUrl}/api/leads/mark-assigned?stId=${lead.jobId}`;
-
-  blocks.push({
-    type: 'actions',
-    elements: [
-      {
-        type: 'button',
-        text: {
-          type: 'plain_text',
-          text: '📋 Open in Service Titan',
-          emoji: true,
-        },
-        url: stUrl,
-        action_id: 'open_servicetitan',
-        style: 'primary',
-      },
-      {
-        type: 'button',
-        text: {
-          type: 'plain_text',
-          text: '✅ Mark Assigned',
-          emoji: true,
-        },
-        url: markAssignedUrl,
-        action_id: 'mark_assigned',
-      },
-    ],
-  } as any);
-
-  // Add prominent "NEXT IN LINE" section at the end (shows who gets the NEXT lead)
-  if (lead.nextInLine) {
-    blocks.push({ type: 'divider' } as any);
-
-    const tglPhoneLink = lead.nextInLine.phone
-      ? `<tel:${lead.nextInLine.phone.replace(/\D/g, '')}|📞 ${lead.nextInLine.phone}>`
-      : '_No phone on file_';
-
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*📱 NEXT IN LINE FOR UPCOMING LEADS:*\n\n*${lead.nextInLine.name.toUpperCase()}*\n${tglPhoneLink}`,
-      },
-    });
-  }
-
-  // Use TGL-specific webhook, fall back to main webhook, then bot token
-  const tglWebhook = SLACK_TGL_WEBHOOK_URL || SLACK_WEBHOOK_URL;
-  if (tglWebhook) {
-    return sendViaWebhookUrl(tglWebhook, { blocks, text: `New TGL: ${lead.customerName} - Assign to ${lead.recommendedAdvisor.name}` });
-  } else {
-    return postToSlack({
-      channel: SLACK_LEADS_CHANNEL,
-      blocks,
-      text: `New TGL: ${lead.customerName} - Assign to ${lead.recommendedAdvisor.name}`
-    });
-  }
-}
-
-/**
- * Post a message to a Slack channel
- */
-export async function postToSlack(payload: SlackMessage): Promise<{ ok: boolean; error?: string }> {
+export async function postToSlack(payload: {
+  channel: string;
+  text: string;
+  blocks?: SlackBlock[];
+}): Promise<{ ok: boolean; error?: string }> {
   if (!SLACK_BOT_TOKEN) {
     console.warn('Slack not configured: SLACK_BOT_TOKEN missing');
     return { ok: false, error: 'Slack not configured' };
@@ -462,50 +74,56 @@ export async function postToSlack(payload: SlackMessage): Promise<{ ok: boolean;
 }
 
 /**
- * Send a direct message to an advisor by their email
+ * Send a DM to a user by their email address.
+ * In TEST_MODE, redirects all DMs to TEST_DM_EMAILS.
  */
-export async function sendAdvisorDM(
+export async function sendDMByEmail(
   email: string,
-  message: string
+  text: string,
+  blocks?: SlackBlock[]
 ): Promise<{ ok: boolean; error?: string }> {
   if (!SLACK_BOT_TOKEN) {
     console.warn('Slack not configured: SLACK_BOT_TOKEN missing');
     return { ok: false, error: 'Slack not configured' };
   }
 
+  // TEST_MODE safety: redirect all DMs to test recipients
+  const targetEmail = TEST_MODE ? (TEST_DM_EMAILS[0] || ADMIN_EMAIL) : email;
+  if (!targetEmail) {
+    return { ok: false, error: 'No target email for DM' };
+  }
+
+  // In test mode, prefix message so testers know who WOULD have received it
+  const prefixedText = TEST_MODE
+    ? `[TEST MODE - would DM: ${email}]\n\n${text}`
+    : text;
+
   try {
-    // First, look up the user by email
+    // Look up user by email
     const userResponse = await fetch(
-      `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(email)}`,
+      `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(targetEmail)}`,
       {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
-        },
+        headers: { 'Authorization': `Bearer ${SLACK_BOT_TOKEN}` },
       }
     );
 
     const userData = await userResponse.json();
-
     if (!userData.ok) {
-      console.warn(`Could not find Slack user for email ${email}:`, userData.error);
-      return { ok: false, error: userData.error };
+      console.warn(`Could not find Slack user for email ${targetEmail}:`, userData.error);
+      return { ok: false, error: `User not found: ${userData.error}` };
     }
 
-    const userId = userData.user.id;
-
-    // Open a DM channel with the user
+    // Open DM channel
     const imResponse = await fetch('https://slack.com/api/conversations.open', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ users: userId }),
+      body: JSON.stringify({ users: userData.user.id }),
     });
 
     const imData = await imResponse.json();
-
     if (!imData.ok) {
       console.error('Failed to open DM channel:', imData.error);
       return { ok: false, error: imData.error };
@@ -514,7 +132,8 @@ export async function sendAdvisorDM(
     // Send the message
     return postToSlack({
       channel: imData.channel.id,
-      text: message,
+      text: prefixedText,
+      blocks: TEST_MODE ? undefined : blocks, // Skip fancy blocks in test mode for clarity
     });
   } catch (error) {
     console.error('Failed to send DM:', error);
@@ -522,95 +141,158 @@ export async function sendAdvisorDM(
   }
 }
 
+// Get the Service Titan job URL
+function getServiceTitanJobUrl(jobId: string): string {
+  const baseUrl = process.env.SERVICE_TITAN_WEB_URL || 'https://go.servicetitan.com';
+  return `${baseUrl}/#/Job/${jobId}`;
+}
+
 /**
- * Format a rich Slack message for lead assignment
+ * Lead notification payload — used for both Marketed and TGL
  */
-export function formatLeadAssignmentMessage(
-  lead: Lead,
-  advisor: ComfortAdvisor
-): SlackMessage {
+export interface LeadNotification {
+  jobId: string;
+  jobNumber: string;
+  leadType: 'Marketed' | 'TGL';
+  customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  scheduledDate?: string;
+  leadId?: string;
+  techName?: string;
+  advisor: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
+}
+
+/**
+ * Send a lead assignment DM to the assigned advisor.
+ * No "next in line" info — advisors only see their own lead.
+ */
+export async function sendLeadAssignmentDM(
+  lead: LeadNotification
+): Promise<{ ok: boolean; error?: string }> {
+  const stUrl = getServiceTitanJobUrl(lead.jobId);
+  const isMarketedLead = lead.leadType === 'Marketed';
+
   const blocks: SlackBlock[] = [
     {
       type: 'header',
       text: {
         type: 'plain_text',
-        text: 'New Lead Assigned',
+        text: isMarketedLead ? 'New Marketed Lead Assigned to You' : 'New TGL Assigned to You',
         emoji: true,
       },
     },
     {
       type: 'section',
       fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Customer:*\n${lead.clientName}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Assigned To:*\n${advisor.name}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Phone:*\n${lead.phone || 'N/A'}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Source:*\n${lead.source}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*System Type:*\n${lead.systemType || 'Unknown'}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Unit Age:*\n${lead.unitAge ? `${lead.unitAge} years` : 'N/A'}`,
-        },
+        { type: 'mrkdwn', text: `*Customer:*\n${lead.customerName}` },
+        { type: 'mrkdwn', text: `*Job #:*\n${lead.jobNumber}` },
       ],
     },
   ];
 
-  if (lead.address) {
+  // Tech name for TGLs
+  if (!isMarketedLead && lead.techName) {
     blocks.push({
       type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Address:* ${lead.address}`,
-      },
+      text: { type: 'mrkdwn', text: `*Generated by:* ${lead.techName}` },
     });
   }
 
-  if (lead.notes) {
+  // Phone and scheduled date
+  const detailFields: { type: 'mrkdwn'; text: string }[] = [];
+  if (lead.customerPhone) {
+    detailFields.push({ type: 'mrkdwn', text: `*Phone:*\n${lead.customerPhone}` });
+  }
+  if (lead.scheduledDate) {
+    detailFields.push({
+      type: 'mrkdwn',
+      text: `*Scheduled:*\n${new Date(lead.scheduledDate).toLocaleString('en-US', {
+        timeZone: 'America/Chicago',
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+      })}`,
+    });
+  }
+  if (detailFields.length > 0) {
+    blocks.push({ type: 'section', fields: detailFields });
+  }
+
+  // Address
+  if (lead.customerAddress) {
     blocks.push({
       type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Notes:* ${lead.notes}`,
-      },
+      text: { type: 'mrkdwn', text: `*Address:*\n${lead.customerAddress}` },
     });
   }
 
-  return {
-    channel: SLACK_LEADS_CHANNEL,
-    text: `New lead assigned: ${lead.clientName} -> ${advisor.name}`,
-    blocks,
-  };
+  // Action button — open in Service Titan
+  blocks.push({ type: 'divider' } as any);
+  blocks.push({
+    type: 'actions',
+    elements: [
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Open in Service Titan', emoji: true },
+        url: stUrl,
+        action_id: 'open_servicetitan',
+        style: 'primary',
+      },
+    ],
+  } as any);
+
+  const text = `New ${lead.leadType} lead assigned to you: ${lead.customerName} (Job #${lead.jobNumber})`;
+
+  return sendDMByEmail(lead.advisor.email, text, blocks);
 }
 
 /**
- * Format a DM message for the assigned advisor
+ * Send a TGL confirmation DM to the tech who submitted it.
+ * "Your TGL was assigned to [Brett]. He'll reach out to the customer."
  */
-export function formatAdvisorDMMessage(lead: Lead): string {
-  return [
-    `You've been assigned a new lead!`,
+export async function sendTechConfirmationDM(
+  techEmail: string,
+  advisorName: string,
+  customerName: string,
+  jobNumber: string
+): Promise<{ ok: boolean; error?: string }> {
+  const text = [
+    `Your TGL for *${customerName}* (Job #${jobNumber}) has been assigned to *${advisorName}*.`,
+    `They'll reach out to the customer.`,
+  ].join('\n');
+
+  return sendDMByEmail(techEmail, text);
+}
+
+/**
+ * Send an admin alert when no advisors are in the queue.
+ * Only call this once per lead (check scott_notified_at before calling).
+ */
+export async function sendEmptyQueueAlert(
+  customerName: string,
+  jobNumber: string,
+  leadType: 'Marketed' | 'TGL'
+): Promise<{ ok: boolean; error?: string }> {
+  if (!ADMIN_EMAIL) {
+    console.warn('ADMIN_EMAIL not configured — cannot send empty queue alert');
+    return { ok: false, error: 'ADMIN_EMAIL not configured' };
+  }
+
+  const text = [
+    `*No comfort advisors in queue!*`,
     ``,
-    `*Customer:* ${lead.clientName}`,
-    `*Phone:* ${lead.phone || 'N/A'}`,
-    `*Source:* ${lead.source}`,
-    `*System Type:* ${lead.systemType || 'Unknown'}`,
-    lead.unitAge ? `*Unit Age:* ${lead.unitAge} years` : '',
-    lead.address ? `*Address:* ${lead.address}` : '',
-    lead.notes ? `*Notes:* ${lead.notes}` : '',
-  ].filter(Boolean).join('\n');
+    `A new ${leadType} lead came in but no advisors are available:`,
+    `- Customer: ${customerName}`,
+    `- Job #: ${jobNumber}`,
+    ``,
+    `The lead is held as "New Lead" in the pool. Toggle an advisor back into the queue to resume assignments.`,
+  ].join('\n');
+
+  return sendDMByEmail(ADMIN_EMAIL, text);
 }
 
 /**
@@ -628,17 +310,13 @@ export async function verifySlackSignature(
     return false;
   }
 
-  // Verify the timestamp is recent (within 5 minutes)
   const currentTime = Math.floor(Date.now() / 1000);
   if (Math.abs(currentTime - parseInt(timestamp)) > 300) {
     console.warn('Slack request timestamp too old');
     return false;
   }
 
-  // Create the signature base string
   const sigBaseString = `v0:${timestamp}:${body}`;
-
-  // Create the HMAC signature
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -648,79 +326,10 @@ export async function verifySlackSignature(
     ['sign']
   );
 
-  const signatureBytes = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(sigBaseString)
-  );
-
-  // Convert to hex
+  const signatureBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(sigBaseString));
   const computedSignature = 'v0=' + Array.from(new Uint8Array(signatureBytes))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
   return computedSignature === signature;
-}
-
-/**
- * Parse a lead from a Slack message text
- * Expected format (flexible):
- * Customer: John Doe
- * Phone: 555-1234
- * Source: Google Ads
- * Value: $15000
- * Margin: 40%
- * Address: 123 Main St (optional)
- * Notes: Interested in new AC (optional)
- */
-export function parseLeadFromSlackMessage(text: string): {
-  customerName?: string;
-  phone?: string;
-  source?: string;
-  estimatedValue?: number;
-  grossMarginPercent?: number;
-  address?: string;
-  notes?: string;
-} | null {
-  const lines = text.split('\n');
-  const result: Record<string, string> = {};
-
-  for (const line of lines) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-
-    const key = line.slice(0, colonIndex).trim().toLowerCase();
-    const value = line.slice(colonIndex + 1).trim();
-
-    if (key.includes('customer') || key.includes('name')) {
-      result.customerName = value;
-    } else if (key.includes('phone')) {
-      result.phone = value;
-    } else if (key.includes('source')) {
-      result.source = value;
-    } else if (key.includes('value') || key.includes('amount')) {
-      result.estimatedValue = value.replace(/[$,]/g, '');
-    } else if (key.includes('margin')) {
-      result.grossMarginPercent = value.replace(/%/g, '');
-    } else if (key.includes('address')) {
-      result.address = value;
-    } else if (key.includes('notes') || key.includes('note')) {
-      result.notes = value;
-    }
-  }
-
-  // Validate required fields
-  if (!result.customerName || !result.phone) {
-    return null;
-  }
-
-  return {
-    customerName: result.customerName,
-    phone: result.phone,
-    source: result.source || 'Other',
-    estimatedValue: result.estimatedValue ? parseFloat(result.estimatedValue) : undefined,
-    grossMarginPercent: result.grossMarginPercent ? parseFloat(result.grossMarginPercent) : undefined,
-    address: result.address,
-    notes: result.notes,
-  };
 }

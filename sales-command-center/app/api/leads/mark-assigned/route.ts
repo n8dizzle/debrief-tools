@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { sendViaWebhook } from '@/lib/slack';
 
 // GET endpoint so it can be triggered from a Slack button URL
 export async function GET(request: NextRequest) {
