@@ -1,32 +1,41 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 
 /**
  * Vercel Cron endpoint — runs every 2 minutes in production.
- * Internally calls the poll endpoint to import new leads and sync pipeline statuses.
+ * Calls the poll endpoint internally, passing through the CRON_SECRET.
  *
- * Vercel sends GET requests to cron routes, so we proxy to the POST poll endpoint.
+ * Uses VERCEL_URL (the deployment-specific URL) to avoid any domain-level
+ * middleware or deployment protection issues on the custom domain.
  */
 export async function GET() {
-  // Verify this is a legitimate Vercel cron invocation
-  // (Optional: check CRON_SECRET header for security)
-
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
+    // Use the Vercel deployment URL (bypasses custom domain middleware)
+    // Fall back to NEXT_PUBLIC_DASHBOARD_URL, then localhost
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : (process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3001');
+
+    const cronSecret = process.env.CRON_SECRET || '';
 
     const response = await fetch(`${baseUrl}/api/leads/poll`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-cron-secret': process.env.CRON_SECRET || '',
+        'x-cron-secret': cronSecret,
       },
     });
 
     const data = await response.json();
 
+    if (!response.ok) {
+      console.error(`Cron poll failed: ${response.status}`, data);
+    }
+
     return NextResponse.json({
-      success: true,
+      success: response.ok,
       timestamp: new Date().toISOString(),
+      pollStatus: response.status,
       result: data,
     });
   } catch (error: any) {
