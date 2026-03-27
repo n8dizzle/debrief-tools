@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePayrollPermissions } from '@/hooks/usePayrollPermissions';
 import { formatCurrency, formatHours, formatDate, formatTimestamp, getCurrentPayWeekRange, getPayPeriodPresets } from '@/lib/payroll-utils';
+import DepartmentFilter from '@/components/DepartmentFilter';
 
 interface OTItem {
   date: string;
@@ -17,7 +18,6 @@ interface OTItem {
 interface OTEmployee {
   employee_id: string;
   name: string;
-  trade: string | null;
   total_hours: number;
   total_amount: number;
   items: OTItem[];
@@ -27,7 +27,6 @@ interface SuspiciousEntry {
   date: string;
   employee_id: string;
   employee_name: string;
-  trade: string | null;
   st_job_id: number | null;
   job_number: string | null;
   duration_hours: number;
@@ -47,7 +46,6 @@ interface PTOItem {
 interface PTOEmployee {
   employee_id: string;
   name: string;
-  trade: string | null;
   total_hours: number;
   total_amount: number;
   items: PTOItem[];
@@ -57,22 +55,8 @@ interface ReviewData {
   overtime: { employees: OTEmployee[]; total_hours: number; total_amount: number; count: number };
   suspicious: { entries: SuspiciousEntry[]; count: number };
   pto: { employees: PTOEmployee[]; total_hours: number; count: number };
+  business_units: string[];
   can_view_pay: boolean;
-}
-
-function TradeBadge({ trade }: { trade: string | null }) {
-  if (!trade) return null;
-  return (
-    <span
-      className="badge ml-2"
-      style={{
-        backgroundColor: trade === 'hvac' ? 'rgba(93, 138, 102, 0.15)' : 'rgba(184, 149, 107, 0.15)',
-        color: trade === 'hvac' ? 'var(--christmas-green-light)' : 'var(--christmas-gold)',
-      }}
-    >
-      {trade === 'hvac' ? 'HVAC' : 'Plumbing'}
-    </span>
-  );
 }
 
 function JobLink({ stJobId, jobNumber }: { stJobId: number | null; jobNumber: string | null }) {
@@ -111,7 +95,8 @@ export default function ReviewsPage() {
     if (start && end) return { start, end };
     return getCurrentPayWeekRange();
   });
-  const [trade, setTrade] = useState(searchParams.get('trade') || '');
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<Record<string, Set<string>>>({
     overtime: new Set(),
     pto: new Set(),
@@ -138,17 +123,19 @@ export default function ReviewsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ start: dateRange.start, end: dateRange.end });
-      if (trade) params.set('trade', trade);
+      if (selectedDepts.length > 0) params.set('departments', selectedDepts.join(','));
       const res = await fetch(`/api/reviews?${params}`);
       if (res.ok) {
-        setData(await res.json());
+        const result = await res.json();
+        setData(result);
+        setBusinessUnits(result.business_units || []);
       }
     } catch (err) {
       console.error('Failed to load reviews:', err);
     } finally {
       setLoading(false);
     }
-  }, [dateRange, trade]);
+  }, [dateRange, selectedDepts]);
 
   useEffect(() => {
     if (!permLoading && (isManager || isOwner)) loadData();
@@ -213,22 +200,11 @@ export default function ReviewsPage() {
             style={{ width: 'auto' }}
           />
         </div>
-        <div className="flex gap-1">
-          {['', 'hvac', 'plumbing'].map(t => (
-            <button
-              key={t}
-              onClick={() => setTrade(t)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: trade === t ? 'var(--christmas-green)' : 'var(--bg-card)',
-                color: trade === t ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                border: `1px solid ${trade === t ? 'var(--christmas-green)' : 'var(--border-default)'}`,
-              }}
-            >
-              {t === '' ? 'All' : t === 'hvac' ? 'HVAC' : 'Plumbing'}
-            </button>
-          ))}
-        </div>
+        <DepartmentFilter
+          departments={businessUnits}
+          selected={selectedDepts}
+          onChange={setSelectedDepts}
+        />
       </div>
 
       {loading ? (
@@ -289,7 +265,6 @@ export default function ReviewsPage() {
                       <tr>
                         <th style={{ width: '24px' }}></th>
                         <th>Employee</th>
-                        <th>Trade</th>
                         <th className="text-right">OT Hours</th>
                         {canViewPayAmounts && <th className="text-right">OT Amount</th>}
                       </tr>
@@ -313,7 +288,6 @@ export default function ReviewsPage() {
                               </svg>
                             </td>
                             <td className="font-medium">{emp.name}</td>
-                            <td><TradeBadge trade={emp.trade} /></td>
                             <td className="text-right" style={{ color: 'var(--status-warning)' }}>{formatHours(emp.total_hours)}</td>
                             {canViewPayAmounts && <td className="text-right">{formatCurrency(emp.total_amount)}</td>}
                           </tr>
@@ -327,7 +301,6 @@ export default function ReviewsPage() {
                                 {formatDate(item.date)} &middot; <JobLink stJobId={item.st_job_id} jobNumber={item.job_number} />
                                 {item.activity && <span style={{ color: 'var(--text-muted)' }}> &middot; {item.activity}</span>}
                               </td>
-                              <td></td>
                               <td className="text-right text-sm" style={{ color: 'var(--text-secondary)' }}>{formatHours(item.hours)}</td>
                               {canViewPayAmounts && <td className="text-right text-sm" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(item.amount)}</td>}
                             </tr>
@@ -339,7 +312,6 @@ export default function ReviewsPage() {
                       <tr style={{ borderTop: '2px solid var(--border-default)', fontWeight: 'bold' }}>
                         <td></td>
                         <td style={{ color: 'var(--text-muted)' }}>Total ({data.overtime.count} employees)</td>
-                        <td></td>
                         <td className="text-right" style={{ color: 'var(--status-warning)' }}>{formatHours(data.overtime.total_hours)}</td>
                         {canViewPayAmounts && <td className="text-right">{formatCurrency(data.overtime.total_amount)}</td>}
                       </tr>
@@ -402,10 +374,7 @@ export default function ReviewsPage() {
                       {data.suspicious.entries.map((entry, i) => (
                         <tr key={i}>
                           <td>{formatDate(entry.date)}</td>
-                          <td>
-                            {entry.employee_name}
-                            <TradeBadge trade={entry.trade} />
-                          </td>
+                          <td>{entry.employee_name}</td>
                           <td><JobLink stJobId={entry.st_job_id} jobNumber={entry.job_number} /></td>
                           <td className="text-right">{formatHours(entry.duration_hours)} hrs</td>
                           <td style={{ color: entry.clock_in ? 'var(--text-secondary)' : 'var(--status-error, #ef4444)' }}>
@@ -496,7 +465,6 @@ export default function ReviewsPage() {
                       <tr>
                         <th style={{ width: '24px' }}></th>
                         <th>Employee</th>
-                        <th>Trade</th>
                         <th className="text-right">Hours</th>
                         {canViewPayAmounts && <th className="text-right">Amount</th>}
                       </tr>
@@ -520,7 +488,6 @@ export default function ReviewsPage() {
                               </svg>
                             </td>
                             <td className="font-medium">{emp.name}</td>
-                            <td><TradeBadge trade={emp.trade} /></td>
                             <td className="text-right">{formatHours(emp.total_hours)}</td>
                             {canViewPayAmounts && <td className="text-right">{formatCurrency(emp.total_amount)}</td>}
                           </tr>
@@ -535,7 +502,6 @@ export default function ReviewsPage() {
                                 {item.activity && <span> &middot; {item.activity}</span>}
                                 {!item.activity && <span style={{ color: 'var(--text-muted)' }}> &middot; {item.pay_type}</span>}
                               </td>
-                              <td></td>
                               <td className="text-right text-sm" style={{ color: 'var(--text-secondary)' }}>{formatHours(item.hours)}</td>
                               {canViewPayAmounts && <td className="text-right text-sm" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(item.amount)}</td>}
                             </tr>
@@ -547,7 +513,6 @@ export default function ReviewsPage() {
                       <tr style={{ borderTop: '2px solid var(--border-default)', fontWeight: 'bold' }}>
                         <td></td>
                         <td style={{ color: 'var(--text-muted)' }}>Total ({data.pto.count} employees)</td>
-                        <td></td>
                         <td className="text-right">{formatHours(data.pto.total_hours)}</td>
                         {canViewPayAmounts && (
                           <td className="text-right">

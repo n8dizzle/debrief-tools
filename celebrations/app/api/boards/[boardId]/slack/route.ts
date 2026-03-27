@@ -82,6 +82,45 @@ export async function POST(
   return NextResponse.json({ config }, { status: 201 });
 }
 
+// PATCH /api/boards/[boardId]/slack - Update import filters for a channel
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ boardId: string }> }
+) {
+  const { boardId } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const role = session.user.role;
+  if (role !== 'owner' && role !== 'manager') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { config_id, import_filters } = await req.json();
+
+  if (!config_id) {
+    return NextResponse.json({ error: 'config_id required' }, { status: 400 });
+  }
+
+  const supabase = getServerSupabase();
+
+  const { data, error } = await supabase
+    .from('cel_slack_config')
+    .update({ import_filters: import_filters || {} })
+    .eq('id', config_id)
+    .eq('board_id', boardId)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ config: data });
+}
+
 // DELETE /api/boards/[boardId]/slack - Unlink channel
 export async function DELETE(
   req: NextRequest,

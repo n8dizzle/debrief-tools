@@ -3,13 +3,20 @@
  */
 
 /**
- * Format a local date (Central Time) without UTC conversion.
+ * Format a date in Central Time without UTC conversion.
+ * Uses Intl to force America/Chicago regardless of server timezone (Vercel runs UTC).
  * NEVER use toISOString().split('T')[0] — it converts to UTC.
  */
 export function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find(p => p.type === 'year')!.value;
+  const month = parts.find(p => p.type === 'month')!.value;
+  const day = parts.find(p => p.type === 'day')!.value;
   return `${year}-${month}-${day}`;
 }
 

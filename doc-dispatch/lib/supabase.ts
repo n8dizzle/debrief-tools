@@ -46,6 +46,7 @@ export interface DdDocumentPage {
   document_id: string;
   image_path: string;
   page_number: number;
+  rotation: number;
   created_at: string;
   // Runtime only (signed URL)
   image_url?: string;

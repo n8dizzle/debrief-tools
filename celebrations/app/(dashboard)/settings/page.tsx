@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCelebrationsPermissions } from '@/hooks/useCelebrationsPermissions';
-import { CelBoard, CelSlackConfig } from '@/lib/supabase';
+import { CelBoard, CelSlackConfig, SlackImportFilters } from '@/lib/supabase';
 
 export default function SettingsPage() {
   const { canManageSlack } = useCelebrationsPermissions();
@@ -17,7 +17,11 @@ export default function SettingsPage() {
   const [linking, setLinking] = useState(false);
   const [backfilling, setBackfilling] = useState<string | null>(null); // tracks config id
   const [backfillResult, setBackfillResult] = useState<Record<string, string>>({});
-  const [backfillDate, setBackfillDate] = useState('2026-01-01');
+  const [backfillDate, setBackfillDate] = useState<Record<string, string>>({});
+  const [reImport, setReImport] = useState<Record<string, boolean>>({});
+  const [expandedConfig, setExpandedConfig] = useState<string | null>(null);
+  const [filterEdits, setFilterEdits] = useState<Record<string, SlackImportFilters>>({});
+  const [savingFilters, setSavingFilters] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -87,24 +91,65 @@ export default function SettingsPage() {
     await fetchData();
   }
 
+  function getFilters(configId: string, config: CelSlackConfig): SlackImportFilters {
+    return filterEdits[configId] || config.import_filters || {};
+  }
+
+  function updateFilter(configId: string, config: CelSlackConfig, update: Partial<SlackImportFilters>) {
+    setFilterEdits((prev) => ({
+      ...prev,
+      [configId]: { ...getFilters(configId, config), ...update },
+    }));
+  }
+
+  async function handleSaveFilters(boardId: string, configId: string) {
+    setSavingFilters(configId);
+    try {
+      const res = await fetch(`/api/boards/${boardId}/slack`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config_id: configId, import_filters: filterEdits[configId] || {} }),
+      });
+      if (res.ok) {
+        await fetchData();
+        // Clear local edits for this config
+        setFilterEdits((prev) => {
+          const next = { ...prev };
+          delete next[configId];
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to save filters:', err);
+    } finally {
+      setSavingFilters(null);
+    }
+  }
+
   async function handleBackfill(boardId: string, configId: string, channelId: string) {
     setBackfilling(configId);
     setBackfillResult((prev) => ({ ...prev, [configId]: '' }));
     try {
-      const since = new Date(backfillDate + 'T00:00:00').toISOString();
+      const date = backfillDate[configId] || '2026-01-01';
+      const since = new Date(date + 'T00:00:00').toISOString();
       const res = await fetch(`/api/boards/${boardId}/slack/backfill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ since, channel_id: channelId }),
+        body: JSON.stringify({ since, channel_id: channelId, re_import: reImport[configId] || false }),
       });
       const data = await res.json();
       if (res.ok) {
-        setBackfillResult((prev) => ({ ...prev, [configId]: `Imported ${data.imported} posts (${data.skipped} duplicates skipped)` }));
+        const parts: string[] = [];
+        if (data.imported) parts.push(`${data.imported} new`);
+        if (data.updated) parts.push(`${data.updated} re-imported`);
+        if (data.skipped) parts.push(`${data.skipped} already imported`);
+        if (data.filtered) parts.push(`${data.filtered} filtered out`);
+        setBackfillResult((prev) => ({ ...prev, [configId]: parts.join(', ') || 'No messages found' }));
       } else {
         setBackfillResult((prev) => ({ ...prev, [configId]: `Error: ${data.error}` }));
       }
-    } catch (err) {
-      setBackfillResult((prev) => ({ ...prev, [configId]: 'Failed to backfill' }));
+    } catch (err: any) {
+      setBackfillResult((prev) => ({ ...prev, [configId]: `Failed to backfill: ${err.message || 'unknown error'}` }));
     } finally {
       setBackfilling(null);
     }
@@ -199,59 +244,197 @@ export default function SettingsPage() {
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Active Links</h3>
             {Object.entries(configs).map(([boardId, boardConfigs]) => {
               const board = boards.find(b => b.id === boardId);
-              return boardConfigs.map((config) => (
-                <div
-                  key={config.id}
-                  className="flex items-center justify-between p-3 rounded-lg"
-                  style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}
-                >
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {config.slack_channel_name || config.slack_channel_id}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      → {board?.title || 'Unknown board'}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={backfillDate}
-                        onChange={(e) => setBackfillDate(e.target.value)}
-                        className="input text-xs py-1 px-2"
-                        style={{ width: '140px' }}
-                      />
-                      <button
-                        onClick={() => handleBackfill(boardId, config.id, config.slack_channel_id)}
-                        disabled={backfilling === config.id}
-                        className="text-xs px-3 py-1 rounded whitespace-nowrap"
-                        style={{
-                          background: 'var(--christmas-green)',
-                          color: 'var(--christmas-cream)',
-                          opacity: backfilling === config.id ? 0.5 : 1,
-                        }}
+              return boardConfigs.map((config) => {
+                const isExpanded = expandedConfig === config.id;
+                const currentFilters = getFilters(config.id, config);
+                const hasEdits = !!filterEdits[config.id];
+
+                return (
+                  <div
+                    key={config.id}
+                    className="rounded-lg overflow-hidden"
+                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    {/* Channel header */}
+                    <div className="flex items-center justify-between p-3">
+                      <div
+                        className="cursor-pointer flex-1"
+                        onClick={() => setExpandedConfig(isExpanded ? null : config.id)}
                       >
-                        {backfilling === config.id ? 'Importing...' : 'Backfill'}
-                      </button>
-                      <button
-                        onClick={() => handleUnlink(boardId, config.id)}
-                        className="text-xs px-3 py-1 rounded"
-                        style={{ color: 'var(--status-error)' }}
-                      >
-                        Unlink
-                      </button>
+                        <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {config.slack_channel_name || config.slack_channel_id}
+                          <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {isExpanded ? '\u25B2' : '\u25BC'} Filters
+                          </span>
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          &rarr; {board?.title || 'Unknown board'}
+                          <span className="mx-1">|</span>
+                          <code
+                            className="cursor-pointer hover:underline"
+                            title="Click to copy"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(config.slack_channel_id);
+                            }}
+                          >
+                            {config.slack_channel_id}
+                          </code>
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="date"
+                            value={backfillDate[config.id] || '2026-01-01'}
+                            onChange={(e) => setBackfillDate(prev => ({ ...prev, [config.id]: e.target.value }))}
+                            className="input text-xs py-1 px-2"
+                            style={{ width: '140px' }}
+                          />
+                          <button
+                            onClick={() => handleBackfill(boardId, config.id, config.slack_channel_id)}
+                            disabled={backfilling === config.id}
+                            className="text-xs px-3 py-1 rounded whitespace-nowrap"
+                            style={{
+                              background: 'var(--christmas-green)',
+                              color: 'var(--christmas-cream)',
+                              opacity: backfilling === config.id ? 0.5 : 1,
+                            }}
+                          >
+                            {backfilling === config.id ? 'Importing...' : 'Backfill'}
+                          </button>
+                          <button
+                            onClick={() => handleUnlink(boardId, config.id)}
+                            className="text-xs px-3 py-1 rounded"
+                            style={{ color: 'var(--status-error)' }}
+                          >
+                            Unlink
+                          </button>
+                        </div>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={reImport[config.id] || false}
+                            onChange={(e) => setReImport(prev => ({ ...prev, [config.id]: e.target.checked }))}
+                            className="accent-[var(--christmas-green)]"
+                          />
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            Re-import existing (update text &amp; send to review)
+                          </span>
+                        </label>
+                        {backfillResult[config.id] && (
+                          <span className="text-xs" style={{
+                            color: backfillResult[config.id].startsWith('Error') ? 'var(--status-error)' : 'var(--status-success)',
+                          }}>
+                            {backfillResult[config.id]}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {backfillResult[config.id] && (
-                      <span className="text-xs" style={{
-                        color: backfillResult[config.id].startsWith('Error') ? 'var(--status-error)' : 'var(--status-success)',
-                      }}>
-                        {backfillResult[config.id]}
-                      </span>
+
+                    {/* Expanded filter options */}
+                    {isExpanded && (
+                      <div className="px-3 pb-3 space-y-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <p className="text-xs font-medium pt-3" style={{ color: 'var(--text-secondary)' }}>
+                          Import Filters
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          Filters apply to both backfill and real-time imports. Messages that don&apos;t match are skipped entirely.
+                        </p>
+
+                        {/* Media only toggle */}
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentFilters.media_only || false}
+                            onChange={(e) => updateFilter(config.id, config, { media_only: e.target.checked })}
+                            className="accent-[var(--christmas-green)]"
+                          />
+                          <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                            Media only (photos, videos, GIFs)
+                          </span>
+                        </label>
+
+                        {/* Min reactions */}
+                        <div>
+                          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>
+                            Minimum reactions (backfill only)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={currentFilters.min_reactions || ''}
+                            onChange={(e) => updateFilter(config.id, config, {
+                              min_reactions: e.target.value ? parseInt(e.target.value) : undefined,
+                            })}
+                            className="input text-sm"
+                            placeholder="0"
+                            style={{ width: '100px' }}
+                          />
+                        </div>
+
+                        {/* Reaction emojis */}
+                        <div>
+                          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>
+                            Require specific reactions (comma-separated, e.g. tada,heart,fire)
+                          </label>
+                          <input
+                            type="text"
+                            value={(currentFilters.reaction_emojis || []).join(', ')}
+                            onChange={(e) => updateFilter(config.id, config, {
+                              reaction_emojis: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                            })}
+                            className="input text-sm"
+                            placeholder="tada, heart, fire"
+                          />
+                        </div>
+
+                        {/* Keywords include */}
+                        <div>
+                          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>
+                            Include keywords (comma-separated, message must contain at least one)
+                          </label>
+                          <input
+                            type="text"
+                            value={(currentFilters.keywords_include || []).join(', ')}
+                            onChange={(e) => updateFilter(config.id, config, {
+                              keywords_include: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                            })}
+                            className="input text-sm"
+                            placeholder="birthday, congrats, celebration"
+                          />
+                        </div>
+
+                        {/* Keywords exclude */}
+                        <div>
+                          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-muted)' }}>
+                            Exclude keywords (comma-separated, skip messages containing any)
+                          </label>
+                          <input
+                            type="text"
+                            value={(currentFilters.keywords_exclude || []).join(', ')}
+                            onChange={(e) => updateFilter(config.id, config, {
+                              keywords_exclude: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                            })}
+                            className="input text-sm"
+                            placeholder="reminder, schedule, meeting"
+                          />
+                        </div>
+
+                        {/* Save button */}
+                        <button
+                          onClick={() => handleSaveFilters(boardId, config.id)}
+                          disabled={!hasEdits || savingFilters === config.id}
+                          className="btn btn-primary text-sm"
+                          style={{ opacity: !hasEdits || savingFilters === config.id ? 0.5 : 1 }}
+                        >
+                          {savingFilters === config.id ? 'Saving...' : 'Save Filters'}
+                        </button>
+                      </div>
                     )}
                   </div>
-                </div>
-              ));
+                );
+              });
             })}
           </div>
         )}

@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primary - Teal */
+  --hw-primary: #3B9B8F;
+  --hw-primary-dark: #2D7A70;
+  --hw-primary-light: #4DB8AA;
+  --hw-primary-50: #F0FAF8;
+  --hw-primary-100: #D5F0EC;
+
+  /* Secondary - Emerald */
+  --hw-secondary: #059669;
+  --hw-secondary-light: #10B981;
+  --hw-secondary-dark: #047857;
+
+  /* Accent - Amber */
+  --hw-accent: #F59E0B;
+  --hw-accent-light: #FBBF24;
+  --hw-accent-dark: #D97706;
+
+  /* Background */
+  --hw-bg: #FFFFFF;
+  --hw-bg-secondary: #F8FAFB;
+  --hw-bg-tertiary: #F1F5F9;
+
+  /* Text */
+  --hw-text: #1A2332;
+  --hw-text-secondary: #5A6577;
+  --hw-text-tertiary: #8C95A4;
+  --hw-text-inverse: #FFFFFF;
+
+  /* Borders */
+  --hw-border: #E5E9EF;
+  --hw-border-light: #EEF1F5;
+
+  /* Status */
+  --hw-success: #16A34A;
+  --hw-warning: #D97706;
+  --hw-error: #DC2626;
+  --hw-info: #3B9B8F;
+
+  /* Shadows */
+  --hw-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --hw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --hw-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --hw-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.06);
+}
+
+body {
+  background-color: var(--hw-bg);
+  color: var(--hw-text);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--hw-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}

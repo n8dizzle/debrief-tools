@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePayrollPermissions } from '@/hooks/usePayrollPermissions';
 import { formatHours, formatDate, formatTimestamp, getMonthToDateRange } from '@/lib/payroll-utils';
+import DepartmentFilter from '@/components/DepartmentFilter';
 
 interface TimesheetRow {
   id: string;
@@ -26,6 +27,8 @@ export default function TimesheetsPage() {
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [employeeFilter, setEmployeeFilter] = useState('');
   const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<string[]>([]);
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
 
   // Load employees for filter dropdown
   useEffect(() => {
@@ -35,6 +38,7 @@ export default function TimesheetsPage() {
         if (res.ok) {
           const data = await res.json();
           setEmployees((data.employees || []).map((e: any) => ({ id: e.id, name: e.name })));
+          setBusinessUnits(data.business_units || []);
         }
       } catch (err) {
         console.error('Failed to load employees:', err);
@@ -52,6 +56,7 @@ export default function TimesheetsPage() {
       });
       if (typeFilter) params.set('type', typeFilter);
       if (employeeFilter) params.set('employee', employeeFilter);
+      if (selectedDepts.length > 0) params.set('departments', selectedDepts.join(','));
 
       const res = await fetch(`/api/timesheets?${params}`);
       if (res.ok) {
@@ -63,7 +68,7 @@ export default function TimesheetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, typeFilter, employeeFilter]);
+  }, [dateRange, typeFilter, employeeFilter, selectedDepts]);
 
   useEffect(() => {
     if (!permLoading) loadData();
@@ -124,6 +129,11 @@ export default function TimesheetsPage() {
             <option key={emp.id} value={emp.id}>{emp.name}</option>
           ))}
         </select>
+        <DepartmentFilter
+          departments={businessUnits}
+          selected={selectedDepts}
+          onChange={setSelectedDepts}
+        />
       </div>
 
       {loading ? (
@@ -142,6 +152,7 @@ export default function TimesheetsPage() {
                   <th>Date</th>
                   <th>Employee</th>
                   <th>Type</th>
+                  <th>Job</th>
                   <th>Description</th>
                   <th>Clock In</th>
                   <th>Clock Out</th>
@@ -151,7 +162,7 @@ export default function TimesheetsPage() {
               <tbody>
                 {timesheets.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                    <td colSpan={8} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
                       No timesheets for this date range
                     </td>
                   </tr>
@@ -179,6 +190,24 @@ export default function TimesheetsPage() {
                         >
                           {ts.type === 'job' ? 'Job' : 'Non-Job'}
                         </span>
+                      </td>
+                      <td>
+                        {ts.st_job_id ? (
+                          <a
+                            href={`https://go.servicetitan.com/#/Job/Index/${ts.st_job_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1"
+                            style={{ color: 'var(--christmas-green-light)' }}
+                          >
+                            {ts.job_number || ts.st_job_id}
+                            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>-</span>
+                        )}
                       </td>
                       <td style={{ color: 'var(--text-secondary)' }}>{ts.description}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{formatTimestamp(ts.clock_in)}</td>

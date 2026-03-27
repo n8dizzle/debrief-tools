@@ -58,6 +58,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **AP Payments** (`/ap-payments`) | https://ap.christmasair.com | Next.js | 3005 |
 | **Membership Manager** (`/membership-manager`) | https://memberships.christmasair.com | Next.js | 3006 |
 | **Doc Dispatch** (`/doc-dispatch`) | https://docs.christmasair.com | Next.js | 3007 |
+| **HR Hub** (`/hr-hub`) | https://hr.christmasair.com | Next.js | 3010 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -211,6 +212,22 @@ const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-
 - Cron sync every 2 hours during business hours + daily 6am full sync
 - Database tables: mm_membership_types, mm_memberships, mm_recurring_services, mm_recurring_service_events, mm_staff_notes, mm_sync_log
 
+### HR Hub
+
+**Onboarding & Offboarding Tracker** - Digitizes the "Onboarding the Christmas Way" workflow
+- Dashboard with active onboardings, overdue tasks, due this week, completed this month
+- Onboarding detail page with phase timeline, task management grouped by phase and role
+- My Tasks: personal task queue across all active onboardings
+- Template system: base template (6 phases, ~79 steps) + department override templates
+- Task workflow: pending → in_progress → completed/skipped/na
+- Responsible roles: recruiter, hiring_manager, leadership, hr, employee
+- Conditional tasks (e.g., "if field role", "if driving role") can be marked N/A
+- Guidance text on tasks for education/tips
+- Activity logging for all status changes
+- Email (Resend) and Slack notifications for overdue tasks
+- Cron: Daily at 8am CT Mon-Fri for overdue task reminders
+- Database tables: hr_workflow_templates, hr_template_phases, hr_template_steps, hr_onboardings, hr_onboarding_tasks, hr_activity_log, hr_notification_log, hr_settings
+
 ### Internal Portal (Admin)
 
 **User Management** (`/admin/users`) - Centralized user provisioning
@@ -297,6 +314,14 @@ Key tables:
 - `mm_recurring_service_events` - Individual visit instances (Scheduled, Done, Cancelled)
 - `mm_staff_notes` - Local staff notes (not synced to ServiceTitan)
 - `mm_sync_log` - Membership sync audit trail
+- `hr_workflow_templates` - Onboarding/offboarding workflow templates
+- `hr_template_phases` - Template phase definitions
+- `hr_template_steps` - Template step definitions within phases
+- `hr_onboardings` - Employee onboarding instances
+- `hr_onboarding_tasks` - Individual tasks for each onboarding
+- `hr_activity_log` - Audit trail for onboarding/task changes
+- `hr_notification_log` - Notification send history
+- `hr_settings` - App settings key-value store
 
 ### Permission Groups
 ```typescript
@@ -323,6 +348,9 @@ can_view_jobs, can_manage_assignments, can_manage_payments, can_manage_contracto
 
 // membership_manager
 can_view_memberships, can_manage_notes, can_view_reports, can_sync_data
+
+// hr_hub
+can_access, can_view_onboardings, can_create_onboardings, can_manage_templates, can_complete_any_task, can_view_reports
 ```
 
 ## Deployment
@@ -355,6 +383,7 @@ cd job-tracker && vercel --prod
 cd ap-payments && vercel --prod
 cd membership-manager && vercel --prod
 cd doc-dispatch && vercel --prod
+cd hr-hub && vercel --prod
 ```
 
 Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
@@ -406,6 +435,12 @@ All Vercel crons use UTC. Times shown are Central Time (CT). During daylight sav
 |----------|----------|---------|---------|
 | `/api/cron/sync` | `0 12 * * *` | 6am daily | Full sync of memberships from ServiceTitan |
 | `/api/cron/sync` | `0 14,16,18,20,22 * * 1-5` | 8am-4pm Mon-Fri every 2hrs | Intraday membership sync |
+
+### HR Hub (`hr-hub/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/cron/reminders` | `0 14 * * 1-5` | 8am Mon-Fri | Overdue task reminders via email |
 
 ### Data Freshness Notes
 
@@ -478,6 +513,13 @@ SERVICETITAN_CLIENT_ID, SERVICETITAN_CLIENT_SECRET, SERVICETITAN_TENANT_ID, SERV
 CRON_SECRET
 ```
 
+### HR Hub
+Same as Daily Dash plus:
+```
+RESEND_API_KEY                                               # Email notifications
+SLACK_WEBHOOK_URL                                            # Slack notifications
+```
+
 ## DNS (Namecheap)
 - debrief.christmasair.com → A record → 64.225.12.86
 - dash.christmasair.com → CNAME → Vercel
@@ -488,6 +530,7 @@ CRON_SECRET
 - ap.christmasair.com → CNAME → Vercel
 - memberships.christmasair.com → CNAME → Vercel
 - docs.christmasair.com → CNAME → Vercel
+- hr.christmasair.com → CNAME → Vercel
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
@@ -515,6 +558,9 @@ cd ap-payments && npm run dev      # http://localhost:3005
 
 # Terminal 7 - Membership Manager
 cd membership-manager && npm run dev # http://localhost:3006
+
+# Terminal 8 - HR Hub
+cd hr-hub && npm run dev              # http://localhost:3010
 ```
 
 ## Recent Changes Summary

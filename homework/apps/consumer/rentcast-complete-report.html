@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Rentcast Property Report - 8100 Sunscape Ct</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            padding: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        header {
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #0066cc;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .property-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+        
+        .property-address {
+            font-size: 22px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .property-id {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .data-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .data-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        
+        .data-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .data-value.empty {
+            color: #999;
+            font-style: italic;
+        }
+        
+        .highlight-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .highlight-title {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 8px;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .feature-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .checkmark {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        thead {
+            background: #f8f9fa;
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .number {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .trend-up {
+            color: #4caf50;
+        }
+        
+        .trend-down {
+            color: #f44336;
+        }
+        
+        footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏡 Complete Property Data Report</h1>
+            <p class="subtitle">Powered by Rentcast.io API - All Available Data</p>
+        </header>
+
+        <div class="property-header">
+            <div class="property-address">8100 Sunscape Ct, Fort Worth, TX 76123</div>
+            <div class="property-id">Property ID: 8100-Sunscape-Ct,-Fort-Worth,-TX-76123</div>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ Data Currency Note:</strong> Rentcast shows last sale date as October 2, 2013. 
+            If the property sold in August 2025, it may take 3-6 months for public records to be updated 
+            and reflected in Rentcast's database.
+        </div>
+
+        <div class="highlight-box">
+            <div class="highlight-title">Quick Summary</div>
+            <div class="data-grid" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <div class="data-item">
+                    <div class="data-label">Type</div>
+                    <div class="data-value">Single Family</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Built</div>
+                    <div class="data-value">1994</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Beds/Baths</div>
+                    <div class="data-value">4 / 4</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Sq Ft</div>
+                    <div class="data-value">3,723</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">📍 Location Details</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Full Address</div>
+                    <div class="data-value">8100 Sunscape Ct, Fort Worth, TX 76123</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">County</div>
+                    <div class="data-value">Tarrant County</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Coordinates</div>
+                    <div class="data-value">32.623164, -97.403678</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">FIPS Codes</div>
+                    <div class="data-value">State: 48, County: 439</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏠 Property Details</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Property Type</div>
+                    <div class="data-value">Single Family</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Year Built</div>
+                    <div class="data-value">1994 (31 years old)</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Bedrooms</div>
+                    <div class="data-value">4</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Bathrooms</div>
+                    <div class="data-value">4</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Living Area</div>
+                    <div class="data-value">3,723 sq ft</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Lot Size</div>
+                    <div class="data-value">20,573 sq ft (0.47 acres)</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Stories</div>
+                    <div class="data-value">2</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Units</div>
+                    <div class="data-value">1</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">✨ Features & Amenities</h2>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span><strong>Pool</strong></span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span><strong>3-Car Garage</strong></span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Central A/C</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Central Heat</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>2 Stories</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Garage Type: Garage</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">💰 Tax Assessment History (2019-2024)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th class="number">Total Value</th>
+                        <th class="number">Land Value</th>
+                        <th class="number">Improvements</th>
+                        <th class="number">YoY Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>2024</strong></td>
+                        <td class="number"><strong>$463,009</strong></td>
+                        <td class="number">$70,000</td>
+                        <td class="number">$393,009</td>
+                        <td class="number trend-up">+1.8%</td>
+                    </tr>
+                    <tr>
+                        <td>2023</td>
+                        <td class="number">$454,812</td>
+                        <td class="number">$70,000</td>
+                        <td class="number">$384,812</td>
+                        <td class="number trend-up">+13.7%</td>
+                    </tr>
+                    <tr>
+                        <td>2022</td>
+                        <td class="number">$400,058</td>
+                        <td class="number">$60,000</td>
+                        <td class="number">$340,058</td>
+                        <td class="number trend-up">+27.0%</td>
+                    </tr>
+                    <tr>
+                        <td>2020</td>
+                        <td class="number">$315,000</td>
+                        <td class="number">$60,000</td>
+                        <td class="number">$255,000</td>
+                        <td class="number trend-down">-10.8%</td>
+                    </tr>
+                    <tr>
+                        <td>2019</td>
+                        <td class="number">$353,163</td>
+                        <td class="number">$60,000</td>
+                        <td class="number">$293,163</td>
+                        <td class="number">—</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                <strong>5-Year Growth:</strong> From $353,163 (2019) to $463,009 (2024) = 
+                <span class="trend-up" style="font-weight: 600;">+31.1% increase</span>
+            </p>
+            <p style="margin-top: 8px; font-size: 13px; color: #999; font-style: italic;">
+                Note: 2021 data not available in Rentcast response
+            </p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏛️ Annual Property Taxes (2019-2023)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tax Year</th>
+                        <th class="number">Total Tax Amount</th>
+                        <th class="number">Tax Rate</th>
+                        <th class="number">YoY Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>2023</strong></td>
+                        <td class="number"><strong>$6,842</strong></td>
+                        <td class="number">1.50%</td>
+                        <td class="number trend-down">-12.9%</td>
+                    </tr>
+                    <tr>
+                        <td>2022</td>
+                        <td class="number">$7,858</td>
+                        <td class="number">1.96%</td>
+                        <td class="number trend-up">+2.5%</td>
+                    </tr>
+                    <tr>
+                        <td>2020</td>
+                        <td class="number">$7,663</td>
+                        <td class="number">2.43%</td>
+                        <td class="number trend-down">-8.6%</td>
+                    </tr>
+                    <tr>
+                        <td>2019</td>
+                        <td class="number">$8,383</td>
+                        <td class="number">2.37%</td>
+                        <td class="number">—</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                <strong>Average Annual Tax (4 years):</strong> $7,687
+            </p>
+            <p style="margin-top: 8px; font-size: 14px; color: #666;">
+                <strong>Tax Trend:</strong> Decreased 18.4% from 2019 ($8,383) to 2023 ($6,842)
+            </p>
+            <p style="margin-top: 8px; font-size: 13px; color: #999; font-style: italic;">
+                Note: 2021 and 2024 tax data not yet available. Tax rate = (Tax Amount ÷ Assessed Value)
+            </p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏘️ Legal & Subdivision</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Assessor ID / APN</div>
+                    <div class="data-value">40671-11-27</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Legal Description</div>
+                    <div class="data-value">SUMMER CREEK ADDITION BLOCK 11 LOT 27</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Subdivision</div>
+                    <div class="data-value">SUMMER CREEK ADDITION</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Zoning</div>
+                    <div class="data-value class="empty">Not Available</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">📅 Sale History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Event</th>
+                        <th class="number">Sale Price</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>October 2, 2013</td>
+                        <td>Sale</td>
+                        <td class="number">Not Available</td>
+                        <td>Last recorded sale in Rentcast</td>
+                    </tr>
+                    <tr style="background: #fff3cd;">
+                        <td>August 2025</td>
+                        <td>Recent Sale</td>
+                        <td class="number">—</td>
+                        <td><em>Not yet reflected (pending public record update)</em></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                Time since last recorded sale: ~11.2 years (4,104 days)
+            </p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏘️ HOA Information</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Monthly HOA Fee</div>
+                    <div class="data-value">$17.00</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Annual HOA Fee</div>
+                    <div class="data-value">$204.00</div>
+                </div>
+            </div>
+            <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                Very affordable HOA compared to typical single-family communities in Fort Worth.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">👥 Owner Information</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Owner Names</div>
+                    <div class="data-value">Nathan Lenahan, Jamie Lenahan</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Owner Type</div>
+                    <div class="data-value">Individual</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Owner Occupied</div>
+                    <div class="data-value">✓ Yes</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Mailing Address</div>
+                    <div class="data-value">Same as property address</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">📊 Key Insights & Metrics</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">ASSESSED VALUE GROWTH (5 YEARS)</div>
+                    <div style="font-size: 24px; font-weight: 600; color: #4caf50;">+31.1%</div>
+                    <div style="font-size: 12px; color: #666;">$353,163 → $463,009</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">PRICE PER SQ FT (2024 ASSESSED)</div>
+                    <div style="font-size: 24px; font-weight: 600; color: #0066cc;">$124.35</div>
+                    <div style="font-size: 12px; color: #666;">Based on 3,723 sq ft</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">MONTHLY COST (TAX + HOA)</div>
+                    <div style="font-size: 24px; font-weight: 600; color: #333;">$587</div>
+                    <div style="font-size: 12px; color: #666;">$570 tax + $17 HOA (2023)</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">LAND vs IMPROVEMENTS</div>
+                    <div style="font-size: 24px; font-weight: 600; color: #333;">15% / 85%</div>
+                    <div style="font-size: 12px; color: #666;">$70K land, $393K improvements</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>Data Source:</strong> Rentcast.io Property Data API</p>
+            <p><strong>Report Generated:</strong> December 28, 2025</p>
+            <p><strong>Database Record ID:</strong> 7b5ef3cb-bc42-41cd-be55-3ee75351eaa4</p>
+            <p style="margin-top: 10px; font-style: italic;">
+                This report contains all data available from Rentcast as of the API query date.
+                Some recent events may not be reflected due to public record processing delays.
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
+

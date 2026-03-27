@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { formatCurrency, formatDate, getAgingBucketLabel } from '@/lib/ar-utils';
@@ -18,6 +18,7 @@ type FilterState = {
   owners: string[];
   controlBuckets: string[];
   jobStatuses: string[];
+  collectionStatuses: string[];
   agingBucket: string;
   customerType: string;
   invoiceType: string; // 'membership' | 'service' | '' (all)
@@ -120,7 +121,7 @@ function MultiSelectDropdown({
   );
 }
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'location_address' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'collection_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'estimate_sold_by' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -138,6 +139,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'st_job_id', label: 'Job #', sortable: true, minWidth: 80, defaultWidth: 100 },
   { id: 'customer_name', label: 'Customer', sortable: true, minWidth: 120, defaultWidth: 180 },
   { id: 'location_name', label: 'Location', sortable: true, minWidth: 120, defaultWidth: 180 },
+  { id: 'location_address', label: 'Address', sortable: true, minWidth: 140, defaultWidth: 200 },
   { id: 'business_unit_name', label: 'Business Unit', sortable: true, minWidth: 100, defaultWidth: 140 },
   { id: 'project_name', label: 'Project', sortable: true, minWidth: 100, defaultWidth: 140 },
   { id: 'st_job_type_name', label: 'Job Type', sortable: true, minWidth: 80, defaultWidth: 100 },
@@ -145,8 +147,10 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'inhouse_financing', label: 'IHF', sortable: true, minWidth: 40, defaultWidth: 50 },
   { id: 'is_membership_invoice', label: 'Mbrshp Inv', sortable: true, minWidth: 60, defaultWidth: 70 },
   { id: 'booking_payment_type', label: 'Booked Pay', sortable: true, minWidth: 80, defaultWidth: 100 },
+  { id: 'estimate_sold_by', label: 'Estimate Sold By', sortable: true, minWidth: 100, defaultWidth: 140 },
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
-  { id: 'job_status', label: 'Job Status', sortable: false, minWidth: 100, defaultWidth: 130 },
+  { id: 'job_status', label: 'Work Status', sortable: false, minWidth: 100, defaultWidth: 130 },
+  { id: 'collection_status', label: 'Collection Status', sortable: false, minWidth: 100, defaultWidth: 140 },
   { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'days_outstanding', label: 'Age', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
@@ -174,6 +178,7 @@ export default function InvoicesPage() {
     owners: searchParams.get('owners')?.split(',').filter(Boolean) || [],
     controlBuckets: searchParams.get('controlBuckets')?.split(',').filter(Boolean) || [],
     jobStatuses: searchParams.get('jobStatuses')?.split(',').filter(Boolean) || [],
+    collectionStatuses: searchParams.get('collectionStatuses')?.split(',').filter(Boolean) || [],
     agingBucket: searchParams.get('agingBucket') || '',
     customerType: searchParams.get('customerType') || '',
     invoiceType: searchParams.get('invoiceType') || '',
@@ -203,6 +208,7 @@ export default function InvoicesPage() {
     if (filters.owners.length > 0) params.set('owners', filters.owners.join(','));
     if (filters.controlBuckets.length > 0) params.set('controlBuckets', filters.controlBuckets.join(','));
     if (filters.jobStatuses.length > 0) params.set('jobStatuses', filters.jobStatuses.join(','));
+    if (filters.collectionStatuses.length > 0) params.set('collectionStatuses', filters.collectionStatuses.join(','));
     if (filters.agingBucket) params.set('agingBucket', filters.agingBucket);
     if (filters.customerType) params.set('customerType', filters.customerType);
     if (filters.invoiceType) params.set('invoiceType', filters.invoiceType);
@@ -509,7 +515,10 @@ export default function InvoicesPage() {
       const search = filters.search.toLowerCase();
       if (
         !inv.customer_name.toLowerCase().includes(search) &&
-        !inv.invoice_number.toLowerCase().includes(search)
+        !inv.invoice_number.toLowerCase().includes(search) &&
+        !(inv.location_name || '').toLowerCase().includes(search) &&
+        !((inv as any).estimate_sold_by || '').toLowerCase().includes(search) &&
+        !((inv as any).location_address || '').toLowerCase().includes(search)
       ) {
         return false;
       }
@@ -518,6 +527,7 @@ export default function InvoicesPage() {
     if (filters.owners.length > 0 && !filters.owners.includes(inv.tracking?.owner_id || '')) return false;
     if (filters.controlBuckets.length > 0 && !filters.controlBuckets.includes(inv.tracking?.control_bucket || '')) return false;
     if (filters.jobStatuses.length > 0 && !filters.jobStatuses.includes(inv.tracking?.job_status || '')) return false;
+    if (filters.collectionStatuses.length > 0 && !filters.collectionStatuses.includes(inv.tracking?.collection_status || '')) return false;
     if (filters.agingBucket && inv.aging_bucket !== filters.agingBucket) return false;
     if (filters.customerType && inv.customer_type !== filters.customerType) return false;
     if (excludeInhouseFinancing && inv.has_inhouse_financing) return false;
@@ -528,6 +538,20 @@ export default function InvoicesPage() {
     }
     return true;
   });
+
+  // Compute available filter options from invoices (only show options that have matching invoices)
+  const availableBusinessUnits = useMemo(() => {
+    const baseFiltered = invoices.filter(inv => {
+      if (excludeInhouseFinancing && inv.has_inhouse_financing) return false;
+      if (filters.invoiceType) {
+        const isMembershipInvoice = (inv as any).is_membership_invoice || false;
+        if (filters.invoiceType === 'membership' && !isMembershipInvoice) return false;
+        if (filters.invoiceType === 'service' && isMembershipInvoice) return false;
+      }
+      return true;
+    });
+    return [...new Set(baseFiltered.map(inv => inv.business_unit_name).filter(Boolean))].sort() as string[];
+  }, [invoices, excludeInhouseFinancing, filters.invoiceType]);
 
   // Sort invoices
   const sortedInvoices = [...filteredInvoices].sort((a, b) => {
@@ -550,6 +574,10 @@ export default function InvoicesPage() {
       case 'location_name':
         aVal = (a.location_name || '').toLowerCase();
         bVal = (b.location_name || '').toLowerCase();
+        break;
+      case 'location_address':
+        aVal = ((a as any).location_address || '').toLowerCase();
+        bVal = ((b as any).location_address || '').toLowerCase();
         break;
       case 'business_unit_name':
         aVal = (a.business_unit_name || '').toLowerCase();
@@ -591,6 +619,10 @@ export default function InvoicesPage() {
       case 'booking_payment_type':
         aVal = (a.booking_payment_type || '').toLowerCase();
         bVal = (b.booking_payment_type || '').toLowerCase();
+        break;
+      case 'estimate_sold_by':
+        aVal = ((a as any).estimate_sold_by || '').toLowerCase();
+        bVal = ((b as any).estimate_sold_by || '').toLowerCase();
         break;
       case 'control_bucket':
         aVal = a.tracking?.control_bucket === 'ar_not_in_our_control' ? 1 : 0;
@@ -728,6 +760,12 @@ export default function InvoicesPage() {
             )}
           </div>
         );
+      case 'location_address':
+        return (
+          <span className="text-xs truncate block" title={(invoice as any).location_address || ''}>
+            {(invoice as any).location_address || '-'}
+          </span>
+        );
       case 'business_unit_name':
         return (
           <span className="text-xs truncate block" title={invoice.business_unit_name || ''}>
@@ -784,7 +822,21 @@ export default function InvoicesPage() {
             disabled={!canUpdateWorkflow}
           >
             <option value="">-</option>
-            {jobStatuses.map(status => (
+            {jobStatuses.filter(s => s.category === 'work').map(status => (
+              <option key={status.key} value={status.key}>{status.label}</option>
+            ))}
+          </select>
+        );
+      case 'collection_status':
+        return (
+          <select
+            className="select text-xs py-1"
+            value={invoice.tracking?.collection_status || ''}
+            onChange={(e) => updateTracking(invoice.id, 'collection_status', e.target.value || null)}
+            disabled={!canUpdateWorkflow}
+          >
+            <option value="">-</option>
+            {jobStatuses.filter(s => s.category === 'collection').map(status => (
               <option key={status.key} value={status.key}>{status.label}</option>
             ))}
           </select>
@@ -817,11 +869,18 @@ export default function InvoicesPage() {
             {invoice.booking_payment_type || '-'}
           </span>
         );
+      case 'estimate_sold_by':
+        return (
+          <span className="text-xs truncate block" title={(invoice as any).estimate_sold_by || ''}>
+            {(invoice as any).estimate_sold_by || '-'}
+          </span>
+        );
       case 'actions':
         return (
           <QuickLogButtons
             invoiceId={invoice.id}
             compact
+            loggedTypes={(invoice as any).logged_types || []}
           />
         );
       default:
@@ -1010,7 +1069,7 @@ export default function InvoicesPage() {
         </button>
 
         {/* Clear All Filters */}
-        {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0) && (
+        {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0 || filters.collectionStatuses.length > 0) && (
           <button
             onClick={() => setFilters({
               search: filters.search,
@@ -1018,6 +1077,7 @@ export default function InvoicesPage() {
               owners: [],
               controlBuckets: [],
               jobStatuses: [],
+              collectionStatuses: [],
               agingBucket: '',
               customerType: '',
               invoiceType: '',
@@ -1120,7 +1180,7 @@ export default function InvoicesPage() {
             </label>
             <MultiSelectDropdown
               label="Business Unit"
-              options={businessUnits.map(unit => ({ value: unit, label: unit }))}
+              options={availableBusinessUnits.map(unit => ({ value: unit, label: unit }))}
               selected={filters.businessUnits}
               onChange={(values) => setFilters(prev => ({ ...prev, businessUnits: values }))}
               placeholder="All Business Units"
@@ -1140,13 +1200,25 @@ export default function InvoicesPage() {
           </div>
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Job Status
+              Work Status
             </label>
             <MultiSelectDropdown
-              label="Job Status"
-              options={jobStatuses.map(status => ({ value: status.key, label: status.label }))}
+              label="Work Status"
+              options={jobStatuses.filter(s => s.category === 'work').map(status => ({ value: status.key, label: status.label }))}
               selected={filters.jobStatuses}
               onChange={(values) => setFilters(prev => ({ ...prev, jobStatuses: values }))}
+              placeholder="All"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+              Collection Status
+            </label>
+            <MultiSelectDropdown
+              label="Collection Status"
+              options={jobStatuses.filter(s => s.category === 'collection').map(status => ({ value: status.key, label: status.label }))}
+              selected={filters.collectionStatuses}
+              onChange={(values) => setFilters(prev => ({ ...prev, collectionStatuses: values }))}
               placeholder="All"
             />
           </div>

@@ -52,7 +52,7 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { author_name, content_type, text_content, media_url, background_color } = body;
+  const { author_name, content_type, text_content, media_url, media_storage_path, media_width, media_height, background_color } = body;
 
   if (!board.allow_anonymous && !author_name?.trim()) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -69,9 +69,13 @@ export async function POST(
       content_type: content_type || 'text',
       text_content: text_content?.trim() || null,
       media_url: media_url || null,
+      media_storage_path: media_storage_path || null,
+      media_width: media_width || null,
+      media_height: media_height || null,
       background_color: background_color || null,
       author_name: author_name?.trim() || 'Anonymous',
       source: 'web',
+      status: 'approved',
     })
     .select()
     .single();

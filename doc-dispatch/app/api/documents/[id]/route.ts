@@ -25,7 +25,7 @@ export async function GET(
         *,
         assignee:portal_users!dd_action_items_assignee_id_fkey(id, name, email)
       ),
-      pages:dd_document_pages(id, document_id, image_path, page_number, created_at)
+      pages:dd_document_pages(id, document_id, image_path, page_number, rotation, created_at)
     `)
     .eq('id', id)
     .single();
@@ -82,8 +82,24 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
 
+  const supabase = getServerSupabase();
+
+  // Handle page rotation updates
+  if (body.pageRotations) {
+    for (const [pageId, rotation] of Object.entries(body.pageRotations)) {
+      await supabase
+        .from('dd_document_pages')
+        .update({ rotation: rotation as number })
+        .eq('id', pageId)
+        .eq('document_id', id);
+    }
+    if (Object.keys(body).length === 1) {
+      return NextResponse.json({ success: true });
+    }
+  }
+
   // Only allow updating specific fields
-  const allowedFields = ['status', 'priority', 'notes', 'title', 'assigned_to'];
+  const allowedFields = ['status', 'priority', 'notes', 'title', 'assigned_to', 'rotation'];
   const updates: Record<string, any> = {};
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
@@ -94,8 +110,6 @@ export async function PATCH(
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
-
-  const supabase = getServerSupabase();
 
   const { data, error } = await supabase
     .from('dd_documents')

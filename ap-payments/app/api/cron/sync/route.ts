@@ -83,14 +83,16 @@ export async function POST(request: NextRequest) {
       (dbTechs || []).map(t => [t.st_technician_id, { id: t.id, hourly_rate: t.hourly_rate }])
     );
 
-    // Load BU → trade mapping
-    const { data: mappingRow } = await supabase
+    // Load BU → trade mapping and allowed BUs
+    const { data: settingsRows } = await supabase
       .from('ap_sync_settings')
-      .select('value')
-      .eq('key', 'bu_trade_mapping')
-      .single();
+      .select('key, value')
+      .in('key', ['bu_trade_mapping', 'sync_business_units', 'default_hourly_rates']);
 
-    const buTradeMapping: Record<string, string> = mappingRow?.value || {};
+    const settingsMap = new Map((settingsRows || []).map(r => [r.key, r.value]));
+    const buTradeMapping: Record<string, string> = settingsMap.get('bu_trade_mapping') || {};
+    const allowedBUs: string[] = settingsMap.get('sync_business_units') || [];
+    const defaultHourlyRates: Record<string, number> = settingsMap.get('default_hourly_rates') || {};
 
     // Upcoming jobs come from appointments (which have scheduled dates)
     // Recent completed jobs come from the jobs endpoint filtered by completedOn
@@ -124,13 +126,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Pre-build BU lookup maps (sync, no API calls)
+    // Use configurable BU→Trade mapping; fall back to name-based detection
+    const buNameMap = new Map(businessUnits.map(bu => [bu.id, bu.name]));
+    console.log(`Loaded ${businessUnits.length} business units (incl inactive): ${businessUnits.map(b => `${b.id}=${b.name}`).join(', ')}`);
+    const tradeMap = new Map<number, 'hvac' | 'plumbing'>(
+      businessUnits.map(bu => {
+        const mappedTrade = buTradeMapping[bu.name];
+        if (mappedTrade === 'hvac' || mappedTrade === 'plumbing') return [bu.id, mappedTrade];
+        return [bu.id, bu.name.toLowerCase().includes('plumb') ? 'plumbing' : 'hvac'];
+      })
+    );
+
     // Dedupe by job ID (upcoming takes priority for appointment data)
     const jobMap = new Map<number, STJob>();
     for (const job of [...recentJobs, ...upcomingJobs]) {
       jobMap.set(job.id, job);
     }
 
-    const allJobs = Array.from(jobMap.values());
+    // Fetch job objects for recent appointments that aren't already covered
+    // (catches Scheduled/In Progress jobs with past appointment dates)
+    const missingApptJobIds = Array.from(recentApptResult.appointmentMap.keys())
+      .filter(id => !jobMap.has(id));
+    if (missingApptJobIds.length > 0) {
+      console.log(`Fetching ${missingApptJobIds.length} jobs from recent appointments not in upcoming/completed`);
+      const missingJobsMap = await st.getJobsByIds(missingApptJobIds);
+      for (const [id, job] of missingJobsMap) {
+        if (!['Canceled'].includes(job.jobStatus)) {
+          jobMap.set(id, job);
+        }
+      }
+    }
+
+    // Filter to allowed business units (if configured)
+    const allJobsUnfiltered = Array.from(jobMap.values());
+    const allJobs = allowedBUs.length > 0
+      ? allJobsUnfiltered.filter(job => {
+          const buName = buNameMap.get(job.businessUnitId) || job.businessUnitName || '';
+          return allowedBUs.includes(buName);
+        })
+      : allJobsUnfiltered;
+
+    if (allowedBUs.length > 0) {
+      console.log(`BU filter: ${allJobsUnfiltered.length} → ${allJobs.length} jobs (allowed: ${allowedBUs.join(', ')})`);
+    }
 
     // Get existing jobs from DB
     const stJobIds = allJobs.map(j => j.id);
@@ -143,18 +182,6 @@ export async function POST(request: NextRequest) {
 
     const existingMap = new Map(
       (existingJobs || []).map(j => [j.st_job_id, j])
-    );
-
-    // Pre-build BU lookup maps (sync, no API calls)
-    // Use configurable BU→Trade mapping; fall back to name-based detection
-    const buNameMap = new Map(businessUnits.map(bu => [bu.id, bu.name]));
-    console.log(`Loaded ${businessUnits.length} business units (incl inactive): ${businessUnits.map(b => `${b.id}=${b.name}`).join(', ')}`);
-    const tradeMap = new Map<number, 'hvac' | 'plumbing'>(
-      businessUnits.map(bu => {
-        const mappedTrade = buTradeMapping[bu.name];
-        if (mappedTrade === 'hvac' || mappedTrade === 'plumbing') return [bu.id, mappedTrade];
-        return [bu.id, bu.name.toLowerCase().includes('plumb') ? 'plumbing' : 'hvac'];
-      })
     );
 
     // Resolve any missing BU names by fetching individual BUs (handles deleted BUs)
@@ -259,14 +286,15 @@ export async function POST(request: NextRequest) {
             if (techInfo) techDbId = techInfo.id;
           }
 
-          // Calculate cost per tech using their hourly rates
+          // Calculate cost per tech using their hourly rates (fall back to trade default)
           let totalCost = 0;
           for (const empId of uniqueTechs) {
             const techItems = jobPayItems.filter(i => i.employeeId === empId);
             const techHours = techItems.reduce((s, i) => s + (i.paidDurationHours || 0), 0);
             const techInfo = techLookup.get(empId);
-            if (techInfo?.hourly_rate) {
-              totalCost += techHours * techInfo.hourly_rate;
+            const rate = techInfo?.hourly_rate || defaultHourlyRates[trade] || 0;
+            if (rate > 0) {
+              totalCost += techHours * rate;
             }
           }
           if (totalCost > 0) laborCost = Math.round(totalCost * 100) / 100;
@@ -283,16 +311,14 @@ export async function POST(request: NextRequest) {
                 laborHours = Math.round(apptHours * techIds.length * 100) / 100;
                 techCount = techIds.length;
                 let totalCost = 0;
-                let allHaveRates = true;
                 for (const tid of techIds) {
                   const techInfo = techLookup.get(tid);
-                  if (techInfo?.hourly_rate) {
-                    totalCost += apptHours * techInfo.hourly_rate;
-                  } else {
-                    allHaveRates = false;
+                  const rate = techInfo?.hourly_rate || defaultHourlyRates[trade] || 0;
+                  if (rate > 0) {
+                    totalCost += apptHours * rate;
                   }
                 }
-                if (allHaveRates && totalCost > 0) laborCost = Math.round(totalCost * 100) / 100;
+                if (totalCost > 0) laborCost = Math.round(totalCost * 100) / 100;
               } else {
                 laborHours = apptHours;
               }

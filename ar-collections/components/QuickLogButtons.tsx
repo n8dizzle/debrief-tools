@@ -8,6 +8,7 @@ interface QuickLogButtonsProps {
   invoiceId: string;
   onLogSaved?: () => void;
   compact?: boolean;
+  loggedTypes?: string[];
 }
 
 interface LogModalState {
@@ -22,7 +23,7 @@ const CONTACT_RESULTS: { value: ARContactResult; label: string }[] = [
   { value: 'left_message', label: 'Left Message' },
 ];
 
-export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false }: QuickLogButtonsProps) {
+export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false, loggedTypes = [] }: QuickLogButtonsProps) {
   const [modal, setModal] = useState<LogModalState>({ isOpen: false, noteType: 'call' });
   const [contactResult, setContactResult] = useState<ARContactResult>('reached');
   const [spokeWith, setSpokeWith] = useState('');
@@ -130,7 +131,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           type="button"
           onClick={() => openModal('call')}
           className={buttonClass}
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: loggedTypes.includes('call') ? '#4ade80' : 'var(--text-secondary)' }}
           title="Log Call"
         >
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,7 +142,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           type="button"
           onClick={() => openModal('email')}
           className={buttonClass}
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: loggedTypes.includes('email') ? '#4ade80' : 'var(--text-secondary)' }}
           title="Log Email"
         >
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,7 +153,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           type="button"
           onClick={() => openModal('text')}
           className={buttonClass}
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: loggedTypes.includes('text') ? '#4ade80' : 'var(--text-secondary)' }}
           title="Log Text"
         >
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,7 +164,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           type="button"
           onClick={() => openModal('note')}
           className={buttonClass}
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: loggedTypes.includes('note') ? '#4ade80' : 'var(--text-secondary)' }}
           title="Add Note"
         >
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +175,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           type="button"
           onClick={() => setShowTaskModal(true)}
           className={buttonClass}
-          style={{ color: 'var(--text-secondary)' }}
+          style={{ color: loggedTypes.includes('task') ? '#4ade80' : 'var(--text-secondary)' }}
           title="Create Task"
         >
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">

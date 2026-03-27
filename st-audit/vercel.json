@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/invoice-snapshot",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

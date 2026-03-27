@@ -14,12 +14,16 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const statusFilter = searchParams.get('status') || 'approved';
+
   const supabase = getServerSupabase();
 
   const { data: posts, error } = await supabase
     .from('cel_posts')
     .select('*, cel_reactions(*)')
     .eq('board_id', boardId)
+    .eq('status', statusFilter)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -34,7 +38,19 @@ export async function GET(
     cel_reactions: undefined,
   }));
 
-  return NextResponse.json({ posts: transformed });
+  // Get pending count for managers
+  let pending_count = 0;
+  const role = session.user.role;
+  if (role === 'owner' || role === 'manager') {
+    const { count } = await supabase
+      .from('cel_posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('board_id', boardId)
+      .eq('status', 'pending');
+    pending_count = count || 0;
+  }
+
+  return NextResponse.json({ posts: transformed, pending_count });
 }
 
 // POST /api/boards/[boardId]/posts - Create post
@@ -96,6 +112,7 @@ export async function POST(
       author_avatar_url: session.user.image || null,
       author_user_id: session.user.id,
       source: 'web',
+      status: 'approved',
     })
     .select()
     .single();

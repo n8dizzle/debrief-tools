@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rentcast Property Data Report - 8100 Sunscape Ct</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        header {
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #0066cc;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .property-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+        
+        .property-address {
+            font-size: 22px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .property-id {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .data-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .data-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        
+        .data-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .data-value.empty {
+            color: #999;
+            font-style: italic;
+        }
+        
+        .highlight-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .highlight-title {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 8px;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .feature-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .checkmark {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        .xmark {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .json-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        
+        pre {
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏡 Property Data Report</h1>
+            <p class="subtitle">Powered by Rentcast.io API</p>
+        </header>
+
+        <div class="property-header">
+            <div class="property-address">8100 Sunscape Ct, Fort Worth, TX 76123</div>
+            <div class="property-id">Property ID: 8100-Sunscape-Ct,-Fort-Worth,-TX-76123</div>
+        </div>
+
+        <div class="highlight-box">
+            <div class="highlight-title">Quick Summary</div>
+            <div class="data-grid" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <div class="data-item">
+                    <div class="data-label">Type</div>
+                    <div class="data-value">Single Family</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Built</div>
+                    <div class="data-value">1994</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Beds/Baths</div>
+                    <div class="data-value">4 / 4</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Sq Ft</div>
+                    <div class="data-value">3,723</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">📍 Location Details</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Address Line 1</div>
+                    <div class="data-value">8100 Sunscape Ct</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Address Line 2</div>
+                    <div class="data-value class="empty">N/A</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">City</div>
+                    <div class="data-value">Fort Worth</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">State</div>
+                    <div class="data-value">TX</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Zip Code</div>
+                    <div class="data-value">76123</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">County</div>
+                    <div class="data-value">Tarrant</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">State FIPS</div>
+                    <div class="data-value">48</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">County FIPS</div>
+                    <div class="data-value">439</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Latitude</div>
+                    <div class="data-value">32.623164</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Longitude</div>
+                    <div class="data-value">-97.403678</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏠 Property Details</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Property Type</div>
+                    <div class="data-value">Single Family</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Year Built</div>
+                    <div class="data-value">1994 (31 years old)</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Bedrooms</div>
+                    <div class="data-value">4</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Bathrooms</div>
+                    <div class="data-value">4</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Square Footage</div>
+                    <div class="data-value">3,723 sq ft</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Lot Size</div>
+                    <div class="data-value">20,573 sq ft (0.47 acres)</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Stories</div>
+                    <div class="data-value">2</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Unit Count</div>
+                    <div class="data-value">1</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">✨ Features & Amenities</h2>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Pool</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Garage (3 spaces)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Central Cooling</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>Central Heating</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon checkmark">✓</span>
+                    <span>2 Stories</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏛️ Legal & Tax Information</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Assessor ID</div>
+                    <div class="data-value">40671-11-27</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Legal Description</div>
+                    <div class="data-value">SUMMER CREEK ADDITION BLOCK 11 LOT 27</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Subdivision</div>
+                    <div class="data-value">SUMMER CREEK ADDITION</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Zoning</div>
+                    <div class="data-value class="empty">N/A</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <div class="data-label">Tax Assessment History (Available Years)</div>
+                <div class="data-value">2019, 2020, 2022, 2023, 2024</div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <div class="data-label">Property Tax History (Available Years)</div>
+                <div class="data-value">2019, 2020, 2022, 2023</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">💰 Sale History</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Last Sale Date</div>
+                    <div class="data-value">October 2, 2013</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Last Sale Price</div>
+                    <div class="data-value class="empty">Not Available</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Days Since Last Sale</div>
+                    <div class="data-value">~4,104 days (11.2 years)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">🏘️ HOA Information</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Monthly HOA Fee</div>
+                    <div class="data-value">$17.00</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Annual HOA Fee</div>
+                    <div class="data-value">$204.00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">👥 Owner Information</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Owner Type</div>
+                    <div class="data-value">Individual</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Owner Occupied</div>
+                    <div class="data-value">✓ Yes</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Mailing City</div>
+                    <div class="data-value">Fort Worth</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Mailing State</div>
+                    <div class="data-value">TX 76123</div>
+                </div>
+            </div>
+            <p style="margin-top: 15px; font-size: 12px; color: #666; font-style: italic;">
+                * Owner names available in Rentcast response but redacted for privacy in this report
+            </p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">📄 Complete Raw JSON Response</h2>
+            <div class="json-section">
+                <pre>{
+  "id": "8100-Sunscape-Ct,-Fort-Worth,-TX-76123",
+  "formattedAddress": "8100 Sunscape Ct, Fort Worth, TX 76123",
+  "addressLine1": "8100 Sunscape Ct",
+  "addressLine2": null,
+  "city": "Fort Worth",
+  "state": "TX",
+  "stateFips": "48",
+  "zipCode": "76123",
+  "county": "Tarrant",
+  "countyFips": "439",
+  "latitude": 32.623164,
+  "longitude": -97.403678,
+  "propertyType": "Single Family",
+  "bedrooms": 4,
+  "bathrooms": 4,
+  "squareFootage": 3723,
+  "lotSize": 20573,
+  "yearBuilt": 1994,
+  "assessorID": "40671-11-27",
+  "legalDescription": "SUMMER CREEK ADDITION BLOCK 11 LOT 27",
+  "subdivision": "SUMMER CREEK ADDITION",
+  "lastSaleDate": "2013-10-02T00:00:00.000Z",
+  "hoa": {
+    "fee": 17
+  },
+  "features": {
+    "cooling": true,
+    "coolingType": "Central",
+    "floorCount": 2,
+    "garage": true,
+    "garageSpaces": 3,
+    "garageType": "Garage",
+    "heating": true,
+    "heatingType": "Central",
+    "pool": true,
+    "unitCount": 1
+  },
+  "taxAssessments": {
+    "2019": { ... },
+    "2020": { ... },
+    "2022": { ... },
+    "2023": { ... },
+    "2024": { ... }
+  },
+  "propertyTaxes": {
+    "2019": { ... },
+    "2020": { ... },
+    "2022": { ... },
+    "2023": { ... }
+  },
+  "history": {
+    "2013-10-02": { ... }
+  },
+  "owner": {
+    "names": ["..."],
+    "type": "Individual",
+    "mailingAddress": {
+      "addressLine1": "...",
+      "city": "Fort Worth",
+      "state": "TX",
+      "zipCode": "76123"
+    }
+  },
+  "ownerOccupied": true
+}</pre>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>Data Source:</strong> Rentcast.io Property Data API</p>
+            <p><strong>Report Generated:</strong> December 28, 2025</p>
+            <p><strong>Database Record ID:</strong> 7b5ef3cb-bc42-41cd-be55-3ee75351eaa4</p>
+        </footer>
+    </div>
+</body>
+</html>
+

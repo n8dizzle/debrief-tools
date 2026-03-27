@@ -26,6 +26,11 @@ interface PortalUser {
 }
 
 function hasARCollectionsAccess(user: PortalUser): boolean {
+  // Owners have global access to all apps
+  if (user.role === 'owner') {
+    return true;
+  }
+
   // Check if user has any AR Collections permission set to true
   const arPerms = user.permissions?.ar_collections;
   if (!arPerms) {

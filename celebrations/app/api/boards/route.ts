@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     .from('cel_boards')
     .select('*, cel_posts(count)')
     .eq('status', status)
+    .eq('cel_posts.status', 'approved')
     .order('created_at', { ascending: false });
 
   if (error) {

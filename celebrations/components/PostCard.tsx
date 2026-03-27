@@ -15,13 +15,14 @@ interface PostCardProps {
 export default function PostCard({ post, currentUserId, onReact, onDelete, onPin, isManager }: PostCardProps) {
   const isAuthor = currentUserId && post.author_user_id === currentUserId;
   const timeAgo = getRelativeTime(post.created_at);
+  const videoEmbed = post.content_type === 'text' && post.text_content ? extractVideoEmbed(post.text_content) : null;
 
   return (
     <div className="masonry-item">
       <div
         className="rounded-xl overflow-hidden"
         style={{
-          background: post.content_type === 'text' && post.background_color
+          background: post.content_type === 'text' && !videoEmbed && post.background_color
             ? post.background_color
             : 'var(--bg-card)',
           border: '1px solid var(--border-subtle)',
@@ -60,18 +61,32 @@ export default function PostCard({ post, currentUserId, onReact, onDelete, onPin
           />
         )}
 
+        {/* Embedded video from URL (YouTube) */}
+        {videoEmbed && (
+          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            <iframe
+              src={videoEmbed.embedUrl}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+              style={{ border: 'none' }}
+            />
+          </div>
+        )}
+
         {/* Text content */}
         {post.content_type === 'text' && post.text_content && (
-          <div className="p-5">
+          <div className={videoEmbed ? 'px-4 pt-3' : 'p-5'}>
             <p
-              className={`${post.text_content.length < 80 ? 'text-xl' : 'text-base'} leading-relaxed`}
+              className={`${!videoEmbed && post.text_content.length < 80 ? 'text-xl' : 'text-base'} leading-relaxed`}
               style={{
-                color: post.background_color && post.background_color !== '#1C231E'
+                color: !videoEmbed && post.background_color && post.background_color !== '#1C231E'
                   ? '#ffffff'
                   : 'var(--text-primary)',
               }}
             >
-              {post.text_content}
+              {videoEmbed ? videoEmbed.remainingText || null : post.text_content}
             </p>
           </div>
         )}
@@ -105,14 +120,14 @@ export default function PostCard({ post, currentUserId, onReact, onDelete, onPin
                 </div>
               )}
               <span className="text-sm font-medium" style={{
-                color: post.content_type === 'text' && post.background_color && post.background_color !== '#1C231E'
+                color: post.content_type === 'text' && !videoEmbed && post.background_color && post.background_color !== '#1C231E'
                   ? 'rgba(255,255,255,0.9)'
                   : 'var(--text-secondary)',
               }}>
                 {post.author_name}
               </span>
               <span className="text-xs" style={{
-                color: post.content_type === 'text' && post.background_color && post.background_color !== '#1C231E'
+                color: post.content_type === 'text' && !videoEmbed && post.background_color && post.background_color !== '#1C231E'
                   ? 'rgba(255,255,255,0.5)'
                   : 'var(--text-muted)',
               }}>
@@ -181,6 +196,43 @@ export default function PostCard({ post, currentUserId, onReact, onDelete, onPin
       </div>
     </div>
   );
+}
+
+/**
+ * Extract a YouTube video embed URL from post text.
+ * Returns the embed URL and remaining text (with the URL removed).
+ */
+function extractVideoEmbed(text: string): { embedUrl: string; remainingText: string } | null {
+  // YouTube: various URL formats
+  const ytPatterns = [
+    // youtu.be/VIDEO_ID
+    /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+    // youtube.com/watch?v=VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:[&\s]|$)/,
+    // youtube.com/live/VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/live\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+    // youtube.com/embed/VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+    // youtube.com/shorts/VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+  ];
+
+  for (const pattern of ytPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      // Remove the full URL from text
+      const urlMatch = text.match(/https?:\/\/[^\s]+/);
+      const remainingText = urlMatch
+        ? text.replace(urlMatch[0], '').trim()
+        : text.trim();
+      return {
+        embedUrl: `https://www.youtube.com/embed/${match[1]}`,
+        remainingText,
+      };
+    }
+  }
+
+  return null;
 }
 
 function getRelativeTime(dateStr: string): string {

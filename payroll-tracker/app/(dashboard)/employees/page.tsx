@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePayrollPermissions } from '@/hooks/usePayrollPermissions';
 import { formatCurrency, formatHours, getCurrentPayWeekRange, getPayPeriodPresets } from '@/lib/payroll-utils';
+import DepartmentFilter from '@/components/DepartmentFilter';
 
 interface EmployeeRow {
   id: string;
   name: string;
   trade: string | null;
+  role: string | null;
   business_unit_name: string | null;
   total_hours: number;
   regular_hours: number;
@@ -22,6 +24,7 @@ export default function EmployeesPage() {
   const searchParams = useSearchParams();
   const { canViewPayAmounts, isLoading: permLoading } = usePayrollPermissions();
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState(() => {
     const start = searchParams.get('start');
@@ -29,7 +32,7 @@ export default function EmployeesPage() {
     if (start && end) return { start, end };
     return getCurrentPayWeekRange();
   });
-  const [trade, setTrade] = useState(searchParams.get('trade') || '');
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [sortField, setSortField] = useState<keyof EmployeeRow>('total_hours');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
@@ -42,19 +45,20 @@ export default function EmployeesPage() {
         start: dateRange.start,
         end: dateRange.end,
       });
-      if (trade) params.set('trade', trade);
+      if (selectedDepts.length > 0) params.set('departments', selectedDepts.join(','));
 
       const res = await fetch(`/api/employees?${params}`);
       if (res.ok) {
         const data = await res.json();
         setEmployees(data.employees || []);
+        setBusinessUnits(data.business_units || []);
       }
     } catch (err) {
       console.error('Failed to load employees:', err);
     } finally {
       setLoading(false);
     }
-  }, [dateRange, trade]);
+  }, [dateRange, selectedDepts]);
 
   useEffect(() => {
     if (!permLoading) loadData();
@@ -155,22 +159,11 @@ export default function EmployeesPage() {
             style={{ width: 'auto' }}
           />
         </div>
-        <div className="flex gap-1">
-          {['', 'hvac', 'plumbing'].map(t => (
-            <button
-              key={t}
-              onClick={() => setTrade(t)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: trade === t ? 'var(--christmas-green)' : 'var(--bg-card)',
-                color: trade === t ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                border: `1px solid ${trade === t ? 'var(--christmas-green)' : 'var(--border-default)'}`,
-              }}
-            >
-              {t === '' ? 'All' : t === 'hvac' ? 'HVAC' : 'Plumbing'}
-            </button>
-          ))}
-        </div>
+        <DepartmentFilter
+          departments={businessUnits}
+          selected={selectedDepts}
+          onChange={setSelectedDepts}
+        />
       </div>
 
       {loading ? (
@@ -225,7 +218,7 @@ export default function EmployeesPage() {
                   <th className="cursor-pointer" onClick={() => handleSort('name')}>
                     Name <SortIcon field="name" />
                   </th>
-                  <th>Trade</th>
+                  <th>Department</th>
                   <th className="text-right cursor-pointer" onClick={() => handleSort('total_hours')}>
                     Total Hrs <SortIcon field="total_hours" />
                   </th>
@@ -259,25 +252,15 @@ export default function EmployeesPage() {
                     <tr key={emp.id}>
                       <td>
                         <Link
-                          href={`/employees/${emp.id}?start=${dateRange.start}&end=${dateRange.end}${trade ? `&trade=${trade}` : ''}`}
+                          href={`/employees/${emp.id}?start=${dateRange.start}&end=${dateRange.end}`}
                           style={{ color: 'var(--christmas-green-light)' }}
                           className="font-medium"
                         >
                           {emp.name}
                         </Link>
                       </td>
-                      <td>
-                        {emp.trade && (
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: emp.trade === 'hvac' ? 'rgba(93, 138, 102, 0.15)' : 'rgba(184, 149, 107, 0.15)',
-                              color: emp.trade === 'hvac' ? 'var(--christmas-green-light)' : 'var(--christmas-gold)',
-                            }}
-                          >
-                            {emp.trade === 'hvac' ? 'HVAC' : 'Plumbing'}
-                          </span>
-                        )}
+                      <td style={{ color: 'var(--text-secondary)' }}>
+                        {emp.business_unit_name || (emp.role ? <span style={{ color: 'var(--text-muted)' }}>{emp.role}</span> : '-')}
                       </td>
                       <td className="text-right font-medium">{formatHours(emp.total_hours)}</td>
                       <td className="text-right">{formatHours(emp.regular_hours)}</td>

@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CelBoard, TEXT_BG_COLORS } from '@/lib/supabase';
+import MediaUploader from '@/components/MediaUploader';
+import GiphyPicker from '@/components/GiphyPicker';
+
+type Tab = 'text' | 'photo' | 'gif' | 'video';
 
 export default function PublicContributePage() {
   const params = useParams();
@@ -16,11 +20,15 @@ export default function PublicContributePage() {
 
   // Form state
   const [authorName, setAuthorName] = useState('');
+  const [tab, setTab] = useState<Tab>('text');
   const [text, setText] = useState('');
   const [bgColor, setBgColor] = useState(TEXT_BG_COLORS[TEXT_BG_COLORS.length - 1]);
   const [mediaUrl, setMediaUrl] = useState('');
-  const [contentType, setContentType] = useState<'text' | 'photo'>('text');
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [storagePath, setStoragePath] = useState('');
+  const [mediaWidth, setMediaWidth] = useState<number | undefined>();
+  const [mediaHeight, setMediaHeight] = useState<number | undefined>();
+  const [caption, setCaption] = useState('');
+  const [showGiphy, setShowGiphy] = useState(false);
 
   useEffect(() => {
     fetchBoard();
@@ -40,38 +48,22 @@ export default function PublicContributePage() {
     }
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !board) return;
-
-    setUploadingFile(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('boardId', board.id);
-      formData.append('slug', slug);
-
-      const res = await fetch(`/api/contribute/${slug}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setMediaUrl(data.url);
-        setContentType('photo');
-      }
-    } catch (err) {
-      console.error('Upload failed:', err);
-    } finally {
-      setUploadingFile(false);
-    }
+  function resetMedia() {
+    setMediaUrl('');
+    setStoragePath('');
+    setMediaWidth(undefined);
+    setMediaHeight(undefined);
+    setCaption('');
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!board) return;
     if (!board.allow_anonymous && !authorName.trim()) return;
+
+    const isMedia = ['photo', 'gif', 'video'].includes(tab);
+    if (tab === 'text' && !text.trim()) return;
+    if (isMedia && !mediaUrl) return;
 
     setSubmitting(true);
     try {
@@ -80,10 +72,13 @@ export default function PublicContributePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           author_name: authorName.trim() || 'Anonymous',
-          content_type: mediaUrl ? 'photo' : 'text',
-          text_content: text.trim() || null,
-          media_url: mediaUrl || null,
-          background_color: !mediaUrl ? bgColor : null,
+          content_type: tab,
+          text_content: (tab === 'text' ? text.trim() : caption.trim()) || null,
+          media_url: isMedia ? mediaUrl : null,
+          media_storage_path: storagePath || null,
+          media_width: mediaWidth || null,
+          media_height: mediaHeight || null,
+          background_color: tab === 'text' ? bgColor : null,
         }),
       });
 
@@ -96,6 +91,15 @@ export default function PublicContributePage() {
       setSubmitting(false);
     }
   }
+
+  const canSubmit = (tab === 'text' && text.trim()) || (['photo', 'gif', 'video'].includes(tab) && mediaUrl);
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'text', label: 'Text' },
+    { key: 'photo', label: 'Photo' },
+    { key: 'gif', label: 'GIF' },
+    { key: 'video', label: 'Video' },
+  ];
 
   if (loading) {
     return (
@@ -134,8 +138,12 @@ export default function PublicContributePage() {
             onClick={() => {
               setSuccess(false);
               setText('');
+              setCaption('');
               setMediaUrl('');
-              setContentType('text');
+              setStoragePath('');
+              setMediaWidth(undefined);
+              setMediaHeight(undefined);
+              setTab('text');
             }}
             className="btn btn-secondary"
           >
@@ -170,66 +178,63 @@ export default function PublicContributePage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Name */}
-        {!board.allow_anonymous && (
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-              Your Name *
-            </label>
-            <input
-              type="text"
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              className="input"
-              placeholder="Enter your name"
-              required
-            />
-          </div>
-        )}
-
-        {board.allow_anonymous && (
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-              Your Name (optional)
-            </label>
-            <input
-              type="text"
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              className="input"
-              placeholder="Anonymous"
-            />
-          </div>
-        )}
-
-        {/* Message */}
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-            Your Message
+            Your Name {board.allow_anonymous ? '(optional)' : '*'}
           </label>
-          <div className="rounded-lg p-4" style={{ background: !mediaUrl ? bgColor : 'var(--bg-card)' }}>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="w-full bg-transparent border-none resize-none focus:outline-none"
-              style={{ color: bgColor !== '#1C231E' && !mediaUrl ? '#ffffff' : 'var(--text-primary)' }}
-              placeholder="Write your message..."
-              rows={4}
-            />
-          </div>
+          <input
+            type="text"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            className="input"
+            placeholder={board.allow_anonymous ? 'Anonymous' : 'Enter your name'}
+            required={!board.allow_anonymous}
+          />
+        </div>
 
-          {/* Color picker (only for text-only posts) */}
-          {!mediaUrl && (
-            <div className="mt-3">
-              <label className="text-xs block mb-2" style={{ color: 'var(--text-muted)' }}>
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-card)' }}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => { setTab(t.key); resetMedia(); }}
+              className="flex-1 py-3 sm:py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                background: tab === t.key ? 'var(--christmas-green)' : 'transparent',
+                color: tab === t.key ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Text tab */}
+        {tab === 'text' && (
+          <div className="space-y-4">
+            <div className="rounded-lg p-4 min-h-[120px]" style={{ background: bgColor }}>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full bg-transparent border-none resize-none focus:outline-none text-base"
+                style={{ color: bgColor !== '#1C231E' ? '#ffffff' : 'var(--text-primary)' }}
+                placeholder="Write your message..."
+                rows={4}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--text-muted)' }}>
                 Background Color
               </label>
-              <div className="flex gap-3 sm:gap-2 flex-wrap">
+              <div className="flex gap-3 flex-wrap">
                 {TEXT_BG_COLORS.map((color) => (
                   <button
                     key={color}
                     type="button"
                     onClick={() => setBgColor(color)}
-                    className="w-10 h-10 sm:w-7 sm:h-7 rounded-full transition-transform"
+                    className="w-10 h-10 sm:w-8 sm:h-8 rounded-full transition-transform"
                     style={{
                       background: color,
                       transform: bgColor === color ? 'scale(1.15)' : 'scale(1)',
@@ -239,66 +244,153 @@ export default function PublicContributePage() {
                 ))}
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Photo upload */}
-        <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-            Add a Photo (optional)
-          </label>
-          {mediaUrl ? (
-            <div className="relative">
-              <img src={mediaUrl} alt="" className="w-full rounded-lg" />
+        {/* Photo tab */}
+        {tab === 'photo' && (
+          <div className="space-y-4">
+            {mediaUrl ? (
+              <div className="relative">
+                <img src={mediaUrl} alt="" className="w-full rounded-lg" />
+                <button
+                  type="button"
+                  onClick={resetMedia}
+                  className="absolute top-2 right-2 w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <MediaUploader
+                boardId={board.id}
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                uploadUrl={`/api/contribute/${slug}/upload`}
+                onUpload={(result) => {
+                  setMediaUrl(result.url);
+                  setStoragePath(result.storagePath);
+                }}
+                label="Tap to upload a photo or drag and drop"
+              />
+            )}
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              className="input"
+              placeholder="Add a caption (optional)"
+              rows={2}
+            />
+          </div>
+        )}
+
+        {/* GIF tab */}
+        {tab === 'gif' && (
+          <div className="space-y-4">
+            {mediaUrl ? (
+              <div>
+                <div className="relative">
+                  <img src={mediaUrl} alt="" className="w-full rounded-lg" />
+                  <button
+                    type="button"
+                    onClick={resetMedia}
+                    className="absolute top-2 right-2 w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <textarea
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  className="input mt-4"
+                  placeholder="Add a caption (optional)"
+                  rows={2}
+                />
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => { setMediaUrl(''); setContentType('text'); }}
-                className="absolute top-2 right-2 w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
+                onClick={() => setShowGiphy(true)}
+                className="w-full p-10 rounded-lg border-2 border-dashed text-center transition-colors"
+                style={{
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-secondary)',
+                }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <div className="text-3xl mb-2">GIF</div>
+                <p className="text-sm">Tap to search for GIFs</p>
               </button>
-            </div>
-          ) : (
-            <label
-              className="block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
-            >
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              {uploadingFile ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--christmas-green)', borderTopColor: 'transparent' }} />
-                  <span className="text-sm">Uploading...</span>
-                </div>
-              ) : (
-                <div>
-                  <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            )}
+          </div>
+        )}
+
+        {/* Video tab */}
+        {tab === 'video' && (
+          <div className="space-y-4">
+            {mediaUrl ? (
+              <div className="relative">
+                <video src={mediaUrl} controls className="w-full rounded-lg" />
+                <button
+                  type="button"
+                  onClick={resetMedia}
+                  className="absolute top-2 right-2 w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                  <span className="text-sm">Click to upload a photo</span>
-                </div>
-              )}
-            </label>
-          )}
-        </div>
+                </button>
+              </div>
+            ) : (
+              <MediaUploader
+                boardId={board.id}
+                accept="video/mp4,video/webm"
+                uploadUrl={`/api/contribute/${slug}/upload`}
+                onUpload={(result) => {
+                  setMediaUrl(result.url);
+                  setStoragePath(result.storagePath);
+                }}
+                label="Tap to upload a video or drag and drop"
+              />
+            )}
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              className="input"
+              placeholder="Add a caption (optional)"
+              rows={2}
+            />
+          </div>
+        )}
 
         {/* Submit */}
         <button
           type="submit"
-          disabled={submitting || (!text.trim() && !mediaUrl)}
+          disabled={submitting || !canSubmit}
           className="btn btn-primary w-full py-3"
-          style={{ opacity: submitting || (!text.trim() && !mediaUrl) ? 0.5 : 1 }}
+          style={{ opacity: submitting || !canSubmit ? 0.5 : 1 }}
         >
           {submitting ? 'Posting...' : 'Post Message'}
         </button>
       </form>
+
+      {/* GIPHY Picker Modal */}
+      {showGiphy && (
+        <GiphyPicker
+          onSelect={(gif) => {
+            setMediaUrl(gif.url);
+            setMediaWidth(gif.width);
+            setMediaHeight(gif.height);
+            setShowGiphy(false);
+          }}
+          onClose={() => setShowGiphy(false)}
+        />
+      )}
     </div>
   );
 }

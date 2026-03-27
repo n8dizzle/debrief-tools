@@ -30,10 +30,10 @@ export async function GET(request: Request) {
 
   // Date filter: use completed_date for completed jobs, scheduled_date for non-completed
   if (start) {
-    query = query.or(`completed_date.gte.${start},and(completed_date.is.null,scheduled_date.gte.${start}),and(completed_date.is.null,scheduled_date.is.null)`);
+    query = query.or(`completed_date.gte.${start},and(completed_date.is.null,scheduled_date.gte.${start})`);
   }
   if (end) {
-    query = query.or(`completed_date.lte.${end},and(completed_date.is.null,scheduled_date.lte.${end}),and(completed_date.is.null,scheduled_date.is.null)`);
+    query = query.or(`completed_date.lte.${end},and(completed_date.is.null,scheduled_date.lte.${end})`);
   }
 
   const { data: jobs } = await query;
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   const assigned = contractor + inHouse;
   const contractorUsagePct = assigned > 0 ? (contractor / assigned) * 100 : 0;
 
-  // Monthly trend: group all jobs by month for usage stats, contractor jobs for cost stats
+  // Monthly trend: group all jobs by month — job_total includes ALL assigned jobs, contractor_pay only contractor
   const monthMap = new Map<string, { job_total: number; contractor_pay: number; contractor_count: number; in_house_count: number }>();
   for (const job of allJobs) {
     if (!job.completed_date) continue;
@@ -78,6 +78,7 @@ export async function GET(request: Request) {
       entry.contractor_pay += job.payment_amount || 0;
       entry.contractor_count++;
     } else if (job.assignment_type === 'in_house') {
+      entry.job_total += job.job_total || 0;
       entry.in_house_count++;
     }
     monthMap.set(month, entry);

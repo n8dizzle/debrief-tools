@@ -60,21 +60,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { key, label } = body;
+    const { key, label, category } = body;
 
     if (!key || !label) {
       return NextResponse.json({ error: 'Key and label are required' }, { status: 400 });
     }
+
+    const validCategory = category === 'collection' ? 'collection' : 'work';
 
     // Sanitize key to be lowercase with underscores
     const sanitizedKey = key.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
     const supabase = getServerSupabase();
 
-    // Get max sort order
+    // Get max sort order within this category
     const { data: maxOrder } = await supabase
       .from('ar_job_statuses')
       .select('sort_order')
+      .eq('category', validCategory)
       .order('sort_order', { ascending: false })
       .limit(1)
       .single();
@@ -87,6 +90,7 @@ export async function POST(request: NextRequest) {
         key: sanitizedKey,
         label,
         sort_order: newSortOrder,
+        category: validCategory,
       })
       .select()
       .single();

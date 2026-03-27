@@ -89,13 +89,16 @@ export async function POST(request: NextRequest) {
       st.getJobTypes(),
     ]);
 
-    const { data: mappingRow } = await supabase
+    // Load settings: BU mapping, allowed BUs, default hourly rates
+    const { data: settingsRows } = await supabase
       .from('ap_sync_settings')
-      .select('value')
-      .eq('key', 'bu_trade_mapping')
-      .single();
+      .select('key, value')
+      .in('key', ['bu_trade_mapping', 'sync_business_units', 'default_hourly_rates']);
 
-    const buTradeMapping: Record<string, string> = mappingRow?.value || {};
+    const settingsMap = new Map((settingsRows || []).map(r => [r.key, r.value]));
+    const buTradeMapping: Record<string, string> = settingsMap.get('bu_trade_mapping') || {};
+    const allowedBUs: string[] = settingsMap.get('sync_business_units') || [];
+    const defaultHourlyRates: Record<string, number> = settingsMap.get('default_hourly_rates') || {};
 
     // Build technician lookup: st_technician_id → { id, hourly_rate }
     const { data: dbTechs } = await supabase
@@ -116,7 +119,20 @@ export async function POST(request: NextRequest) {
       st.getInstallJobsSince(chunk.start, chunk.end),
       st.getGrossPayItems(grossPayStart, grossPayEnd),
     ]);
-    const { jobs: allJobs, appointmentMap, appointmentDetails } = installResult;
+    const { jobs: allJobsUnfiltered, appointmentMap, appointmentDetails } = installResult;
+
+    // Filter to allowed business units (if configured)
+    const buNameMap = new Map(businessUnits.map(bu => [bu.id, bu.name]));
+    const allJobs = allowedBUs.length > 0
+      ? allJobsUnfiltered.filter(job => {
+          const buName = buNameMap.get(job.businessUnitId) || job.businessUnitName || '';
+          return allowedBUs.includes(buName);
+        })
+      : allJobsUnfiltered;
+
+    if (allowedBUs.length > 0) {
+      console.log(`BU filter: ${allJobsUnfiltered.length} → ${allJobs.length} jobs (chunk ${chunkIndex})`);
+    }
 
     // Fetch appointment assignments from dispatch API to get technician data
     const allApptIds = Array.from(appointmentDetails.values()).map(a => a.id);
@@ -150,7 +166,6 @@ export async function POST(request: NextRequest) {
       (existingJobs || []).map(j => [j.st_job_id, j])
     );
 
-    const buNameMap = new Map(businessUnits.map(bu => [bu.id, bu.name]));
     const tradeMap = new Map<number, 'hvac' | 'plumbing'>(
       businessUnits.map(bu => {
         const mappedTrade = buTradeMapping[bu.name];
@@ -213,14 +228,15 @@ export async function POST(request: NextRequest) {
             if (techInfo) techDbId = techInfo.id;
           }
 
-          // Calculate cost per tech using their hourly rates
+          // Calculate cost per tech using their hourly rates (fall back to trade default)
           let totalCost = 0;
           for (const empId of uniqueTechs) {
             const techItems = jobPayItems.filter(i => i.employeeId === empId);
             const techHours = techItems.reduce((s, i) => s + (i.paidDurationHours || 0), 0);
             const techInfo = techLookup.get(empId);
-            if (techInfo?.hourly_rate) {
-              totalCost += techHours * techInfo.hourly_rate;
+            const rate = techInfo?.hourly_rate || defaultHourlyRates[trade] || 0;
+            if (rate > 0) {
+              totalCost += techHours * rate;
             }
           }
           if (totalCost > 0) laborCost = Math.round(totalCost * 100) / 100;
@@ -237,16 +253,14 @@ export async function POST(request: NextRequest) {
                 laborHours = Math.round(apptHours * techIds.length * 100) / 100;
                 techCount = techIds.length;
                 let totalCost = 0;
-                let allHaveRates = true;
                 for (const tid of techIds) {
                   const techInfo = techLookup.get(tid);
-                  if (techInfo?.hourly_rate) {
-                    totalCost += apptHours * techInfo.hourly_rate;
-                  } else {
-                    allHaveRates = false;
+                  const rate = techInfo?.hourly_rate || defaultHourlyRates[trade] || 0;
+                  if (rate > 0) {
+                    totalCost += apptHours * rate;
                   }
                 }
-                if (allHaveRates && totalCost > 0) laborCost = Math.round(totalCost * 100) / 100;
+                if (totalCost > 0) laborCost = Math.round(totalCost * 100) / 100;
               } else {
                 laborHours = apptHours;
               }

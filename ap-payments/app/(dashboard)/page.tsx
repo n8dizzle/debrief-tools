@@ -1,53 +1,42 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { APDashboardStats, APInstallJob, APContractor } from '@/lib/supabase';
+import { APDashboardStats } from '@/lib/supabase';
 import { formatTimestamp, formatCurrency, formatCurrencyCompact } from '@/lib/ap-utils';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import StatsCards from '@/components/StatsCards';
-import JobsTable from '@/components/JobsTable';
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  ComposedChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 
-function getMonthToDateRange(): DateRange {
+function getQuarterToDateRange(): DateRange {
   const now = new Date();
+  const quarter = Math.floor(now.getMonth() / 3);
+  const qStart = new Date(now.getFullYear(), quarter * 3, 1);
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
-  return { start: `${year}-${month}-01`, end: `${year}-${month}-${day}` };
+  const startMonth = String(qStart.getMonth() + 1).padStart(2, '0');
+  return { start: `${qStart.getFullYear()}-${startMonth}-01`, end: `${year}-${month}-${day}` };
 }
 
 export default function DashboardPage() {
-  const { canSyncData, canManageAssignments, canManagePayments } = useAPPermissions();
+  const { canSyncData } = useAPPermissions();
   const [stats, setStats] = useState<APDashboardStats | null>(null);
-  const [recentJobs, setRecentJobs] = useState<APInstallJob[]>([]);
-  const [contractors, setContractors] = useState<APContractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>(getMonthToDateRange);
+  const [dateRange, setDateRange] = useState<DateRange>(getQuarterToDateRange);
   const [trade, setTrade] = useState<'' | 'hvac' | 'plumbing'>('');
 
   const loadData = useCallback(async () => {
     try {
       const params = new URLSearchParams({ start: dateRange.start, end: dateRange.end });
       if (trade) params.set('trade', trade);
-      const [statsRes, jobsRes, contractorsRes] = await Promise.all([
-        fetch(`/api/dashboard?${params}`),
-        fetch('/api/jobs?limit=10'),
-        fetch('/api/contractors'),
-      ]);
+      const statsRes = await fetch(`/api/dashboard?${params}`);
 
       if (statsRes.ok) {
         setStats(await statsRes.json());
-      }
-      if (jobsRes.ok) {
-        const data = await jobsRes.json();
-        setRecentJobs(data.jobs || []);
-      }
-      if (contractorsRes.ok) {
-        setContractors(await contractorsRes.json());
       }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
@@ -73,33 +62,6 @@ export default function DashboardPage() {
       console.error('Sync error:', err);
     } finally {
       setSyncing(false);
-    }
-  };
-
-  const handleAssign = async (jobId: string, data: {
-    assignment_type: 'unassigned' | 'in_house' | 'contractor';
-    contractor_id?: string;
-    payment_amount?: number;
-  }) => {
-    const res = await fetch(`/api/jobs/${jobId}/assign`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!res.ok) throw new Error('Failed to assign job');
-    await loadData();
-  };
-
-  const handlePaymentStatusChange = async (jobId: string, newStatus: string) => {
-    const res = await fetch(`/api/jobs/${jobId}/payment`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_status: newStatus }),
-    });
-
-    if (res.ok) {
-      await loadData();
     }
   };
 
@@ -148,7 +110,7 @@ export default function DashboardPage() {
 
       {/* Trade Filter Chips + Date Range */}
       <div className="flex items-center gap-2 mb-6">
-        <DateRangePicker value={dateRange} onChange={setDateRange} />
+        <DateRangePicker value={dateRange} onChange={setDateRange} defaultPreset="qtd" />
         <span className="mx-1" style={{ color: 'var(--border-subtle)' }}>|</span>
         <button
           onClick={() => setTrade(trade === 'hvac' ? '' : 'hvac')}
@@ -252,30 +214,58 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Recent Jobs */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-            Recent Jobs
+      {/* Paid by Contractor */}
+      {stats && stats.contractor_breakdown.length > 0 && (
+        <div className="card mb-8 p-4">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            Paid by Contractor
           </h2>
-          <a
-            href="/jobs"
-            className="text-sm font-medium"
-            style={{ color: 'var(--christmas-green-light)' }}
-          >
-            View All
-          </a>
+          <div style={{ height: Math.max(200, stats.contractor_breakdown.length * 48) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={stats.contractor_breakdown}
+                layout="vertical"
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={false}
+                  tickFormatter={(v: number) => formatCurrencyCompact(v)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="contractor_name"
+                  width={120}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    color: 'var(--christmas-cream)',
+                  }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any, name: any) => {
+                    const v = Number(value) || 0;
+                    const label = name === 'total_paid' ? 'Paid' : 'Outstanding';
+                    return [formatCurrency(v), label];
+                  }}
+                  labelStyle={{ color: 'var(--text-muted)', marginBottom: 4 }}
+                />
+                <Bar dataKey="total_paid" stackId="a" fill="#346643" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="total_outstanding" stackId="a" fill="#B8956B" radius={[0, 3, 3, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <JobsTable
-          jobs={recentJobs}
-          contractors={contractors}
-          isLoading={loading}
-          canManageAssignments={canManageAssignments}
-          canManagePayments={canManagePayments}
-          onAssign={handleAssign}
-          onPaymentStatusChange={handlePaymentStatusChange}
-        />
-      </div>
+      )}
+
     </div>
   );
 }

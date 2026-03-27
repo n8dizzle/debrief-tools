@@ -24,6 +24,15 @@ export interface STTechnician {
   businessUnitId?: number;
 }
 
+export interface STEmployee {
+  id: number;
+  name: string;
+  email?: string;
+  active: boolean;
+  role?: string;
+  businessUnitId?: number;
+}
+
 export interface STBusinessUnit {
   id: number;
   name: string;
@@ -254,6 +263,36 @@ export class ServiceTitanClient {
     return allTechnicians;
   }
 
+  async getEmployees(activeOnly: boolean = true): Promise<STEmployee[]> {
+    const allEmployees: STEmployee[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params: Record<string, string> = {
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      if (activeOnly) {
+        params.active = 'true';
+      }
+
+      const response = await this.request<STPagedResponse<STEmployee>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/employees`,
+        { params }
+      );
+
+      allEmployees.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+      if (page > 20) break;
+    }
+
+    return allEmployees;
+  }
+
   // ============================================
   // PAYROLL METHODS
   // ============================================
@@ -404,10 +443,3 @@ export function getServiceTitanClient(): ServiceTitanClient {
   return _client;
 }
 
-export function determineTrade(buName: string | null | undefined): 'hvac' | 'plumbing' | null {
-  if (!buName) return null;
-  const lower = buName.toLowerCase();
-  if (lower.includes('plumb')) return 'plumbing';
-  if (lower.includes('hvac') || lower.includes('heat') || lower.includes('air') || lower.includes('install') || lower.includes('service') || lower.includes('maintenance') || lower.includes('commercial') || lower.includes('mims')) return 'hvac';
-  return null;
-}

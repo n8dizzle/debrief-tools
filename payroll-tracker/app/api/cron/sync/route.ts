@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
-import { getServiceTitanClient, determineTrade } from '@/lib/servicetitan';
+import { getServiceTitanClient } from '@/lib/servicetitan';
 import { formatLocalDate, isValidCronRequest } from '@/lib/payroll-utils';
 
 async function runSync(request: Request) {
@@ -39,32 +39,63 @@ async function runSync(request: Request) {
     // Determine sync window
     const now = new Date();
     const endDate = formatLocalDate(now);
-    const startDate = formatLocalDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+    // Year-to-date: go back to Jan 1 of current year
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const startDate = formatLocalDate(yearStart);
 
     // ============================================
-    // 1. SYNC EMPLOYEES (Technicians)
+    // 1. SYNC EMPLOYEES (Technicians + All Employees)
     // ============================================
     console.log('Syncing employees...');
-    const [technicians, businessUnits] = await Promise.all([
+    const [technicians, employees, businessUnits] = await Promise.all([
       st.getTechnicians(false),
+      st.getEmployees(false),
       st.getBusinessUnits(),
     ]);
 
     const buMap = new Map(businessUnits.map(bu => [bu.id, bu]));
 
-    const employeeRecords = technicians.map(tech => {
+    // Build employee records with business unit info
+    const techMap = new Map(technicians.map(tech => [tech.id, tech]));
+    const employeeRecords: {
+      st_employee_id: number;
+      name: string;
+      business_unit_id: number | null;
+      business_unit_name: string | null;
+      is_active: boolean;
+      role: string | null;
+      updated_at: string;
+    }[] = [];
+
+    // Start with technicians (they have business unit info)
+    for (const tech of technicians) {
       const bu = tech.businessUnitId ? buMap.get(tech.businessUnitId) : null;
-      const trade = determineTrade(bu?.name);
-      return {
+      employeeRecords.push({
         st_employee_id: tech.id,
         name: tech.name,
-        trade,
         business_unit_id: tech.businessUnitId || null,
         business_unit_name: bu?.name || null,
         is_active: tech.active,
+        role: 'Technician',
         updated_at: new Date().toISOString(),
-      };
-    });
+      });
+    }
+
+    // Add employees not already covered by technicians
+    for (const emp of employees) {
+      if (!techMap.has(emp.id)) {
+        const bu = emp.businessUnitId ? buMap.get(emp.businessUnitId) : null;
+        employeeRecords.push({
+          st_employee_id: emp.id,
+          name: emp.name,
+          business_unit_id: emp.businessUnitId || null,
+          business_unit_name: bu?.name || null,
+          is_active: emp.active,
+          role: emp.role || null,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
 
     for (let i = 0; i < employeeRecords.length; i += 50) {
       const chunk = employeeRecords.slice(i, i + 50);
@@ -77,7 +108,7 @@ async function runSync(request: Request) {
         totalProcessed += chunk.length;
       }
     }
-    console.log(`Employees: ${technicians.length} processed`);
+    console.log(`Employees: ${technicians.length} technicians + ${employees.length} employees (${employeeRecords.length} unique) processed`);
 
     // Build employee lookup
     const { data: allEmployees } = await supabase

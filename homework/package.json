@@ -1,0 +1,23 @@
+{
+  "name": "homework",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:consumer": "npm run dev --workspace=apps/consumer",
+    "dev:contractor": "npm run dev --workspace=apps/contractor",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev:marketing": "npm run dev --workspace=apps/marketing",
+    "dev:marketplace": "npm run dev --workspace=apps/marketplace",
+    "build:consumer": "npm run build --workspace=apps/consumer",
+    "build:contractor": "npm run build --workspace=apps/contractor",
+    "build:admin": "npm run build --workspace=apps/admin",
+    "build:marketing": "npm run build --workspace=apps/marketing",
+    "build:marketplace": "npm run build --workspace=apps/marketplace",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

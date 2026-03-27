@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const start = searchParams.get('start');
   const end = searchParams.get('end');
-  const trade = searchParams.get('trade'); // 'hvac' | 'plumbing' | null (all)
+  const departments = searchParams.get('departments'); // comma-separated BU names
 
   if (!start || !end) {
     return NextResponse.json({ error: 'start and end required' }, { status: 400 });
@@ -20,37 +20,36 @@ export async function GET(request: Request) {
 
   const supabase = getServerSupabase();
   const canViewPay = session.user.role === 'owner' || session.user.role === 'manager';
+  const deptList = departments ? departments.split(',').map(d => d.trim()).filter(Boolean) : [];
+
+  const matchesDept = (emp: { business_unit_name?: string | null } | null) => {
+    if (!emp) return false;
+    if (deptList.length === 0) return true;
+    return deptList.includes(emp.business_unit_name || '');
+  };
 
   try {
     // Get gross pay items in date range
-    let payQuery = supabase
+    const payQuery = supabase
       .from('pr_gross_pay_items')
       .select('*, employee:pr_employees(id, name, trade, business_unit_name)')
       .gte('date', start)
       .lte('date', end);
 
-    if (trade) {
-      payQuery = payQuery.eq('employee.trade', trade);
-    }
-
     const { data: payItems } = await payQuery;
 
-    // Filter out items where employee didn't match trade filter (inner join workaround)
-    const filteredItems = trade
-      ? (payItems || []).filter(item => item.employee?.trade === trade)
-      : (payItems || []);
+    // Filter by department (inner join workaround)
+    const filteredItems = (payItems || []).filter(item => matchesDept(item.employee));
 
     // Get non-job timesheets for non-job hours
-    let nonJobQuery = supabase
+    const nonJobQuery = supabase
       .from('pr_nonjob_timesheets')
-      .select('*, employee:pr_employees(id, name, trade)')
+      .select('*, employee:pr_employees(id, name, trade, business_unit_name)')
       .gte('date', start)
       .lte('date', end);
 
     const { data: nonJobTimesheets } = await nonJobQuery;
-    const filteredNonJob = trade
-      ? (nonJobTimesheets || []).filter(ts => ts.employee?.trade === trade)
-      : (nonJobTimesheets || []);
+    const filteredNonJob = (nonJobTimesheets || []).filter(ts => matchesDept(ts.employee));
 
     // Compute KPIs
     let totalHours = 0;
@@ -134,13 +133,22 @@ export async function GET(request: Request) {
       .slice(0, 10);
 
     // Last sync
-    const { data: lastSync } = await supabase
-      .from('pr_sync_log')
-      .select('completed_at')
-      .eq('status', 'success')
-      .order('completed_at', { ascending: false })
-      .limit(1)
-      .single();
+    const [{ data: lastSync }, { data: buList }] = await Promise.all([
+      supabase
+        .from('pr_sync_log')
+        .select('completed_at')
+        .eq('status', 'success')
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from('pr_employees')
+        .select('business_unit_name')
+        .eq('is_active', true)
+        .not('business_unit_name', 'is', null),
+    ]);
+
+    const businessUnits = Array.from(new Set((buList || []).map((e: any) => e.business_unit_name))).sort();
 
     return NextResponse.json({
       total_hours: totalHours,
@@ -154,6 +162,7 @@ export async function GET(request: Request) {
       daily_hours: dailyHours,
       top_earners: topEarners,
       last_sync: lastSync?.completed_at || null,
+      business_units: businessUnits,
       can_view_pay: canViewPay,
     });
   } catch (error: any) {

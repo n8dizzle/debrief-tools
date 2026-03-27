@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getServerSupabase } from "@/lib/supabase";
+import { getServerSupabase, getPortalUser } from "@/lib/supabase";
+import { hasAppAccess } from "@/lib/permissions";
+import type { UserPermissions, UserRole } from "@/lib/permissions";
 
-// GET /api/tools - Get tools filtered by user's department permissions
+// Map tool URLs to their app permission key
+// Tools not in this map are shown to everyone (external links, resources)
+const TOOL_APP_MAP: Record<string, keyof UserPermissions> = {
+  "https://dash.christmasair.com": "daily_dash",
+  "https://marketing.christmasair.com": "marketing_hub",
+  "https://ar.christmasair.com": "ar_collections",
+  "https://ar.christmasair.com/": "ar_collections",
+  "https://debrief.christmasair.com": "debrief_qa",
+  "https://track.christmasair.com": "job_tracker",
+  "https://ap.christmasair.com": "ap_payments",
+  "https://memberships.christmasair.com": "membership_manager",
+  "https://celebrate.christmasair.com": "celebrations",
+  "https://docs.christmasair.com": "doc_dispatch",
+  "https://service.christmasair.com": "service_dashboard",
+  "https://hr.christmasair.com": "hr_hub",
+  "https://sales.christmasair.com": "sales_command_center",
+};
+
+// GET /api/tools - Get tools filtered by user's app access permissions
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = getServerSupabase();
-    const { role, departmentId } = session.user;
+    const { role } = session.user;
     const { searchParams } = new URL(request.url);
     const isAdminView = searchParams.get("admin") === "true";
 
@@ -32,7 +52,6 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error;
 
-      // Transform to include departments array
       const transformedTools = tools.map((tool: any) => ({
         ...tool,
         departments: tool.portal_tool_permissions?.map((p: any) => p.portal_departments) || [],
@@ -41,51 +60,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(transformedTools);
     }
 
-    // Owners see all active tools
-    if (role === "owner") {
-      const { data: tools, error } = await supabase
-        .from("portal_tools")
-        .select(`
-          *,
-          portal_tool_permissions(
-            department_id,
-            portal_departments(id, name, slug)
-          )
-        `)
-        .eq("is_active", true)
-        .order("section")
-        .order("display_order");
-
-      if (error) throw error;
-
-      // Transform to include departments array
-      const transformedTools = tools.map((tool: any) => ({
-        ...tool,
-        departments: tool.portal_tool_permissions?.map((p: any) => p.portal_departments) || [],
-      }));
-
-      return NextResponse.json(transformedTools);
-    }
-
-    // Non-owners see only tools assigned to their department
-    if (!departmentId) {
-      return NextResponse.json([]);
-    }
-
+    // Get all active tools
     const { data: tools, error } = await supabase
       .from("portal_tools")
-      .select(`
-        *,
-        portal_tool_permissions!inner(department_id)
-      `)
+      .select("*")
       .eq("is_active", true)
-      .eq("portal_tool_permissions.department_id", departmentId)
       .order("section")
       .order("display_order");
 
     if (error) throw error;
 
-    return NextResponse.json(tools || []);
+    // Owners see all active tools
+    if (role === "owner") {
+      return NextResponse.json(tools || []);
+    }
+
+    // Non-owners: fetch permissions and filter by can_access
+    const portalUser = await getPortalUser(session.user.email!);
+    const permissions = portalUser?.permissions as UserPermissions | null;
+    const userRole = (portalUser?.role || "employee") as UserRole;
+
+    const filteredTools = (tools || []).filter((tool: any) => {
+      const appKey = TOOL_APP_MAP[tool.url];
+      // No mapping = external link (ServiceTitan, Slack, etc.) — show to everyone
+      if (!appKey) return true;
+      // Check can_access for internal apps
+      return hasAppAccess(userRole, permissions, appKey);
+    });
+
+    return NextResponse.json(filteredTools);
   } catch (error) {
     console.error("Error fetching tools:", error);
     return NextResponse.json({ error: "Failed to fetch tools" }, { status: 500 });

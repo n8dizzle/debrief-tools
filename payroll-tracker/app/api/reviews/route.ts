@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const start = searchParams.get('start');
   const end = searchParams.get('end');
-  const trade = searchParams.get('trade');
+  const departments = searchParams.get('departments');
 
   if (!start || !end) {
     return NextResponse.json({ error: 'start and end required' }, { status: 400 });
@@ -33,28 +33,30 @@ export async function GET(request: Request) {
 
   const supabase = getServerSupabase();
   const canViewPay = session.user.role === 'owner' || session.user.role === 'manager';
+  const deptList = departments ? departments.split(',').map(d => d.trim()).filter(Boolean) : [];
+
+  const matchesDept = (emp: { business_unit_name?: string | null } | null) => {
+    if (!emp) return false;
+    if (deptList.length === 0) return true;
+    return deptList.includes(emp.business_unit_name || '');
+  };
 
   try {
     // --- Overtime ---
-    let otQuery = supabase
+    const otQuery = supabase
       .from('pr_gross_pay_items')
-      .select('*, employee:pr_employees(id, name, trade)')
+      .select('*, employee:pr_employees(id, name, business_unit_name)')
       .eq('pay_type', 'Overtime')
       .gte('date', start)
       .lte('date', end);
 
-    if (trade) otQuery = otQuery.eq('employee.trade', trade);
-
     const { data: otItems } = await otQuery;
-    const filteredOT = trade
-      ? (otItems || []).filter(item => item.employee?.trade === trade)
-      : (otItems || []);
+    const filteredOT = (otItems || []).filter(item => matchesDept(item.employee));
 
     // Group OT by employee
     const otByEmployee = new Map<string, {
       employee_id: string;
       name: string;
-      trade: string | null;
       total_hours: number;
       total_amount: number;
       items: { date: string; st_job_id: number | null; job_number: string | null; activity: string | null; hours: number; amount: number }[];
@@ -66,7 +68,6 @@ export async function GET(request: Request) {
       const entry = otByEmployee.get(key) || {
         employee_id: key,
         name: item.employee.name,
-        trade: item.employee.trade,
         total_hours: 0,
         total_amount: 0,
         items: [] as { date: string; st_job_id: number | null; job_number: string | null; activity: string | null; hours: number; amount: number }[],
@@ -95,24 +96,19 @@ export async function GET(request: Request) {
       .sort((a, b) => b.total_hours - a.total_hours);
 
     // --- Suspicious Auto-Entries ---
-    let tsQuery = supabase
+    const tsQuery = supabase
       .from('pr_job_timesheets')
-      .select('*, employee:pr_employees(id, name, trade)')
+      .select('*, employee:pr_employees(id, name, business_unit_name)')
       .gte('date', start)
       .lte('date', end);
 
-    if (trade) tsQuery = tsQuery.eq('employee.trade', trade);
-
     const { data: timesheets } = await tsQuery;
-    const filteredTS = trade
-      ? (timesheets || []).filter(ts => ts.employee?.trade === trade)
-      : (timesheets || []);
+    const filteredTS = (timesheets || []).filter(ts => matchesDept(ts.employee));
 
     const suspiciousEntries: {
       date: string;
       employee_id: string;
       employee_name: string;
-      trade: string | null;
       st_job_id: number | null;
       job_number: string | null;
       duration_hours: number;
@@ -138,7 +134,6 @@ export async function GET(request: Request) {
           date: ts.date,
           employee_id: ts.employee.id,
           employee_name: ts.employee.name,
-          trade: ts.employee.trade,
           st_job_id: ts.st_job_id,
           job_number: ts.job_number,
           duration_hours: duration,
@@ -152,18 +147,14 @@ export async function GET(request: Request) {
     suspiciousEntries.sort((a, b) => a.date.localeCompare(b.date) || a.employee_name.localeCompare(b.employee_name));
 
     // --- PTO / Time Off ---
-    let ptoQuery = supabase
+    const ptoQuery = supabase
       .from('pr_gross_pay_items')
-      .select('*, employee:pr_employees(id, name, trade)')
+      .select('*, employee:pr_employees(id, name, business_unit_name)')
       .gte('date', start)
       .lte('date', end);
 
-    if (trade) ptoQuery = ptoQuery.eq('employee.trade', trade);
-
     const { data: allPayItems } = await ptoQuery;
-    const filteredPay = trade
-      ? (allPayItems || []).filter(item => item.employee?.trade === trade)
-      : (allPayItems || []);
+    const filteredPay = (allPayItems || []).filter(item => matchesDept(item.employee));
 
     // Filter for PTO: pay_type = 'Other' OR activity matches keywords
     const ptoItems = filteredPay.filter(item => {
@@ -179,7 +170,6 @@ export async function GET(request: Request) {
     const ptoByEmployee = new Map<string, {
       employee_id: string;
       name: string;
-      trade: string | null;
       total_hours: number;
       total_amount: number;
       items: { date: string; activity: string | null; pay_type: string; hours: number; amount: number }[];
@@ -191,7 +181,6 @@ export async function GET(request: Request) {
       const entry = ptoByEmployee.get(key) || {
         employee_id: key,
         name: item.employee.name,
-        trade: item.employee.trade,
         total_hours: 0,
         total_amount: 0,
         items: [] as { date: string; activity: string | null; pay_type: string; hours: number; amount: number }[],
@@ -218,6 +207,15 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.total_hours - a.total_hours);
 
+    // Get business units for filter dropdown
+    const { data: buList } = await supabase
+      .from('pr_employees')
+      .select('business_unit_name')
+      .eq('is_active', true)
+      .not('business_unit_name', 'is', null);
+
+    const buNames = Array.from(new Set((buList || []).map((e: any) => e.business_unit_name))).sort();
+
     return NextResponse.json({
       overtime: {
         employees: overtimeEmployees,
@@ -234,6 +232,7 @@ export async function GET(request: Request) {
         total_hours: ptoEmployees.reduce((s, e) => s + e.total_hours, 0),
         count: ptoEmployees.length,
       },
+      business_units: buNames,
       can_view_pay: canViewPay,
     });
   } catch (error: any) {
