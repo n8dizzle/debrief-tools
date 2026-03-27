@@ -16,6 +16,7 @@ export default function PresentMode({ posts, boardTitle, onClose }: PresentModeP
   const INTERVAL = 8000; // 8 seconds per slide
 
   const post = posts[currentIndex];
+  const videoEmbed = post?.content_type === 'text' && post.text_content ? extractVideoEmbed(post.text_content) : null;
 
   const goTo = useCallback((index: number) => {
     setFadeIn(false);
@@ -33,12 +34,12 @@ export default function PresentMode({ posts, boardTitle, onClose }: PresentModeP
     goTo((currentIndex - 1 + posts.length) % posts.length);
   }, [currentIndex, posts.length, goTo]);
 
-  // Auto-advance
+  // Auto-advance (pause on video slides)
   useEffect(() => {
-    if (paused || posts.length <= 1) return;
+    if (paused || videoEmbed || posts.length <= 1) return;
     const timer = setInterval(next, INTERVAL);
     return () => clearInterval(timer);
-  }, [paused, next, posts.length]);
+  }, [paused, videoEmbed, next, posts.length]);
 
   // Keyboard controls
   useEffect(() => {
@@ -115,8 +116,29 @@ export default function PresentMode({ posts, boardTitle, onClose }: PresentModeP
           className="max-w-4xl w-full transition-opacity duration-300"
           style={{ opacity: fadeIn ? 1 : 0 }}
         >
+          {/* YouTube embed */}
+          {videoEmbed && (
+            <div className="flex flex-col items-center">
+              <div className="relative w-full" style={{ maxWidth: '960px', paddingBottom: 'min(56.25%, 540px)' }}>
+                <iframe
+                  key={post.id}
+                  src={`${videoEmbed.embedUrl}?autoplay=1&rel=0`}
+                  className="absolute inset-0 w-full h-full rounded-2xl"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ border: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+                />
+              </div>
+              {videoEmbed.remainingText && (
+                <p className="mt-6 text-xl text-center" style={{ color: 'var(--text-primary)' }}>
+                  {videoEmbed.remainingText}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Text post */}
-          {post.content_type === 'text' && (
+          {post.content_type === 'text' && !videoEmbed && (
             <div
               className="rounded-2xl p-12 text-center mx-auto"
               style={{
@@ -261,10 +283,39 @@ export default function PresentMode({ posts, boardTitle, onClose }: PresentModeP
         <div className="absolute left-6 bottom-6">
           <span className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
             {currentIndex + 1} / {posts.length}
-            {paused && ' (paused)'}
+            {(paused || videoEmbed) && ' (paused)'}
           </span>
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * Extract a YouTube video embed URL from post text.
+ */
+function extractVideoEmbed(text: string): { embedUrl: string; remainingText: string } | null {
+  const ytPatterns = [
+    /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:[&\s]|$)/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/live\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:[?\s]|$)/,
+  ];
+
+  for (const pattern of ytPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const urlMatch = text.match(/https?:\/\/[^\s]+/);
+      const remainingText = urlMatch
+        ? text.replace(urlMatch[0], '').trim()
+        : text.trim();
+      return {
+        embedUrl: `https://www.youtube.com/embed/${match[1]}`,
+        remainingText,
+      };
+    }
+  }
+
+  return null;
 }

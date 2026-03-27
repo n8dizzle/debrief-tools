@@ -57,6 +57,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [driveError, setDriveError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [imageRotations, setImageRotations] = useState<Record<string, number>>({});
 
   // Chat state
   const [chatOpen, setChatOpen] = useState(false);
@@ -78,6 +79,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [emailIncludeImage, setEmailIncludeImage] = useState(false);
   const [emailIncludeAnalysis, setEmailIncludeAnalysis] = useState(false);
   const [emailIncludeChat, setEmailIncludeChat] = useState(false);
+  const [emailIncludeNotes, setEmailIncludeNotes] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -104,10 +106,39 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       const data = await res.json();
       setDoc(data);
       setNotes(data.notes || '');
+      // Initialize rotations from DB
+      const rots: Record<string, number> = {};
+      if (data.pages?.length) {
+        for (const p of data.pages) {
+          if (p.rotation) rots[`page-${p.id}`] = p.rotation;
+        }
+      } else if (data.rotation) {
+        rots['single'] = data.rotation;
+      }
+      setImageRotations(rots);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const rotateImage = async (key: string, pageId?: string) => {
+    const newRotation = ((imageRotations[key] || 0) + 90) % 360;
+    setImageRotations(prev => ({ ...prev, [key]: newRotation }));
+    // Save to DB
+    if (pageId) {
+      await fetch(`/api/documents/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageRotations: { [pageId]: newRotation } }),
+      });
+    } else {
+      await fetch(`/api/documents/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rotation: newRotation }),
+      });
     }
   };
 
@@ -360,7 +391,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   };
 
   const handleEmailSend = async () => {
-    if (emailRecipients.length === 0 || emailSelectedIds.length === 0) return;
+    if (emailRecipients.length === 0) return;
     setEmailSending(true);
     setEmailError(null);
 
@@ -376,6 +407,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           includeImage: emailIncludeImage,
           includeAnalysis: emailIncludeAnalysis,
           includeChat: emailIncludeChat,
+          includeNotes: emailIncludeNotes,
         }),
       });
 
@@ -439,6 +471,17 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       }
     } catch (err) {
       console.error('Assign action error:', err);
+    }
+  };
+
+  const handleDeleteAction = async (actionId: string) => {
+    try {
+      const res = await fetch(`/api/actions/${actionId}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchDocument();
+      }
+    } catch (err) {
+      console.error('Delete action error:', err);
     }
   };
 
@@ -567,6 +610,18 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             {driveUploading ? 'Uploading...' : driveError ? 'Retry Drive' : 'Send to Drive'}
           </button>
         )}
+        {/* Email button */}
+        <button
+          onClick={openEmailModal}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+          title="Email document"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Email
+        </button>
         {/* Delete button */}
         <button
           onClick={() => setShowDeleteConfirm(true)}
@@ -591,76 +646,83 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               if (hasMultiplePages) {
                 return (
                   <div className="space-y-0">
-                    {pages.map((page) => (
-                      <div key={page.id}>
-                        <div
-                          className="px-3 py-1.5 text-xs font-medium"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}
-                        >
-                          Page {page.page_number} of {pages.length}
-                        </div>
-                        {page.image_url ? (
-                          <img
-                            src={page.image_url}
-                            alt={`${doc.title || 'Document'} — Page ${page.page_number}`}
-                            className="w-full"
-                            style={{ backgroundColor: 'var(--bg-secondary)' }}
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-48" style={{ color: 'var(--text-muted)' }}>
-                            Page {page.page_number} unavailable
+                    {pages.map((page) => {
+                      const rotKey = `page-${page.id}`;
+                      const rotation = imageRotations[rotKey] || 0;
+                      return (
+                        <div key={page.id}>
+                          <div
+                            className="px-3 py-1.5 text-xs font-medium flex items-center justify-between"
+                            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}
+                          >
+                            <span>Page {page.page_number} of {pages.length}</span>
+                            {page.image_url && (
+                              <button
+                                onClick={() => rotateImage(rotKey, page.id)}
+                                className="p-1 rounded hover:bg-white/10 transition-colors"
+                                title="Rotate image"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {page.image_url ? (
+                            <div className="overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                              <img
+                                src={page.image_url}
+                                alt={`${doc.title || 'Document'} — Page ${page.page_number}`}
+                                className="w-full transition-transform duration-200"
+                                style={{ transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center h-48" style={{ color: 'var(--text-muted)' }}>
+                              Page {page.page_number} unavailable
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               }
 
               // Single page or fallback
+              const singleRotation = imageRotations['single'] || 0;
               return doc.image_url ? (
-                <img
-                  src={doc.image_url}
-                  alt={doc.title || 'Document'}
-                  className="w-full"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                />
+                <div>
+                  <div
+                    className="px-3 py-1.5 text-xs font-medium flex items-center justify-end"
+                    style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}
+                  >
+                    <button
+                      onClick={() => setImageRotations(prev => ({ ...prev, single: (prev.single || 0) + 90 }))}
+                      className="p-1 rounded hover:bg-white/10 transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Rotate image"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <img
+                      src={doc.image_url}
+                      alt={doc.title || 'Document'}
+                      className="w-full transition-transform duration-200"
+                      style={{ transform: singleRotation ? `rotate(${singleRotation}deg)` : undefined }}
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-48" style={{ color: 'var(--text-muted)' }}>
                   Image unavailable
                 </div>
               );
             })()}
-          </div>
-
-          {/* Notes */}
-          <div className="card mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Notes</h3>
-              {!editingNotes && (
-                <button onClick={() => setEditingNotes(true)} className="text-xs" style={{ color: 'var(--christmas-green-light)' }}>
-                  Edit
-                </button>
-              )}
-            </div>
-            {editingNotes ? (
-              <div>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  className="input min-h-[80px] resize-y"
-                  placeholder="Add notes..."
-                />
-                <div className="flex gap-2 mt-2">
-                  <button onClick={handleSaveNotes} className="btn btn-primary text-xs">Save</button>
-                  <button onClick={() => { setEditingNotes(false); setNotes(doc.notes || ''); }} className="btn btn-secondary text-xs">Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm" style={{ color: doc.notes ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                {doc.notes || 'No notes yet.'}
-              </p>
-            )}
           </div>
 
         </div>
@@ -763,8 +825,175 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             </div>
           )}
 
+          {/* Notes */}
+          <div className="card mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Notes</h3>
+              {!editingNotes && (
+                <button onClick={() => setEditingNotes(true)} className="text-xs" style={{ color: 'var(--christmas-green-light)' }}>
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingNotes ? (
+              <div>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  className="input min-h-[80px] resize-y"
+                  placeholder="Add notes..."
+                />
+                <div className="flex gap-2 mt-2">
+                  <button onClick={handleSaveNotes} className="btn btn-primary text-xs">Save</button>
+                  <button onClick={() => { setEditingNotes(false); setNotes(doc.notes || ''); }} className="btn btn-secondary text-xs">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm whitespace-pre-wrap" style={{ color: doc.notes ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                {doc.notes || 'No notes yet.'}
+              </p>
+            )}
+          </div>
+
+          {/* Action Items */}
+          <div className="card mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                Action Items ({pendingActions.length} pending)
+              </h3>
+            </div>
+
+            {/* Pending actions */}
+            <div className="space-y-1 mb-4">
+              {pendingActions.map(action => (
+                <div key={action.id} className="flex items-center gap-2 p-1.5 rounded group">
+                  <button
+                    onClick={() => handleActionStatusChange(action.id, 'done')}
+                    className="w-4 h-4 rounded border-2 flex-shrink-0 transition-colors hover:border-green-500"
+                    style={{ borderColor: 'var(--border-default)' }}
+                    title="Mark done"
+                  />
+                  <p className="text-sm flex-1 min-w-0" style={{ color: 'var(--text-primary)' }}>{action.description}</p>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleActionStatusChange(action.id, 'dismissed')}
+                      className="flex-shrink-0"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Dismiss"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAction(action.id)}
+                      className="flex-shrink-0 hover:text-red-400 transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Delete"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {pendingActions.length === 0 && (
+                <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>No pending actions.</p>
+              )}
+            </div>
+
+            {/* Add new action */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newAction}
+                onChange={e => setNewAction(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddAction()}
+                placeholder="Add action item..."
+                className="input flex-1"
+                disabled={addingAction}
+              />
+              <button
+                onClick={handleAddAction}
+                disabled={addingAction || !newAction.trim()}
+                className="btn btn-primary"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Completed actions */}
+            {completedActions.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Done ({completedActions.length})
+                </p>
+                {completedActions.map(action => (
+                  <div key={action.id} className="flex items-center gap-2 p-1.5 group">
+                    <button
+                      onClick={() => handleActionStatusChange(action.id, 'pending')}
+                      className="w-4 h-4 rounded flex-shrink-0 flex items-center justify-center hover:opacity-70"
+                      style={{ backgroundColor: 'var(--status-success)' }}
+                      title="Undo"
+                    >
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <p className="text-sm line-through flex-1" style={{ color: 'var(--text-muted)' }}>{action.description}</p>
+                    <button
+                      onClick={() => handleDeleteAction(action.id)}
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Delete"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Dismissed actions */}
+            {dismissedActions.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Dismissed ({dismissedActions.length})
+                </p>
+                {dismissedActions.map(action => (
+                  <div key={action.id} className="flex items-center gap-2 p-1.5 group">
+                    <button
+                      onClick={() => handleActionStatusChange(action.id, 'pending')}
+                      className="w-4 h-4 rounded flex-shrink-0 flex items-center justify-center hover:opacity-70"
+                      style={{ backgroundColor: 'var(--border-default)' }}
+                      title="Undo"
+                    >
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <p className="text-sm line-through flex-1" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{action.description}</p>
+                    <button
+                      onClick={() => handleDeleteAction(action.id)}
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Delete"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Ask AI Chat Panel */}
-          <div className="card mb-4" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <button
               onClick={handleChatToggle}
               className="w-full flex items-center justify-between p-4"
@@ -903,157 +1132,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                   </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Action Items */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                Action Items ({pendingActions.length} pending)
-              </h3>
-              {actionItems.length > 0 && (
-                <button
-                  onClick={openEmailModal}
-                  className="text-xs flex items-center gap-1"
-                  style={{ color: 'var(--christmas-green-light)' }}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Email
-                </button>
-              )}
-            </div>
-
-            {/* Pending actions */}
-            <div className="space-y-2 mb-4">
-              {pendingActions.map(action => (
-                <div
-                  key={action.id}
-                  className="flex items-start gap-3 p-2 rounded-lg"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <button
-                    onClick={() => handleActionStatusChange(action.id, 'done')}
-                    className="mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors hover:border-green-500"
-                    style={{ borderColor: 'var(--border-default)' }}
-                    title="Mark done"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{action.description}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {action.due_date && (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{action.due_date}</span>
-                      )}
-                      <span className={`badge badge-${action.priority}`}>{action.priority}</span>
-                      {action.source === 'ai' && (
-                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(93, 138, 102, 0.15)', color: 'var(--christmas-green-light)' }}>AI</span>
-                      )}
-                      <select
-                        value={action.assignee_id || ''}
-                        onChange={e => handleAssignAction(action.id, e.target.value || null)}
-                        className="text-xs rounded px-1.5 py-0.5"
-                        style={{
-                          backgroundColor: 'transparent',
-                          border: '1px solid var(--border-subtle)',
-                          color: action.assignee_id ? 'var(--text-primary)' : 'var(--text-muted)',
-                        }}
-                      >
-                        <option value="">Unassigned</option>
-                        {staffList.map(user => (
-                          <option key={user.id} value={user.id}>{user.name || user.email}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleActionStatusChange(action.id, 'dismissed')}
-                    className="text-xs flex-shrink-0"
-                    style={{ color: 'var(--text-muted)' }}
-                    title="Not applicable"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              {pendingActions.length === 0 && (
-                <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>No pending actions.</p>
-              )}
-            </div>
-
-            {/* Add new action */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newAction}
-                onChange={e => setNewAction(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddAction()}
-                placeholder="Add action item..."
-                className="input flex-1"
-                disabled={addingAction}
-              />
-              <button
-                onClick={handleAddAction}
-                disabled={addingAction || !newAction.trim()}
-                className="btn btn-primary"
-              >
-                Add
-              </button>
-            </div>
-
-            {/* Completed actions */}
-            {completedActions.length > 0 && (
-              <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Completed ({completedActions.length})
-                </p>
-                <div className="space-y-1">
-                  {completedActions.map(action => (
-                    <div key={action.id} className="flex items-center gap-3 p-2">
-                      <button
-                        onClick={() => handleActionStatusChange(action.id, 'pending')}
-                        className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: 'var(--status-success)' }}
-                        title="Mark as pending"
-                      >
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </button>
-                      <p className="text-sm line-through" style={{ color: 'var(--text-muted)' }}>{action.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Dismissed actions */}
-            {dismissedActions.length > 0 && (
-              <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Not Applicable ({dismissedActions.length})
-                </p>
-                <div className="space-y-1">
-                  {dismissedActions.map(action => (
-                    <div key={action.id} className="flex items-center gap-3 p-2">
-                      <button
-                        onClick={() => handleActionStatusChange(action.id, 'pending')}
-                        className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: 'var(--border-default)' }}
-                        title="Mark as pending"
-                      >
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                      <p className="text-sm line-through" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{action.description}</p>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
@@ -1242,38 +1320,37 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   )}
 
-                  {/* Action items checkboxes — only pending items */}
-                  <div>
-                    <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--text-muted)' }}>
-                      Action Items to Include
-                    </label>
-                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                      {pendingActions.map(action => (
-                        <label
-                          key={action.id}
-                          className="flex items-start gap-2 p-2 rounded-lg cursor-pointer"
-                          style={{ backgroundColor: 'var(--bg-secondary)' }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={emailSelectedIds.includes(action.id)}
-                            onChange={() => toggleEmailAction(action.id)}
-                            className="mt-0.5 accent-[#5D8A66]"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{action.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={`badge badge-${action.priority}`} style={{ fontSize: '10px', padding: '1px 6px' }}>{action.priority}</span>
-                              {action.due_date && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{action.due_date}</span>}
+                  {/* Action items checkboxes — only pending items, hidden if none exist */}
+                  {pendingActions.length > 0 && (
+                    <div>
+                      <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--text-muted)' }}>
+                        Action Items to Include
+                      </label>
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {pendingActions.map(action => (
+                          <label
+                            key={action.id}
+                            className="flex items-start gap-2 p-2 rounded-lg cursor-pointer"
+                            style={{ backgroundColor: 'var(--bg-secondary)' }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={emailSelectedIds.includes(action.id)}
+                              onChange={() => toggleEmailAction(action.id)}
+                              className="mt-0.5 accent-[#5D8A66]"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{action.description}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`badge badge-${action.priority}`} style={{ fontSize: '10px', padding: '1px 6px' }}>{action.priority}</span>
+                                {action.due_date && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{action.due_date}</span>}
+                              </div>
                             </div>
-                          </div>
-                        </label>
-                      ))}
-                      {pendingActions.length === 0 && (
-                        <p className="text-sm py-2" style={{ color: 'var(--text-muted)' }}>All action items are completed or dismissed.</p>
-                      )}
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Include extras */}
                   <div>
@@ -1306,6 +1383,17 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                         />
                         <span className="text-sm" style={{ color: 'var(--text-primary)' }}>AI chat transcript</span>
                       </label>
+                      {doc?.notes && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={emailIncludeNotes}
+                            onChange={e => setEmailIncludeNotes(e.target.checked)}
+                            className="accent-[#5D8A66]"
+                          />
+                          <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Notes</span>
+                        </label>
+                      )}
                     </div>
                   </div>
 
@@ -1330,7 +1418,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     <button onClick={() => setEmailModalOpen(false)} className="btn btn-secondary">Cancel</button>
                     <button
                       onClick={handleEmailSend}
-                      disabled={emailSending || emailRecipients.length === 0 || emailSelectedIds.length === 0}
+                      disabled={emailSending || emailRecipients.length === 0}
                       className="btn btn-primary"
                     >
                       {emailSending ? 'Sending...' : `Send${emailRecipients.length > 0 ? ` to ${emailRecipients.length}` : ''}${ccRecipients.length > 0 ? ` (+${ccRecipients.length} CC)` : ''}`}

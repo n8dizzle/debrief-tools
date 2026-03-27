@@ -7,12 +7,13 @@ interface BoardGridProps {
   posts: CelPost[];
   currentUserId?: string;
   isManager?: boolean;
+  duplicateIds?: Set<string>;
   onReact?: (postId: string, emoji: string) => void;
   onDelete?: (postId: string) => void;
   onPin?: (postId: string, pinned: boolean) => void;
 }
 
-export default function BoardGrid({ posts, currentUserId, isManager, onReact, onDelete, onPin }: BoardGridProps) {
+export default function BoardGrid({ posts, currentUserId, isManager, duplicateIds, onReact, onDelete, onPin }: BoardGridProps) {
   if (posts.length === 0) {
     return (
       <div className="text-center py-16">
@@ -31,17 +32,31 @@ export default function BoardGrid({ posts, currentUserId, isManager, onReact, on
 
   return (
     <div className="masonry-grid">
-      {posts.map((post) => (
-        <PostCard
-          key={post.id}
-          post={post}
-          currentUserId={currentUserId}
-          isManager={isManager}
-          onReact={onReact}
-          onDelete={onDelete}
-          onPin={onPin}
-        />
-      ))}
+      {posts.map((post) => {
+        const isDupe = duplicateIds?.has(post.id) || false;
+        return (
+          <div key={post.id} className="relative">
+            {isDupe && (
+              <div
+                className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-xs font-medium"
+                style={{ background: 'rgba(234, 179, 8, 0.9)', color: '#000' }}
+              >
+                Duplicate
+              </div>
+            )}
+            <div style={isDupe ? { outline: '2px solid #eab308', borderRadius: '0.75rem' } : undefined}>
+              <PostCard
+                post={post}
+                currentUserId={currentUserId}
+                isManager={isManager}
+                onReact={onReact}
+                onDelete={onDelete}
+                onPin={onPin}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

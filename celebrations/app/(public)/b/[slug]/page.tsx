@@ -38,11 +38,19 @@ export default async function PublicBoardPage({ params }: { params: Promise<{ sl
     redirect(`/login?callbackUrl=/boards/${board.id}`);
   }
 
-  // Fetch posts with reactions
+  // Increment view count (fire-and-forget)
+  supabase
+    .from('cel_boards')
+    .update({ view_count: (board.view_count || 0) + 1 })
+    .eq('id', board.id)
+    .then();
+
+  // Fetch approved posts with reactions
   const { data: posts } = await supabase
     .from('cel_posts')
     .select('*, cel_reactions(*)')
     .eq('board_id', board.id)
+    .eq('status', 'approved')
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
 

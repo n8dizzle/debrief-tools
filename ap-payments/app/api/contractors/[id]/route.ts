@@ -74,7 +74,14 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { name, contact_name, phone, email, trade, payment_method, payment_notes, is_active } = body;
+  const {
+    name, contact_name, phone, email, trade, payment_method, payment_notes, is_active,
+    has_coi, has_w9, has_signed_agreement,
+    gl_expiration_date, gl_amount, auto_expiration_date, auto_amount,
+    wc_expiration_date, wc_amount, business_address, compliance_notes,
+    coi_file_url, coi_storage_path, w9_file_url, w9_storage_path,
+    agreement_file_url, agreement_storage_path,
+  } = body;
 
   const supabase = getServerSupabase();
 
@@ -90,6 +97,23 @@ export async function PATCH(
   if (payment_method !== undefined) updateData.payment_method = payment_method;
   if (payment_notes !== undefined) updateData.payment_notes = payment_notes;
   if (is_active !== undefined) updateData.is_active = is_active;
+  if (has_coi !== undefined) updateData.has_coi = has_coi;
+  if (has_w9 !== undefined) updateData.has_w9 = has_w9;
+  if (has_signed_agreement !== undefined) updateData.has_signed_agreement = has_signed_agreement;
+  if (gl_expiration_date !== undefined) updateData.gl_expiration_date = gl_expiration_date;
+  if (gl_amount !== undefined) updateData.gl_amount = gl_amount;
+  if (auto_expiration_date !== undefined) updateData.auto_expiration_date = auto_expiration_date;
+  if (auto_amount !== undefined) updateData.auto_amount = auto_amount;
+  if (wc_expiration_date !== undefined) updateData.wc_expiration_date = wc_expiration_date;
+  if (wc_amount !== undefined) updateData.wc_amount = wc_amount;
+  if (business_address !== undefined) updateData.business_address = business_address;
+  if (compliance_notes !== undefined) updateData.compliance_notes = compliance_notes;
+  if (coi_file_url !== undefined) updateData.coi_file_url = coi_file_url;
+  if (coi_storage_path !== undefined) updateData.coi_storage_path = coi_storage_path;
+  if (w9_file_url !== undefined) updateData.w9_file_url = w9_file_url;
+  if (w9_storage_path !== undefined) updateData.w9_storage_path = w9_storage_path;
+  if (agreement_file_url !== undefined) updateData.agreement_file_url = agreement_file_url;
+  if (agreement_storage_path !== undefined) updateData.agreement_storage_path = agreement_storage_path;
 
   const { data, error } = await supabase
     .from('ap_contractors')

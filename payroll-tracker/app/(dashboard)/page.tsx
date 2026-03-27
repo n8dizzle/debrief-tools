@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePayrollPermissions } from '@/hooks/usePayrollPermissions';
 import { formatCurrency, formatHours, formatCurrencyCompact, getCurrentPayWeekRange, getPayPeriodPresets, formatTimestamp } from '@/lib/payroll-utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import DepartmentFilter from '@/components/DepartmentFilter';
 
 interface DashboardStats {
   total_hours: number;
@@ -17,6 +18,7 @@ interface DashboardStats {
   daily_hours: { date: string; regular: number; overtime: number; non_job: number }[];
   top_earners: { employee_id: string; employee_name: string; total_hours: number; total_pay: number; performance_pay: number }[];
   last_sync: string | null;
+  business_units: string[];
   can_view_pay: boolean;
 }
 
@@ -26,7 +28,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [dateRange, setDateRange] = useState(getCurrentPayWeekRange);
-  const [trade, setTrade] = useState<string>('');
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -35,7 +37,7 @@ export default function DashboardPage() {
         start: dateRange.start,
         end: dateRange.end,
       });
-      if (trade) params.set('trade', trade);
+      if (selectedDepts.length > 0) params.set('departments', selectedDepts.join(','));
 
       const res = await fetch(`/api/dashboard?${params}`);
       if (res.ok) {
@@ -46,7 +48,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, trade]);
+  }, [dateRange, selectedDepts]);
 
   useEffect(() => {
     if (!permLoading) loadData();
@@ -159,22 +161,11 @@ export default function DashboardPage() {
             style={{ width: 'auto' }}
           />
         </div>
-        <div className="flex gap-1">
-          {['', 'hvac', 'plumbing'].map(t => (
-            <button
-              key={t}
-              onClick={() => setTrade(t)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: trade === t ? 'var(--christmas-green)' : 'var(--bg-card)',
-                color: trade === t ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                border: `1px solid ${trade === t ? 'var(--christmas-green)' : 'var(--border-default)'}`,
-              }}
-            >
-              {t === '' ? 'All' : t === 'hvac' ? 'HVAC' : 'Plumbing'}
-            </button>
-          ))}
-        </div>
+        <DepartmentFilter
+          departments={stats?.business_units || []}
+          selected={selectedDepts}
+          onChange={setSelectedDepts}
+        />
       </div>
 
       {loading ? (

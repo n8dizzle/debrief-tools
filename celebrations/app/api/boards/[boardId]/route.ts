@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase, generateSlug } from '@/lib/supabase';
 
 // GET /api/boards/[boardId] - Get board details
 export async function GET(
@@ -65,6 +65,24 @@ export async function PATCH(
   }
 
   const supabase = getServerSupabase();
+
+  // Handle slug update with uniqueness check
+  if ('slug' in body && body.slug) {
+    const newSlug = generateSlug(body.slug);
+    if (!newSlug) {
+      return NextResponse.json({ error: 'Invalid slug' }, { status: 400 });
+    }
+    const { data: existing } = await supabase
+      .from('cel_boards')
+      .select('id')
+      .eq('slug', newSlug)
+      .neq('id', boardId)
+      .single();
+    if (existing) {
+      return NextResponse.json({ error: 'That URL is already taken' }, { status: 409 });
+    }
+    updates.slug = newSlug;
+  }
 
   const { data: board, error } = await supabase
     .from('cel_boards')

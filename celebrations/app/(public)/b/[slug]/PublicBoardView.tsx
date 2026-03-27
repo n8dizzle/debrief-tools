@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CelBoard, CelPost } from '@/lib/supabase';
 import BoardHeader from '@/components/BoardHeader';
 import PostCard from '@/components/PostCard';
+import PresentMode from '@/components/PresentMode';
 
 interface PublicBoardViewProps {
   board: CelBoard;
@@ -13,6 +14,7 @@ interface PublicBoardViewProps {
 
 export default function PublicBoardView({ board, initialPosts }: PublicBoardViewProps) {
   const [posts] = useState(initialPosts);
+  const [showPresent, setShowPresent] = useState(false);
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
@@ -31,6 +33,18 @@ export default function PublicBoardView({ board, initialPosts }: PublicBoardView
             Christmas Air Celebrations
           </span>
         </div>
+        {posts.length > 0 && (
+          <button
+            onClick={() => setShowPresent(true)}
+            className="btn btn-secondary gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Present
+          </button>
+        )}
       </div>
 
       <BoardHeader
@@ -63,6 +77,14 @@ export default function PublicBoardView({ board, initialPosts }: PublicBoardView
             />
           ))}
         </div>
+      )}
+
+      {showPresent && (
+        <PresentMode
+          posts={posts}
+          boardTitle={board.title}
+          onClose={() => setShowPresent(false)}
+        />
       )}
     </div>
   );

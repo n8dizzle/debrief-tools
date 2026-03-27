@@ -15,9 +15,9 @@ const overviewLinks = [
 ];
 
 const managementLinks = [
-  { href: '/communications', label: 'Communications', icon: 'mail', requiresManager: false },
-  { href: '/reports', label: 'Reports', icon: 'chart', requiresManager: true },
-  { href: '/settings', label: 'Settings', icon: 'settings', requiresManager: true },
+  { href: '/communications', label: 'Communications', icon: 'mail', permission: 'canSendCommunications' },
+  { href: '/reports', label: 'Reports', icon: 'chart', permission: 'canViewReports' },
+  { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canManageSettings' },
 ];
 
 function NavIcon({ type }: { type: string }) {
@@ -90,7 +90,7 @@ interface ARSidebarProps {
 
 export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
   const pathname = usePathname();
-  const { isManager, isOwner } = useARPermissions();
+  const permissions = useARPermissions();
 
   const isActive = (href: string) => {
     if (href === '/') {
@@ -100,7 +100,7 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
   };
 
   const filteredManagementLinks = managementLinks.filter(
-    link => !link.requiresManager || isManager || isOwner
+    link => !link.permission || (permissions as any)[link.permission]
   );
 
   const handleLinkClick = () => {

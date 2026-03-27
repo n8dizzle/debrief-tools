@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const apiKey = process.env.GIPHY_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'GIPHY not configured' }, { status: 500 });

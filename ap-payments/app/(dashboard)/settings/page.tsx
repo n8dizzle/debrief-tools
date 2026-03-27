@@ -6,6 +6,254 @@ import { formatTimestamp, formatCurrency } from '@/lib/ap-utils';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VARIABLES } from '@/lib/notification-templates';
 import type { APTechnician } from '@/lib/supabase';
 
+function TestSMSForm() {
+  const [phone, setPhone] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  async function handleSend() {
+    if (!phone.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          message: 'Test message from AP Payments (Dialpad)',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ type: 'error', text: data.error || 'Failed to send' });
+      } else {
+        setResult({ type: 'success', text: 'Test SMS sent successfully' });
+      }
+    } catch {
+      setResult({ type: 'error', text: 'Network error' });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <input
+          type="tel"
+          placeholder="Phone number (e.g. 817-555-1234)"
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          className="flex-1 px-3 py-2 rounded-lg text-sm"
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={sending || !phone.trim()}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
+          style={{ backgroundColor: 'var(--christmas-green)', color: 'white' }}
+        >
+          {sending ? 'Sending...' : 'Send Test'}
+        </button>
+      </div>
+      {result && (
+        <div
+          className="p-3 rounded-lg text-sm"
+          style={{
+            backgroundColor: result.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            color: result.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+          }}
+        >
+          {result.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecipientGroupSection({ title, description, phones, emails, onPhonesChange, onEmailsChange, onSave, hasChanges, onDiscard, loading }: {
+  title: string;
+  description: string;
+  phones: { name: string; phone: string }[];
+  emails: { name: string; email: string }[];
+  onPhonesChange: (v: { name: string; phone: string }[]) => void;
+  onEmailsChange: (v: { name: string; email: string }[]) => void;
+  onSave: (phones: { name: string; phone: string }[], emails: { name: string; email: string }[]) => Promise<void>;
+  hasChanges: boolean;
+  onDiscard: () => void;
+  loading: boolean;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const memberCount = Math.max(phones.length, emails.length);
+  const summary = memberCount === 0 ? 'No recipients' : `${memberCount} recipient${memberCount === 1 ? '' : 's'}`;
+
+  const maxLen = Math.max(phones.length, emails.length);
+  const rows = Array.from({ length: maxLen }, (_, i) => ({
+    name: phones[i]?.name || emails[i]?.name || '',
+    phone: phones[i]?.phone || '',
+    email: emails[i]?.email || '',
+  }));
+
+  const updateRow = (idx: number, field: 'name' | 'phone' | 'email', value: string) => {
+    const newRows = [...rows];
+    newRows[idx] = { ...newRows[idx], [field]: value };
+    if (field === 'name') {
+      onPhonesChange(newRows.map(r => ({ name: r.name, phone: r.phone })));
+      onEmailsChange(newRows.map(r => ({ name: r.name, email: r.email })));
+    } else if (field === 'phone') {
+      onPhonesChange(newRows.map(r => ({ name: r.name, phone: r.phone })));
+    } else {
+      onEmailsChange(newRows.map(r => ({ name: r.name, email: r.email })));
+    }
+  };
+
+  const addRow = () => {
+    onPhonesChange([...phones, { name: '', phone: '' }]);
+    onEmailsChange([...emails, { name: '', email: '' }]);
+    setExpanded(true);
+  };
+
+  const removeRow = (idx: number) => {
+    const newRows = rows.filter((_, i) => i !== idx);
+    onPhonesChange(newRows.map(r => ({ name: r.name, phone: r.phone })));
+    onEmailsChange(newRows.map(r => ({ name: r.name, email: r.email })));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await onSave(phones, emails);
+      setMsg({ type: 'success', text: 'Saved' });
+      setTimeout(() => setMsg(null), 3000);
+    } catch {
+      setMsg({ type: 'error', text: 'Failed to save' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+      <div
+        className="flex items-center gap-3 p-3 cursor-pointer hover:opacity-90"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <svg
+          className="w-3.5 h-3.5 flex-shrink-0 transition-transform"
+          style={{ color: 'var(--text-muted)', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <div className="flex-1">
+          <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{title}</div>
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{description}</div>
+        </div>
+        <span className="text-[11px] px-2 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+          {summary}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          {msg && (
+            <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
+              backgroundColor: msg.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+              color: msg.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+            }}>
+              {msg.text}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading...
+            </div>
+          ) : (
+            <>
+              {rows.length > 0 && (
+                <div className="flex items-center gap-2 mb-1 px-2">
+                  <span className="flex-[2] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Name</span>
+                  <span className="flex-[2] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Phone</span>
+                  <span className="flex-[3] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Email</span>
+                  <span className="w-8" />
+                </div>
+              )}
+
+              <div className="space-y-1.5 mb-3">
+                {rows.map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 rounded-md" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                    <input
+                      type="text"
+                      placeholder="Name"
+                      value={row.name}
+                      onChange={e => updateRow(idx, 'name', e.target.value)}
+                      className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="(555) 123-4567"
+                      value={row.phone}
+                      onChange={e => updateRow(idx, 'phone', e.target.value)}
+                      className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                    />
+                    <input
+                      type="email"
+                      placeholder="email@example.com"
+                      value={row.email}
+                      onChange={e => updateRow(idx, 'email', e.target.value)}
+                      className="flex-[3] text-sm py-1.5 px-2.5 rounded-md min-w-0"
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                    />
+                    <button
+                      onClick={() => removeRow(idx)}
+                      className="p-1.5 rounded hover:opacity-80 flex-shrink-0"
+                      style={{ color: 'var(--status-error)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+
+                {rows.length === 0 && (
+                  <div className="p-3 rounded-md text-sm text-center" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                    No recipients configured.
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button onClick={addRow} className="btn btn-secondary text-sm">+ Add Recipient</button>
+                {hasChanges && (
+                  <>
+                    <button onClick={handleSave} disabled={saving} className="btn btn-primary" style={{ opacity: saving ? 0.5 : 1 }}>
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={onDiscard} className="btn btn-secondary text-sm">Discard</button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface SyncLogEntry {
   id: string;
   sync_type: string;
@@ -80,8 +328,9 @@ export default function SettingsPage() {
   const [savingToggles, setSavingToggles] = useState(false);
   const [toggleMessage, setToggleMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // SMS log state
-  const [smsLog, setSmsLog] = useState<{ id: string; recipient_phone: string; recipient_name: string | null; recipient_type: string; event_type: string; message: string; status: string; created_at: string; job_id: string | null }[]>([]);
+  // Notification log state
+  const [smsLog, setSmsLog] = useState<{ id: string; recipient_phone: string; recipient_email: string | null; recipient_name: string | null; recipient_type: string; event_type: string; message: string; status: string; channel: string; created_at: string; job_id: string | null }[]>([]);
+  const [logFilter, setLogFilter] = useState<'all' | 'sms' | 'email'>('all');
 
   // Message templates state
   const [msgTemplates, setMsgTemplates] = useState<Record<string, string>>({});
@@ -513,17 +762,26 @@ export default function SettingsPage() {
     }, 0);
   };
 
-  const toggleKeys: { key: string; label: string; description: string }[] = [
-    { key: 'assignment_contractor', label: 'Assignment → Contractor', description: 'Text contractor when a job is assigned to them' },
-    { key: 'assignment_internal', label: 'Assignment → Internal Team', description: 'Text/email team when a job is assigned' },
-    { key: 'pending_approval_manager', label: 'Pending Approval → Trade Managers', description: 'Text/email HVAC or Plumbing managers when AP email invoice needs approval' },
-    { key: 'ready_to_pay_internal', label: 'Ready to Pay → Internal Team', description: 'Text/email team when invoice is approved' },
-    { key: 'paid_contractor', label: 'Paid → Contractor', description: 'Text contractor when payment is sent' },
-    { key: 'paid_internal', label: 'Paid → Internal Team', description: 'Text/email team when payment is marked paid' },
+  const notificationTypes: { key: string; label: string; description: string; channels: ('sms' | 'email')[]; templateKey: string; subjectKey?: string }[] = [
+    { key: 'pending_approval_manager', label: 'Pending Approval → Trade Managers', description: 'Notify HVAC or Plumbing managers when invoice needs approval', channels: ['sms', 'email'], templateKey: 'pending_approval_manager', subjectKey: 'subject_pending_approval_manager' },
+    { key: 'ready_to_pay_internal', label: 'Ready to Pay → AP Team', description: 'Notify AP team when invoice is approved', channels: ['sms', 'email'], templateKey: 'ready_to_pay_internal', subjectKey: 'subject_ready_to_pay_internal' },
+    { key: 'paid_contractor', label: 'Paid → Contractor', description: 'Notify contractor when payment is sent', channels: ['sms', 'email'], templateKey: 'paid_contractor', subjectKey: 'subject_paid_contractor' },
+    { key: 'paid_internal', label: 'Paid → AP Team', description: 'Notify AP team when payment is marked paid', channels: ['sms', 'email'], templateKey: 'paid_internal', subjectKey: 'subject_paid_internal' },
+    { key: 'paid_manager', label: 'Paid → Trade Managers', description: 'Notify trade managers when payment is marked paid', channels: ['sms', 'email'], templateKey: 'paid_manager', subjectKey: 'subject_paid_manager' },
   ];
 
-  const handleToggleChange = (key: string) => {
-    setToggles(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
+  const [expandedNotif, setExpandedNotif] = useState<string | null>(null);
+
+  const handleChannelToggle = (key: string, channel: 'sms' | 'email') => {
+    const toggleKey = `${key}_${channel}`;
+    setToggles(prev => ({ ...prev, [toggleKey]: prev[toggleKey] === false ? true : false }));
+  };
+
+  const isChannelEnabled = (key: string, channel: 'sms' | 'email') => {
+    const toggleKey = `${key}_${channel}`;
+    if (toggleKey in toggles) return toggles[toggleKey] !== false;
+    // Legacy fallback: check the old key
+    return toggles[key] !== false;
   };
 
   const handleSaveToggles = async () => {
@@ -1215,350 +1473,35 @@ export default function SettingsPage() {
       {activeTab === 'notifications' && (
         <div className="space-y-6">
 
-        {/* Notification Toggles */}
+        {/* Test SMS */}
         <div className="card">
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            Notification Toggles
+            Test SMS (Dialpad)
+          </h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+            Send a test message to verify Dialpad SMS is working.
+          </p>
+          <TestSMSForm />
+        </div>
+
+        {/* Notification Types */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            Notification Types
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            Enable or disable automatic notifications per event type. Manual texts from the job detail page are always allowed.
+            Configure delivery channels and message templates per event. Click a row to edit its template.
           </p>
 
-          {toggleMessage && (
+          {(toggleMessage || templateMessage) && (
             <div
               className="mb-4 p-3 rounded-lg text-sm"
               style={{
-                backgroundColor: toggleMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: toggleMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+                backgroundColor: (toggleMessage || templateMessage)?.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: (toggleMessage || templateMessage)?.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
               }}
             >
-              {toggleMessage.text}
-            </div>
-          )}
-
-          {loadingNotif ? (
-            <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading...
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1 mb-4">
-                {toggleKeys.map(({ key, label, description }) => {
-                  const enabled = toggles[key] !== false;
-                  return (
-                    <label
-                      key={key}
-                      className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:opacity-90"
-                      style={{ backgroundColor: 'var(--bg-secondary)' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={enabled}
-                        onChange={() => handleToggleChange(key)}
-                        className="w-4 h-4 rounded flex-shrink-0"
-                        style={{ accentColor: 'var(--christmas-green)' }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium" style={{ color: enabled ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
-                          {label}
-                        </div>
-                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {description}
-                        </div>
-                      </div>
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
-                        style={{
-                          backgroundColor: enabled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(107, 114, 128, 0.15)',
-                          color: enabled ? 'var(--status-success)' : 'var(--text-muted)',
-                        }}
-                      >
-                        {enabled ? 'ON' : 'OFF'}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              {hasToggleChanges && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleSaveToggles}
-                    disabled={savingToggles}
-                    className="btn btn-primary"
-                    style={{ opacity: savingToggles ? 0.5 : 1 }}
-                  >
-                    {savingToggles ? 'Saving...' : 'Save Toggles'}
-                  </button>
-                  <button
-                    onClick={() => setToggles({ ...savedToggles })}
-                    className="btn btn-secondary text-sm"
-                  >
-                    Discard
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Message Templates */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            Message Templates
-          </h2>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            Customize notification messages. Use variables like <code style={{ color: 'var(--christmas-green-light)', fontSize: '12px' }}>{'{job_number}'}</code> that get replaced with actual values at send time.
-          </p>
-
-          {templateMessage && (
-            <div
-              className="mb-4 p-3 rounded-lg text-sm"
-              style={{
-                backgroundColor: templateMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: templateMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-              }}
-            >
-              {templateMessage.text}
-            </div>
-          )}
-
-          {loadingNotif ? (
-            <div className="flex items-center gap-2 py-4" style={{ color: 'var(--text-muted)' }}>
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading...
-            </div>
-          ) : (
-            <>
-              {/* SMS / Message Body Templates */}
-              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                SMS / Email Body
-              </h3>
-              <div className="space-y-4 mb-6">
-                {TEMPLATE_KEYS.filter(t => t.group === 'message').map(({ key, label }) => {
-                  const value = getTemplateValue(key);
-                  const isCustom = msgTemplates[key] !== undefined && msgTemplates[key] !== DEFAULT_TEMPLATES[key];
-                  return (
-                    <div
-                      key={key}
-                      className="p-3 rounded-lg"
-                      style={{ backgroundColor: 'var(--bg-secondary)' }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                          {label}
-                        </label>
-                        {isCustom && (
-                          <button
-                            onClick={() => handleResetTemplate(key)}
-                            className="text-[11px] px-2 py-0.5 rounded"
-                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-                          >
-                            Reset to Default
-                          </button>
-                        )}
-                      </div>
-                      <textarea
-                        id={`template-${key}`}
-                        value={value}
-                        onChange={e => handleTemplateChange(key, e.target.value)}
-                        rows={2}
-                        className="w-full text-sm py-2 px-3 rounded-md resize-y"
-                        style={{
-                          backgroundColor: 'var(--bg-primary)',
-                          color: 'var(--christmas-cream)',
-                          border: `1px solid ${isCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
-                          fontFamily: 'monospace',
-                          fontSize: '12px',
-                          lineHeight: '1.5',
-                        }}
-                      />
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {TEMPLATE_VARIABLES.map(v => (
-                          <button
-                            key={v}
-                            onClick={() => insertVariable(key, v)}
-                            className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80"
-                            style={{
-                              backgroundColor: 'rgba(93, 138, 102, 0.15)',
-                              color: 'var(--christmas-green-light)',
-                              border: '1px solid rgba(93, 138, 102, 0.25)',
-                            }}
-                          >
-                            {v}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Email Subject Templates */}
-              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Email Subjects
-              </h3>
-              <div className="space-y-3 mb-4">
-                {TEMPLATE_KEYS.filter(t => t.group === 'subject').map(({ key, label }) => {
-                  const value = getTemplateValue(key);
-                  const isCustom = msgTemplates[key] !== undefined && msgTemplates[key] !== DEFAULT_TEMPLATES[key];
-                  return (
-                    <div
-                      key={key}
-                      className="p-3 rounded-lg"
-                      style={{ backgroundColor: 'var(--bg-secondary)' }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                          {label}
-                        </label>
-                        {isCustom && (
-                          <button
-                            onClick={() => handleResetTemplate(key)}
-                            className="text-[11px] px-2 py-0.5 rounded"
-                            style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        id={`template-${key}`}
-                        value={value}
-                        onChange={e => handleTemplateChange(key, e.target.value)}
-                        className="w-full text-sm py-1.5 px-3 rounded-md"
-                        style={{
-                          backgroundColor: 'var(--bg-primary)',
-                          color: 'var(--christmas-cream)',
-                          border: `1px solid ${isCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
-                          fontFamily: 'monospace',
-                          fontSize: '12px',
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {hasTemplateChanges && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleSaveTemplates}
-                    disabled={savingTemplates}
-                    className="btn btn-primary"
-                    style={{ opacity: savingTemplates ? 0.5 : 1 }}
-                  >
-                    {savingTemplates ? 'Saving...' : 'Save Templates'}
-                  </button>
-                  <button
-                    onClick={() => setMsgTemplates({ ...savedMsgTemplates })}
-                    className="btn btn-secondary text-sm"
-                  >
-                    Discard
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* SMS / Email Log */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            Recent Notifications
-          </h2>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            Last 50 SMS notifications sent by the system.
-          </p>
-
-          {smsLog.length === 0 ? (
-            <div className="p-4 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-              No notifications sent yet.
-            </div>
-          ) : (
-            <div className="table-wrapper">
-              <table className="ap-table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Recipient</th>
-                    <th>Type</th>
-                    <th>Event</th>
-                    <th>Status</th>
-                    <th>Message</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {smsLog.map(sms => (
-                    <tr key={sms.id}>
-                      <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                        {formatTimestamp(sms.created_at)}
-                      </td>
-                      <td className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
-                        {sms.recipient_name || sms.recipient_phone}
-                      </td>
-                      <td>
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded"
-                          style={{
-                            backgroundColor: sms.recipient_type === 'contractor' ? 'rgba(184, 149, 107, 0.15)' : 'rgba(93, 138, 102, 0.15)',
-                            color: sms.recipient_type === 'contractor' ? 'var(--christmas-gold)' : 'var(--christmas-green-light)',
-                          }}
-                        >
-                          {sms.recipient_type}
-                        </span>
-                      </td>
-                      <td className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {sms.event_type}
-                      </td>
-                      <td>
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded"
-                          style={{
-                            backgroundColor: sms.status === 'sent' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                            color: sms.status === 'sent' ? 'var(--status-success)' : 'var(--status-error)',
-                          }}
-                        >
-                          {sms.status}
-                        </span>
-                      </td>
-                      <td className="text-xs max-w-[200px] truncate" style={{ color: 'var(--text-muted)' }} title={sms.message}>
-                        {sms.message}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Recipients Section */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            SMS Recipients
-          </h2>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            Team members who receive SMS notifications when jobs are assigned or payment statuses change.
-          </p>
-
-          {notifMessage && (
-            <div
-              className="mb-4 p-3 rounded-lg text-sm"
-              style={{
-                backgroundColor: notifMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: notifMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-              }}
-            >
-              {notifMessage.text}
+              {(toggleMessage || templateMessage)?.text}
             </div>
           )}
 
@@ -1573,615 +1516,389 @@ export default function SettingsPage() {
           ) : (
             <>
               <div className="space-y-2 mb-4">
-                {notifPhones.map((entry, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2 p-3 rounded-lg"
-                    style={{ backgroundColor: 'var(--bg-secondary)' }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Name"
-                      value={entry.name}
-                      onChange={e => handlePhoneChange(idx, 'name', e.target.value)}
-                      className="flex-1 text-sm py-1.5 px-3 rounded-md"
-                      style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--christmas-cream)',
-                        border: '1px solid var(--border-subtle)',
-                      }}
-                    />
-                    <input
-                      type="tel"
-                      placeholder="(555) 123-4567"
-                      value={entry.phone}
-                      onChange={e => handlePhoneChange(idx, 'phone', e.target.value)}
-                      className="flex-1 text-sm py-1.5 px-3 rounded-md"
-                      style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--christmas-cream)',
-                        border: '1px solid var(--border-subtle)',
-                      }}
-                    />
-                    <button
-                      onClick={() => handleRemovePhone(idx)}
-                      className="p-1.5 rounded hover:opacity-80"
-                      style={{ color: 'var(--status-error)' }}
-                      title="Remove"
+                {notificationTypes.map(({ key, label, description, channels, templateKey, subjectKey }) => {
+                  const isExpanded = expandedNotif === key;
+                  const smsOn = channels.includes('sms') && isChannelEnabled(key, 'sms');
+                  const emailOn = channels.includes('email') && isChannelEnabled(key, 'email');
+                  const anyOn = smsOn || emailOn;
+                  const msgValue = getTemplateValue(templateKey);
+                  const msgIsCustom = msgTemplates[templateKey] !== undefined && msgTemplates[templateKey] !== DEFAULT_TEMPLATES[templateKey];
+                  const subjectValue = subjectKey ? getTemplateValue(subjectKey) : '';
+                  const subjectIsCustom = subjectKey ? (msgTemplates[subjectKey] !== undefined && msgTemplates[subjectKey] !== DEFAULT_TEMPLATES[subjectKey]) : false;
+
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-lg overflow-hidden"
+                      style={{ backgroundColor: 'var(--bg-secondary)' }}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                      {/* Header row */}
+                      <div
+                        className="flex items-center gap-3 p-3 cursor-pointer hover:opacity-90"
+                        onClick={() => setExpandedNotif(isExpanded ? null : key)}
+                      >
+                        <svg
+                          className="w-3.5 h-3.5 flex-shrink-0 transition-transform"
+                          style={{ color: 'var(--text-muted)', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium" style={{ color: anyOn ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                            {label}
+                          </div>
+                          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {description}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                          {channels.includes('sms') && (
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={smsOn}
+                                onChange={() => handleChannelToggle(key, 'sms')}
+                                className="w-3.5 h-3.5 rounded"
+                                style={{ accentColor: 'var(--christmas-green)' }}
+                              />
+                              <span className="text-[11px]" style={{ color: smsOn ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                                Text
+                              </span>
+                            </label>
+                          )}
+                          {channels.includes('email') && (
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={emailOn}
+                                onChange={() => handleChannelToggle(key, 'email')}
+                                className="w-3.5 h-3.5 rounded"
+                                style={{ accentColor: 'var(--christmas-green)' }}
+                              />
+                              <span className="text-[11px]" style={{ color: emailOn ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                                Email
+                              </span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
 
-                {notifPhones.length === 0 && (
-                  <div className="p-4 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No notification recipients configured. Add team members below.
-                  </div>
-                )}
+                      {/* Expanded template editor */}
+                      {isExpanded && (
+                        <div className="px-3 pb-3 pt-1 space-y-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                          {/* Message body */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                                Message Body
+                              </label>
+                              {msgIsCustom && (
+                                <button
+                                  onClick={() => handleResetTemplate(templateKey)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded"
+                                  style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                                >
+                                  Reset
+                                </button>
+                              )}
+                            </div>
+                            <textarea
+                              id={`template-${templateKey}`}
+                              value={msgValue}
+                              onChange={e => handleTemplateChange(templateKey, e.target.value)}
+                              rows={2}
+                              className="w-full text-sm py-2 px-3 rounded-md resize-y"
+                              style={{
+                                backgroundColor: 'var(--bg-primary)',
+                                color: 'var(--christmas-cream)',
+                                border: `1px solid ${msgIsCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+                                fontFamily: 'monospace',
+                                fontSize: '12px',
+                                lineHeight: '1.5',
+                              }}
+                            />
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {TEMPLATE_VARIABLES.map(v => (
+                                <button
+                                  key={v}
+                                  onClick={() => insertVariable(templateKey, v)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80"
+                                  style={{
+                                    backgroundColor: 'rgba(93, 138, 102, 0.15)',
+                                    color: 'var(--christmas-green-light)',
+                                    border: '1px solid rgba(93, 138, 102, 0.25)',
+                                  }}
+                                >
+                                  {v}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Email subject */}
+                          {subjectKey && (
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                                  Email Subject
+                                </label>
+                                {subjectIsCustom && (
+                                  <button
+                                    onClick={() => handleResetTemplate(subjectKey)}
+                                    className="text-[10px] px-1.5 py-0.5 rounded"
+                                    style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                                  >
+                                    Reset
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="text"
+                                id={`template-${subjectKey}`}
+                                value={subjectValue}
+                                onChange={e => handleTemplateChange(subjectKey, e.target.value)}
+                                className="w-full text-sm py-1.5 px-3 rounded-md"
+                                style={{
+                                  backgroundColor: 'var(--bg-primary)',
+                                  color: 'var(--christmas-cream)',
+                                  border: `1px solid ${subjectIsCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+                                  fontFamily: 'monospace',
+                                  fontSize: '12px',
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleAddPhone}
-                  className="btn btn-secondary text-sm"
-                >
-                  + Add Phone
-                </button>
-                {hasNotifChanges && (
-                  <>
-                    <button
-                      onClick={handleSaveNotifPhones}
-                      disabled={savingNotif}
-                      className="btn btn-primary"
-                      style={{ opacity: savingNotif ? 0.5 : 1 }}
-                    >
-                      {savingNotif ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => setNotifPhones([...savedNotifPhones])}
-                      className="btn btn-secondary text-sm"
-                    >
-                      Discard
-                    </button>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-
-          <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div className="text-xs space-y-2" style={{ color: 'var(--text-muted)' }}>
-              <div className="flex gap-2">
-                <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--christmas-green-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>These team members will receive SMS when a job is assigned to a contractor or a payment status changes.</span>
-              </div>
-              <div className="flex gap-2">
-                <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--christmas-green-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Contractors with a phone number on file will also receive notifications automatically.</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Email Notifications */}
-          <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-              Email Notifications
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-              Team members who also receive email notifications for assignment and payment events.
-            </p>
-
-            {emailMessage && (
-              <div
-                className="mb-4 p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: emailMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: emailMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}
-              >
-                {emailMessage.text}
-              </div>
-            )}
-
-            <div className="space-y-2 mb-4">
-              {notifEmails.map((entry, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 p-3 rounded-lg"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={entry.name}
-                    onChange={e => handleEmailChange(idx, 'name', e.target.value)}
-                    className="flex-1 text-sm py-1.5 px-3 rounded-md"
-                    style={{
-                      backgroundColor: 'var(--bg-primary)',
-                      color: 'var(--christmas-cream)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  />
-                  <input
-                    type="email"
-                    placeholder="email@example.com"
-                    value={entry.email}
-                    onChange={e => handleEmailChange(idx, 'email', e.target.value)}
-                    className="flex-1 text-sm py-1.5 px-3 rounded-md"
-                    style={{
-                      backgroundColor: 'var(--bg-primary)',
-                      color: 'var(--christmas-cream)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  />
+              {(hasToggleChanges || hasTemplateChanges) && (
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => handleRemoveEmail(idx)}
-                    className="p-1.5 rounded hover:opacity-80"
-                    style={{ color: 'var(--status-error)' }}
-                    title="Remove"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-
-              {notifEmails.length === 0 && (
-                <div className="p-4 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                  No email recipients configured. Add team members below.
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleAddEmail}
-                className="btn btn-secondary text-sm"
-              >
-                + Add Email
-              </button>
-              {hasEmailChanges && (
-                <>
-                  <button
-                    onClick={handleSaveNotifEmails}
-                    disabled={savingEmails}
+                    onClick={async () => {
+                      if (hasToggleChanges) await handleSaveToggles();
+                      if (hasTemplateChanges) await handleSaveTemplates();
+                    }}
+                    disabled={savingToggles || savingTemplates}
                     className="btn btn-primary"
-                    style={{ opacity: savingEmails ? 0.5 : 1 }}
+                    style={{ opacity: (savingToggles || savingTemplates) ? 0.5 : 1 }}
                   >
-                    {savingEmails ? 'Saving...' : 'Save'}
+                    {(savingToggles || savingTemplates) ? 'Saving...' : 'Save Changes'}
                   </button>
                   <button
-                    onClick={() => setNotifEmails([...savedNotifEmails])}
+                    onClick={() => {
+                      setToggles({ ...savedToggles });
+                      setMsgTemplates({ ...savedMsgTemplates });
+                    }}
                     className="btn btn-secondary text-sm"
                   >
                     Discard
                   </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* HVAC Install Manager Notifications */}
-          <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border-default)' }}>
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
-              HVAC Install Manager
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Receives approval requests for <strong>HVAC</strong> jobs when invoices arrive via AP email.
-            </p>
-
-            {hvacMgrMessage && (
-              <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
-                backgroundColor: hvacMgrMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: hvacMgrMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-              }}>
-                {hvacMgrMessage.text}
-              </div>
-            )}
-
-            {/* HVAC Manager Phones */}
-            <div className="mb-4">
-              <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                Phone Numbers
-              </label>
-              <div className="space-y-2 mb-3">
-                {hvacMgrPhones.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="input text-sm flex-1"
-                      placeholder="Name"
-                      value={entry.name}
-                      onChange={(e) => {
-                        const next = [...hvacMgrPhones];
-                        next[idx] = { ...next[idx], name: e.target.value };
-                        setHvacMgrPhones(next);
-                      }}
-                    />
-                    <input
-                      type="tel"
-                      className="input text-sm flex-1"
-                      placeholder="(555) 123-4567"
-                      value={entry.phone}
-                      onChange={(e) => {
-                        const next = [...hvacMgrPhones];
-                        next[idx] = { ...next[idx], phone: e.target.value };
-                        setHvacMgrPhones(next);
-                      }}
-                    />
-                    <button
-                      onClick={() => setHvacMgrPhones(hvacMgrPhones.filter((_, i) => i !== idx))}
-                      className="p-1.5 rounded hover:opacity-80"
-                      style={{ color: 'var(--status-error)' }}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {hvacMgrPhones.length === 0 && (
-                  <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No HVAC manager phones configured. Will fall back to generic install manager list.
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setHvacMgrPhones([...hvacMgrPhones, { name: '', phone: '' }])} className="btn btn-secondary text-sm">
-                  + Add Phone
-                </button>
-                {JSON.stringify(hvacMgrPhones) !== JSON.stringify(savedHvacMgrPhones) && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        setSavingHvacMgr(true);
-                        try {
-                          const valid = hvacMgrPhones.filter(p => p.name.trim() && p.phone.trim());
-                          const res = await fetch('/api/settings/notifications', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ hvac_manager_phones: valid }),
-                          });
-                          if (res.ok) {
-                            setSavedHvacMgrPhones(valid);
-                            setHvacMgrPhones(valid);
-                            setHvacMgrMessage({ type: 'success', text: 'Saved!' });
-                          } else {
-                            setHvacMgrMessage({ type: 'error', text: 'Failed to save' });
-                          }
-                        } finally {
-                          setSavingHvacMgr(false);
-                          setTimeout(() => setHvacMgrMessage(null), 3000);
-                        }
-                      }}
-                      disabled={savingHvacMgr}
-                      className="btn btn-primary"
-                      style={{ opacity: savingHvacMgr ? 0.5 : 1 }}
-                    >
-                      {savingHvacMgr ? 'Saving...' : 'Save'}
-                    </button>
-                    <button onClick={() => setHvacMgrPhones([...savedHvacMgrPhones])} className="btn btn-secondary text-sm">
-                      Discard
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* HVAC Manager Emails */}
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                Email Addresses
-              </label>
-
-              {hvacMgrEmailMessage && (
-                <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
-                  backgroundColor: hvacMgrEmailMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: hvacMgrEmailMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}>
-                  {hvacMgrEmailMessage.text}
                 </div>
               )}
+            </>
+          )}
+        </div>
 
-              <div className="space-y-2 mb-3">
-                {hvacMgrEmails.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="input text-sm flex-1"
-                      placeholder="Name"
-                      value={entry.name}
-                      onChange={(e) => {
-                        const next = [...hvacMgrEmails];
-                        next[idx] = { ...next[idx], name: e.target.value };
-                        setHvacMgrEmails(next);
-                      }}
-                    />
-                    <input
-                      type="email"
-                      className="input text-sm flex-1"
-                      placeholder="email@example.com"
-                      value={entry.email}
-                      onChange={(e) => {
-                        const next = [...hvacMgrEmails];
-                        next[idx] = { ...next[idx], email: e.target.value };
-                        setHvacMgrEmails(next);
-                      }}
-                    />
-                    <button
-                      onClick={() => setHvacMgrEmails(hvacMgrEmails.filter((_, i) => i !== idx))}
-                      className="p-1.5 rounded hover:opacity-80"
-                      style={{ color: 'var(--status-error)' }}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {hvacMgrEmails.length === 0 && (
-                  <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No HVAC manager emails configured. Will fall back to generic install manager list.
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setHvacMgrEmails([...hvacMgrEmails, { name: '', email: '' }])} className="btn btn-secondary text-sm">
-                  + Add Email
+        {/* Recipients */}
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            Recipients
+          </h2>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Configure who receives notifications for each group.
+          </p>
+
+          <div className="space-y-2">
+            <RecipientGroupSection
+              title="AP Team"
+              description="Receives ready-to-pay and paid notifications."
+              phones={notifPhones}
+              emails={notifEmails}
+              onPhonesChange={setNotifPhones}
+              onEmailsChange={setNotifEmails}
+              onSave={async (phones, emails) => {
+                const validPhones = phones.filter(p => p.name.trim() && p.phone.trim());
+                const validEmails = emails.filter(e => e.name.trim() && e.email.trim());
+                const res = await fetch('/api/settings/notifications', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ notification_phones: validPhones, notification_emails: validEmails }),
+                });
+                if (!res.ok) throw new Error('Failed to save');
+                setNotifPhones(validPhones);
+                setSavedNotifPhones([...validPhones]);
+                setNotifEmails(validEmails);
+                setSavedNotifEmails([...validEmails]);
+              }}
+              hasChanges={hasNotifChanges || hasEmailChanges}
+              onDiscard={() => { setNotifPhones([...savedNotifPhones]); setNotifEmails([...savedNotifEmails]); }}
+              loading={loadingNotif}
+            />
+
+            <RecipientGroupSection
+              title="HVAC Trade Manager"
+              description="Receives approval requests for HVAC jobs."
+              phones={hvacMgrPhones}
+              emails={hvacMgrEmails}
+              onPhonesChange={setHvacMgrPhones}
+              onEmailsChange={setHvacMgrEmails}
+              onSave={async (phones, emails) => {
+                const validPhones = phones.filter(p => p.name.trim() && p.phone.trim());
+                const validEmails = emails.filter(e => e.name.trim() && e.email.trim());
+                const res = await fetch('/api/settings/notifications', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ hvac_manager_phones: validPhones, hvac_manager_emails: validEmails }),
+                });
+                if (!res.ok) throw new Error('Failed to save');
+                setHvacMgrPhones(validPhones);
+                setSavedHvacMgrPhones([...validPhones]);
+                setHvacMgrEmails(validEmails);
+                setSavedHvacMgrEmails([...validEmails]);
+              }}
+              hasChanges={JSON.stringify(hvacMgrPhones) !== JSON.stringify(savedHvacMgrPhones) || JSON.stringify(hvacMgrEmails) !== JSON.stringify(savedHvacMgrEmails)}
+              onDiscard={() => { setHvacMgrPhones([...savedHvacMgrPhones]); setHvacMgrEmails([...savedHvacMgrEmails]); }}
+              loading={loadingNotif}
+            />
+
+            <RecipientGroupSection
+              title="Plumbing Trade Manager"
+              description="Receives approval requests for Plumbing jobs."
+              phones={plumbMgrPhones}
+              emails={plumbMgrEmails}
+              onPhonesChange={setPlumbMgrPhones}
+              onEmailsChange={setPlumbMgrEmails}
+              onSave={async (phones, emails) => {
+                const validPhones = phones.filter(p => p.name.trim() && p.phone.trim());
+                const validEmails = emails.filter(e => e.name.trim() && e.email.trim());
+                const res = await fetch('/api/settings/notifications', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ plumbing_manager_phones: validPhones, plumbing_manager_emails: validEmails }),
+                });
+                if (!res.ok) throw new Error('Failed to save');
+                setPlumbMgrPhones(validPhones);
+                setSavedPlumbMgrPhones([...validPhones]);
+                setPlumbMgrEmails(validEmails);
+                setSavedPlumbMgrEmails([...validEmails]);
+              }}
+              hasChanges={JSON.stringify(plumbMgrPhones) !== JSON.stringify(savedPlumbMgrPhones) || JSON.stringify(plumbMgrEmails) !== JSON.stringify(savedPlumbMgrEmails)}
+              onDiscard={() => { setPlumbMgrPhones([...savedPlumbMgrPhones]); setPlumbMgrEmails([...savedPlumbMgrEmails]); }}
+              loading={loadingNotif}
+            />
+          </div>
+        </div>
+
+        {/* SMS / Email Log */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Recent Notifications
+            </h2>
+            <div className="flex gap-1">
+              {(['all', 'sms', 'email'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setLogFilter(f)}
+                  className="px-2.5 py-1 rounded text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor: logFilter === f ? 'rgba(93, 138, 102, 0.25)' : 'transparent',
+                    color: logFilter === f ? 'var(--christmas-green-light)' : 'var(--text-muted)',
+                    border: logFilter === f ? '1px solid rgba(93, 138, 102, 0.4)' : '1px solid transparent',
+                  }}
+                >
+                  {f === 'all' ? 'All' : f === 'sms' ? 'Text' : 'Email'}
                 </button>
-                {JSON.stringify(hvacMgrEmails) !== JSON.stringify(savedHvacMgrEmails) && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        setSavingHvacMgrEmails(true);
-                        try {
-                          const valid = hvacMgrEmails.filter(e => e.name.trim() && e.email.trim());
-                          const res = await fetch('/api/settings/notifications', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ hvac_manager_emails: valid }),
-                          });
-                          if (res.ok) {
-                            setSavedHvacMgrEmails(valid);
-                            setHvacMgrEmails(valid);
-                            setHvacMgrEmailMessage({ type: 'success', text: 'Saved!' });
-                          } else {
-                            setHvacMgrEmailMessage({ type: 'error', text: 'Failed to save' });
-                          }
-                        } finally {
-                          setSavingHvacMgrEmails(false);
-                          setTimeout(() => setHvacMgrEmailMessage(null), 3000);
-                        }
-                      }}
-                      disabled={savingHvacMgrEmails}
-                      className="btn btn-primary"
-                      style={{ opacity: savingHvacMgrEmails ? 0.5 : 1 }}
-                    >
-                      {savingHvacMgrEmails ? 'Saving...' : 'Save'}
-                    </button>
-                    <button onClick={() => setHvacMgrEmails([...savedHvacMgrEmails])} className="btn btn-secondary text-sm">
-                      Discard
-                    </button>
-                  </>
-                )}
-              </div>
+              ))}
             </div>
           </div>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+            Last 50 notifications sent by the system.
+          </p>
 
-          {/* Plumbing Install Manager Notifications */}
-          <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border-default)' }}>
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
-              Plumbing Install Manager
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Receives approval requests for <strong>Plumbing</strong> jobs when invoices arrive via AP email.
-            </p>
-
-            {plumbMgrMessage && (
-              <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
-                backgroundColor: plumbMgrMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: plumbMgrMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-              }}>
-                {plumbMgrMessage.text}
+          {(() => {
+            const filtered = logFilter === 'all' ? smsLog : smsLog.filter(s => s.channel === logFilter);
+            return filtered.length === 0 ? (
+              <div className="p-4 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                No notifications sent yet.
               </div>
-            )}
-
-            {/* Plumbing Manager Phones */}
-            <div className="mb-4">
-              <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                Phone Numbers
-              </label>
-              <div className="space-y-2 mb-3">
-                {plumbMgrPhones.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="input text-sm flex-1"
-                      placeholder="Name"
-                      value={entry.name}
-                      onChange={(e) => {
-                        const next = [...plumbMgrPhones];
-                        next[idx] = { ...next[idx], name: e.target.value };
-                        setPlumbMgrPhones(next);
-                      }}
-                    />
-                    <input
-                      type="tel"
-                      className="input text-sm flex-1"
-                      placeholder="(555) 123-4567"
-                      value={entry.phone}
-                      onChange={(e) => {
-                        const next = [...plumbMgrPhones];
-                        next[idx] = { ...next[idx], phone: e.target.value };
-                        setPlumbMgrPhones(next);
-                      }}
-                    />
-                    <button
-                      onClick={() => setPlumbMgrPhones(plumbMgrPhones.filter((_, i) => i !== idx))}
-                      className="p-1.5 rounded hover:opacity-80"
-                      style={{ color: 'var(--status-error)' }}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {plumbMgrPhones.length === 0 && (
-                  <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No Plumbing manager phones configured. Will fall back to generic install manager list.
-                  </div>
-                )}
+            ) : (
+              <div className="table-wrapper">
+                <table className="ap-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Channel</th>
+                      <th>Recipient</th>
+                      <th>Type</th>
+                      <th>Event</th>
+                      <th>Status</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(entry => (
+                      <tr key={entry.id}>
+                        <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                          {formatTimestamp(entry.created_at)}
+                        </td>
+                        <td>
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor: entry.channel === 'email' ? 'rgba(99, 149, 237, 0.15)' : 'rgba(184, 149, 107, 0.15)',
+                              color: entry.channel === 'email' ? '#6395ED' : 'var(--christmas-gold)',
+                            }}
+                          >
+                            {entry.channel === 'email' ? 'Email' : 'Text'}
+                          </span>
+                        </td>
+                        <td className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                          <div>{entry.recipient_name || entry.recipient_phone || entry.recipient_email}</div>
+                          <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                            {entry.channel === 'email' ? entry.recipient_email : entry.recipient_phone}
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor: entry.recipient_type === 'contractor' ? 'rgba(184, 149, 107, 0.15)' : 'rgba(93, 138, 102, 0.15)',
+                              color: entry.recipient_type === 'contractor' ? 'var(--christmas-gold)' : 'var(--christmas-green-light)',
+                            }}
+                          >
+                            {entry.recipient_type}
+                          </span>
+                        </td>
+                        <td className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {entry.event_type}
+                        </td>
+                        <td>
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor: entry.status === 'sent' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: entry.status === 'sent' ? 'var(--status-success)' : 'var(--status-error)',
+                            }}
+                          >
+                            {entry.status}
+                          </span>
+                        </td>
+                        <td className="text-xs max-w-[200px] truncate" style={{ color: 'var(--text-muted)' }} title={entry.message}>
+                          {entry.message}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setPlumbMgrPhones([...plumbMgrPhones, { name: '', phone: '' }])} className="btn btn-secondary text-sm">
-                  + Add Phone
-                </button>
-                {JSON.stringify(plumbMgrPhones) !== JSON.stringify(savedPlumbMgrPhones) && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        setSavingPlumbMgr(true);
-                        try {
-                          const valid = plumbMgrPhones.filter(p => p.name.trim() && p.phone.trim());
-                          const res = await fetch('/api/settings/notifications', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ plumbing_manager_phones: valid }),
-                          });
-                          if (res.ok) {
-                            setSavedPlumbMgrPhones(valid);
-                            setPlumbMgrPhones(valid);
-                            setPlumbMgrMessage({ type: 'success', text: 'Saved!' });
-                          } else {
-                            setPlumbMgrMessage({ type: 'error', text: 'Failed to save' });
-                          }
-                        } finally {
-                          setSavingPlumbMgr(false);
-                          setTimeout(() => setPlumbMgrMessage(null), 3000);
-                        }
-                      }}
-                      disabled={savingPlumbMgr}
-                      className="btn btn-primary"
-                      style={{ opacity: savingPlumbMgr ? 0.5 : 1 }}
-                    >
-                      {savingPlumbMgr ? 'Saving...' : 'Save'}
-                    </button>
-                    <button onClick={() => setPlumbMgrPhones([...savedPlumbMgrPhones])} className="btn btn-secondary text-sm">
-                      Discard
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Plumbing Manager Emails */}
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                Email Addresses
-              </label>
-
-              {plumbMgrEmailMessage && (
-                <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
-                  backgroundColor: plumbMgrEmailMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: plumbMgrEmailMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
-                }}>
-                  {plumbMgrEmailMessage.text}
-                </div>
-              )}
-
-              <div className="space-y-2 mb-3">
-                {plumbMgrEmails.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="input text-sm flex-1"
-                      placeholder="Name"
-                      value={entry.name}
-                      onChange={(e) => {
-                        const next = [...plumbMgrEmails];
-                        next[idx] = { ...next[idx], name: e.target.value };
-                        setPlumbMgrEmails(next);
-                      }}
-                    />
-                    <input
-                      type="email"
-                      className="input text-sm flex-1"
-                      placeholder="email@example.com"
-                      value={entry.email}
-                      onChange={(e) => {
-                        const next = [...plumbMgrEmails];
-                        next[idx] = { ...next[idx], email: e.target.value };
-                        setPlumbMgrEmails(next);
-                      }}
-                    />
-                    <button
-                      onClick={() => setPlumbMgrEmails(plumbMgrEmails.filter((_, i) => i !== idx))}
-                      className="p-1.5 rounded hover:opacity-80"
-                      style={{ color: 'var(--status-error)' }}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {plumbMgrEmails.length === 0 && (
-                  <div className="p-3 rounded-lg text-sm text-center" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                    No Plumbing manager emails configured. Will fall back to generic install manager list.
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setPlumbMgrEmails([...plumbMgrEmails, { name: '', email: '' }])} className="btn btn-secondary text-sm">
-                  + Add Email
-                </button>
-                {JSON.stringify(plumbMgrEmails) !== JSON.stringify(savedPlumbMgrEmails) && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        setSavingPlumbMgrEmails(true);
-                        try {
-                          const valid = plumbMgrEmails.filter(e => e.name.trim() && e.email.trim());
-                          const res = await fetch('/api/settings/notifications', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ plumbing_manager_emails: valid }),
-                          });
-                          if (res.ok) {
-                            setSavedPlumbMgrEmails(valid);
-                            setPlumbMgrEmails(valid);
-                            setPlumbMgrEmailMessage({ type: 'success', text: 'Saved!' });
-                          } else {
-                            setPlumbMgrEmailMessage({ type: 'error', text: 'Failed to save' });
-                          }
-                        } finally {
-                          setSavingPlumbMgrEmails(false);
-                          setTimeout(() => setPlumbMgrEmailMessage(null), 3000);
-                        }
-                      }}
-                      disabled={savingPlumbMgrEmails}
-                      className="btn btn-primary"
-                      style={{ opacity: savingPlumbMgrEmails ? 0.5 : 1 }}
-                    >
-                      {savingPlumbMgrEmails ? 'Saving...' : 'Save'}
-                    </button>
-                    <button onClick={() => setPlumbMgrEmails([...savedPlumbMgrEmails])} className="btn btn-secondary text-sm">
-                      Discard
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
         </div>
       )}

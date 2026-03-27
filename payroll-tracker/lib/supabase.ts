@@ -28,7 +28,7 @@ export interface PREmployee {
   id: string;
   st_employee_id: number;
   name: string;
-  trade: 'hvac' | 'plumbing' | null;
+  role: string | null;
   business_unit_id: number | null;
   business_unit_name: string | null;
   is_active: boolean;
@@ -181,7 +181,7 @@ export interface PRTopEarner {
 export interface PREmployeeSummary {
   id: string;
   name: string;
-  trade: string | null;
+  role: string | null;
   business_unit_name: string | null;
   total_hours: number;
   regular_hours: number;

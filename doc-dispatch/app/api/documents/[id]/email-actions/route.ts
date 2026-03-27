@@ -14,7 +14,7 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { to, cc: ccInput, actionItemIds, message, includeImage, includeAnalysis, includeChat } = await req.json();
+  const { to, cc: ccInput, actionItemIds, message, includeImage, includeAnalysis, includeChat, includeNotes } = await req.json();
 
   // Accept string or array of strings
   const recipients: string[] = Array.isArray(to)
@@ -29,16 +29,12 @@ export async function POST(
     return NextResponse.json({ error: 'At least one email address is required' }, { status: 400 });
   }
 
-  if (!actionItemIds?.length) {
-    return NextResponse.json({ error: 'At least one action item is required' }, { status: 400 });
-  }
-
   const supabase = getServerSupabase();
 
   // Get document
   const { data: doc, error: docError } = await supabase
     .from('dd_documents')
-    .select('id, title, document_type, summary, extracted_data, image_path')
+    .select('id, title, document_type, summary, extracted_data, image_path, notes')
     .eq('id', id)
     .single();
 
@@ -46,15 +42,15 @@ export async function POST(
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
-  // Get selected action items
-  const { data: actionItems, error: actionsError } = await supabase
-    .from('dd_action_items')
-    .select('description, priority, due_date, status')
-    .eq('document_id', id)
-    .in('id', actionItemIds);
-
-  if (actionsError || !actionItems?.length) {
-    return NextResponse.json({ error: 'Action items not found' }, { status: 404 });
+  // Get selected action items (optional)
+  let actionItems: { description: string; priority: string; due_date: string | null; status: string }[] = [];
+  if (actionItemIds?.length) {
+    const { data } = await supabase
+      .from('dd_action_items')
+      .select('description, priority, due_date, status')
+      .eq('document_id', id)
+      .in('id', actionItemIds);
+    actionItems = data || [];
   }
 
   // Get chat messages if requested
@@ -126,6 +122,7 @@ export async function POST(
     hasAttachment: attachments.length > 0,
     attachmentNotice,
     chatMessages,
+    notes: includeNotes ? (doc.notes || null) : null,
   });
 
   const subject = `${documentTitle} — Doc Dispatch`;

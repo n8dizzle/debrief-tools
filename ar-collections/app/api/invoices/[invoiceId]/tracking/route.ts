@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getTodayDateString } from '@/lib/ar-utils';
+import { sendEmail, generateOwnerAssignmentEmail } from '@/lib/email';
 
 export async function PATCH(
   request: NextRequest,
@@ -30,7 +31,7 @@ export async function PATCH(
     // Prepare update data with date tracking
     const updateData: Record<string, any> = { ...body };
 
-    // Auto-set control_bucket when job_status is changed
+    // Auto-set control_bucket when job_status (work status) is changed
     if (body.job_status) {
       // Look up the job status to get its linked control_bucket
       const { data: jobStatusData } = await supabase
@@ -43,6 +44,8 @@ export async function PATCH(
         updateData.control_bucket = jobStatusData.control_bucket;
       }
     }
+
+    // Collection status changes do NOT affect control_bucket
 
     // Auto-set dates when checkboxes are checked
     if (body.day1_text_sent === true && !body.day1_text_date) {
@@ -96,6 +99,46 @@ export async function PATCH(
         return NextResponse.json({ error: 'Failed to create tracking' }, { status: 500 });
       }
       tracking = data;
+    }
+
+    // Send email notification when owner is assigned (not when cleared)
+    if (body.owner_id) {
+      try {
+        // Look up the new owner and the invoice details
+        const { data: newOwner } = await supabase
+          .from('portal_users')
+          .select('name, email')
+          .eq('id', body.owner_id)
+          .single();
+
+        const { data: invoice } = await supabase
+          .from('ar_invoices')
+          .select('customer_name, invoice_number, balance, days_outstanding')
+          .eq('id', invoiceId)
+          .single();
+
+        if (newOwner?.email && invoice) {
+          const baseUrl = process.env.NEXTAUTH_URL || 'https://ar.christmasair.com';
+          const html = generateOwnerAssignmentEmail({
+            assigneeName: newOwner.name || newOwner.email,
+            assignerName: session.user.name || session.user.email || 'Someone',
+            customerName: invoice.customer_name,
+            invoiceNumber: invoice.invoice_number,
+            balance: invoice.balance,
+            daysOutstanding: invoice.days_outstanding,
+            invoiceUrl: `${baseUrl}/invoices/${invoiceId}`,
+          });
+
+          await sendEmail(
+            newOwner.email,
+            `AR Assignment: ${invoice.customer_name} - Invoice #${invoice.invoice_number}`,
+            html
+          );
+        }
+      } catch (emailErr) {
+        console.error('Failed to send owner assignment email:', emailErr);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json({ tracking });

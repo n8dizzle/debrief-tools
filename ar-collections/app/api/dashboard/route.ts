@@ -157,23 +157,32 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // Calculate true DSO = (AR Balance / Revenue) × Days in Period
-    // Using 30-day period and revenue from trade_daily_snapshots
+    // Using 30-day period and revenue from huddle_snapshots (Total Revenue KPI)
     const DSO_PERIOD_DAYS = 30;
     const today = new Date();
     const periodStartDate = new Date(today);
     periodStartDate.setDate(periodStartDate.getDate() - DSO_PERIOD_DAYS);
-    const periodStartStr = periodStartDate.toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
+    const periodStartYear = periodStartDate.getFullYear();
+    const periodStartMonth = String(periodStartDate.getMonth() + 1).padStart(2, '0');
+    const periodStartDay = String(periodStartDate.getDate()).padStart(2, '0');
+    const periodStartStr = `${periodStartYear}-${periodStartMonth}-${periodStartDay}`;
+    const todayYear = today.getFullYear();
+    const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+    const todayDay = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
 
-    // Fetch revenue from trade_daily_snapshots for the period
+    // Total Revenue KPI ID from huddle_kpis
+    const TOTAL_REVENUE_KPI_ID = 'b66abe1f-2408-4a11-8219-9cb27f333a51';
+
+    // Fetch revenue from huddle_snapshots for the period
     const { data: revenueSnapshots } = await supabase
-      .from('trade_daily_snapshots')
-      .select('revenue')
+      .from('huddle_snapshots')
+      .select('actual_value')
+      .eq('kpi_id', TOTAL_REVENUE_KPI_ID)
       .gte('snapshot_date', periodStartStr)
-      .lte('snapshot_date', todayStr)
-      .is('department', null); // Only trade-level aggregates (not department breakdowns)
+      .lte('snapshot_date', todayStr);
 
-    const periodRevenue = revenueSnapshots?.reduce((sum, snap) => sum + Number(snap.revenue || 0), 0) || 0;
+    const periodRevenue = revenueSnapshots?.reduce((sum, snap) => sum + Number(snap.actual_value || 0), 0) || 0;
 
     // True DSO formula: (AR Balance / Credit Sales) × Days in Period
     // If no revenue, DSO is undefined (show 0)

@@ -133,13 +133,14 @@ interface DocumentEmailOptions {
   filename?: string;
   attachmentNotice?: string;
   chatMessages?: ChatMessageForEmail[];
+  notes?: string | null;
 }
 
 export function generateDocumentEmail(opts: DocumentEmailOptions): string {
   const {
     documentTitle, documentType, summary, extractedData,
     actionItems, senderName, personalMessage, hasAttachment,
-    filename, attachmentNotice, chatMessages = [],
+    filename, attachmentNotice, chatMessages = [], notes,
   } = opts;
 
   const attachmentLabel = attachmentNotice || filename || 'Document image attached';
@@ -245,6 +246,11 @@ export function generateDocumentEmail(opts: DocumentEmailOptions): string {
                 <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
                   ${actionRows}
                 </table>
+              </div>` : ''}
+
+              ${notes ? `<div style="margin-bottom: 16px;">
+                <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #374151;">Notes</p>
+                <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 12px 16px; border-radius: 8px; font-size: 14px; color: #92400e; line-height: 1.5; white-space: pre-wrap;">${notes}</div>
               </div>` : ''}
 
               ${chatHtml ? `<div style="margin-bottom: 16px;">

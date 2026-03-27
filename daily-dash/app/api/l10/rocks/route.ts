@@ -9,6 +9,13 @@ function getCurrentQuarter(): string {
   return `${now.getFullYear()} Q${q}`;
 }
 
+function getNextQuarter(): string {
+  const now = new Date();
+  const q = Math.ceil((now.getMonth() + 1) / 3);
+  if (q === 4) return `${now.getFullYear() + 1} Q1`;
+  return `${now.getFullYear()} Q${q + 1}`;
+}
+
 // GET /api/l10/rocks
 export async function GET(request: NextRequest) {
   try {
@@ -29,8 +36,12 @@ export async function GET(request: NextRequest) {
       .order('target_quarter', { ascending: false });
 
     const quarters = [...new Set(quarterRows?.map((r) => r.target_quarter) || [])];
-    // Ensure current quarter is in the list
+    // Ensure current and next quarter are always in the list
     const currentQ = getCurrentQuarter();
+    const nextQ = getNextQuarter();
+    if (!quarters.includes(nextQ)) {
+      quarters.unshift(nextQ);
+    }
     if (!quarters.includes(currentQ)) {
       quarters.unshift(currentQ);
     }

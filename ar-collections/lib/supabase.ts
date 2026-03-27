@@ -146,6 +146,7 @@ export interface ARInvoiceTracking {
   invoice_id: string;
   owner_id: string | null;
   job_status: ARJobStatus | null;
+  collection_status: string | null;
   control_bucket: ARControlBucket;
   // QC Tracking
   qc_scheduled_date: string | null;
@@ -454,6 +455,7 @@ export interface ARJobStatusOption {
   sort_order: number;
   is_active: boolean;
   control_bucket: ARControlBucket | null; // Linked control bucket for auto-assignment
+  category: 'work' | 'collection';
   created_at: string;
   updated_at: string;
 }

@@ -52,3 +52,28 @@ export async function PATCH(
 
   return NextResponse.json(data);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const supabase = getServerSupabase();
+
+  const { error } = await supabase
+    .from('dd_action_items')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete action item' }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}

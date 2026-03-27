@@ -9,6 +9,7 @@ const mainLinks = [
   { href: '/employees', label: 'Employees', icon: 'users' },
   { href: '/periods', label: 'Pay Periods', icon: 'calendar' },
   { href: '/timesheets', label: 'Timesheets', icon: 'clock' },
+  { href: '/overtime', label: 'Overtime', icon: 'trending-up', requiresManager: true },
   { href: '/reviews', label: 'Reviews', icon: 'clipboard-check', requiresManager: true },
   { href: '/settings', label: 'Settings', icon: 'settings', requiresManager: true },
 ];
@@ -33,6 +34,11 @@ function NavIcon({ type }: { type: string }) {
     clock: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    'trending-up': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
     ),
     'clipboard-check': (

@@ -36,6 +36,23 @@ export interface APContractor {
   payment_method: string | null;
   payment_notes: string | null;
   is_active: boolean;
+  has_coi: boolean;
+  has_w9: boolean;
+  has_signed_agreement: boolean;
+  gl_expiration_date: string | null;
+  gl_amount: number | null;
+  auto_expiration_date: string | null;
+  auto_amount: number | null;
+  wc_expiration_date: string | null;
+  wc_amount: number | null;
+  business_address: string | null;
+  compliance_notes: string | null;
+  coi_file_url: string | null;
+  coi_storage_path: string | null;
+  w9_file_url: string | null;
+  w9_storage_path: string | null;
+  agreement_file_url: string | null;
+  agreement_storage_path: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -18,6 +18,7 @@ export function useCelebrationsPermissions() {
   const canCreateBoards = isOwner || isManager;
   const canManageBoards = isOwner || isManager;
   const canManageSlack = isOwner || isManager;
+  const canManageNominations = isOwner || isManager;
 
   return {
     isLoading,
@@ -31,5 +32,6 @@ export function useCelebrationsPermissions() {
     canCreateBoards,
     canManageBoards,
     canManageSlack,
+    canManageNominations,
   };
 }

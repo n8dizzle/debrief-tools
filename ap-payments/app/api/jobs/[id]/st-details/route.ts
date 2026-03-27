@@ -49,8 +49,8 @@ export async function GET(
     }
 
     // Fetch invoice details if available
-    if (stJob && (stJob as any).invoiceId) {
-      const invoiceId = (stJob as any).invoiceId;
+    if (stJob && stJob.invoiceId) {
+      const invoiceId = stJob.invoiceId;
       result.invoiceId = invoiceId;
       try {
         const invoice = await st.getInvoice(invoiceId);

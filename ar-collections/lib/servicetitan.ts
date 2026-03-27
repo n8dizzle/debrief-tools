@@ -787,6 +787,41 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Get multiple locations by IDs (batched)
+   * Returns a map of locationId → address string
+   */
+  async getLocationAddresses(locationIds: number[]): Promise<Map<number, string>> {
+    const addressMap = new Map<number, string>();
+    if (locationIds.length === 0) return addressMap;
+
+    // ServiceTitan locations endpoint supports ids filter, batch in chunks of 50
+    const chunkSize = 50;
+    for (let i = 0; i < locationIds.length; i += chunkSize) {
+      const chunk = locationIds.slice(i, i + chunkSize);
+      try {
+        const idsParam = chunk.join(',');
+        const response = await this.request<{ data: STLocation[] }>(
+          'GET',
+          `crm/v2/tenant/${this.tenantId}/locations?ids=${idsParam}&pageSize=50`,
+          {}
+        );
+        const locations = response?.data || [];
+        for (const loc of locations) {
+          if (loc.address) {
+            const parts = [loc.address.street, loc.address.city, loc.address.state, loc.address.zip].filter(Boolean);
+            if (parts.length > 0) {
+              addressMap.set(loc.id, parts.join(', '));
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to batch fetch locations:`, error);
+      }
+    }
+    return addressMap;
+  }
+
+  /**
    * Check if a location has any membership-related tags
    */
   locationHasMembershipTag(location: STLocation | null): boolean {
@@ -1013,8 +1048,8 @@ export class ServiceTitanClient {
    * Get job info for multiple job numbers
    * Returns a map of job number -> { hasInhouseFinancing, jobStatus, jobTypeName, hasMembership, bookingPaymentType, nextAppointmentDate }
    */
-  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { jobId: number; hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>> {
-    const jobInfoMap = new Map<string, { jobId: number; hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null }>();
+  async getJobInfoBatch(jobNumbers: string[]): Promise<Map<string, { jobId: number; hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null; soldBy: string | null }>> {
+    const jobInfoMap = new Map<string, { jobId: number; hasInhouseFinancing: boolean; jobStatus: string | null; jobTypeName: string | null; hasMembership: boolean; bookingPaymentType: string | null; nextAppointmentDate: string | null; locationId: number | null; projectId: number | null; projectName: string | null; soldBy: string | null }>();
     if (jobNumbers.length === 0) return jobInfoMap;
 
     // Fetch job types first for name lookup
@@ -1119,6 +1154,7 @@ export class ServiceTitanClient {
               locationId: job.locationId || null,
               projectId,
               projectName,
+              soldBy: jobAny.soldBy?.name || null,
             });
           }
         } catch (error) {
@@ -1143,7 +1179,7 @@ export class ServiceTitanClient {
    */
   async getProject(projectId: number): Promise<STProject | null> {
     try {
-      const response = await this.request<STProject>(
+      const response = await this.request<any>(
         'GET',
         `jpm/v2/tenant/${this.tenantId}/projects/${projectId}`,
         {}
@@ -1151,6 +1187,30 @@ export class ServiceTitanClient {
       return response;
     } catch (error) {
       console.error(`Failed to get project ${projectId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get the soldBy employee ID from sold estimates for a given job ID
+   */
+  async getEstimateSoldBy(jobId: number): Promise<number | null> {
+    try {
+      const response = await this.request<STPagedResponse<{
+        id: number;
+        jobId: number;
+        status: { name: string };
+        soldBy: number | null;
+      }>>(
+        'GET',
+        `sales/v2/tenant/${this.tenantId}/estimates`,
+        { params: { jobId: jobId.toString(), pageSize: '50' } }
+      );
+      const estimates = response.data || [];
+      const soldEstimate = estimates.find(e => e.status?.name === 'Sold');
+      return soldEstimate?.soldBy || null;
+    } catch (error) {
+      console.error(`Failed to get estimates for job ${jobId}:`, error);
       return null;
     }
   }
@@ -1286,7 +1346,9 @@ export class ServiceTitanClient {
    * Get employees from ServiceTitan
    */
   async getEmployees(): Promise<{ id: number; name: string; active: boolean }[]> {
+    const allEmployees: { id: number; name: string; active: boolean }[] = [];
     try {
+      // Fetch all employees (not just active) to resolve soldById references
       const response = await this.request<STPagedResponse<{
         id: number;
         name: string;
@@ -1294,14 +1356,39 @@ export class ServiceTitanClient {
       }>>(
         'GET',
         `settings/v2/tenant/${this.tenantId}/employees`,
-        { params: { pageSize: '500', active: 'true' } }
+        { params: { pageSize: '500' } }
       );
-      console.log(`Fetched ${response.data?.length || 0} employees from ST`);
-      return response.data || [];
+      allEmployees.push(...(response.data || []));
+      console.log(`Fetched ${allEmployees.length} employees from ST`);
     } catch (error) {
       console.error('Failed to fetch employees:', error);
-      return [];
     }
+
+    // Also fetch technicians (comfort advisors are often classified as technicians)
+    try {
+      const techResponse = await this.request<STPagedResponse<{
+        id: number;
+        name: string;
+        active: boolean;
+      }>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/technicians`,
+        { params: { pageSize: '500' } }
+      );
+      const techs = techResponse.data || [];
+      console.log(`Fetched ${techs.length} technicians from ST`);
+      // Add technicians that aren't already in the employee list
+      const existingIds = new Set(allEmployees.map(e => e.id));
+      for (const tech of techs) {
+        if (!existingIds.has(tech.id)) {
+          allEmployees.push(tech);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch technicians:', error);
+    }
+
+    return allEmployees;
   }
 
   /**

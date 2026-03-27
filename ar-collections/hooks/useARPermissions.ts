@@ -15,46 +15,34 @@ export function useARPermissions() {
   const isManager = role === "manager";
   const isEmployee = role === "employee";
 
-  // AR Collections Permission Matrix
-  // | Action | Viewer | Collections Specialist | Manager | Admin |
-  // |--------|--------|----------------------|---------|-------|
-  // | View invoices | ✓ | ✓ | ✓ | ✓ |
-  // | Update workflow checkboxes | ✗ | ✓ | ✓ | ✓ |
-  // | Add notes | ✗ | ✓ | ✓ | ✓ |
-  // | Create/edit tasks | ✗ | Own only | Any | Any |
-  // | Assign owner | ✗ | ✗ | ✓ | ✓ |
-  // | Change control bucket | ✗ | ✗ | ✓ | ✓ |
-  // | Mark written off | ✗ | ✗ | ✗ | ✓ |
-  // | Manage templates | ✗ | ✗ | ✓ | ✓ |
-  // | Send email/SMS | ✗ | ✓ | ✓ | ✓ |
-  // | Run manual sync | ✗ | ✗ | ✓ | ✓ |
-  // | Run backfill | ✗ | ✗ | ✗ | ✓ |
-  // | Manage users/settings | ✗ | ✗ | ✗ | ✓ |
+  // JSONB permissions from portal_users — single source of truth for AR access
+  const perms = (user as any)?.permissions?.ar_collections as Record<string, boolean> | undefined;
+  const hasPerm = (key: string) => isOwner || !!perms?.[key];
 
-  // Basic permission checks
-  const canViewInvoices = true; // All authenticated users
-  const canUpdateWorkflow = isOwner || isManager || isEmployee; // Collections specialists are employees
-  const canAddNotes = isOwner || isManager || isEmployee;
-  const canCreateTasks = isOwner || isManager || isEmployee;
-  const canEditAnyTask = isOwner || isManager;
-  const canAssignOwner = isOwner || isManager;
-  const canChangeControlBucket = isOwner || isManager;
-  const canMarkWrittenOff = isOwner;
-  const canManageTemplates = isOwner || isManager;
-  const canSendCommunications = isOwner || isManager || isEmployee;
-  const canRunManualSync = isOwner || isManager;
+  // All permission checks use JSONB permissions only (no role-based fallbacks)
+  const canViewInvoices = hasPerm("can_view_invoices");
+  const canUpdateWorkflow = hasPerm("can_update_invoices");
+  const canAddNotes = hasPerm("can_update_invoices");
+  const canCreateTasks = hasPerm("can_update_invoices");
+  const canEditAnyTask = hasPerm("can_update_invoices");
+  const canAssignOwner = hasPerm("can_update_invoices");
+  const canChangeControlBucket = hasPerm("can_update_invoices");
+  const canMarkWrittenOff = hasPerm("can_update_invoices");
+  const canManageTemplates = hasPerm("can_manage_settings");
+  const canSendCommunications = hasPerm("can_log_communications");
+  const canRunManualSync = hasPerm("can_manage_settings");
   const canRunBackfill = isOwner;
-  const canManageSettings = isOwner;
-  const canAccessAdmin = isOwner || isManager;
+  const canManageSettings = hasPerm("can_manage_settings");
+  const canAccessAdmin = hasPerm("can_manage_settings");
 
   // In-house financing permissions
-  const canCreatePaymentPlan = isOwner || isManager;
-  const canEditPaymentPlan = isOwner || isManager;
-  const canRecordPayment = isOwner || isManager || isEmployee;
+  const canCreatePaymentPlan = hasPerm("can_update_invoices");
+  const canEditPaymentPlan = hasPerm("can_update_invoices");
+  const canRecordPayment = hasPerm("can_update_invoices");
 
   // Report permissions
-  const canViewReports = isOwner || isManager;
-  const canExportData = isOwner || isManager;
+  const canViewReports = hasPerm("can_view_reports");
+  const canExportData = hasPerm("can_view_reports");
 
   const userDepartmentId = user?.departmentId;
   const userDepartment = user?.department;

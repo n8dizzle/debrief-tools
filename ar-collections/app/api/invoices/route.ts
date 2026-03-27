@@ -69,10 +69,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Merge customer ST IDs into invoices
+    // Fetch logged note types per invoice
+    const invoiceIds = (invoices || []).map(inv => inv.id);
+    let noteTypesMap = new Map<string, Set<string>>();
+
+    if (invoiceIds.length > 0) {
+      const { data: notes } = await supabase
+        .from('ar_collection_notes')
+        .select('invoice_id, note_type')
+        .in('invoice_id', invoiceIds);
+
+      for (const row of notes || []) {
+        if (row.invoice_id && row.note_type) {
+          if (!noteTypesMap.has(row.invoice_id)) {
+            noteTypesMap.set(row.invoice_id, new Set());
+          }
+          noteTypesMap.get(row.invoice_id)!.add(row.note_type);
+        }
+      }
+    }
+
+    // Merge customer ST IDs and logged note types into invoices
     let filteredInvoices = (invoices || []).map(inv => ({
       ...inv,
       st_customer_id: inv.customer_id ? customerMap.get(inv.customer_id) || null : null,
+      logged_types: noteTypesMap.has(inv.id) ? [...noteTypesMap.get(inv.id)!] : [],
     }));
     if (ownerId) {
       filteredInvoices = filteredInvoices.filter(inv =>

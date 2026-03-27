@@ -19,7 +19,8 @@ export async function GET(
     .from('ap_install_jobs')
     .select(`
       *,
-      contractor:ap_contractors(*)
+      contractor:ap_contractors(*),
+      technician:ap_technicians(id, name, hourly_rate)
     `)
     .eq('id', id)
     .single();

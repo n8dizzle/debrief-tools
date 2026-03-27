@@ -1,0 +1,5 @@
+export { HeroSection, TrustBadges } from './hero-section'
+export { HowItWorksSection, FooterCTA } from './how-it-works-section'
+export { HomepageHeader } from './homepage-header'
+export { PopularProjectsSection } from './popular-projects-section'
+export { TrustSection } from './trust-section'

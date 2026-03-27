@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --christmas-green: #5D8A66;
+  --christmas-green-dark: #4A7053;
+  --christmas-green-light: #6B9B75;
+  --christmas-cream: #F5F0E1;
+  --christmas-brown: #7B3F3F;
+  --christmas-brown-light: #9B5555;
+  --christmas-gold: #B8956B;
+
+  --bg-primary: #0F1210;
+  --bg-secondary: #161B18;
+  --bg-card: #1C231E;
+  --bg-card-hover: #232B26;
+
+  --text-primary: #F5F0E1;
+  --text-secondary: #A8B5AB;
+  --text-muted: #6B7C6E;
+
+  --border-subtle: #2A3530;
+  --border-default: #3A4840;
+
+  --status-success: #22c55e;
+  --status-warning: #eab308;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+}
+
+body {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--christmas-green-dark);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--christmas-green);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--christmas-green-light);
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--christmas-green);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.card:hover {
+  background: var(--bg-card-hover);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--christmas-green);
+  color: var(--christmas-cream);
+}
+
+.btn-primary:hover {
+  background: var(--christmas-green-dark);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--christmas-green-dark);
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--christmas-green);
+  box-shadow: 0 0 0 3px rgba(93, 138, 102, 0.15);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-hvac {
+  background: rgba(93, 138, 102, 0.15);
+  color: var(--christmas-green-light);
+}
+
+.badge-plumbing {
+  background: rgba(184, 149, 107, 0.15);
+  color: var(--christmas-gold);
+}
+
+/* Leaderboard table */
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lb-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  user-select: none;
+}
+
+.lb-table th:hover {
+  color: var(--text-secondary);
+}
+
+.lb-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.lb-table tbody tr:hover {
+  background: var(--bg-card-hover);
+}
+
+/* Podium colors */
+.rank-1 {
+  color: #FFD700;
+}
+
+.rank-2 {
+  color: #C0C0C0;
+}
+
+.rank-3 {
+  color: #CD7F32;
+}
+
+/* Clickable metric values */
+.metric-link {
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  padding: 0.125rem 0.375rem;
+  margin: -0.125rem -0.375rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.metric-link:hover {
+  background: rgba(93, 138, 102, 0.15);
+  color: var(--christmas-green-light);
+}
+
+/* Mobile responsive */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1023px) {
+  .card {
+    padding: 1rem;
+  }
+
+  .lb-table {
+    min-width: 700px;
+  }
+
+  .lb-table th,
+  .lb-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 0.75rem;
+  }
+}

@@ -30,14 +30,14 @@ export async function GET(
     // Get pay items for this period
     const { data: payItems } = await supabase
       .from('pr_gross_pay_items')
-      .select('*, employee:pr_employees(id, name, trade)')
+      .select('*, employee:pr_employees(id, name, business_unit_name)')
       .eq('payroll_period_id', id)
       .order('date');
 
     // Aggregate by employee
     const empMap = new Map<string, {
       name: string;
-      trade: string | null;
+      department: string | null;
       total_hours: number;
       regular_hours: number;
       overtime_hours: number;
@@ -49,7 +49,7 @@ export async function GET(
       if (!item.employee?.id) continue;
       const entry = empMap.get(item.employee.id) || {
         name: item.employee.name,
-        trade: item.employee.trade,
+        department: item.employee.business_unit_name,
         total_hours: 0,
         regular_hours: 0,
         overtime_hours: 0,

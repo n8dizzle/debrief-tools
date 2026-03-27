@@ -1,0 +1,89 @@
+# Homework Brand Colors (v1)
+
+## Goals
+- Teal-first identity (trust, calm, modern)
+- Warm accent for delight + CTAs (not “sports orange”)
+- White space heavy, clean UI
+- Neutral text system (Slate) for readability
+
+---
+
+## Core Palette
+
+### Primary
+- Homework Teal: **#0D9488**
+  - Use for: primary buttons, links, focus rings, key highlights, primary charts
+  - Do not use as body text color
+
+### Accent
+- Warm Coral: **#F97316**
+  - Use for: CTAs, small highlights, badges, “moment of delight”
+  - Rule: accent should be **punctuation, not prose** (avoid large backgrounds)
+
+### Neutrals
+- Slate 900 (Headlines): **#0F172A**
+- Slate 500 (Body): **#64748B**
+- White (Background): **#FFFFFF**
+- Border (Subtle): **#E2E8F0** (Slate 200)
+
+### Optional Depth (sparingly)
+- Deep Marine: **#0A3F46**
+  - Use for: footer background, data viz depth, rare “serious mode” surfaces
+
+---
+
+## Usage Rules (the part that keeps it from looking chaotic)
+
+### Backgrounds
+- Default app background: **White**
+- Card background: **White**
+- Card border: **Slate 200 (#E2E8F0)**
+
+### Text
+- Headlines: **Slate 900**
+- Body: **Slate 500**
+- Muted/secondary: **Slate 400 (#94A3B8)** when needed
+
+### Buttons
+- Primary button: **Teal**
+- Secondary button: white with **Teal** border + Teal text
+- Destructive: use a standard red (not coral)
+
+### Links
+- Default links: Teal
+- Hover: slightly darker teal (Tailwind teal-700-ish)
+
+### Coral restrictions (important)
+- Coral is allowed for:
+  - primary CTA on marketing pages (limited areas)
+  - small badges / highlights
+  - “success” moments (optional)
+- Coral is NOT allowed for:
+  - large page backgrounds
+  - long sections
+  - default button system (teal stays primary)
+
+### Accessibility
+- Maintain AA contrast for text.
+- Do not place Slate 500 on Slate 200 backgrounds for small text.
+- Prefer Slate 900 for text on light surfaces.
+
+---
+
+## Component Tokens (names to use in code)
+Use semantic tokens, not raw hex values:
+- `brand-primary` → Teal
+- `brand-accent` → Coral
+- `text-strong` → Slate 900
+- `text-body` → Slate 500
+- `border-subtle` → Slate 200
+- `surface` → White
+- `depth` → Deep Marine
+
+---
+
+## Design vibe
+- No gradients
+- No heavy shadows (max: subtle/soft)
+- Lots of whitespace
+- Teal leads; coral is punctuation

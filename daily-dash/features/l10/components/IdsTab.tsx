@@ -331,6 +331,37 @@ export default function IdsTab() {
   const [modalIssue, setModalIssue] = useState<Partial<Issue> | null>(null);
   const [showModal, setShowModal] = useState(false);
 
+  // Inline editing
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
+
+  const startEdit = (id: string, field: string, value: string) => {
+    setEditingCell({ id, field });
+    setEditValue(value);
+    setTimeout(() => editRef.current?.focus(), 0);
+  };
+
+  const cancelEdit = () => {
+    setEditingCell(null);
+    setEditValue('');
+  };
+
+  const saveInline = async (id: string, field: string, value: string) => {
+    cancelEdit();
+    const payload: Record<string, unknown> = { [field]: value };
+    if (field === 'owner_name' && users) {
+      const user = users.find((u) => (u.name || u.email) === value);
+      payload.owner_id = user?.id || null;
+    }
+    await fetch(`/api/l10/issues/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    mutate();
+  };
+
   // Persist column widths
   useEffect(() => {
     localStorage.setItem('l10-ids-col-widths', JSON.stringify(colWidths));
@@ -589,26 +620,115 @@ export default function IdsTab() {
                     </td>
 
                     <td style={{ width: colWidths.title }}>
-                      <span
-                        className={`text-xs font-medium ${issue.is_resolved ? 'line-through' : ''}`}
-                        style={{ color: 'var(--christmas-cream)' }}
-                      >
-                        {issue.title}
-                      </span>
+                      {editingCell?.id === issue.id && editingCell.field === 'title' ? (
+                        <input
+                          ref={editRef as React.RefObject<HTMLInputElement>}
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => saveInline(issue.id, 'title', editValue)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveInline(issue.id, 'title', editValue);
+                            if (e.key === 'Escape') cancelEdit();
+                          }}
+                          className="w-full px-1.5 py-0.5 rounded text-xs font-medium"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                        />
+                      ) : (
+                        <span
+                          className={`text-xs font-medium cursor-pointer hover:underline ${issue.is_resolved ? 'line-through' : ''}`}
+                          style={{ color: 'var(--christmas-cream)' }}
+                          onClick={() => startEdit(issue.id, 'title', issue.title)}
+                          title="Click to edit"
+                        >
+                          {issue.title}
+                        </span>
+                      )}
                     </td>
 
                     <td style={{ width: colWidths.priority }}>
-                      <PriorityBadge priority={issue.priority} />
+                      {editingCell?.id === issue.id && editingCell.field === 'priority' ? (
+                        <select
+                          ref={editRef as React.RefObject<HTMLSelectElement>}
+                          value={editValue}
+                          onChange={(e) => saveInline(issue.id, 'priority', e.target.value)}
+                          onBlur={() => cancelEdit()}
+                          onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
+                          className="w-full px-1 py-0.5 rounded text-xs"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                        >
+                          <option value="">None</option>
+                          <option value="High">High</option>
+                          <option value="Mid">Mid</option>
+                          <option value="Low">Low</option>
+                        </select>
+                      ) : (
+                        <span
+                          className="cursor-pointer"
+                          onClick={() => startEdit(issue.id, 'priority', issue.priority || '')}
+                          title="Click to edit"
+                        >
+                          {issue.priority ? <PriorityBadge priority={issue.priority} /> : (
+                            <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                          )}
+                        </span>
+                      )}
                     </td>
 
                     <td style={{ width: colWidths.owner }}>
-                      <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                        {issue.owner_name || ''}
-                      </span>
+                      {editingCell?.id === issue.id && editingCell.field === 'owner_name' ? (
+                        <select
+                          ref={editRef as React.RefObject<HTMLSelectElement>}
+                          value={editValue}
+                          onChange={(e) => saveInline(issue.id, 'owner_name', e.target.value)}
+                          onBlur={() => cancelEdit()}
+                          onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
+                          className="w-full px-1 py-0.5 rounded text-xs"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                        >
+                          <option value="">Unassigned</option>
+                          {(users || []).map((u) => (
+                            <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          className="text-xs whitespace-nowrap cursor-pointer hover:underline"
+                          style={{ color: 'var(--text-secondary)' }}
+                          onClick={() => startEdit(issue.id, 'owner_name', issue.owner_name || '')}
+                          title="Click to edit"
+                        >
+                          {issue.owner_name || '—'}
+                        </span>
+                      )}
                     </td>
 
                     <td style={{ width: colWidths.notes, maxWidth: colWidths.notes, overflow: 'hidden' }}>
-                      {issue.notes && <NotesTooltip notes={issue.notes} />}
+                      {editingCell?.id === issue.id && editingCell.field === 'notes' ? (
+                        <textarea
+                          ref={editRef as React.RefObject<HTMLTextAreaElement>}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => saveInline(issue.id, 'notes', editValue)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveInline(issue.id, 'notes', editValue); }
+                            if (e.key === 'Escape') cancelEdit();
+                          }}
+                          rows={2}
+                          className="w-full px-1.5 py-0.5 rounded text-xs resize-none"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                        />
+                      ) : (
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => startEdit(issue.id, 'notes', issue.notes || '')}
+                          title="Click to edit"
+                        >
+                          {issue.notes ? <NotesTooltip notes={issue.notes} /> : (
+                            <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     <td style={{ width: colWidths.actions, textAlign: 'right' }}>

@@ -14,12 +14,19 @@ export async function GET(request: Request) {
   const end = searchParams.get('end');
   const employeeId = searchParams.get('employee');
   const type = searchParams.get('type'); // 'job' | 'nonjob' | null (all)
+  const departments = searchParams.get('departments'); // comma-separated BU names
 
   if (!start || !end) {
     return NextResponse.json({ error: 'start and end required' }, { status: 400 });
   }
 
   const supabase = getServerSupabase();
+  const deptList = departments ? departments.split(',').map(d => d.trim()).filter(Boolean) : [];
+
+  const matchesDept = (emp: { business_unit_name?: string | null } | null) => {
+    if (deptList.length === 0) return true;
+    return deptList.includes(emp?.business_unit_name || '');
+  };
 
   try {
     const results: any[] = [];
@@ -28,7 +35,7 @@ export async function GET(request: Request) {
     if (!type || type === 'job') {
       let jobQuery = supabase
         .from('pr_job_timesheets')
-        .select('*, employee:pr_employees(id, name, trade)')
+        .select('*, employee:pr_employees(id, name, trade, business_unit_name)')
         .gte('date', start)
         .lte('date', end)
         .order('date', { ascending: false });
@@ -40,6 +47,7 @@ export async function GET(request: Request) {
       const { data: jobTimesheets } = await jobQuery;
 
       for (const ts of (jobTimesheets || [])) {
+        if (!matchesDept(ts.employee)) continue;
         results.push({
           ...ts,
           type: 'job',
@@ -52,7 +60,7 @@ export async function GET(request: Request) {
     if (!type || type === 'nonjob') {
       let nonJobQuery = supabase
         .from('pr_nonjob_timesheets')
-        .select('*, employee:pr_employees(id, name, trade)')
+        .select('*, employee:pr_employees(id, name, trade, business_unit_name)')
         .gte('date', start)
         .lte('date', end)
         .order('date', { ascending: false });
@@ -64,6 +72,7 @@ export async function GET(request: Request) {
       const { data: nonJobTimesheets } = await nonJobQuery;
 
       for (const ts of (nonJobTimesheets || [])) {
+        if (!matchesDept(ts.employee)) continue;
         results.push({
           ...ts,
           type: 'nonjob',

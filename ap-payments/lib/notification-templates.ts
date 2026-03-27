@@ -9,12 +9,14 @@ export const DEFAULT_TEMPLATES: Record<string, string> = {
   ready_to_pay_internal: 'AP: Job #{job_number} ({contractor_name}, {amount}) approved and ready to pay{source_label}.',
   paid_contractor: 'Christmas Air: Payment of {amount} for Job #{job_number} ({customer_name}) at {address} sent{payment_method}.',
   paid_internal: 'AP: Payment of {amount} paid for Job #{job_number} — {contractor_name} ({customer_name} at {address}).',
+  paid_manager: 'AP: Payment of {amount} paid for Job #{job_number} — {contractor_name} ({trade}, {customer_name}).',
   // Email subjects
   subject_assignment_internal: 'Job #{job_number} Assigned',
   subject_pending_approval_manager: 'Invoice Needs Approval — Job #{job_number}',
   subject_ready_to_pay_internal: 'Ready to Pay — Job #{job_number}',
   subject_paid_contractor: 'Subcontractor Payment — Job #{job_number}',
   subject_paid_internal: 'Subcontractor Payment — Job #{job_number}',
+  subject_paid_manager: 'Subcontractor Payment — Job #{job_number}',
 };
 
 export const TEMPLATE_KEYS: { key: string; label: string; group: 'message' | 'subject' }[] = [

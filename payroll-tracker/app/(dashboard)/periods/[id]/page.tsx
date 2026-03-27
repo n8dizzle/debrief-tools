@@ -72,7 +72,7 @@ export default function PeriodDetailPage() {
             <thead>
               <tr>
                 <th>Employee</th>
-                <th>Trade</th>
+                <th>Dept</th>
                 <th className="text-right">Total Hrs</th>
                 <th className="text-right">Regular</th>
                 <th className="text-right">OT</th>
@@ -92,18 +92,8 @@ export default function PeriodDetailPage() {
                       {emp.name}
                     </Link>
                   </td>
-                  <td>
-                    {emp.trade && (
-                      <span
-                        className="badge"
-                        style={{
-                          backgroundColor: emp.trade === 'hvac' ? 'rgba(93, 138, 102, 0.15)' : 'rgba(184, 149, 107, 0.15)',
-                          color: emp.trade === 'hvac' ? 'var(--christmas-green-light)' : 'var(--christmas-gold)',
-                        }}
-                      >
-                        {emp.trade === 'hvac' ? 'HVAC' : 'Plumbing'}
-                      </span>
-                    )}
+                  <td style={{ color: 'var(--text-secondary)' }}>
+                    {emp.department || '-'}
                   </td>
                   <td className="text-right font-medium">{formatHours(emp.total_hours)}</td>
                   <td className="text-right">{formatHours(emp.regular_hours)}</td>

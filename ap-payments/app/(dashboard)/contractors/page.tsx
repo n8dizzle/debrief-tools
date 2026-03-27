@@ -13,6 +13,32 @@ function formatPhone(phone: string | null): string {
   return phone;
 }
 
+function getComplianceBadge(c: APContractor): { label: string; color: string; bg: string } {
+  const now = new Date();
+  const checkDate = (d: string | null) => {
+    if (!d) return 'missing';
+    const exp = new Date(d + 'T00:00:00');
+    const diffDays = Math.floor((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return 'expired';
+    if (diffDays <= 30) return 'expiring';
+    return 'valid';
+  };
+
+  const docs = c.has_coi && c.has_w9 && c.has_signed_agreement;
+  const gl = checkDate(c.gl_expiration_date);
+  const auto = checkDate(c.auto_expiration_date);
+  const wc = checkDate(c.wc_expiration_date);
+  const statuses = [gl, auto, wc];
+
+  if (statuses.includes('expired') || !docs) {
+    return { label: 'Incomplete', color: '#f87171', bg: 'rgba(239, 68, 68, 0.15)' };
+  }
+  if (statuses.includes('expiring') || statuses.includes('missing')) {
+    return { label: 'Review', color: '#facc15', bg: 'rgba(234, 179, 8, 0.15)' };
+  }
+  return { label: 'Compliant', color: '#4ade80', bg: 'rgba(34, 197, 94, 0.15)' };
+}
+
 export default function ContractorsPage() {
   const router = useRouter();
   const { canManageContractors } = useAPPermissions();
@@ -276,6 +302,7 @@ export default function ContractorsPage() {
                   <th>Phone</th>
                   <th>Email</th>
                   <th>Trade</th>
+                  <th>Compliance</th>
                   <th>Payment Method</th>
                   <th>Status</th>
                 </tr>
@@ -319,6 +346,19 @@ export default function ContractorsPage() {
                       >
                         {c.trade === 'both' ? 'HVAC & Plumbing' : c.trade.toUpperCase()}
                       </span>
+                    </td>
+                    <td>
+                      {(() => {
+                        const badge = getComplianceBadge(c);
+                        return (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{ backgroundColor: badge.bg, color: badge.color }}
+                          >
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                       {c.payment_method ? c.payment_method.replace(/_/g, ' ') : '—'}

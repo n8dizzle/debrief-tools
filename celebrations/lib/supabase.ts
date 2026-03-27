@@ -22,6 +22,15 @@ export type BoardVisibility = 'public' | 'internal';
 export type BoardStatus = 'active' | 'archived';
 export type PostContentType = 'text' | 'photo' | 'gif' | 'video';
 export type PostSource = 'web' | 'slack';
+export type PostStatus = 'approved' | 'pending' | 'rejected';
+
+export interface SlackImportFilters {
+  media_only?: boolean;
+  min_reactions?: number;
+  reaction_emojis?: string[];
+  keywords_include?: string[];
+  keywords_exclude?: string[];
+}
 
 export interface CelBoard {
   id: string;
@@ -38,6 +47,7 @@ export interface CelBoard {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  view_count: number;
   // Computed/joined
   post_count?: number;
 }
@@ -60,6 +70,7 @@ export interface CelPost {
   slack_message_ts: string | null;
   slack_channel_id: string | null;
   background_color: string | null;
+  status: PostStatus;
   is_pinned: boolean;
   created_at: string;
   updated_at: string;
@@ -81,6 +92,7 @@ export interface CelSlackConfig {
   board_id: string;
   slack_channel_id: string;
   slack_channel_name: string | null;
+  import_filters: SlackImportFilters;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -135,3 +147,99 @@ export const TEXT_BG_COLORS = [
   '#f97316', // Orange
   '#1C231E', // Dark (default)
 ];
+
+// ============================================
+// VALUE CHAMPION NOMINATIONS
+// ============================================
+
+export type NominationPeriodStatus = 'draft' | 'open' | 'closed';
+export type NominationPeriodType = 'quarterly' | 'annual';
+
+export interface NominationCategory {
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+  bgColor: string;
+}
+
+export interface CelNominationPeriod {
+  id: string;
+  title: string;
+  description: string | null;
+  period_type: NominationPeriodType;
+  year: number | null;
+  quarter: number | null; // 1-4, only for quarterly
+  status: NominationPeriodStatus;
+  opens_at: string | null;
+  closes_at: string | null;
+  categories: NominationCategory[];
+  winners: Record<string, string>; // category key → winner name
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Computed/joined
+  nomination_count?: number;
+}
+
+export const QUARTER_LABELS: Record<number, string> = {
+  1: 'Q1 (Jan–Mar)',
+  2: 'Q2 (Apr–Jun)',
+  3: 'Q3 (Jul–Sep)',
+  4: 'Q4 (Oct–Dec)',
+};
+
+export const QUARTER_DATES: Record<number, { start: string; end: string }> = {
+  1: { start: '01-01', end: '03-31' },
+  2: { start: '04-01', end: '06-30' },
+  3: { start: '07-01', end: '09-30' },
+  4: { start: '10-01', end: '12-31' },
+};
+
+export function generatePeriodTitle(type: NominationPeriodType, year: number, quarter?: number): string {
+  if (type === 'annual') return `${year} Annual Awards`;
+  return `Q${quarter} ${year} - Company Values`;
+}
+
+export function generatePeriodDates(type: NominationPeriodType, year: number, quarter?: number) {
+  if (type === 'annual') {
+    return { opens_at: `${year}-01-01`, closes_at: `${year}-12-31` };
+  }
+  const q = QUARTER_DATES[quarter || 1];
+  return { opens_at: `${year}-${q.start}`, closes_at: `${year}-${q.end}` };
+}
+
+export interface CelNomination {
+  id: string;
+  period_id: string;
+  nominee_name: string;
+  nominator_user_id: string | null;
+  nominator_name: string;
+  company_value: string;
+  story: string;
+  event_date: string | null;
+  source: 'form' | 'voice';
+  created_at: string;
+}
+
+export const COMPANY_VALUES: NominationCategory[] = [
+  { key: 'serve_others', label: 'Serve Others', emoji: '🤝', color: '#22c55e', bgColor: 'rgba(34, 197, 94, 0.15)' },
+  { key: 'be_an_owner', label: 'Be an Owner', emoji: '👑', color: '#eab308', bgColor: 'rgba(234, 179, 8, 0.15)' },
+  { key: 'keep_promises', label: 'Keep Promises', emoji: '💪', color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.15)' },
+  { key: 'have_fun', label: 'Have Fun', emoji: '🎉', color: '#ec4899', bgColor: 'rgba(236, 72, 153, 0.15)' },
+];
+
+export const CATEGORY_TEMPLATES: Record<string, { label: string; categories: NominationCategory[] }> = {
+  company_values: {
+    label: 'Company Values (Quarterly)',
+    categories: COMPANY_VALUES,
+  },
+  annual: {
+    label: 'Annual Awards',
+    categories: [],
+  },
+};
+
+export function getCategoryByKey(key: string, categories: NominationCategory[]): NominationCategory | undefined {
+  return categories.find(c => c.key === key) || COMPANY_VALUES.find(c => c.key === key);
+}

@@ -784,7 +784,7 @@ export default function InvoiceDetailPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Job Status
+                  Work Status
                 </label>
                 <select
                   className="select"
@@ -793,7 +793,23 @@ export default function InvoiceDetailPage() {
                   disabled={!canUpdateWorkflow}
                 >
                   <option value="">Not Set</option>
-                  {jobStatuses.map(status => (
+                  {jobStatuses.filter(s => s.category === 'work').map(status => (
+                    <option key={status.key} value={status.key}>{status.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Collection Status
+                </label>
+                <select
+                  className="select"
+                  value={tracking?.collection_status || ''}
+                  onChange={(e) => updateTracking('collection_status', e.target.value || null)}
+                  disabled={!canUpdateWorkflow}
+                >
+                  <option value="">Not Set</option>
+                  {jobStatuses.filter(s => s.category === 'collection').map(status => (
                     <option key={status.key} value={status.key}>{status.label}</option>
                   ))}
                 </select>

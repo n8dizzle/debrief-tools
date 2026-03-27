@@ -64,6 +64,85 @@ export default function NewBoardPage() {
         Create Celebration Board
       </h1>
 
+      {/* Tips Panel */}
+      <details
+        className="mb-6 rounded-lg overflow-hidden"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      >
+        <summary
+          className="p-4 cursor-pointer text-sm font-semibold flex items-center gap-2"
+          style={{ color: 'var(--christmas-gold)' }}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          Tips for a Great Board
+        </summary>
+        <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div className="pt-3 space-y-3">
+            <div className="flex gap-3">
+              <span className="text-lg shrink-0">1.</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Make your first post great
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Before inviting others, add a strong first post with a personal message and a photo, GIF, or video. Be specific — it sets the tone and shows people what kind of posts you&apos;re looking for.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <span className="text-lg shrink-0">2.</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Pin a direction post
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Add a pinned post at the top with a brief description of the board&apos;s purpose and what you&apos;d love to see — favorite memories, shoutouts, photos from an event, etc. This gives contributors clear guidance.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <span className="text-lg shrink-0">3.</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Set a deadline
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  When sharing the board link, include a deadline for submissions. A gentle time limit creates urgency and helps you plan when to present it. Use the Event Date field above to track this.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <span className="text-lg shrink-0">4.</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Use Slack for easy contributions
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Link a Slack channel in Settings to automatically pull in messages, photos, and GIFs. Backfill lets you grab the best moments from past conversations. Posts from Slack go through a review queue so you can curate what appears.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <span className="text-lg shrink-0">5.</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Present it live
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Use Present mode to display the board as a slideshow at a meeting or event. Share the public link so people can add posts in real-time while it plays. Pin the best posts so they&apos;re shown first.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <div className="p-3 rounded-lg text-sm" style={{

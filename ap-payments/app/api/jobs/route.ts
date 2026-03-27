@@ -92,10 +92,10 @@ export async function GET(request: NextRequest) {
   }
   // Date filter: use completed_date for completed jobs, scheduled_date for non-completed
   if (start) {
-    query = query.or(`completed_date.gte.${start},and(completed_date.is.null,scheduled_date.gte.${start}),and(completed_date.is.null,scheduled_date.is.null)`);
+    query = query.or(`completed_date.gte.${start},and(completed_date.is.null,scheduled_date.gte.${start})`);
   }
   if (end) {
-    query = query.or(`completed_date.lte.${end},and(completed_date.is.null,scheduled_date.lte.${end}),and(completed_date.is.null,scheduled_date.is.null)`);
+    query = query.or(`completed_date.lte.${end},and(completed_date.is.null,scheduled_date.lte.${end})`);
   }
   const minTotal = searchParams.get('minTotal');
   const maxTotal = searchParams.get('maxTotal');

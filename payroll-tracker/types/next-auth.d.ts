@@ -16,6 +16,7 @@ declare module "next-auth" {
         slug: string;
       } | null;
       isActive: boolean;
+      permissions: Record<string, Record<string, boolean>> | null;
     } & DefaultSession["user"];
   }
 
@@ -45,5 +46,6 @@ declare module "next-auth/jwt" {
       slug: string;
     } | null;
     isActive?: boolean;
+    permissions?: Record<string, Record<string, boolean>> | null;
   }
 }

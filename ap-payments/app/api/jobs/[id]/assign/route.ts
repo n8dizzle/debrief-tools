@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/ap-utils';
-import { sendAssignmentNotification } from '@/lib/sms-notifications';
 
 export async function POST(
   request: NextRequest,
@@ -121,12 +120,6 @@ export async function POST(
     }),
     performed_by: session.user.id,
   });
-
-  // Fire-and-forget SMS notification for contractor assignments
-  if (assignment_type === 'contractor' && contractor_id) {
-    sendAssignmentNotification(id, contractor_id, payment_amount, session.user.id)
-      .catch(err => console.error('SMS error:', err));
-  }
 
   return NextResponse.json(updated);
 }

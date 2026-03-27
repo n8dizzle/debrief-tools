@@ -19,7 +19,6 @@ export default function EmployeeDetailPage() {
 
   const initialStart = searchParams.get('start') || getCurrentPayWeekRange().start;
   const initialEnd = searchParams.get('end') || getCurrentPayWeekRange().end;
-  const initialTrade = searchParams.get('trade') || '';
 
   const [employee, setEmployee] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);
@@ -196,7 +195,7 @@ export default function EmployeeDetailPage() {
     <div>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-        <Link href={`/employees?start=${dateRange.start}&end=${dateRange.end}${initialTrade ? `&trade=${initialTrade}` : ''}`} style={{ color: 'var(--christmas-green-light)' }}>
+        <Link href={`/employees?start=${dateRange.start}&end=${dateRange.end}`} style={{ color: 'var(--christmas-green-light)' }}>
           Employees
         </Link>
         <span>/</span>
@@ -210,19 +209,19 @@ export default function EmployeeDetailPage() {
             {employee.name}
           </h1>
           <div className="flex items-center gap-2 mt-1">
-            {employee.trade && (
+            {employee.business_unit_name && (
               <span
                 className="badge"
                 style={{
-                  backgroundColor: employee.trade === 'hvac' ? 'rgba(93, 138, 102, 0.15)' : 'rgba(184, 149, 107, 0.15)',
-                  color: employee.trade === 'hvac' ? 'var(--christmas-green-light)' : 'var(--christmas-gold)',
+                  backgroundColor: 'rgba(107, 124, 110, 0.15)',
+                  color: 'var(--text-secondary)',
                 }}
               >
-                {employee.trade === 'hvac' ? 'HVAC' : 'Plumbing'}
+                {employee.business_unit_name}
               </span>
             )}
-            {employee.business_unit_name && (
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{employee.business_unit_name}</span>
+            {employee.role && (
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{employee.role}</span>
             )}
           </div>
         </div>

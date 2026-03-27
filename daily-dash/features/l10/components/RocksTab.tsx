@@ -368,7 +368,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
 }
 
 export default function RocksTab() {
-  const [selectedQuarter, setSelectedQuarter] = useState('');
+  const [selectedQuarter, setSelectedQuarter] = useState(getCurrentQuarter());
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [ownerFilter, setOwnerFilter] = useState<string[]>([]);
@@ -407,10 +407,30 @@ export default function RocksTab() {
 
   const saveInline = async (id: string, field: string, value: string) => {
     cancelEdit();
+    let payload: Record<string, unknown> = { [field]: value };
+    // Owner field: find the rock, replace the selected owner name and resolve the user id
+    if (field === 'owner_name') {
+      const rock = (rocks || []).find((r) => r.id === id);
+      const currentNames = rock?.owner_names || [];
+      const currentIds = rock?.owner_ids || [];
+      const user = (users || []).find((u) => (u.name || u.email) === value);
+      // If rock has one owner, replace it; if multiple, open modal instead
+      if (currentNames.length <= 1) {
+        payload = {
+          owner_names: value ? [value] : currentNames,
+          owner_ids: user ? [user.id] : currentIds,
+        };
+      } else {
+        // For multi-owner, swap first owner but keep the rest
+        const newNames = [value, ...currentNames.slice(1)];
+        const newIds = [user?.id || currentIds[0], ...currentIds.slice(1)];
+        payload = { owner_names: newNames, owner_ids: newIds };
+      }
+    }
     await fetch(`/api/l10/rocks/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: value }),
+      body: JSON.stringify(payload),
     });
     mutate();
   };
@@ -728,17 +748,34 @@ export default function RocksTab() {
                       )}
                     </td>
 
-                    <td
-                      style={{ width: colWidths.owner }}
-                      className="cursor-pointer"
-                      onClick={() => { setModalRock(rock); setShowModal(true); }}
-                      title="Click to edit owners"
-                    >
-                      {rock.owner_names?.map((name, j) => (
-                        <div key={j} className="text-xs whitespace-nowrap hover:underline" style={{ color: 'var(--text-secondary)' }}>
-                          {name}
+                    <td style={{ width: colWidths.owner }}>
+                      {editingCell?.id === rock.id && editingCell.field === 'owner_name' ? (
+                        <select
+                          ref={editRef as React.RefObject<HTMLSelectElement>}
+                          value={editValue}
+                          onChange={(e) => saveInline(rock.id, 'owner_name', e.target.value)}
+                          onBlur={() => cancelEdit()}
+                          onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
+                          className="w-full px-1 py-0.5 rounded text-xs"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                        >
+                          {(users || []).map((u) => (
+                            <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => startEdit(rock.id, 'owner_name', rock.owner_names?.[0] || '')}
+                          title="Click to edit owner"
+                        >
+                          {rock.owner_names?.map((name, j) => (
+                            <div key={j} className="text-xs whitespace-nowrap hover:underline" style={{ color: 'var(--text-secondary)' }}>
+                              {name}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </td>
 
                     <td style={{ width: colWidths.department }}>
@@ -770,11 +807,31 @@ export default function RocksTab() {
                     </td>
 
                     <td style={{ width: colWidths.status }}>
-                      <button onClick={() => handleStatusToggle(rock)} title="Click to cycle status">
-                        <span className={`badge ${STATUS_BADGE[rock.status]}`}>
-                          {STATUS_LABELS[rock.status]}
+                      {editingCell?.id === rock.id && editingCell.field === 'status' ? (
+                        <select
+                          ref={editRef as React.RefObject<HTMLSelectElement>}
+                          value={editValue}
+                          onChange={(e) => saveInline(rock.id, 'status', e.target.value)}
+                          onBlur={() => cancelEdit()}
+                          onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
+                          className="w-full px-1 py-0.5 rounded text-xs"
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                        >
+                          <option value="on_track">On Track</option>
+                          <option value="off_track">Off Track</option>
+                          <option value="done">Done</option>
+                        </select>
+                      ) : (
+                        <span
+                          className="cursor-pointer"
+                          onClick={() => startEdit(rock.id, 'status', rock.status)}
+                          title="Click to edit status"
+                        >
+                          <span className={`badge ${STATUS_BADGE[rock.status]}`}>
+                            {STATUS_LABELS[rock.status]}
+                          </span>
                         </span>
-                      </button>
+                      )}
                     </td>
 
                     <td style={{ width: colWidths.notes, maxWidth: colWidths.notes, overflow: 'hidden' }}>

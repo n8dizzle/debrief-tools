@@ -1,0 +1,24 @@
+{
+  "name": "@homework/shared",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./auth": "./lib/auth.ts",
+    "./types": "./lib/types.ts",
+    "./catalog": "./lib/catalog.ts",
+    "./geo": "./lib/geo.ts",
+    "./utils": "./utils/format.ts",
+    "./components": "./components/index.ts",
+    "./notifications": "./lib/notifications.ts",
+    "./ai/equipment": "./lib/ai/equipment.ts",
+    "./ai/gemini": "./lib/ai/gemini.ts",
+    "./property-data": "./lib/property-data.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.89.0"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

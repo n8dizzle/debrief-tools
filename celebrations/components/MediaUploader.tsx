@@ -7,9 +7,10 @@ interface MediaUploaderProps {
   accept: string;
   onUpload: (result: { url: string; storagePath: string; contentType: string }) => void;
   label?: string;
+  uploadUrl?: string;
 }
 
-export default function MediaUploader({ boardId, accept, onUpload, label }: MediaUploaderProps) {
+export default function MediaUploader({ boardId, accept, onUpload, label, uploadUrl }: MediaUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +25,7 @@ export default function MediaUploader({ boardId, accept, onUpload, label }: Medi
       formData.append('file', file);
       formData.append('boardId', boardId);
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch(uploadUrl || '/api/upload', {
         method: 'POST',
         body: formData,
       });

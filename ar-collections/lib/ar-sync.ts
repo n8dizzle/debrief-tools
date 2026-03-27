@@ -18,6 +18,7 @@ export interface SyncResult {
   success: boolean;
   total_ar?: number;
   message?: string;
+  debug?: Record<string, any>;
   stats: {
     invoices: {
       processed: number;
@@ -134,18 +135,58 @@ export async function runARSync(): Promise<SyncResult> {
     console.log(`Fetching job info for ${jobNumbers.length} jobs...`);
     const jobInfoMap = await stClient.getJobInfoBatch(jobNumbers);
 
-    // Step 4b: Check all invoices to determine if they are membership invoices
+    // Step 4b: Fetch employee lookup for soldBy name resolution
+    const employees = await stClient.getEmployees();
+    const employeeMap = new Map<number, string>();
+    for (const emp of employees) {
+      employeeMap.set(emp.id, emp.name);
+    }
+    console.log(`Built employee lookup with ${employeeMap.size} employees`);
+
+    // Step 4b2: Resolve estimate soldBy using individual job detail endpoint
+    // The individual job endpoint returns soldById (flat field) which is the comfort advisor
+    const estimateSoldByMap = new Map<string, string>(); // jobNumber → comfort advisor name
+
+    const jobEntries = Array.from(jobInfoMap.entries());
+    console.log(`Resolving estimate soldBy for ${jobEntries.length} jobs via individual job detail...`);
+
+    for (let i = 0; i < jobEntries.length; i++) {
+      const [jobNumber, info] = jobEntries[i];
+      try {
+        const jobDetail = await stClient.getJob(info.jobId) as any;
+        if (jobDetail?.soldById) {
+          const advisorName = employeeMap.get(jobDetail.soldById);
+          if (advisorName) {
+            estimateSoldByMap.set(jobNumber, advisorName);
+          }
+        }
+      } catch (err) {
+        // Skip failures
+      }
+      // Rate limiting every 20 requests
+      if (i % 20 === 19) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+    console.log(`Resolved estimate soldBy for ${estimateSoldByMap.size} install jobs`);
+
+    // Step 4c: Check all invoices to determine if they are membership invoices
     console.log(`Checking ${arRows.length} invoices for membership invoice status...`);
-    const invoiceMembershipMap = new Map<number, { hasMembership: boolean; isMembershipInvoice: boolean }>();
+    const invoiceMembershipMap = new Map<number, { hasMembership: boolean; isMembershipInvoice: boolean; soldBy: string | null }>();
 
     for (const row of arRows) {
       if (row.invoiceId > 0) {
         try {
           const invoice = await stClient.getInvoice(row.invoiceId);
           const isMembershipInvoice = stClient.invoiceIndicatesMembership(invoice);
+          const invoiceAny = invoice as any;
+          // Resolve soldBy: use employee lookup by ID for proper display name
+          const employeeId = invoiceAny.employeeInfo?.id;
+          const soldByName = employeeId ? employeeMap.get(employeeId) || invoiceAny.employeeInfo?.name || null : null;
           invoiceMembershipMap.set(row.invoiceId, {
             hasMembership: isMembershipInvoice,
             isMembershipInvoice,
+            soldBy: soldByName,
           });
         } catch (err) {
           // Skip failures
@@ -154,6 +195,16 @@ export async function runARSync(): Promise<SyncResult> {
     }
     const membershipInvoiceCount = Array.from(invoiceMembershipMap.values()).filter(v => v.isMembershipInvoice).length;
     console.log(`Found ${membershipInvoiceCount} membership invoices`);
+
+    // Step 4d: Fetch location addresses for all unique locationIds
+    const uniqueLocationIds = [...new Set(
+      Array.from(jobInfoMap.values())
+        .map(j => j.locationId)
+        .filter((id): id is number => id !== null && id > 0)
+    )];
+    console.log(`Fetching addresses for ${uniqueLocationIds.length} locations...`);
+    const locationAddressMap = await stClient.getLocationAddresses(uniqueLocationIds);
+    console.log(`Got addresses for ${locationAddressMap.size} locations`);
 
     // Step 5: Get existing invoice IDs to track what's still open
     const { data: existingInvoices } = await supabase
@@ -192,11 +243,14 @@ export async function runARSync(): Promise<SyncResult> {
         const locationId = jobInfo?.locationId || null;
         const projectId = jobInfo?.projectId || null;
         const projectName = jobInfo?.projectName || null;
+        const soldBy = invoiceInfo?.soldBy || jobInfo?.soldBy || null;
+        const estimateSoldBy = row.jobNumber ? estimateSoldByMap.get(row.jobNumber) || null : null;
+        const locationAddress = locationId ? locationAddressMap.get(locationId) || null : null;
 
         await upsertInvoiceFromReport(
           supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing,
           stJobStatus, stJobTypeName, hasMembership, bookingPaymentType,
-          nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice, stJobId
+          nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice, stJobId, soldBy, estimateSoldBy, locationAddress
         );
 
         if (existing) {
@@ -334,7 +388,10 @@ async function upsertInvoiceFromReport(
   projectId: number | null = null,
   projectName: string | null = null,
   isMembershipInvoice: boolean = false,
-  stJobId: number | null = null
+  stJobId: number | null = null,
+  soldBy: string | null = null,
+  estimateSoldBy: string | null = null,
+  locationAddress: string | null = null
 ): Promise<boolean> {
   // Determine job type from business unit name
   const buName = (row.businessUnitName || '').toLowerCase();
@@ -404,6 +461,9 @@ async function upsertInvoiceFromReport(
     st_location_id: locationId,
     st_project_id: projectId,
     project_name: projectName,
+    sold_by: soldBy,
+    estimate_sold_by: estimateSoldBy,
+    location_address: locationAddress,
     synced_at: new Date().toISOString(),
   };
 
