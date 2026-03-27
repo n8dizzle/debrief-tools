@@ -186,7 +186,96 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
 
   return (
     <>
-      <div className="card p-0 overflow-hidden">
+      {/* Mobile card view */}
+      <div className="lg:hidden space-y-3">
+        {sorted.map((entry) => (
+          <div
+            key={`mobile-${entry.technician_id}`}
+            className="card p-4 cursor-pointer"
+            onClick={() => setExpandedRow(expandedRow === entry.technician_id ? null : entry.technician_id)}
+            style={{
+              background: entry.rank <= 3 ? `rgba(${entry.rank === 1 ? '255,215,0' : entry.rank === 2 ? '192,192,192' : '205,127,50'}, 0.05)` : undefined,
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <RankBadge rank={entry.rank} />
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{entry.name}</span>
+              </div>
+              <span className="font-bold text-lg" style={{ color: 'var(--christmas-green-light)' }}>
+                {(entry.score * 100).toFixed(1)}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Sales</span>
+                <div className="font-mono" style={{ color: 'var(--text-primary)' }}>{formatCurrency(entry.gross_sales)}</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Leads</span>
+                <div className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.tgls}</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Opts/Opp</span>
+                <div className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.options_per_opportunity.toFixed(2)}</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Reviews</span>
+                <div className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.reviews}</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Memberships</span>
+                <div className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.memberships_sold}</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Attendance</span>
+                <div className="font-mono" style={{
+                  color: entry.attendance_points === 0
+                    ? 'var(--status-success)'
+                    : entry.attendance_points >= 3
+                      ? 'var(--status-error)'
+                      : 'var(--christmas-gold)',
+                }}>{entry.attendance_points}</div>
+              </div>
+            </div>
+            {expandedRow === entry.technician_id && (
+              <div className="mt-3 pt-3 text-sm" style={{ borderTop: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+                <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Score Breakdown</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Sales</span>
+                    <div className="font-mono">{(entry.score_breakdown.gross_sales_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.gross_sales || 0.25) * 100).toFixed(0)}%</span></div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Leads</span>
+                    <div className="font-mono">{(entry.score_breakdown.tgls_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.tgls || 0.15) * 100).toFixed(0)}%</span></div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Opts/Opp</span>
+                    <div className="font-mono">{(entry.score_breakdown.options_per_opportunity_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.options_per_opportunity || 0.15) * 100).toFixed(0)}%</span></div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Reviews</span>
+                    <div className="font-mono">{(entry.score_breakdown.reviews_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.reviews || 0.15) * 100).toFixed(0)}%</span></div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Memberships</span>
+                    <div className="font-mono">{(entry.score_breakdown.memberships_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.memberships_sold || 0.15) * 100).toFixed(0)}%</span></div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Attendance</span>
+                    <div className="font-mono">{(entry.score_breakdown.attendance_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.attendance || 0.15) * 100).toFixed(0)}%</span></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="card p-0 overflow-hidden hidden lg:block">
         <div className="table-wrapper">
           <table className="lb-table">
             <thead>
