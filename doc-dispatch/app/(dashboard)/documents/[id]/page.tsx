@@ -669,12 +669,18 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                             )}
                           </div>
                           {page.image_url ? (
-                            <div className="overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                            <div className="flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}>
                               <img
                                 src={page.image_url}
                                 alt={`${doc.title || 'Document'} — Page ${page.page_number}`}
                                 className="w-full transition-transform duration-200"
-                                style={{ transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+                                style={{
+                                  transform: rotation
+                                    ? rotation % 180 !== 0
+                                      ? `rotate(${rotation}deg) scale(0.75)`
+                                      : `rotate(${rotation}deg)`
+                                    : undefined,
+                                }}
                               />
                             </div>
                           ) : (
@@ -698,7 +704,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}
                   >
                     <button
-                      onClick={() => setImageRotations(prev => ({ ...prev, single: (prev.single || 0) + 90 }))}
+                      onClick={() => rotateImage('single')}
                       className="p-1 rounded hover:bg-white/10 transition-colors"
                       style={{ color: 'var(--text-muted)' }}
                       title="Rotate image"
@@ -708,12 +714,18 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       </svg>
                     </button>
                   </div>
-                  <div className="overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}>
                     <img
                       src={doc.image_url}
                       alt={doc.title || 'Document'}
                       className="w-full transition-transform duration-200"
-                      style={{ transform: singleRotation ? `rotate(${singleRotation}deg)` : undefined }}
+                      style={{
+                        transform: singleRotation
+                          ? singleRotation % 180 !== 0
+                            ? `rotate(${singleRotation}deg) scale(0.75)`
+                            : `rotate(${singleRotation}deg)`
+                          : undefined,
+                      }}
                     />
                   </div>
                 </div>

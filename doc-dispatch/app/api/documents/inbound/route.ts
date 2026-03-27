@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { getServerSupabase } from '@/lib/supabase';
 import Anthropic from '@anthropic-ai/sdk';
+import { sendUploadNotification } from '@/lib/notifications';
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -278,6 +279,15 @@ export async function POST(req: NextRequest) {
             })
             .eq('id', docId);
         }
+
+        // Send upload notification (non-blocking)
+        sendUploadNotification({
+          documentId: docId,
+          uploaderName: user.name || '',
+          uploaderEmail: user.email,
+          pageCount: 1,
+          source: 'email',
+        });
 
         results.push(docId);
       } catch (err) {
