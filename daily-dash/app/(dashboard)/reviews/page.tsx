@@ -1259,7 +1259,6 @@ function ReviewCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
   const [showReplyModal, setShowReplyModal] = useState(false);
-  const [showExistingReply, setShowExistingReply] = useState(false);
   const [isEditingMentions, setIsEditingMentions] = useState(false);
   const [editedMentions, setEditedMentions] = useState<string[]>([]);
   const [savingMentions, setSavingMentions] = useState(false);
@@ -1354,18 +1353,7 @@ function ReviewCard({
 
             {/* Action buttons - compact */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {review.review_reply ? (
-                <button
-                  onClick={() => setShowExistingReply(!showExistingReply)}
-                  className="text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80"
-                  style={{
-                    backgroundColor: 'rgba(52, 102, 67, 0.2)',
-                    color: 'var(--christmas-green)',
-                  }}
-                >
-                  {showExistingReply ? 'Hide' : 'View'}
-                </button>
-              ) : (
+              {!review.review_reply && (
                 <span
                   className="text-xs px-2 py-1 rounded-full whitespace-nowrap"
                   style={{
@@ -1606,7 +1594,7 @@ function ReviewCard({
       </div>
 
       {/* Existing Reply Display */}
-      {showExistingReply && review.review_reply && (
+      {review.review_reply && (
         <div
           className="mt-3 ml-12 p-3 rounded-lg"
           style={{
