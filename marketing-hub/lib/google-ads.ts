@@ -50,11 +50,45 @@ export interface LSAPerformance {
   period: string;
 }
 
+export interface LSADailyPerformanceRow {
+  customerId: string;
+  customerName: string;
+  date: string;
+  impressions: number;
+  clicks: number;
+  costMicros: number;
+  phoneCalls: number;
+  allConversions: number;
+}
+
 export interface LSALocation {
   customerId: string;
   locationName: string;
   category: string;
   businessName?: string;
+}
+
+/**
+ * Friendly display names for LSA accounts by customer ID.
+ * Used across all LSA routes for consistent naming.
+ */
+export const LSA_ACCOUNT_NAMES: Record<string, string> = {
+  '5362286439': 'Argyle (HVAC)',
+  '3320714390': 'Argyle (PLMBG)',
+  '3704224172': 'Justin',
+  '6799775782': 'Flower Mound',
+  '8265257082': 'Lewisville (Bart\'s)',
+  '5778669762': 'Lewisville (Xmas)',
+  '6930068549': 'Prosper',
+  '1807327952': 'Denton (HVAC)',
+  '4070893201': 'Denton (PLMBG)',
+};
+
+/**
+ * Get friendly display name for an LSA account, falling back to last 4 digits.
+ */
+export function getLSAAccountName(customerId: string): string {
+  return LSA_ACCOUNT_NAMES[customerId] || `Account ${customerId.slice(-4)}`;
 }
 
 class GoogleAdsClient {
@@ -430,6 +464,82 @@ class GoogleAdsClient {
     }
 
     return results;
+  }
+
+  /**
+   * Get LSA daily performance metrics (per-day-per-account) for caching
+   */
+  async getLSADailyPerformance(
+    startDate: string,
+    endDate: string
+  ): Promise<LSADailyPerformanceRow[]> {
+    const customerIds = await this.getAccessibleCustomers();
+    const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+    const dailyRows: LSADailyPerformanceRow[] = [];
+
+    for (const cid of customerIds) {
+      if (cid === loginCustomerId) continue;
+
+      try {
+        const customer = this.getCustomer(cid);
+        const query = `
+          SELECT
+            customer.id,
+            customer.descriptive_name,
+            segments.date,
+            metrics.impressions,
+            metrics.clicks,
+            metrics.cost_micros,
+            metrics.phone_calls,
+            metrics.all_conversions
+          FROM campaign
+          WHERE campaign.advertising_channel_type = 'LOCAL_SERVICES'
+            AND segments.date >= '${startDate}'
+            AND segments.date <= '${endDate}'
+        `;
+
+        const response = await customer.query(query);
+
+        for (const row of response) {
+          const customerId = row.customer?.id?.toString() || '';
+          const customerName = row.customer?.descriptive_name || '';
+          const date = row.segments?.date || '';
+
+          if (!date) continue;
+
+          // Find existing row for same customer+date (campaigns may have multiple rows)
+          const existingIdx = dailyRows.findIndex(
+            r => r.customerId === customerId && r.date === date
+          );
+
+          if (existingIdx >= 0) {
+            dailyRows[existingIdx].impressions += Number(row.metrics?.impressions || 0);
+            dailyRows[existingIdx].clicks += Number(row.metrics?.clicks || 0);
+            dailyRows[existingIdx].costMicros += Number(row.metrics?.cost_micros || 0);
+            dailyRows[existingIdx].phoneCalls += Number(row.metrics?.phone_calls || 0);
+            dailyRows[existingIdx].allConversions += Number(row.metrics?.all_conversions || 0);
+          } else {
+            dailyRows.push({
+              customerId,
+              customerName,
+              date,
+              impressions: Number(row.metrics?.impressions || 0),
+              clicks: Number(row.metrics?.clicks || 0),
+              costMicros: Number(row.metrics?.cost_micros || 0),
+              phoneCalls: Number(row.metrics?.phone_calls || 0),
+              allConversions: Number(row.metrics?.all_conversions || 0),
+            });
+          }
+        }
+      } catch (error: any) {
+        if (!error.message?.includes('LOCAL_SERVICES') &&
+            !error.message?.includes('UNIMPLEMENTED')) {
+          console.error(`Error fetching daily LSA performance for customer ${cid}:`, error.message);
+        }
+      }
+    }
+
+    return dailyRows;
   }
 
   /**

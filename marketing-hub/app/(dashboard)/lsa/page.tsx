@@ -99,6 +99,41 @@ interface DailyData {
 
 type TradeFilter = 'all' | 'hvac' | 'plumbing';
 
+interface ComparisonLocationBreakdown {
+  customerId: string;
+  customerName: string;
+  total: number;
+  charged: number;
+  nonCharged: number;
+  booked: number;
+  hvac: number;
+  plumbing: number;
+  other: number;
+}
+
+interface ComparisonPeriod {
+  locations: ComparisonLocationBreakdown[];
+  totals: { total: number; charged: number; booked: number; hvac: number; plumbing: number };
+  dateRange: { start: string; end: string };
+}
+
+interface ComparisonData {
+  current: ComparisonPeriod;
+  yoy: ComparisonPeriod;
+  mom: ComparisonPeriod;
+  spendByPeriod: {
+    current: Record<string, number>;
+    yoy: Record<string, number>;
+    mom: Record<string, number>;
+  };
+  stMetrics: Record<string, {
+    booked: number;
+    revenue: number;
+    avgTicket: number;
+    jobCount: number;
+  }>;
+}
+
 interface SyncStatus {
   totalLeads: number;
   totalAccounts: number;
@@ -107,6 +142,20 @@ interface SyncStatus {
     earliest: string | null;
     latest: string | null;
   };
+}
+
+function YoYBadge({ value }: { value: number | null }) {
+  if (value === null) return <span className="text-sm text-gray-600">—</span>;
+  const isPositive = value >= 0;
+  const sign = isPositive ? '+' : '';
+  return (
+    <span
+      className="text-sm font-medium tabular-nums"
+      style={{ color: isPositive ? '#5d8a66' : '#c97878' }}
+    >
+      {sign}{value.toFixed(0)}%
+    </span>
+  );
 }
 
 export default function LSAPage() {
@@ -138,6 +187,26 @@ export default function LSAPage() {
   const [dataSource, setDataSource] = useState<string>('');
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+
+  const fetchComparisonData = useCallback(async () => {
+    setComparisonLoading(true);
+    try {
+      const res = await fetch(
+        `/api/lsa/leads/compare?start=${dateRange.start}&end=${dateRange.end}`,
+        { credentials: 'include' }
+      );
+      if (!res.ok) throw new Error('Failed to fetch comparison data');
+      const data = await res.json();
+      setComparisonData(data);
+    } catch (err) {
+      console.error('Failed to fetch comparison data:', err);
+      setComparisonData(null);
+    } finally {
+      setComparisonLoading(false);
+    }
+  }, [dateRange]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -207,8 +276,9 @@ export default function LSAPage() {
   useEffect(() => {
     fetchData();
     fetchDailyData();
+    fetchComparisonData();
     fetchSyncStatus();
-  }, [fetchData, fetchDailyData]);
+  }, [fetchData, fetchDailyData, fetchComparisonData]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -227,6 +297,7 @@ export default function LSAPage() {
 
       await fetchData();
       await fetchDailyData();
+      await fetchComparisonData();
       await fetchSyncStatus();
     } catch (err: any) {
       console.error('Sync error:', err);
@@ -662,51 +733,154 @@ export default function LSAPage() {
 
       {/* Tab Content */}
       {activeTab === 'locations' && (
-        <div className="bg-[#1a2e1a] rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#2a3e2a]">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Location</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Total</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Charged</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Free</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Charge Rate</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">HVAC</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Plumbing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrichedLocations.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-gray-500">
-                      No location data found for this period
-                    </td>
-                  </tr>
-                ) : (
-                  enrichedLocations.map((loc) => (
-                    <tr key={loc.customerId} className="border-b border-[#2a3e2a] hover:bg-[#0d1f0d] transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="text-[#E8DFC4] font-medium">{loc.customerName}</div>
-                        <div className="text-xs text-gray-500">ID: {loc.customerId}</div>
-                      </td>
-                      <td className="py-3 px-4 text-right text-[#E8DFC4] font-medium">{loc.total}</td>
-                      <td className="py-3 px-4 text-right text-green-400">{loc.charged}</td>
-                      <td className="py-3 px-4 text-right text-gray-400">{loc.nonCharged}</td>
-                      <td className="py-3 px-4 text-right text-gray-300">
-                        {loc.total > 0 ? formatPercent((loc.charged / loc.total) * 100) : '0%'}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-[#6eb887]">{loc.hvac}</span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-[#B8956B]">{loc.plumbing}</span>
-                      </td>
+        <div>
+          {comparisonData && (
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              YoY: vs {comparisonData.yoy.dateRange.start} to {comparisonData.yoy.dateRange.end}
+              {' · MoM: vs '}
+              {comparisonData.mom.dateRange.start} to {comparisonData.mom.dateRange.end}
+            </p>
+          )}
+          <div className="bg-[#1a2e1a] rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              {comparisonLoading && !comparisonData ? (
+                <div className="p-8 text-center">
+                  <div className="animate-pulse space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-10 bg-[#0d1f0d] rounded"></div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#2a3e2a]">
+                      <th className="text-left py-3 px-3 text-sm font-medium text-gray-400">Location</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Leads</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">YoY</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">MoM</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">
+                        <span className="text-[#6eb887]">H</span> / <span className="text-[#B8956B]">P</span>
+                      </th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Spend</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400 border-l border-[#2a3e2a]">ST Jobs</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Revenue</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Avg Ticket</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">ROAS</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {(!comparisonData || comparisonData.current.locations.length === 0) ? (
+                      <tr>
+                        <td colSpan={10} className="py-8 text-center text-gray-500">
+                          No location data found for this period
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        {comparisonData.current.locations.map((loc) => {
+                          const yoyLoc = comparisonData.yoy.locations.find(y => y.customerId === loc.customerId);
+                          const momLoc = comparisonData.mom.locations.find(m => m.customerId === loc.customerId);
+
+                          const totalYoY = yoyLoc && yoyLoc.total > 0
+                            ? ((loc.total - yoyLoc.total) / yoyLoc.total) * 100 : null;
+                          const totalMoM = momLoc && momLoc.total > 0
+                            ? ((loc.total - momLoc.total) / momLoc.total) * 100 : null;
+
+                          const currentSpend = comparisonData.spendByPeriod.current[loc.customerId] || 0;
+                          const stLoc = comparisonData.stMetrics?.[loc.customerId];
+                          const roas = currentSpend > 0 && stLoc?.revenue ? stLoc.revenue / currentSpend : 0;
+
+                          return (
+                            <tr key={loc.customerId} className="border-b border-[#2a3e2a] hover:bg-[#0d1f0d] transition-colors">
+                              <td className="py-3 px-3">
+                                <div className="text-[#E8DFC4] font-medium">{loc.customerName}</div>
+                              </td>
+                              <td className="py-3 px-3 text-right text-[#E8DFC4] font-medium">
+                                {loc.total}
+                                {yoyLoc && yoyLoc.total > 0 ? (
+                                  <div className="text-xs text-gray-500">was {yoyLoc.total}</div>
+                                ) : null}
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <YoYBadge value={totalYoY} />
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <YoYBadge value={totalMoM} />
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <span className="text-[#6eb887]">{loc.hvac}</span>
+                                <span className="text-gray-600 mx-0.5">/</span>
+                                <span className="text-[#B8956B]">{loc.plumbing}</span>
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {currentSpend > 0 ? formatCurrency(currentSpend) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-purple-400 border-l border-[#2a3e2a]">
+                                {stLoc && stLoc.jobCount > 0 ? stLoc.jobCount : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-green-400">
+                                {stLoc && stLoc.revenue > 0 ? formatCurrency(stLoc.revenue) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {stLoc && stLoc.avgTicket > 0 ? formatCurrencyDecimal(stLoc.avgTicket) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Totals row */}
+                        {(() => {
+                          const ct = comparisonData.current.totals;
+                          const yt = comparisonData.yoy.totals;
+                          const mt = comparisonData.mom.totals;
+                          const totalYoY = yt.total > 0 ? ((ct.total - yt.total) / yt.total) * 100 : null;
+                          const totalMoM = mt.total > 0 ? ((ct.total - mt.total) / mt.total) * 100 : null;
+
+                          const totalCurrentSpend = Object.values(comparisonData.spendByPeriod.current).reduce((s, v) => s + v, 0);
+                          const st = comparisonData.stMetrics?._total;
+                          const roas = totalCurrentSpend > 0 && st?.revenue ? st.revenue / totalCurrentSpend : 0;
+
+                          return (
+                            <tr className="bg-[#0d1f0d] font-semibold">
+                              <td className="py-3 px-3 text-[#E8DFC4]">TOTAL</td>
+                              <td className="py-3 px-3 text-right text-[#E8DFC4]">
+                                {ct.total}
+                                {yt.total > 0 && <div className="text-xs text-gray-500 font-normal">was {yt.total}</div>}
+                              </td>
+                              <td className="py-3 px-3 text-right"><YoYBadge value={totalYoY} /></td>
+                              <td className="py-3 px-3 text-right"><YoYBadge value={totalMoM} /></td>
+                              <td className="py-3 px-3 text-right">
+                                <span className="text-[#6eb887]">{ct.hvac}</span>
+                                <span className="text-gray-600 mx-0.5">/</span>
+                                <span className="text-[#B8956B]">{ct.plumbing}</span>
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {totalCurrentSpend > 0 ? formatCurrency(totalCurrentSpend) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-purple-400 border-l border-[#2a3e2a]">
+                                {st ? st.jobCount : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-green-400 font-medium">
+                                {st && st.revenue > 0 ? formatCurrency(st.revenue) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {st && st.avgTicket > 0 ? formatCurrencyDecimal(st.avgTicket) : '—'}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}

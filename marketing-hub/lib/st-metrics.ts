@@ -7,6 +7,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { stClient } from './servicetitan';
 
 // Types
 export interface STLocationMetrics {
@@ -26,128 +27,6 @@ interface STCall {
   campaign_name: string | null;
   received_at: string;
 }
-
-// ServiceTitan API client for fetching job data
-class STClient {
-  private readonly BASE_URL = 'https://api.servicetitan.io';
-  private readonly AUTH_URL = 'https://auth.servicetitan.io/connect/token';
-  private accessToken: string | null = null;
-  private tokenExpiresAt: Date | null = null;
-
-  private get config() {
-    return {
-      clientId: (process.env.ST_CLIENT_ID || '').trim(),
-      clientSecret: (process.env.ST_CLIENT_SECRET || '').trim(),
-      tenantId: (process.env.ST_TENANT_ID || '').trim(),
-      appKey: (process.env.ST_APP_KEY || '').trim(),
-    };
-  }
-
-  isConfigured(): boolean {
-    const { clientId, clientSecret, tenantId, appKey } = this.config;
-    return !!(clientId && clientSecret && tenantId && appKey);
-  }
-
-  private async getAccessToken(): Promise<string> {
-    if (this.accessToken && this.tokenExpiresAt) {
-      const now = new Date();
-      const bufferTime = new Date(this.tokenExpiresAt.getTime() - 60000);
-      if (now < bufferTime) {
-        return this.accessToken;
-      }
-    }
-
-    const { clientId, clientSecret } = this.config;
-    const response = await fetch(this.AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: clientId,
-        client_secret: clientSecret,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get ST access token: ${response.status}`);
-    }
-
-    const data = await response.json();
-    this.accessToken = data.access_token;
-    this.tokenExpiresAt = new Date(Date.now() + (data.expires_in || 900) * 1000);
-    return this.accessToken!;
-  }
-
-  private async request<T>(
-    method: string,
-    endpoint: string,
-    options: { params?: Record<string, string> } = {}
-  ): Promise<T> {
-    const token = await this.getAccessToken();
-    let url = `${this.BASE_URL}/${endpoint}`;
-    if (options.params) {
-      url += `?${new URLSearchParams(options.params).toString()}`;
-    }
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'ST-App-Key': this.config.appKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`ST API error ${response.status}: ${text.slice(0, 200)}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Get a single job by ID
-   */
-  async getJobById(jobId: number): Promise<{ id: number; total?: number; jobStatus?: string } | null> {
-    try {
-      const { tenantId } = this.config;
-      return await this.request('GET', `jpm/v2/tenant/${tenantId}/jobs/${jobId}`);
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Get multiple jobs by IDs (batched)
-   */
-  async getJobsByIds(jobIds: number[]): Promise<Map<number, { id: number; total: number; jobStatus: string }>> {
-    const jobMap = new Map<number, { id: number; total: number; jobStatus: string }>();
-
-    // Fetch in parallel batches of 10
-    const batchSize = 10;
-    for (let i = 0; i < jobIds.length; i += batchSize) {
-      const batch = jobIds.slice(i, i + batchSize);
-      const results = await Promise.all(
-        batch.map(id => this.getJobById(id))
-      );
-      results.forEach((job, idx) => {
-        if (job) {
-          jobMap.set(batch[idx], {
-            id: job.id,
-            total: job.total || 0,
-            jobStatus: job.jobStatus || 'Unknown',
-          });
-        }
-      });
-    }
-
-    return jobMap;
-  }
-}
-
-// Singleton client
-const stClient = new STClient();
 
 /**
  * Get ServiceTitan call and revenue metrics for GBP locations.

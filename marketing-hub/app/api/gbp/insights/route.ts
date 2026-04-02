@@ -168,12 +168,67 @@ export async function GET(request: NextRequest) {
       ),
     ]);
 
-    // Fetch ST metrics for locations with campaign names (in parallel with cache check)
-    const stMetricsPromise = getSTMetricsForLocations(
-      locations.map(loc => ({ id: loc.id, st_campaign_name: loc.st_campaign_name })),
-      startDateStr,
-      endDateStr
-    );
+    // Try to get ST metrics from cache first, fall back to live computation
+    const stMetricsPromise = (async () => {
+      // Check gbp_st_metrics_cache first
+      const { data: cachedST } = await supabase
+        .from('gbp_st_metrics_cache')
+        .select('*')
+        .eq('start_date', startDateStr)
+        .eq('end_date', endDateStr);
+
+      if (cachedST && cachedST.length > 0 && !forceRefresh) {
+        console.log(`[GBP ST] Cache hit: ${cachedST.length} location metrics`);
+        const map = new Map<string, STLocationMetrics>();
+        for (const row of cachedST) {
+          map.set(row.location_id, {
+            locationId: row.location_id,
+            campaignName: '',
+            callsBooked: row.calls_booked || 0,
+            callsTotal: row.calls_total || 0,
+            revenue: Number(row.revenue || 0),
+            avgTicket: Number(row.avg_ticket || 0),
+            jobCount: row.job_count || 0,
+          });
+        }
+        return map;
+      }
+
+      // Cache miss — compute live and cache the result
+      console.log('[GBP ST] Cache miss, computing from live data');
+      const liveMetrics = await getSTMetricsForLocations(
+        locations.map(loc => ({ id: loc.id, st_campaign_name: loc.st_campaign_name })),
+        startDateStr,
+        endDateStr
+      );
+
+      // Cache the results for this date range
+      if (liveMetrics.size > 0) {
+        const rows = Array.from(liveMetrics.values()).map(m => ({
+          location_id: m.locationId,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          calls_booked: m.callsBooked,
+          calls_total: m.callsTotal,
+          revenue: m.revenue,
+          avg_ticket: m.avgTicket,
+          job_count: m.jobCount,
+          synced_at: new Date().toISOString(),
+        }));
+
+        const { error: upsertErr } = await supabase
+          .from('gbp_st_metrics_cache')
+          .upsert(rows, { onConflict: 'location_id,start_date,end_date' });
+
+        if (upsertErr) {
+          console.error('[GBP ST] Cache write error:', upsertErr.message);
+        } else {
+          console.log(`[GBP ST] Cached ${rows.length} location metrics`);
+        }
+      }
+
+      return liveMetrics;
+    })();
 
     // Check cache first (unless force refresh)
     if (!forceRefresh) {

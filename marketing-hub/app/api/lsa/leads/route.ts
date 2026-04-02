@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getGoogleAdsClient, formatLeadType, formatLeadStatus, getLeadTrade, formatCategoryId } from '@/lib/google-ads';
+import { getGoogleAdsClient, formatLeadType, formatLeadStatus, getLeadTrade, formatCategoryId, getLSAAccountName } from '@/lib/google-ads';
 import { hasPermission } from '@/lib/permissions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -64,8 +64,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const startDateStr = startDate.toISOString();
-  const endDateStr = endDate.toISOString();
+  // Use local date components to avoid UTC timezone shift (CLAUDE.md rule #1)
+  const formatLocalDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const startDateStr = formatLocalDate(startDate) + 'T00:00:00';
+  const endDateStr = formatLocalDate(endDate) + 'T23:59:59';
 
   try {
     // Try to read from Supabase cache first
@@ -108,7 +115,7 @@ export async function GET(request: NextRequest) {
           locale: lead.locale || '',
           leadCharged: lead.lead_charged,
           customerId: lead.customer_id,
-          customerName: accountMap.get(lead.customer_id) || `Account ${lead.customer_id.slice(-4)}`,
+          customerName: getLSAAccountName(lead.customer_id),
           creditDetails: lead.credit_state ? {
             creditState: lead.credit_state,
             creditStateLastUpdateDateTime: lead.credit_state_updated_at || '',
@@ -156,7 +163,7 @@ export async function GET(request: NextRequest) {
         locale: lead.locale,
         leadCharged: lead.leadCharged,
         customerId: lead.customerId || '',
-        customerName: `Account ${(lead.customerId || '').slice(-4)}`,
+        customerName: getLSAAccountName(lead.customerId || ''),
         creditDetails: lead.creditDetails,
       };
     });
@@ -228,7 +235,7 @@ function buildResponse(
     const cid = lead.customerId || 'unknown';
     const existing = locationMap.get(cid) || {
       customerId: cid,
-      customerName: lead.customerName || `Account ${cid.slice(-4)}`,
+      customerName: getLSAAccountName(cid),
       total: 0,
       charged: 0,
       nonCharged: 0,

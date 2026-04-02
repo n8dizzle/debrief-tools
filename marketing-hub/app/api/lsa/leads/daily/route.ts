@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getLSAAccountName } from '@/lib/google-ads';
 import { hasPermission } from '@/lib/permissions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 
       // Location breakdown
       const cid = lead.customer_id || 'unknown';
-      const locName = accountMap.get(cid) || `Account ${cid.slice(-4)}`;
+      const locName = getLSAAccountName(cid);
       const loc = existing.byLocation.get(cid) || { name: locName, total: 0, hvac: 0, plumbing: 0, charged: 0 };
       loc.total++;
       if (lead.trade === 'HVAC') loc.hvac++;
