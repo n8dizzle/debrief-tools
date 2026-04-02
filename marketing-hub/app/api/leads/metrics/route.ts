@@ -292,12 +292,109 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.count - a.count);
 
+    // ── WoW / YoY Comparisons (from daily snapshots) ──────────────
+    let comparisons: {
+      wow: Record<string, number | null>;
+      yoy: Record<string, number | null>;
+      sparkline: Array<{ date: string; leads: number; revenue: number }>;
+    } | null = null;
+
+    try {
+      const periodDays = Math.round(
+        (new Date(effectiveEndDate).getTime() - new Date(effectiveStartDate).getTime()) / 86400000
+      ) + 1;
+
+      // WoW: same duration period, shifted back 7 days
+      const wowStart = new Date(effectiveStartDate);
+      wowStart.setDate(wowStart.getDate() - 7);
+      const wowEnd = new Date(effectiveEndDate);
+      wowEnd.setDate(wowEnd.getDate() - 7);
+      const fmtLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      const { data: wowSnaps } = await supabase
+        .from('marketing_daily_snapshots')
+        .select('total_leads, total_revenue, total_cost, booked_leads, booking_rate, cost_per_lead')
+        .gte('snapshot_date', fmtLocal(wowStart))
+        .lte('snapshot_date', fmtLocal(wowEnd));
+
+      const wowTotals = (wowSnaps || []).reduce(
+        (acc, s) => ({
+          leads: acc.leads + (s.total_leads || 0),
+          revenue: acc.revenue + Number(s.total_revenue || 0),
+          cost: acc.cost + Number(s.total_cost || 0),
+          booked: acc.booked + (s.booked_leads || 0),
+        }),
+        { leads: 0, revenue: 0, cost: 0, booked: 0 }
+      );
+
+      // YoY: same dates, previous year
+      const yoyStartDate = `${parseInt(effectiveStartDate.slice(0, 4)) - 1}${effectiveStartDate.slice(4)}`;
+      const yoyEndDate = `${parseInt(effectiveEndDate.slice(0, 4)) - 1}${effectiveEndDate.slice(4)}`;
+
+      const { data: yoySnaps } = await supabase
+        .from('marketing_daily_snapshots')
+        .select('total_leads, total_revenue, total_cost, booked_leads')
+        .gte('snapshot_date', yoyStartDate)
+        .lte('snapshot_date', yoyEndDate);
+
+      const yoyTotals = (yoySnaps || []).reduce(
+        (acc, s) => ({
+          leads: acc.leads + (s.total_leads || 0),
+          revenue: acc.revenue + Number(s.total_revenue || 0),
+          cost: acc.cost + Number(s.total_cost || 0),
+          booked: acc.booked + (s.booked_leads || 0),
+        }),
+        { leads: 0, revenue: 0, cost: 0, booked: 0 }
+      );
+
+      const pctChange = (current: number, previous: number) =>
+        previous > 0 ? ((current - previous) / previous) * 100 : null;
+
+      // Sparkline: last 14 days of snapshots
+      const spark14 = new Date();
+      spark14.setDate(spark14.getDate() - 14);
+      const { data: sparkSnaps } = await supabase
+        .from('marketing_daily_snapshots')
+        .select('snapshot_date, total_leads, total_revenue')
+        .gte('snapshot_date', fmtLocal(spark14))
+        .order('snapshot_date', { ascending: true });
+
+      comparisons = {
+        wow: {
+          leads: pctChange(totalLeads, wowTotals.leads),
+          revenue: pctChange(totalRevenue, wowTotals.revenue),
+          cost: pctChange(effectiveTotalCost, wowTotals.cost),
+          bookingRate: wowTotals.leads > 0
+            ? summary.bookingRate - (wowTotals.booked / wowTotals.leads) * 100
+            : null,
+          cpl: pctChange(summary.cpa, wowTotals.leads > 0 ? wowTotals.cost / wowTotals.leads : 0),
+        },
+        yoy: {
+          leads: pctChange(totalLeads, yoyTotals.leads),
+          revenue: pctChange(totalRevenue, yoyTotals.revenue),
+          cost: pctChange(effectiveTotalCost, yoyTotals.cost),
+          bookingRate: yoyTotals.leads > 0
+            ? summary.bookingRate - (yoyTotals.booked / yoyTotals.leads) * 100
+            : null,
+          cpl: pctChange(summary.cpa, yoyTotals.leads > 0 ? yoyTotals.cost / yoyTotals.leads : 0),
+        },
+        sparkline: (sparkSnaps || []).map((s) => ({
+          date: s.snapshot_date,
+          leads: s.total_leads || 0,
+          revenue: Number(s.total_revenue || 0),
+        })),
+      };
+    } catch (compErr) {
+      console.error('Failed to fetch comparison data (non-blocking):', compErr);
+    }
+
     return NextResponse.json({
       dateRange: {
         start: effectiveStartDate,
         end: effectiveEndDate,
       },
       summary,
+      comparisons,
       funnel,
       bySource,
       byTrade,

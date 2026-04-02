@@ -19,6 +19,26 @@
     {
       "path": "/api/leads/sync/st-calls",
       "schedule": "0 0,14-23 * * *"
+    },
+    {
+      "path": "/api/snapshots/sync",
+      "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/leads/enrich",
+      "schedule": "35 11 * * *"
+    },
+    {
+      "path": "/api/leads/fix-attribution",
+      "schedule": "40 11 * * *"
+    },
+    {
+      "path": "/api/intelligence/daily",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/intelligence/slack",
+      "schedule": "0 13 * * *"
     }
   ]
 }

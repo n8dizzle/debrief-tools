@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getGoogleAdsClient, getLeadTrade } from '@/lib/google-ads';
+import { getGoogleAdsClient, getLeadTrade, getLSAAccountName } from '@/lib/google-ads';
 import { hasPermission } from '@/lib/permissions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,7 +12,7 @@ const supabase = createClient(
 
 /**
  * POST /api/lsa/sync
- * Sync LSA leads from Google Ads API to Supabase
+ * Sync LSA leads + daily performance from Google Ads API to Supabase
  * Supports both session auth (manual) and cron auth (scheduled)
  */
 export async function POST(request: NextRequest) {
@@ -50,8 +50,15 @@ export async function POST(request: NextRequest) {
   const startDate = new Date();
   startDate.setDate(endDate.getDate() - days);
 
-  const startDateStr = startDate.toISOString().split('T')[0];
-  const endDateStr = endDate.toISOString().split('T')[0];
+  // Use local date components to avoid UTC timezone shift (CLAUDE.md rule #1)
+  const formatLocalDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const startDateStr = formatLocalDate(startDate);
+  const endDateStr = formatLocalDate(endDate);
 
   try {
     const client = getGoogleAdsClient();
@@ -69,14 +76,24 @@ export async function POST(request: NextRequest) {
     const leads = await client.getAllLSALeads();
     console.log(`[LSA Sync] Fetched ${leads.length} leads from Google Ads API`);
 
-    // Get performance data
-    const performance = await client.getLSAPerformance(startDateStr, endDateStr);
-    console.log(`[LSA Sync] Fetched performance data for ${performance.length} accounts`);
+    // Get daily performance data (per-day-per-account for caching)
+    const dailyPerformance = await client.getLSADailyPerformance(startDateStr, endDateStr);
+    console.log(`[LSA Sync] Fetched ${dailyPerformance.length} daily performance rows`);
+
+    // Derive unique accounts from daily performance, using friendly names
+    const accountMap = new Map<string, { customer_id: string; customer_name: string }>();
+    for (const row of dailyPerformance) {
+      if (!accountMap.has(row.customerId)) {
+        accountMap.set(row.customerId, {
+          customer_id: row.customerId,
+          customer_name: getLSAAccountName(row.customerId),
+        });
+      }
+    }
 
     // Upsert accounts
-    const accountsToUpsert = performance.map(p => ({
-      customer_id: p.customerId,
-      customer_name: p.customerName,
+    const accountsToUpsert = Array.from(accountMap.values()).map(a => ({
+      ...a,
       is_active: true,
       last_synced_at: new Date().toISOString(),
     }));
@@ -84,9 +101,7 @@ export async function POST(request: NextRequest) {
     if (accountsToUpsert.length > 0) {
       const { error: accountsError } = await supabase
         .from('lsa_accounts')
-        .upsert(accountsToUpsert, {
-          onConflict: 'customer_id',
-        });
+        .upsert(accountsToUpsert, { onConflict: 'customer_id' });
 
       if (accountsError) {
         console.error('[LSA Sync] Error upserting accounts:', accountsError);
@@ -95,15 +110,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Upsert leads
-    let leadsInserted = 0;
-    let leadsUpdated = 0;
+    // Upsert daily performance data to lsa_daily_performance (batched)
+    let perfSynced = 0;
+    let perfErrors = 0;
+    if (dailyPerformance.length > 0) {
+      const perfRows = dailyPerformance.map(row => ({
+        customer_id: row.customerId,
+        customer_name: getLSAAccountName(row.customerId),
+        date: row.date,
+        impressions: row.impressions,
+        clicks: row.clicks,
+        cost_micros: row.costMicros,
+        phone_calls: row.phoneCalls,
+        all_conversions: row.allConversions,
+        synced_at: new Date().toISOString(),
+      }));
+
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < perfRows.length; i += BATCH_SIZE) {
+        const batch = perfRows.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase
+          .from('lsa_daily_performance')
+          .upsert(batch, { onConflict: 'customer_id,date' });
+
+        if (error) {
+          console.error(`[LSA Sync] Error upserting performance batch ${i / BATCH_SIZE + 1}:`, error.message);
+          perfErrors += batch.length;
+        } else {
+          perfSynced += batch.length;
+        }
+      }
+      console.log(`[LSA Sync] Performance: ${perfSynced} synced, ${perfErrors} errors`);
+    }
+
+    // Upsert leads (batched in groups of 500 instead of one-at-a-time)
+    let leadsSynced = 0;
     let leadErrors = 0;
+    const now = new Date().toISOString();
 
-    for (const lead of leads) {
+    const leadRows = leads.map(lead => {
       const trade = getLeadTrade(lead.categoryId);
-
-      const leadData = {
+      return {
         google_lead_id: lead.id,
         customer_id: lead.customerId || '',
         lead_type: lead.leadType,
@@ -118,34 +165,38 @@ export async function POST(request: NextRequest) {
         credit_state_updated_at: lead.creditDetails?.creditStateLastUpdateDateTime || null,
         lead_created_at: lead.creationDateTime,
         locale: lead.locale,
-        synced_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        synced_at: now,
+        updated_at: now,
       };
+    });
 
+    const LEAD_BATCH_SIZE = 500;
+    for (let i = 0; i < leadRows.length; i += LEAD_BATCH_SIZE) {
+      const batch = leadRows.slice(i, i + LEAD_BATCH_SIZE);
       const { error } = await supabase
         .from('lsa_leads')
-        .upsert(leadData, {
-          onConflict: 'google_lead_id',
-        });
+        .upsert(batch, { onConflict: 'google_lead_id' });
 
       if (error) {
-        console.error(`[LSA Sync] Error upserting lead ${lead.id}:`, error.message);
-        leadErrors++;
+        console.error(`[LSA Sync] Error upserting lead batch ${i / LEAD_BATCH_SIZE + 1}:`, error.message);
+        leadErrors += batch.length;
       } else {
-        leadsInserted++;
+        leadsSynced += batch.length;
       }
     }
 
-    console.log(`[LSA Sync] Leads: ${leadsInserted} synced, ${leadErrors} errors`);
+    console.log(`[LSA Sync] Leads: ${leadsSynced} synced, ${leadErrors} errors`);
 
     return NextResponse.json({
       success: true,
       summary: {
         dateRange: { start: startDateStr, end: endDateStr },
         leadsFromApi: leads.length,
-        leadsSynced: leadsInserted,
+        leadsSynced,
         leadErrors,
         accountsSynced: accountsToUpsert.length,
+        performanceSynced: perfSynced,
+        performanceErrors: perfErrors,
       },
     });
   } catch (error: any) {

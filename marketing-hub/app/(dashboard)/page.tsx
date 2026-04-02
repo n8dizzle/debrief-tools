@@ -3,301 +3,551 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { LocationComparisonChart, LocationData } from '@/components/LocationComparisonChart';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 
-interface InsightsData {
-  period: { start: string; end: string };
-  previousPeriod: { start: string; end: string };
-  current: {
-    totalViews: number;
-    viewsMaps: number;
-    viewsSearch: number;
-    websiteClicks: number;
-    phoneCalls: number;
-    directionRequests: number;
-  };
-  previous: {
-    totalViews: number;
-    viewsMaps: number;
-    viewsSearch: number;
-    websiteClicks: number;
-    phoneCalls: number;
-    directionRequests: number;
-  };
-  byLocation: LocationData[];
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-interface TaskDue {
+interface IntelligenceReport {
   id: string;
-  title: string;
-  category: string | null;
-  due_date: string | null;
-  status: string;
+  report_date: string;
+  report_type: 'daily' | 'weekly';
+  narrative: string;
+  structured_insights: {
+    headline?: string;
+    top_channel?: string;
+    biggest_concern?: string;
+    channel_grades?: Record<string, string>;
+    recommendations?: string[];
+  };
+  generated_at: string;
 }
 
-interface RecentActivity {
-  id: string;
-  type: 'post' | 'review' | 'task';
-  description: string;
-  time: string;
+interface SourceMetrics {
+  source: string;
+  sourceDetail: string | null;
+  leads: number;
+  qualified: number;
+  booked: number;
+  completed: number;
+  revenue: number;
+  cost: number;
+  cpa: number;
+  bookingRate: number;
+  closeRate: number;
+  roi: number;
 }
 
-// Format number with K/M suffix
+interface DailyMetric {
+  date: string;
+  leads: number;
+  qualified: number;
+  booked: number;
+  completed: number;
+  revenue: number;
+  cost: number;
+}
+
+interface MetricsSummary {
+  totalLeads: number;
+  qualifiedLeads: number;
+  bookedLeads: number;
+  completedLeads: number;
+  totalRevenue: number;
+  totalCost: number;
+  cpa: number;
+  bookingRate: number;
+  closeRate: number;
+  roi: number;
+}
+
+interface MetricsResponse {
+  dateRange: { start: string; end: string };
+  summary: MetricsSummary;
+  comparisons?: {
+    wow: Record<string, number | null>;
+    yoy: Record<string, number | null>;
+    sparkline: Array<{ date: string; leads: number; revenue: number }>;
+  } | null;
+  bySource: SourceMetrics[];
+  byTrade: SourceMetrics[];
+  daily: DailyMetric[];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatCurrency(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
 function formatNumber(value: number): string {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return value.toString();
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
-// Calculate percentage change
-function calcChange(current: number, previous: number): string {
-  if (previous === 0) {
-    return current > 0 ? '+100%' : '--';
-  }
-  const change = ((current - previous) / previous) * 100;
-  const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(1)}%`;
+function formatPercent(value: number): string {
+  return `${value.toFixed(1)}%`;
 }
 
-// Stat card component
-function StatCard({
+function formatDateLong(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ---------------------------------------------------------------------------
+// Health Grade calculation
+// ---------------------------------------------------------------------------
+
+const GRADE_COLORS: Record<string, string> = {
+  A: '#22c55e',
+  B: '#5D8A66',
+  C: '#B8956B',
+  D: '#f97316',
+  F: '#ef4444',
+};
+
+function calculateGrade(source: SourceMetrics): string {
+  let score = 0;
+
+  // Lead volume (0-30 pts): more leads = better
+  if (source.leads >= 20) score += 30;
+  else if (source.leads >= 10) score += 22;
+  else if (source.leads >= 5) score += 15;
+  else if (source.leads >= 1) score += 8;
+
+  // Revenue (0-30 pts): any revenue is good
+  if (source.revenue >= 20000) score += 30;
+  else if (source.revenue >= 10000) score += 22;
+  else if (source.revenue >= 5000) score += 15;
+  else if (source.revenue > 0) score += 8;
+
+  // Booking rate (0-20 pts)
+  if (source.bookingRate >= 60) score += 20;
+  else if (source.bookingRate >= 40) score += 15;
+  else if (source.bookingRate >= 20) score += 10;
+  else if (source.bookingRate > 0) score += 5;
+
+  // Cost efficiency (0-20 pts): lower CPA is better, free is best
+  if (source.cost === 0) score += 20;
+  else if (source.cpa <= 30) score += 18;
+  else if (source.cpa <= 60) score += 12;
+  else if (source.cpa <= 100) score += 6;
+
+  if (score >= 80) return 'A';
+  if (score >= 60) return 'B';
+  if (score >= 40) return 'C';
+  if (score >= 20) return 'D';
+  return 'F';
+}
+
+// ---------------------------------------------------------------------------
+// Sparkline component (inline)
+// ---------------------------------------------------------------------------
+
+function Sparkline({ data, dataKey, color = '#5D8A66', height = 40 }: {
+  data: { value: number }[];
+  dataKey?: string;
+  color?: string;
+  height?: number;
+}) {
+  if (!data || data.length < 2) return null;
+
+  return (
+    <div className="hidden sm:block" aria-hidden="true">
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
+          <defs>
+            <linearGradient id={`spark-fill-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey={dataKey || 'value'}
+            stroke={color}
+            strokeWidth={1.5}
+            fill={`url(#spark-fill-${color.replace('#', '')})`}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// KPI Card component
+// ---------------------------------------------------------------------------
+
+function KPICard({
   title,
   value,
-  change,
-  changeLabel,
-  icon,
-  href,
+  formattedValue,
+  trendPercent,
+  sparkData,
+  wowPercent,
+  yoyPercent,
   isLoading,
+  invertTrend,
 }: {
   title: string;
-  value: string;
-  change?: string;
-  changeLabel?: string;
-  icon: React.ReactNode;
-  href?: string;
-  isLoading?: boolean;
+  value: number | null;
+  formattedValue: string;
+  trendPercent: number | null;
+  sparkData: { value: number }[];
+  wowPercent: number | null;
+  yoyPercent: number | null;
+  isLoading: boolean;
+  invertTrend?: boolean;
 }) {
-  const content = (
+  const isPositive = trendPercent !== null
+    ? invertTrend ? trendPercent < 0 : trendPercent > 0
+    : null;
+
+  const trendColor = isPositive === null
+    ? 'var(--text-muted)'
+    : isPositive ? '#22c55e' : '#ef4444';
+
+  const trendArrow = isPositive === null
+    ? ''
+    : isPositive ? '\u25B2' : '\u25BC';
+
+  const ariaLabel = value !== null && trendPercent !== null
+    ? `${title}: ${formattedValue}, ${isPositive ? 'up' : 'down'} ${Math.abs(trendPercent).toFixed(1)}% week over week`
+    : `${title}: ${formattedValue}`;
+
+  return (
     <div
-      className="rounded-xl p-5 transition-colors"
-      style={{
-        backgroundColor: 'var(--bg-card)',
-        border: '1px solid var(--border-subtle)',
-      }}
+      className="rounded-xl p-5"
+      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      aria-label={ariaLabel}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: 'var(--christmas-green)', opacity: 0.9 }}
-        >
-          {icon}
-        </div>
-        {change && !isLoading && (
-          <span
-            className="text-xs font-medium px-2 py-1 rounded-full"
-            style={{
-              backgroundColor: change.startsWith('+') ? 'rgba(93, 138, 102, 0.2)' : 'rgba(139, 45, 50, 0.2)',
-              color: change.startsWith('+') ? 'var(--christmas-green-light)' : '#c97878',
-            }}
-          >
-            {change}
-          </span>
-        )}
-      </div>
-      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-        {isLoading ? (
-          <span className="inline-block w-16 h-7 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
-        ) : (
-          value
-        )}
-      </div>
-      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
         {title}
       </div>
-      {changeLabel && (
-        <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          {changeLabel}
-        </div>
+
+      {isLoading ? (
+        <>
+          <div className="h-8 w-24 rounded animate-pulse mb-2" style={{ backgroundColor: 'var(--border-subtle)' }} />
+          <div className="h-10 w-full rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
+        </>
+      ) : (
+        <>
+          {/* Value + trend */}
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {formattedValue}
+            </span>
+            {trendPercent !== null && (
+              <span className="text-sm font-medium" style={{ color: trendColor }}>
+                {trendArrow} {Math.abs(trendPercent).toFixed(1)}%
+              </span>
+            )}
+          </div>
+
+          {/* Sparkline */}
+          <Sparkline data={sparkData} />
+
+          {/* WoW / YoY rows */}
+          <div className="mt-2 space-y-0.5">
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--text-muted)' }}>WoW</span>
+              <span style={{ color: wowPercent !== null ? (((invertTrend ? -1 : 1) * wowPercent) > 0 ? '#22c55e' : '#ef4444') : 'var(--text-muted)' }}>
+                {wowPercent !== null ? `${wowPercent > 0 ? '+' : ''}${wowPercent.toFixed(1)}%` : '--'}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs sm:flex hidden">
+              <span style={{ color: 'var(--text-muted)' }}>YoY</span>
+              <span style={{ color: 'var(--text-muted)' }}>--</span>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
-
-  if (href) {
-    return (
-      <Link href={href} className="block hover:opacity-90 transition-opacity">
-        {content}
-      </Link>
-    );
-  }
-
-  return content;
 }
 
-// Category badge colors
-const CATEGORY_COLORS: Record<string, string> = {
-  social: '#6B9DB8',
-  gbp: 'var(--christmas-green)',
-  reviews: '#B8956B',
-  reporting: '#9B6BB8',
-  other: 'var(--text-muted)',
-};
+// ---------------------------------------------------------------------------
+// Grade Badge component
+// ---------------------------------------------------------------------------
 
-export default function DashboardPage() {
+function GradeBadge({ grade }: { grade: string }) {
+  const color = GRADE_COLORS[grade] || 'var(--text-muted)';
+  const labels: Record<string, string> = { A: 'excellent', B: 'good', C: 'needs attention', D: 'concerning', F: 'critical' };
+
+  return (
+    <span
+      className="px-2 py-0.5 rounded-md text-xs font-bold inline-block"
+      style={{ backgroundColor: `${color}33`, color }}
+      aria-label={`Channel health: ${grade}, ${labels[grade] || 'unknown'}`}
+    >
+      {grade}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
+export default function IntelligenceCenterPage() {
   const { data: session } = useSession();
-  const [insights, setInsights] = useState<InsightsData | null>(null);
-  const [insightsLoading, setInsightsLoading] = useState(true);
-  const [insightsError, setInsightsError] = useState<string | null>(null);
-  const [tasksDue, setTasksDue] = useState<TaskDue[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const firstName = session?.user?.name?.split(' ')[0] || 'there';
+
+  // --- Date Range ---
   const [dateRange, setDateRange] = useState<DateRange>(() => {
-    // Default to Month to Date
     const end = new Date();
     const start = new Date(end.getFullYear(), end.getMonth(), 1);
-    return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0],
-    };
+    return { start: formatLocalDate(start), end: formatLocalDate(end) };
   });
+
+  // --- Brief state ---
+  const [briefMode, setBriefMode] = useState<'daily' | 'weekly'>('daily');
+  const [brief, setBrief] = useState<IntelligenceReport | null>(null);
+  const [briefLoading, setBriefLoading] = useState(true);
+  const [briefError, setBriefError] = useState(false);
+
+  // --- Metrics state ---
+  const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+
+  // --- Sync state ---
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Fetch GBP insights
-  const fetchInsights = useCallback(async (refresh = false) => {
-    setInsightsLoading(true);
-    setInsightsError(null);
+  // --- Campaign report state ---
+  const [reportData, setReportData] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+
+  // --- Fetch AI brief ---
+  const fetchBrief = useCallback(async () => {
+    setBriefLoading(true);
+    setBriefError(false);
     try {
-      const url = `/api/gbp/insights?startDate=${dateRange.start}&endDate=${dateRange.end}${refresh ? '&refresh=true' : ''}`;
+      const res = await fetch('/api/intelligence/daily', { credentials: 'include' });
+      if (!res.ok) {
+        setBriefError(true);
+        return;
+      }
+      const data = await res.json();
+      setBrief(data.report || null);
+    } catch {
+      setBriefError(true);
+    } finally {
+      setBriefLoading(false);
+    }
+  }, []);
+
+  // --- Fetch metrics ---
+  const fetchMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    setMetricsError(null);
+    try {
+      const url = `/api/leads/metrics?startDate=${dateRange.start}&endDate=${dateRange.end}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to fetch insights');
+        throw new Error(err.error || 'Failed to fetch metrics');
       }
-      const data = await res.json();
-      setInsights(data.insights);
+      const data: MetricsResponse = await res.json();
+      setMetrics(data);
     } catch (err) {
-      console.error('Failed to fetch insights:', err);
-      setInsightsError(err instanceof Error ? err.message : 'Failed to load insights');
+      console.error('Failed to fetch metrics:', err);
+      setMetricsError(err instanceof Error ? err.message : 'Failed to load metrics');
     } finally {
-      setInsightsLoading(false);
+      setMetricsLoading(false);
     }
   }, [dateRange]);
 
-  // Fetch tasks due today
-  const fetchTasksDue = useCallback(async () => {
-    setTasksLoading(true);
+  // --- Fetch campaign report data ---
+  const fetchReportData = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(`/api/tasks?due_date=${today}&status=pending`, {
-        credentials: 'include',
-      });
+      const res = await fetch(
+        `/api/reports/summary?startDate=${dateRange.start}&endDate=${dateRange.end}`,
+        { credentials: 'include' }
+      );
       if (res.ok) {
         const data = await res.json();
-        setTasksDue(data.tasks || []);
+        if (data.hasData) setReportData(data);
       }
-    } catch (err) {
-      console.error('Failed to fetch tasks:', err);
-    } finally {
-      setTasksLoading(false);
-    }
-  }, []);
+    } catch { /* non-blocking */ }
+  }, [dateRange]);
 
-  // Fetch recent activity (posts published)
-  const fetchRecentActivity = useCallback(async () => {
-    try {
-      const res = await fetch('/api/gbp/posts?limit=5', { credentials: 'include' });
-      if (res.ok) {
+  // --- Upload handler (supports multiple files) ---
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadMessage(null);
+
+    let totalProcessed = 0;
+    let totalBooked = 0;
+    let totalRevenue = 0;
+    let errors = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadMessage(`Uploading ${i + 1} of ${files.length}: ${file.name}...`);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/reports/upload', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
         const data = await res.json();
-        const activities: RecentActivity[] = (data.posts || [])
-          .filter((p: { status: string }) => p.status === 'published')
-          .slice(0, 3)
-          .map((p: { id: string; summary: string; updated_at: string }) => ({
-            id: p.id,
-            type: 'post' as const,
-            description: `Post published: "${p.summary.slice(0, 40)}${p.summary.length > 40 ? '...' : ''}"`,
-            time: formatRelativeTime(new Date(p.updated_at)),
-          }));
-        setRecentActivity(activities);
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        totalProcessed += data.campaignsProcessed || 0;
+        totalBooked += data.summary?.totalBooked || 0;
+        totalRevenue += data.summary?.totalRevenue || 0;
+      } catch (err: any) {
+        console.error(`Upload error for ${file.name}:`, err);
+        errors++;
       }
-    } catch (err) {
-      console.error('Failed to fetch recent activity:', err);
     }
-  }, []);
 
-  // Initial data fetch
+    setUploadMessage(
+      `Done: ${files.length} files uploaded, ${totalProcessed} campaigns, ${totalBooked.toLocaleString()} jobs booked, $${totalRevenue.toLocaleString()} revenue${errors > 0 ? ` (${errors} errors)` : ''}`
+    );
+    await fetchReportData();
+    await fetchMetrics();
+    setUploading(false);
+    e.target.value = '';
+  };
+
+  // --- Initial load ---
   useEffect(() => {
-    fetchInsights();
-    fetchTasksDue();
-    fetchRecentActivity();
-  }, [fetchInsights, fetchTasksDue, fetchRecentActivity]);
+    fetchBrief();
+  }, [fetchBrief]);
 
-  // Refetch insights when date range changes
   useEffect(() => {
-    fetchInsights();
-  }, [dateRange, fetchInsights]);
+    fetchMetrics();
+    fetchReportData();
+  }, [fetchMetrics, fetchReportData]);
 
-  // Sync all data
+  // --- Sync handler ---
   const handleSyncData = async () => {
     setIsSyncing(true);
     try {
-      await fetchInsights(true);
-      await fetchTasksDue();
-      await fetchRecentActivity();
+      // Regenerate today's AI brief, then refresh everything
+      await fetch('/api/intelligence/daily', { method: 'POST', credentials: 'include' }).catch(() => {});
+      await Promise.all([fetchBrief(), fetchMetrics(), fetchReportData()]);
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Format relative time
-  function formatRelativeTime(date: Date): string {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  // --- Derived data (prefer campaign report data when available) ---
+  const hasReport = !!reportData?.hasData;
+  const rptSummary = reportData?.summary;
 
-    if (hours < 1) return 'Just now';
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
+  const displayLeads = hasReport ? rptSummary.totalCalls : (metrics?.summary?.totalLeads ?? 0);
+  const displayRevenue = hasReport ? rptSummary.totalRevenue : (metrics?.summary?.totalRevenue ?? 0);
+  const displayBooked = hasReport ? rptSummary.totalBooked : (metrics?.summary?.bookedLeads ?? 0);
+  const displayBookingRate = hasReport ? rptSummary.bookingRate : (metrics?.summary?.bookingRate ?? 0);
+  const displayAvgTicket = hasReport ? rptSummary.avgTicket : 0;
+  const displayCPL = hasReport && rptSummary.totalCalls > 0
+    ? rptSummary.totalRevenue / rptSummary.totalCalls
+    : (metrics?.summary?.cpa ?? 0);
+
+  const sparkLeads = (metrics?.daily || []).map(d => ({ value: d.leads }));
+  const sparkRevenue = (metrics?.daily || []).map(d => ({ value: d.revenue }));
+  const sparkCPL = (metrics?.daily || []).map(d => ({ value: d.leads > 0 ? d.cost / d.leads : 0 }));
+  const sparkBooking = (metrics?.daily || []).map(d => ({ value: d.leads > 0 ? (d.booked / d.leads) * 100 : 0 }));
+
+  // Channel data: prefer uploaded report, fall back to master_leads metrics
+  // Filter out channels with zero activity across the board
+  const channelsSorted: SourceMetrics[] = (hasReport
+    ? (reportData.channels || []).map((ch: any) => ({
+        source: ch.channel,
+        sourceDetail: ch.category,
+        leads: ch.calls,
+        qualified: ch.uniqueCalls,
+        booked: ch.booked,
+        completed: ch.completed,
+        revenue: ch.revenue,
+        cost: 0,
+        cpa: ch.uniqueCalls > 0 ? ch.revenue / ch.uniqueCalls : 0,
+        bookingRate: ch.calls > 0 ? (ch.booked / ch.calls) * 100 : 0,
+        closeRate: 0,
+        roi: 0,
+      }))
+    : [...(metrics?.bySource || [])].sort((a, b) => b.revenue - a.revenue)
+  ).filter((ch: SourceMetrics) => ch.leads > 0 || ch.booked > 0 || ch.revenue > 0);
+
+  // Use AI-generated channel grades if available, otherwise calculate
+  const aiGrades = brief?.structured_insights?.channel_grades || {};
+
+  function getGrade(source: SourceMetrics): string {
+    if (aiGrades[source.source]) return aiGrades[source.source];
+    return calculateGrade(source);
   }
 
-  // Calculate changes for stat cards
-  const gbpViewsChange = insights
-    ? calcChange(insights.current.totalViews, insights.previous.totalViews)
-    : '--';
-  const clicksChange = insights
-    ? calcChange(insights.current.websiteClicks, insights.previous.websiteClicks)
-    : '--';
-  const callsChange = insights
-    ? calcChange(insights.current.phoneCalls, insights.previous.phoneCalls)
-    : '--';
-
+  // --- Render ---
   return (
     <div className="space-y-6">
+      {/* ---------------------------------------------------------------- */}
       {/* Header */}
+      {/* ---------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-            Marketing Hub
+            Marketing Intelligence Center
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Welcome back, {session?.user?.name?.split(' ')[0] || 'there'}
+            Welcome back, {firstName}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            dataDelay={3}
-          />
+          <DateRangePicker value={dateRange} onChange={setDateRange} dataDelay={3} />
+          <label
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+            style={{ backgroundColor: 'var(--christmas-gold)', color: 'var(--dark-bg, #0F1210)' }}
+          >
+            {uploading ? 'Uploading...' : 'Upload Reports'}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              multiple
+              onChange={handleUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
           <button
             onClick={handleSyncData}
             disabled={isSyncing}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--christmas-green)',
-              color: 'var(--christmas-cream)',
-            }}
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
           >
             {isSyncing ? (
               <>
@@ -314,237 +564,360 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="GBP Views"
-          value={insights ? formatNumber(insights.current.totalViews) : '--'}
-          change={gbpViewsChange}
-          changeLabel="vs previous period"
-          isLoading={insightsLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          }
-        />
-        <StatCard
-          title="Website Clicks"
-          value={insights ? formatNumber(insights.current.websiteClicks) : '--'}
-          change={clicksChange}
-          changeLabel="From GBP profiles"
-          isLoading={insightsLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-            </svg>
-          }
-        />
-        <StatCard
-          title="Phone Calls"
-          value={insights ? formatNumber(insights.current.phoneCalls) : '--'}
-          change={callsChange}
-          changeLabel="From GBP profiles"
-          isLoading={insightsLoading}
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-          }
-        />
-        <StatCard
-          title="Tasks Due Today"
-          value={tasksLoading ? '--' : tasksDue.length.toString()}
-          changeLabel={tasksDue.length === 0 ? 'All caught up!' : 'Click to view'}
-          isLoading={tasksLoading}
-          href="/tasks"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          }
-        />
-      </div>
+      {/* ---------------------------------------------------------------- */}
+      {/* AI Brief Panel */}
+      {/* ---------------------------------------------------------------- */}
+      <div
+        className="rounded-xl p-8"
+        style={{
+          backgroundColor: '#1D251F',
+          border: '1px solid var(--border-subtle)',
+          borderTop: '3px solid var(--christmas-gold)',
+        }}
+      >
+        {/* Title row */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              Marketing Intelligence
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              {brief ? formatDateLong(brief.report_date) : formatDateLong(formatLocalDate(new Date()))}
+            </p>
+          </div>
 
-      {/* Location Performance Chart */}
-      {insightsError ? (
-        <div
-          className="rounded-xl p-5"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-            Location Performance
-          </h2>
-          <div className="text-center py-8">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="#c97878" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm" style={{ color: '#c97878' }}>{insightsError}</p>
+          {/* Daily / Weekly toggle */}
+          <div
+            className="flex rounded-full overflow-hidden text-xs"
+            style={{ border: '1px solid var(--border-subtle)' }}
+          >
             <button
-              onClick={() => fetchInsights(true)}
-              className="mt-3 px-4 py-2 text-sm rounded-lg"
+              onClick={() => setBriefMode('daily')}
+              className="px-3 py-1 transition-colors"
               style={{
-                backgroundColor: 'var(--christmas-green)',
-                color: 'var(--christmas-cream)',
+                backgroundColor: briefMode === 'daily' ? 'var(--christmas-green)' : 'transparent',
+                color: briefMode === 'daily' ? 'var(--christmas-cream)' : 'var(--text-muted)',
               }}
             >
-              Retry
+              Daily
+            </button>
+            <button
+              onClick={() => setBriefMode('weekly')}
+              className="px-3 py-1 transition-colors"
+              style={{
+                backgroundColor: briefMode === 'weekly' ? 'var(--christmas-green)' : 'transparent',
+                color: briefMode === 'weekly' ? 'var(--christmas-cream)' : 'var(--text-muted)',
+              }}
+            >
+              Weekly
             </button>
           </div>
         </div>
-      ) : (
-        <LocationComparisonChart
-          data={insights?.byLocation || []}
-          isLoading={insightsLoading}
-        />
-      )}
 
-      {/* Bottom Grid: Recent Activity + Tasks Due */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
-        <div
-          className="rounded-xl p-5"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
-            Recent Activity
-          </h2>
-          {recentActivity.length === 0 ? (
-            <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm">No recent activity</p>
-              <Link
-                href="/posts/new"
-                className="text-xs mt-1 inline-block"
-                style={{ color: 'var(--christmas-green-light)' }}
-              >
-                Create a GBP post
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-3 p-3 rounded-lg"
-                  style={{ backgroundColor: 'var(--bg-input)' }}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: 'var(--christmas-green)', opacity: 0.9 }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
-                      {activity.description}
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {activity.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Tasks Due */}
-        <div
-          className="rounded-xl p-5"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-              Tasks Due Today
-            </h2>
-            <Link
-              href="/tasks"
-              className="text-sm"
+        {/* Brief body */}
+        {briefLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div
+                key={i}
+                className="h-4 rounded animate-pulse"
+                style={{
+                  backgroundColor: 'var(--border-subtle)',
+                  width: i === 4 ? '60%' : '100%',
+                }}
+              />
+            ))}
+          </div>
+        ) : briefError ? (
+          <div>
+            <p className="text-base" style={{ color: 'var(--text-secondary)' }}>
+              Brief unavailable for today.
+            </p>
+            <button
+              onClick={fetchBrief}
+              className="mt-2 text-sm underline"
               style={{ color: 'var(--christmas-green-light)' }}
             >
-              View all
-            </Link>
+              View Yesterday
+            </button>
           </div>
-          {tasksLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div
+        ) : brief && brief.narrative ? (
+          <div className="space-y-2">
+            {brief.narrative.split('\n').filter(Boolean).map((line, i) => {
+              // Render **bold** labels inline
+              const parts = line.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/(<b>.+?<\/b>)/);
+              return (
+                <p
                   key={i}
-                  className="h-12 rounded-lg animate-pulse"
-                  style={{ backgroundColor: 'var(--border-subtle)' }}
+                  className="text-sm leading-relaxed"
+                  style={{ color: 'var(--christmas-cream)' }}
+                  dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--christmas-gold)">$1</strong>') }}
                 />
-              ))}
-            </div>
-          ) : tasksDue.length === 0 ? (
-            <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm">No tasks due today</p>
-              <Link
-                href="/tasks"
-                className="text-xs mt-1 inline-block"
-                style={{ color: 'var(--christmas-green-light)' }}
-              >
-                View all tasks
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {tasksDue.slice(0, 5).map((task) => (
-                <Link
-                  key={task.id}
-                  href="/tasks"
-                  className="flex items-center gap-3 p-3 rounded-lg transition-colors hover:opacity-90"
-                  style={{ backgroundColor: 'var(--bg-input)' }}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: CATEGORY_COLORS[task.category || 'other'] }}
-                  />
-                  <span className="text-sm flex-1 truncate" style={{ color: 'var(--christmas-cream)' }}>
-                    {task.title}
-                  </span>
-                  {task.category && (
-                    <span
-                      className="text-xs px-2 py-0.5 rounded"
-                      style={{
-                        backgroundColor: `${CATEGORY_COLORS[task.category]}20`,
-                        color: CATEGORY_COLORS[task.category],
-                      }}
-                    >
-                      {task.category}
-                    </span>
-                  )}
-                </Link>
-              ))}
-              {tasksDue.length > 5 && (
-                <Link
-                  href="/tasks"
-                  className="block text-center text-xs py-2"
-                  style={{ color: 'var(--christmas-green-light)' }}
-                >
-                  +{tasksDue.length - 5} more tasks
-                </Link>
-              )}
-            </div>
-          )}
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-base" style={{ color: 'var(--text-secondary)' }}>
+            Brief generating. Check back after 6am CT.
+          </p>
+        )}
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* KPI Cards */}
+      {/* ---------------------------------------------------------------- */}
+      {metricsError && (
+        <div
+          className="rounded-lg p-3 flex items-center justify-between"
+          style={{ backgroundColor: 'rgba(139, 45, 50, 0.2)', border: '1px solid rgba(139, 45, 50, 0.3)' }}
+        >
+          <span className="text-sm" style={{ color: '#c97878' }}>
+            Failed to load metrics
+          </span>
+          <button
+            onClick={fetchMetrics}
+            className="text-sm px-3 py-1 rounded-lg"
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+          >
+            Retry
+          </button>
         </div>
+      )}
+
+      {/* Upload Report + KPI Row */}
+      {uploadMessage && (
+        <div className={`rounded-lg px-4 py-3 text-sm ${uploadMessage.startsWith('Error') ? 'bg-red-500/10 text-red-400 border border-red-500/30' : 'bg-green-500/10 text-green-400 border border-green-500/30'}`}>
+          {uploadMessage}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          title={hasReport ? 'Inbound Calls' : 'Total Leads'}
+          value={displayLeads}
+          formattedValue={formatNumber(displayLeads)}
+          trendPercent={metrics?.comparisons?.wow?.leads ?? null}
+          sparkData={sparkLeads}
+          wowPercent={metrics?.comparisons?.wow?.leads ?? null}
+          yoyPercent={metrics?.comparisons?.yoy?.leads ?? null}
+          isLoading={metricsLoading}
+        />
+        <KPICard
+          title="Revenue"
+          value={displayRevenue}
+          formattedValue={formatCurrency(displayRevenue)}
+          trendPercent={metrics?.comparisons?.wow?.revenue ?? null}
+          sparkData={sparkRevenue}
+          wowPercent={metrics?.comparisons?.wow?.revenue ?? null}
+          yoyPercent={metrics?.comparisons?.yoy?.revenue ?? null}
+          isLoading={metricsLoading}
+        />
+        <KPICard
+          title={hasReport ? 'Avg Ticket' : 'Cost Per Lead'}
+          value={hasReport ? displayAvgTicket : displayCPL}
+          formattedValue={formatCurrency(hasReport ? displayAvgTicket : displayCPL)}
+          trendPercent={metrics?.comparisons?.wow?.cpl ?? null}
+          sparkData={sparkCPL}
+          wowPercent={metrics?.comparisons?.wow?.cpl ?? null}
+          yoyPercent={metrics?.comparisons?.yoy?.cpl ?? null}
+          isLoading={metricsLoading}
+          invertTrend={!hasReport}
+        />
+        <KPICard
+          title={hasReport ? 'Jobs Booked' : 'Booking Rate'}
+          value={hasReport ? displayBooked : displayBookingRate}
+          formattedValue={hasReport ? formatNumber(displayBooked) : formatPercent(displayBookingRate)}
+          trendPercent={metrics?.comparisons?.wow?.bookingRate ?? null}
+          sparkData={sparkBooking}
+          wowPercent={metrics?.comparisons?.wow?.bookingRate ?? null}
+          yoyPercent={metrics?.comparisons?.yoy?.bookingRate ?? null}
+          isLoading={metricsLoading}
+        />
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Channel Performance Table */}
+      {/* ---------------------------------------------------------------- */}
+      <div
+        className="rounded-xl p-5"
+        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      >
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          Channel Performance
+        </h2>
+
+        {metricsLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div
+                key={i}
+                className="h-10 rounded animate-pulse"
+                style={{ backgroundColor: 'var(--border-subtle)' }}
+              />
+            ))}
+          </div>
+        ) : channelsSorted.length === 0 ? (
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm">No channel data. Sync lead sources to see attribution.</p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th className="text-left py-2 pr-4 font-medium">Channel</th>
+                    <th className="text-right py-2 px-4 font-medium">{hasReport ? 'Calls' : 'Leads'}</th>
+                    <th className="text-right py-2 px-4 font-medium">Booked</th>
+                    <th className="text-right py-2 px-4 font-medium">Revenue</th>
+                    <th className="text-right py-2 px-4 font-medium">Avg Ticket</th>
+                    <th className="text-center py-2 pl-4 font-medium">Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {channelsSorted.map((ch) => {
+                    const avgTicket = ch.booked > 0 ? ch.revenue / ch.booked : (ch.completed > 0 ? ch.revenue / ch.completed : 0);
+                    const grade = getGrade(ch);
+                    return (
+                      <tr
+                        key={ch.source}
+                        className="transition-colors"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <td className="py-3 pr-4 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          {ch.source}
+                        </td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--christmas-cream)' }}>
+                          {formatNumber(ch.leads)}
+                        </td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--christmas-cream)' }}>
+                          {ch.booked > 0 ? formatNumber(ch.booked) : '--'}
+                        </td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--christmas-cream)' }}>
+                          {ch.revenue > 0 ? formatCurrency(ch.revenue) : '--'}
+                        </td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--christmas-cream)' }}>
+                          {avgTicket > 0 ? formatCurrency(avgTicket) : '--'}
+                        </td>
+                        <td className="py-3 pl-4 text-center">
+                          <GradeBadge grade={grade} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile stacked cards */}
+            <div className="sm:hidden space-y-3">
+              {channelsSorted.map((ch) => {
+                const avgTicket = ch.booked > 0 ? ch.revenue / ch.booked : (ch.completed > 0 ? ch.revenue / ch.completed : 0);
+                const grade = getGrade(ch);
+                return (
+                  <div
+                    key={ch.source}
+                    className="rounded-lg p-4"
+                    style={{ backgroundColor: 'var(--bg-card-hover)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        {ch.source}
+                      </span>
+                      <GradeBadge grade={grade} />
+                    </div>
+                    <div className="flex justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span>{formatNumber(ch.leads)} leads</span>
+                      <span>{ch.revenue > 0 ? formatCurrency(ch.revenue) : '--'}</span>
+                    </div>
+                    <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      <span>CPL: {ch.cost > 0 ? formatCurrency(ch.cpa) : '$0'}</span>
+                      <span>Avg: {avgTicket > 0 ? formatCurrency(avgTicket) : '--'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Trend Chart */}
+      {/* ---------------------------------------------------------------- */}
+      <div
+        className="rounded-xl p-5"
+        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      >
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          Lead Trend
+        </h2>
+
+        {metricsLoading ? (
+          <div
+            className="h-64 rounded animate-pulse"
+            style={{ backgroundColor: 'var(--border-subtle)' }}
+          />
+        ) : !metrics?.daily || metrics.daily.length === 0 ? (
+          <div className="h-64 flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm">No trend data yet.</p>
+          </div>
+        ) : (
+          <div style={{ width: '100%', height: 280 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={metrics.daily}
+                margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatDateShort}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  stroke="var(--border-subtle)"
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  stroke="var(--border-subtle)"
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    color: 'var(--christmas-cream)',
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(label: any) => formatDateShort(String(label))}
+                  formatter={(value: any) => [formatNumber(Number(value)), 'Leads']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="leads"
+                  stroke="#5D8A66"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: '#5D8A66' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Legend */}
+        {metrics?.daily && metrics.daily.length > 0 && (
+          <div className="flex items-center gap-4 mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-0.5" style={{ backgroundColor: '#5D8A66' }} />
+              <span>Leads (current period)</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
