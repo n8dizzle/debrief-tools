@@ -80,13 +80,23 @@ export async function POST(request: NextRequest) {
     const dailyPerformance = await client.getLSADailyPerformance(startDateStr, endDateStr);
     console.log(`[LSA Sync] Fetched ${dailyPerformance.length} daily performance rows`);
 
-    // Derive unique accounts from daily performance, using friendly names
+    // Derive unique accounts from daily performance AND leads, using friendly names
     const accountMap = new Map<string, { customer_id: string; customer_name: string }>();
     for (const row of dailyPerformance) {
       if (!accountMap.has(row.customerId)) {
         accountMap.set(row.customerId, {
           customer_id: row.customerId,
           customer_name: getLSAAccountName(row.customerId),
+        });
+      }
+    }
+    // Also add accounts from leads (covers new accounts with no ad spend yet)
+    for (const lead of leads) {
+      const cid = lead.customerId || '';
+      if (cid && !accountMap.has(cid)) {
+        accountMap.set(cid, {
+          customer_id: cid,
+          customer_name: getLSAAccountName(cid),
         });
       }
     }
