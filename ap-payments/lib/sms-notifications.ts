@@ -528,6 +528,107 @@ export async function sendPaymentStatusNotification(
 }
 
 /**
+ * Send daily approval reminder digest to trade managers with outstanding pending_approval jobs.
+ * Returns summary of what was sent.
+ */
+export async function sendDailyApprovalReminders(): Promise<{ sent: number; skipped: string[] }> {
+  const [toggles, templates] = await Promise.all([getNotificationToggles(), getNotificationTemplates()]);
+
+  // Check if daily reminders are enabled (per-channel)
+  const smsOn = isSmsEnabled(toggles, 'daily_reminder_manager');
+  const emailOn = isEmailEnabled(toggles, 'daily_reminder_manager');
+  if (!smsOn && !emailOn) {
+    return { sent: 0, skipped: ['Daily reminders disabled'] };
+  }
+
+  const supabase = getServerSupabase();
+  const { data: pendingJobs } = await supabase
+    .from('ap_install_jobs')
+    .select('id, job_number, customer_name, contractor_id, payment_amount, trade, job_address, contractor:ap_contractors(name)')
+    .eq('payment_status', 'pending_approval')
+    .order('created_at', { ascending: true });
+
+  if (!pendingJobs || pendingJobs.length === 0) {
+    return { sent: 0, skipped: ['No pending approvals'] };
+  }
+
+  // Group by trade
+  const byTrade: Record<string, typeof pendingJobs> = {};
+  for (const job of pendingJobs) {
+    const trade = job.trade || 'hvac';
+    if (!byTrade[trade]) byTrade[trade] = [];
+    byTrade[trade].push(job);
+  }
+
+  let sent = 0;
+  const skipped: string[] = [];
+
+  for (const [trade, jobs] of Object.entries(byTrade)) {
+    const tradeLabel = trade === 'plumbing' ? 'Plumbing' : 'HVAC';
+    const total = jobs.reduce((sum, j) => sum + (j.payment_amount || 0), 0);
+
+    const vars: Record<string, string> = {
+      count: String(jobs.length),
+      trade: tradeLabel,
+      total: formatCurrency(total),
+    };
+
+    const msg = renderTemplate(templates.daily_reminder_manager || DEFAULT_TEMPLATES.daily_reminder_manager, vars);
+
+    // SMS to trade managers
+    if (smsOn) {
+      const managerPhones = await getManagerPhonesByTrade(trade);
+      if (managerPhones.length === 0) {
+        skipped.push(`No ${tradeLabel} manager phones configured`);
+      }
+      for (const manager of managerPhones) {
+        if (!formatPhoneE164(manager.phone)) continue;
+        await sendAndLog({
+          to: manager.phone,
+          message: msg,
+          job_id: null,
+          contractor_id: null,
+          recipient_type: 'internal',
+          recipient_name: manager.name,
+          event_type: 'daily_reminder',
+          sent_by: null,
+        });
+        sent++;
+      }
+    }
+
+    // Email to trade managers
+    if (emailOn) {
+      const managerEmails = await getManagerEmailsByTrade(trade);
+      if (managerEmails.length === 0) {
+        skipped.push(`No ${tradeLabel} manager emails configured`);
+      }
+      const subject = renderTemplate(
+        templates.subject_daily_reminder_manager || DEFAULT_TEMPLATES.subject_daily_reminder_manager,
+        vars
+      );
+
+      // Build a richer email body with job list
+      const jobLines = jobs.map(j => {
+        const rawContractor = j.contractor as unknown;
+        const contractor = Array.isArray(rawContractor) ? rawContractor[0] : rawContractor as { name: string } | null;
+        return `• Job #${j.job_number} — ${j.customer_name || 'Customer'}${contractor?.name ? ` (${contractor.name})` : ''} — ${j.payment_amount ? formatCurrency(j.payment_amount) : 'TBD'}`;
+      }).join('<br/>');
+      const emailBody = `${msg}<br/><br/><strong>Jobs awaiting approval:</strong><br/>${jobLines}`;
+
+      await sendEmailToRecipients(managerEmails, subject, emailBody, {
+        recipientType: 'internal',
+        eventType: 'daily_reminder',
+        sentBy: null,
+      });
+      sent += managerEmails.length;
+    }
+  }
+
+  return { sent, skipped };
+}
+
+/**
  * Send a manual SMS (from the UI)
  */
 export async function sendManualSMS(params: {
