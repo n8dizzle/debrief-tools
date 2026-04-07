@@ -768,6 +768,7 @@ export default function SettingsPage() {
     { key: 'paid_contractor', label: 'Paid → Contractor', description: 'Notify contractor when payment is sent', channels: ['sms', 'email'], templateKey: 'paid_contractor', subjectKey: 'subject_paid_contractor' },
     { key: 'paid_internal', label: 'Paid → AP Team', description: 'Notify AP team when payment is marked paid', channels: ['sms', 'email'], templateKey: 'paid_internal', subjectKey: 'subject_paid_internal' },
     { key: 'paid_manager', label: 'Paid → Trade Managers', description: 'Notify trade managers when payment is marked paid', channels: ['sms', 'email'], templateKey: 'paid_manager', subjectKey: 'subject_paid_manager' },
+    { key: 'daily_reminder_manager', label: 'Daily Approval Reminder → Trade Managers', description: 'Daily 8am reminder for managers with outstanding approvals (Mon–Fri)', channels: ['sms', 'email'], templateKey: 'daily_reminder_manager', subjectKey: 'subject_daily_reminder_manager' },
   ];
 
   const [expandedNotif, setExpandedNotif] = useState<string | null>(null);
