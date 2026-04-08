@@ -75,6 +75,8 @@ export interface APPaymentsPermissions {
   can_view_jobs?: boolean;
   can_manage_assignments?: boolean;
   can_manage_payments?: boolean;
+  can_approve_payments?: boolean;
+  can_issue_payments?: boolean;
   can_manage_contractors?: boolean;
   can_sync_data?: boolean;
 }
@@ -133,6 +135,10 @@ export interface SalesCommandCenterPermissions {
   can_manage_settings?: boolean;
 }
 
+export interface STAuditPermissions {
+  can_access?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -153,6 +159,7 @@ export interface UserPermissions {
   service_dashboard?: ServiceDashboardPermissions;
   hr_hub?: HRHubPermissions;
   sales_command_center?: SalesCommandCenterPermissions;
+  st_audit?: STAuditPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -383,7 +390,17 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
       {
         key: 'can_manage_payments',
         label: 'Manage payments',
-        description: 'Update payment status (request, approve, mark paid)',
+        description: 'Update payment status (legacy — use approve/issue instead)',
+      },
+      {
+        key: 'can_approve_payments',
+        label: 'Approve payments',
+        description: 'Approve contractor payments (manager role — verifies work done and amount correct)',
+      },
+      {
+        key: 'can_issue_payments',
+        label: 'Issue payments',
+        description: 'Mark payments as paid (AP role — authorizes payment issuance)',
       },
       {
         key: 'can_manage_contractors',
@@ -601,6 +618,17 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_settings',
         label: 'Manage settings',
         description: 'Configure sales settings and advisor profiles',
+      },
+    ],
+  },
+  {
+    app: 'st_audit',
+    label: 'ST Audit',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the ServiceTitan Audit tool',
       },
     ],
   },
