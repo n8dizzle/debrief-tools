@@ -12,7 +12,7 @@ export async function GET() {
 
   const supabase = getServerSupabase();
 
-  const [phonesRes, emailsRes, mgrPhonesRes, mgrEmailsRes, hvacMgrPhonesRes, hvacMgrEmailsRes, plumbMgrPhonesRes, plumbMgrEmailsRes, togglesRes, templatesRes, smsLogRes] = await Promise.all([
+  const [phonesRes, emailsRes, mgrPhonesRes, mgrEmailsRes, hvacMgrPhonesRes, hvacMgrEmailsRes, plumbMgrPhonesRes, plumbMgrEmailsRes, togglesRes, templatesRes, tradeManagersRes, smsLogRes] = await Promise.all([
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_phones').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_emails').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'install_manager_phones').single(),
@@ -23,6 +23,7 @@ export async function GET() {
     supabase.from('ap_sync_settings').select('value').eq('key', 'plumbing_manager_emails').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_toggles').single(),
     supabase.from('ap_sync_settings').select('value').eq('key', 'notification_templates').single(),
+    supabase.from('ap_sync_settings').select('value').eq('key', 'trade_managers').single(),
     supabase.from('ap_sms_log').select('*').order('created_at', { ascending: false }).limit(50),
   ]);
 
@@ -37,6 +38,7 @@ export async function GET() {
     plumbing_manager_emails: plumbMgrEmailsRes.data?.value || [],
     notification_toggles: togglesRes.data?.value || {},
     notification_templates: templatesRes.data?.value || {},
+    trade_managers: tradeManagersRes.data?.value || [],
     sms_log: smsLogRes.data || [],
   });
 }
@@ -54,7 +56,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { notification_phones, notification_emails, install_manager_phones, install_manager_emails, hvac_manager_phones, hvac_manager_emails, plumbing_manager_phones, plumbing_manager_emails, notification_toggles, notification_templates } = body;
+  const { notification_phones, notification_emails, install_manager_phones, install_manager_emails, hvac_manager_phones, hvac_manager_emails, plumbing_manager_phones, plumbing_manager_emails, notification_toggles, notification_templates, trade_managers } = body;
 
   const supabase = getServerSupabase();
   const now = new Date().toISOString();
@@ -126,6 +128,24 @@ export async function PATCH(request: NextRequest) {
     return null;
   }
 
+  // Upsert trade managers (array of {user_id, name, email, phone, trade})
+  async function upsertTradeManagers(managers: unknown) {
+    if (managers === undefined) return null;
+    if (!Array.isArray(managers)) {
+      return { error: 'trade_managers must be an array' };
+    }
+    for (const entry of managers) {
+      if (!entry.user_id || !entry.name || !entry.email || !entry.trade) {
+        return { error: 'Each trade_managers entry must have user_id, name, email, and trade' };
+      }
+    }
+    const { error } = await supabase
+      .from('ap_sync_settings')
+      .upsert({ key: 'trade_managers', value: managers, updated_at: now }, { onConflict: 'key' });
+    if (error) return { error: error.message };
+    return null;
+  }
+
   const results = await Promise.all([
     upsertPhones('notification_phones', notification_phones),
     upsertEmails('notification_emails', notification_emails),
@@ -137,6 +157,7 @@ export async function PATCH(request: NextRequest) {
     upsertEmails('plumbing_manager_emails', plumbing_manager_emails),
     upsertToggles(notification_toggles),
     upsertTemplates(notification_templates),
+    upsertTradeManagers(trade_managers),
   ]);
 
   const firstError = results.find(r => r?.error);

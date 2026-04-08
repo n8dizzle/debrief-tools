@@ -338,25 +338,12 @@ export default function SettingsPage() {
   const [savingTemplates, setSavingTemplates] = useState(false);
   const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // HVAC manager notification state
-  const [hvacMgrPhones, setHvacMgrPhones] = useState<{ name: string; phone: string }[]>([]);
-  const [savedHvacMgrPhones, setSavedHvacMgrPhones] = useState<{ name: string; phone: string }[]>([]);
-  const [savingHvacMgr, setSavingHvacMgr] = useState(false);
-  const [hvacMgrMessage, setHvacMgrMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [hvacMgrEmails, setHvacMgrEmails] = useState<{ name: string; email: string }[]>([]);
-  const [savedHvacMgrEmails, setSavedHvacMgrEmails] = useState<{ name: string; email: string }[]>([]);
-  const [savingHvacMgrEmails, setSavingHvacMgrEmails] = useState(false);
-  const [hvacMgrEmailMessage, setHvacMgrEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Plumbing manager notification state
-  const [plumbMgrPhones, setPlumbMgrPhones] = useState<{ name: string; phone: string }[]>([]);
-  const [savedPlumbMgrPhones, setSavedPlumbMgrPhones] = useState<{ name: string; phone: string }[]>([]);
-  const [savingPlumbMgr, setSavingPlumbMgr] = useState(false);
-  const [plumbMgrMessage, setPlumbMgrMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [plumbMgrEmails, setPlumbMgrEmails] = useState<{ name: string; email: string }[]>([]);
-  const [savedPlumbMgrEmails, setSavedPlumbMgrEmails] = useState<{ name: string; email: string }[]>([]);
-  const [savingPlumbMgrEmails, setSavingPlumbMgrEmails] = useState(false);
-  const [plumbMgrEmailMessage, setPlumbMgrEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Trade managers state (unified user-linked format)
+  const [tradeManagers, setTradeManagers] = useState<{ user_id: string; name: string; email: string; phone: string; trade: 'hvac' | 'plumbing' }[]>([]);
+  const [savedTradeManagers, setSavedTradeManagers] = useState<{ user_id: string; name: string; email: string; phone: string; trade: 'hvac' | 'plumbing' }[]>([]);
+  const [portalUsers, setPortalUsers] = useState<{ id: string; name: string | null; email: string }[]>([]);
+  const [savingTradeManagers, setSavingTradeManagers] = useState(false);
+  const [tradeManagerMessage, setTradeManagerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Manual sync
   const [syncing, setSyncing] = useState(false);
@@ -407,7 +394,10 @@ export default function SettingsPage() {
   const loadNotifPhones = useCallback(async () => {
     setLoadingNotif(true);
     try {
-      const res = await fetch('/api/settings/notifications');
+      const [res, usersRes] = await Promise.all([
+        fetch('/api/settings/notifications'),
+        fetch('/api/users'),
+      ]);
       if (res.ok) {
         const data = await res.json();
         const phones = data.notification_phones || [];
@@ -416,18 +406,9 @@ export default function SettingsPage() {
         const emails = data.notification_emails || [];
         setNotifEmails(emails);
         setSavedNotifEmails(emails);
-        const hvacPhones = data.hvac_manager_phones || [];
-        setHvacMgrPhones(hvacPhones);
-        setSavedHvacMgrPhones(hvacPhones);
-        const hvacEmails = data.hvac_manager_emails || [];
-        setHvacMgrEmails(hvacEmails);
-        setSavedHvacMgrEmails(hvacEmails);
-        const plumbPhones = data.plumbing_manager_phones || [];
-        setPlumbMgrPhones(plumbPhones);
-        setSavedPlumbMgrPhones(plumbPhones);
-        const plumbEmails = data.plumbing_manager_emails || [];
-        setPlumbMgrEmails(plumbEmails);
-        setSavedPlumbMgrEmails(plumbEmails);
+        const tm = data.trade_managers || [];
+        setTradeManagers(tm);
+        setSavedTradeManagers(tm);
         const t = data.notification_toggles || {};
         setToggles(t);
         setSavedToggles(t);
@@ -435,6 +416,9 @@ export default function SettingsPage() {
         setMsgTemplates(tpl);
         setSavedMsgTemplates(tpl);
         setSmsLog(data.sms_log || []);
+      }
+      if (usersRes.ok) {
+        setPortalUsers(await usersRes.json());
       }
     } catch (err) {
       console.error('Failed to load notification settings:', err);
@@ -1741,57 +1725,145 @@ export default function SettingsPage() {
               loading={loadingNotif}
             />
 
-            <RecipientGroupSection
-              title="HVAC Trade Manager"
-              description="Receives approval requests for HVAC jobs."
-              phones={hvacMgrPhones}
-              emails={hvacMgrEmails}
-              onPhonesChange={setHvacMgrPhones}
-              onEmailsChange={setHvacMgrEmails}
-              onSave={async (phones, emails) => {
-                const validPhones = phones.filter(p => p.name.trim() && p.phone.trim());
-                const validEmails = emails.filter(e => e.name.trim() && e.email.trim());
-                const res = await fetch('/api/settings/notifications', {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ hvac_manager_phones: validPhones, hvac_manager_emails: validEmails }),
-                });
-                if (!res.ok) throw new Error('Failed to save');
-                setHvacMgrPhones(validPhones);
-                setSavedHvacMgrPhones([...validPhones]);
-                setHvacMgrEmails(validEmails);
-                setSavedHvacMgrEmails([...validEmails]);
-              }}
-              hasChanges={JSON.stringify(hvacMgrPhones) !== JSON.stringify(savedHvacMgrPhones) || JSON.stringify(hvacMgrEmails) !== JSON.stringify(savedHvacMgrEmails)}
-              onDiscard={() => { setHvacMgrPhones([...savedHvacMgrPhones]); setHvacMgrEmails([...savedHvacMgrEmails]); }}
-              loading={loadingNotif}
-            />
+            {/* Trade Managers - linked to portal users */}
+            <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <div className="p-3">
+                <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Trade Managers</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Receives approval requests and daily reminders. Linked to portal user accounts.</div>
+              </div>
+              <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                {tradeManagerMessage && (
+                  <div className="mb-3 p-2.5 rounded-lg text-sm" style={{
+                    backgroundColor: tradeManagerMessage.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: tradeManagerMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)',
+                  }}>
+                    {tradeManagerMessage.text}
+                  </div>
+                )}
 
-            <RecipientGroupSection
-              title="Plumbing Trade Manager"
-              description="Receives approval requests for Plumbing jobs."
-              phones={plumbMgrPhones}
-              emails={plumbMgrEmails}
-              onPhonesChange={setPlumbMgrPhones}
-              onEmailsChange={setPlumbMgrEmails}
-              onSave={async (phones, emails) => {
-                const validPhones = phones.filter(p => p.name.trim() && p.phone.trim());
-                const validEmails = emails.filter(e => e.name.trim() && e.email.trim());
-                const res = await fetch('/api/settings/notifications', {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ plumbing_manager_phones: validPhones, plumbing_manager_emails: validEmails }),
-                });
-                if (!res.ok) throw new Error('Failed to save');
-                setPlumbMgrPhones(validPhones);
-                setSavedPlumbMgrPhones([...validPhones]);
-                setPlumbMgrEmails(validEmails);
-                setSavedPlumbMgrEmails([...validEmails]);
-              }}
-              hasChanges={JSON.stringify(plumbMgrPhones) !== JSON.stringify(savedPlumbMgrPhones) || JSON.stringify(plumbMgrEmails) !== JSON.stringify(savedPlumbMgrEmails)}
-              onDiscard={() => { setPlumbMgrPhones([...savedPlumbMgrPhones]); setPlumbMgrEmails([...savedPlumbMgrEmails]); }}
-              loading={loadingNotif}
-            />
+                {tradeManagers.length > 0 && (
+                  <div className="flex items-center gap-2 mb-1 px-2">
+                    <span className="flex-[3] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>User</span>
+                    <span className="flex-[2] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Trade</span>
+                    <span className="flex-[2] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Phone</span>
+                    <span className="flex-[3] text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Email</span>
+                    <span className="w-8" />
+                  </div>
+                )}
+
+                <div className="space-y-1.5 mb-3">
+                  {tradeManagers.map((mgr, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded-md" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                      <select
+                        value={mgr.user_id}
+                        onChange={e => {
+                          const user = portalUsers.find(u => u.id === e.target.value);
+                          if (user) {
+                            setTradeManagers(prev => prev.map((m, i) => i === idx ? { ...m, user_id: user.id, name: user.name || '', email: user.email } : m));
+                          }
+                        }}
+                        className="flex-[3] text-sm py-1.5 px-2.5 rounded-md min-w-0"
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                      >
+                        <option value="">Select user...</option>
+                        {portalUsers.map(u => (
+                          <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={mgr.trade}
+                        onChange={e => setTradeManagers(prev => prev.map((m, i) => i === idx ? { ...m, trade: e.target.value as 'hvac' | 'plumbing' } : m))}
+                        className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                      >
+                        <option value="hvac">HVAC</option>
+                        <option value="plumbing">Plumbing</option>
+                      </select>
+                      <input
+                        type="tel"
+                        placeholder="(555) 123-4567"
+                        value={mgr.phone}
+                        onChange={e => setTradeManagers(prev => prev.map((m, i) => i === idx ? { ...m, phone: e.target.value } : m))}
+                        className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                      />
+                      <input
+                        type="email"
+                        value={mgr.email}
+                        readOnly
+                        className="flex-[3] text-sm py-1.5 px-2.5 rounded-md min-w-0 cursor-not-allowed"
+                        style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)', opacity: 0.7 }}
+                      />
+                      <button
+                        onClick={() => setTradeManagers(prev => prev.filter((_, i) => i !== idx))}
+                        className="p-1.5 rounded hover:opacity-80 flex-shrink-0"
+                        style={{ color: 'var(--status-error)' }}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+
+                  {tradeManagers.length === 0 && (
+                    <div className="p-3 rounded-md text-sm text-center" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                      No trade managers configured. Add a user to receive approval notifications.
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setTradeManagers(prev => [...prev, { user_id: '', name: '', email: '', phone: '', trade: 'hvac' }])}
+                    className="btn btn-secondary text-sm"
+                  >
+                    + Add Trade Manager
+                  </button>
+                  {JSON.stringify(tradeManagers) !== JSON.stringify(savedTradeManagers) && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          setSavingTradeManagers(true);
+                          setTradeManagerMessage(null);
+                          try {
+                            const valid = tradeManagers.filter(m => m.user_id && m.name);
+                            const res = await fetch('/api/settings/notifications', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ trade_managers: valid }),
+                            });
+                            if (res.ok) {
+                              setTradeManagers(valid);
+                              setSavedTradeManagers([...valid]);
+                              setTradeManagerMessage({ type: 'success', text: 'Trade managers saved' });
+                              setTimeout(() => setTradeManagerMessage(null), 3000);
+                            } else {
+                              setTradeManagerMessage({ type: 'error', text: 'Failed to save' });
+                            }
+                          } catch {
+                            setTradeManagerMessage({ type: 'error', text: 'Failed to save' });
+                          } finally {
+                            setSavingTradeManagers(false);
+                          }
+                        }}
+                        disabled={savingTradeManagers}
+                        className="btn btn-primary"
+                        style={{ opacity: savingTradeManagers ? 0.5 : 1 }}
+                      >
+                        {savingTradeManagers ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => setTradeManagers([...savedTradeManagers])}
+                        className="btn btn-secondary text-sm"
+                      >
+                        Discard
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
