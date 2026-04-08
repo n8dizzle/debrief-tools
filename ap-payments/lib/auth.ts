@@ -56,35 +56,33 @@ export const authOptions: NextAuthOptions = {
       }
     },
 
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       try {
-        if (user?.email || trigger === "update") {
-          const email = (user?.email || token.email as string)?.toLowerCase();
-          if (email) {
-            const supabase = getServerSupabase();
-            const { data: userProfile, error } = await supabase
-              .from("portal_users")
-              .select(`
-                id,
-                role,
-                department_id,
-                is_active,
-                permissions,
-                portal_departments(id, name, slug)
-              `)
-              .eq("email", email as string)
-              .single();
+        const email = (user?.email || token.email as string)?.toLowerCase();
+        if (email) {
+          const supabase = getServerSupabase();
+          const { data: userProfile, error } = await supabase
+            .from("portal_users")
+            .select(`
+              id,
+              role,
+              department_id,
+              is_active,
+              permissions,
+              portal_departments(id, name, slug)
+            `)
+            .eq("email", email as string)
+            .single();
 
-            if (error) {
-              console.error("JWT callback - Supabase error:", error.message);
-            } else if (userProfile) {
-              token.userId = userProfile.id;
-              token.role = userProfile.role;
-              token.departmentId = userProfile.department_id;
-              token.department = userProfile.portal_departments as any;
-              token.isActive = userProfile.is_active;
-              token.permissions = userProfile.permissions;
-            }
+          if (error) {
+            console.error("JWT callback - Supabase error:", error.message);
+          } else if (userProfile) {
+            token.userId = userProfile.id;
+            token.role = userProfile.role;
+            token.departmentId = userProfile.department_id;
+            token.department = userProfile.portal_departments as any;
+            token.isActive = userProfile.is_active;
+            token.permissions = userProfile.permissions;
           }
         }
       } catch (err) {
