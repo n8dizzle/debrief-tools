@@ -63,9 +63,47 @@ async function getInternalTeamEmails(): Promise<NotificationEmail[]> {
 }
 
 /**
- * Get manager phone numbers by trade, falling back to generic install_manager_phones
+ * Trade manager entry stored in ap_sync_settings under key 'trade_managers'
+ */
+export interface TradeManager {
+  user_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  trade: 'hvac' | 'plumbing';
+}
+
+/**
+ * Get trade managers from the new unified format, returns empty array if not configured.
+ */
+async function getTradeManagers(trade?: string): Promise<TradeManager[]> {
+  const supabase = getServerSupabase();
+  const { data } = await supabase
+    .from('ap_sync_settings')
+    .select('value')
+    .eq('key', 'trade_managers')
+    .single();
+
+  if (!data?.value || !Array.isArray(data.value)) return [];
+  const managers = data.value as TradeManager[];
+  if (trade) return managers.filter(m => m.trade === trade);
+  return managers;
+}
+
+/**
+ * Get manager phone numbers by trade.
+ * Uses new trade_managers format first, falls back to legacy keys.
  */
 async function getManagerPhonesByTrade(trade: string): Promise<NotificationPhone[]> {
+  // Try new unified trade_managers first
+  const managers = await getTradeManagers(trade);
+  if (managers.length > 0) {
+    return managers
+      .filter(m => m.phone)
+      .map(m => ({ name: m.name, phone: m.phone }));
+  }
+
+  // Legacy fallback
   const supabase = getServerSupabase();
   const tradeKey = trade === 'plumbing' ? 'plumbing_manager_phones' : 'hvac_manager_phones';
 
@@ -118,9 +156,19 @@ function isEmailEnabled(toggles: NotificationToggles, key: string): boolean {
 }
 
 /**
- * Get manager email addresses by trade, falling back to generic install_manager_emails
+ * Get manager email addresses by trade.
+ * Uses new trade_managers format first, falls back to legacy keys.
  */
 async function getManagerEmailsByTrade(trade: string): Promise<NotificationEmail[]> {
+  // Try new unified trade_managers first
+  const managers = await getTradeManagers(trade);
+  if (managers.length > 0) {
+    return managers
+      .filter(m => m.email)
+      .map(m => ({ name: m.name, email: m.email }));
+  }
+
+  // Legacy fallback
   const supabase = getServerSupabase();
   const tradeKey = trade === 'plumbing' ? 'plumbing_manager_emails' : 'hvac_manager_emails';
 
