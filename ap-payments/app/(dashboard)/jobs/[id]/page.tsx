@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { APInstallJob, APContractor, APActivityLog, APContractorRate, APSmsLog, APInvoiceSource } from '@/lib/supabase';
+import { APInstallJob, APContractor, APActivityLog, APContractorRate, APSmsLog, APInvoiceSource, APDamageLog } from '@/lib/supabase';
 import { formatDate, formatTimestamp, formatCurrency, formatRate, getAssignmentLabel, getPaymentStatusLabel } from '@/lib/ap-utils';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 
@@ -19,7 +19,7 @@ interface STDetails {
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { canManageAssignments, canManagePayments } = useAPPermissions();
+  const { canManageAssignments, canManagePayments, canApprovePayments, canIssuePayments } = useAPPermissions();
 
   const [job, setJob] = useState<APInstallJob | null>(null);
   const [activities, setActivities] = useState<APActivityLog[]>([]);
@@ -35,6 +35,8 @@ export default function JobDetailPage() {
   const [paymentStatus, setPaymentStatus] = useState<string>('none');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [approvalChain, setApprovalChain] = useState<Record<string, any>>({});
   const [rates, setRates] = useState<APContractorRate[]>([]);
 
   // SMS state
@@ -46,6 +48,53 @@ export default function JobDetailPage() {
   const [smsResult, setSmsResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showSmsForm, setShowSmsForm] = useState(false);
 
+  // Damage log state
+  const [damages, setDamages] = useState<APDamageLog[]>([]);
+  const [showDamageForm, setShowDamageForm] = useState(false);
+  const [damageDesc, setDamageDesc] = useState('');
+  const [damageCost, setDamageCost] = useState('');
+  const [damageNotes, setDamageNotes] = useState('');
+  const [savingDamage, setSavingDamage] = useState(false);
+  const [damageError, setDamageError] = useState<string | null>(null);
+
+  const loadDamages = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/jobs/${id}/damage`);
+      if (res.ok) setDamages(await res.json());
+    } catch {}
+  }, [id]);
+
+  const handleAddDamage = async () => {
+    if (!damageDesc.trim() || !damageCost) return;
+    setSavingDamage(true);
+    setDamageError(null);
+    try {
+      const res = await fetch(`/api/jobs/${id}/damage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: damageDesc.trim(),
+          repair_cost: parseFloat(damageCost),
+          notes: damageNotes.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setDamageDesc('');
+        setDamageCost('');
+        setDamageNotes('');
+        setShowDamageForm(false);
+        await Promise.all([loadDamages(), loadJob()]);
+      } else {
+        const data = await res.json();
+        setDamageError(data.error || 'Failed to log damage');
+      }
+    } catch {
+      setDamageError('Failed to log damage');
+    } finally {
+      setSavingDamage(false);
+    }
+  };
+
   const loadJob = useCallback(async () => {
     try {
       const res = await fetch(`/api/jobs/${id}`);
@@ -53,6 +102,7 @@ export default function JobDetailPage() {
         const data = await res.json();
         setJob(data.job);
         setActivities(data.activities || []);
+        setApprovalChain(data.approval_chain || {});
         // Populate editable fields
         setAssignmentType(data.job.assignment_type || 'unassigned');
         setContractorId(data.job.contractor_id || '');
@@ -100,7 +150,8 @@ export default function JobDetailPage() {
     loadStDetails();
     loadContractors();
     loadSmsLog();
-  }, [loadJob, loadStDetails, loadContractors, loadSmsLog]);
+    loadDamages();
+  }, [loadJob, loadStDetails, loadContractors, loadSmsLog, loadDamages]);
 
   // Load rates when contractor changes
   useEffect(() => {
@@ -135,8 +186,9 @@ export default function JobDetailPage() {
 
   const handleSavePayment = async (overrideStatus?: string, overrideSource?: string) => {
     setSaving(true);
+    setPaymentError(null);
     try {
-      await fetch(`/api/jobs/${id}/payment`, {
+      const res = await fetch(`/api/jobs/${id}/payment`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +198,14 @@ export default function JobDetailPage() {
           invoice_source: overrideSource || undefined,
         }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        setPaymentError(data.error || 'Failed to update payment');
+        return;
+      }
       await loadJob();
+    } catch (err) {
+      setPaymentError('Failed to update payment');
     } finally {
       setSaving(false);
     }
@@ -509,6 +568,20 @@ export default function JobDetailPage() {
                     {job.payment_amount != null ? formatCurrency(job.payment_amount) : '—'}
                   </span>
                 </div>
+                {job.damage_deduction > 0 && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span style={{ color: 'var(--status-error)' }}>Damage Deduction</span>
+                    <span style={{ color: 'var(--status-error)' }}>-{formatCurrency(job.damage_deduction)}</span>
+                  </div>
+                )}
+                {job.damage_deduction > 0 && job.payment_amount != null && (
+                  <div className="flex justify-between items-center pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Net Payment</span>
+                    <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                      {formatCurrency(Math.max(0, Number(job.payment_amount) - job.damage_deduction))}
+                    </span>
+                  </div>
+                )}
                 {job.job_total != null && job.payment_amount != null && (
                   <div className="flex justify-between items-center text-xs" style={{ color: 'var(--text-muted)' }}>
                     <span>% of Job Total</span>
@@ -614,6 +687,24 @@ export default function JobDetailPage() {
                 </div>
               </div>
 
+              {/* Damage deduction & net payment */}
+              {job.damage_deduction > 0 && (
+                <div className="p-2.5 rounded-lg space-y-1" style={{ backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <div className="flex justify-between text-xs">
+                    <span style={{ color: 'var(--status-error)' }}>Damage Deduction</span>
+                    <span style={{ color: 'var(--status-error)' }}>-{formatCurrency(job.damage_deduction)}</span>
+                  </div>
+                  {paymentAmount && (
+                    <div className="flex justify-between text-sm font-semibold pt-1" style={{ borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                      <span style={{ color: 'var(--christmas-cream)' }}>Net Payment</span>
+                      <span style={{ color: 'var(--christmas-cream)' }}>
+                        {formatCurrency(Math.max(0, parseFloat(paymentAmount) - job.damage_deduction))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Notes field */}
               <div>
                 <label className="text-xs font-medium uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Notes</label>
@@ -628,15 +719,37 @@ export default function JobDetailPage() {
                 />
               </div>
 
-              {/* Payment timestamps */}
-              {job.payment_received_at && (
-                <DetailItem label="Received" value={formatTimestamp(job.payment_received_at)} small />
+              {/* Approval Chain */}
+              {(approvalChain.approved_by || approvalChain.paid_by) && (
+                <div className="pt-1 space-y-1">
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Approval Chain</p>
+                  {approvalChain.approved_by && (
+                    <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#60a5fa' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Approved by <strong>{approvalChain.approved_by.name || approvalChain.approved_by.email}</strong> {approvalChain.approved_at && `on ${formatTimestamp(approvalChain.approved_at)}`}</span>
+                    </div>
+                  )}
+                  {approvalChain.paid_by && (
+                    <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#4ade80' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Paid by <strong>{approvalChain.paid_by.name || approvalChain.paid_by.email}</strong> {approvalChain.paid_at && `on ${formatTimestamp(approvalChain.paid_at)}`}</span>
+                    </div>
+                  )}
+                </div>
               )}
-              {job.payment_approved_at && (
-                <DetailItem label="Approved" value={formatTimestamp(job.payment_approved_at)} small />
-              )}
-              {job.payment_paid_at && (
-                <DetailItem label="Paid" value={formatTimestamp(job.payment_paid_at)} small />
+
+              {/* Payment error */}
+              {paymentError && (
+                <div
+                  className="p-2.5 rounded-lg text-xs"
+                  style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                >
+                  {paymentError}
+                </div>
               )}
 
               {/* Workflow action buttons */}
@@ -646,10 +759,10 @@ export default function JobDetailPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleSavePayment('ready_to_pay', 'manager_text')}
-                      disabled={saving || !paymentAmount}
+                      disabled={saving || !paymentAmount || !paymentNotes.trim() || !canApprovePayments}
                       className="btn btn-primary text-xs py-2"
-                      style={{ opacity: saving || !paymentAmount ? 0.5 : 1 }}
-                      title="Manager approved — ready to pay"
+                      style={{ opacity: saving || !paymentAmount || !paymentNotes.trim() || !canApprovePayments ? 0.5 : 1 }}
+                      title={!canApprovePayments ? 'You need approval permission' : 'Manager approved — ready to pay'}
                     >
                       {saving ? '...' : 'Via Manager'}
                     </button>
@@ -666,39 +779,63 @@ export default function JobDetailPage() {
                   {!paymentAmount && (
                     <p className="text-[10px]" style={{ color: 'var(--status-warning)' }}>Enter amount first</p>
                   )}
+                  {paymentAmount && !paymentNotes.trim() && canApprovePayments && (
+                    <p className="text-[10px]" style={{ color: 'var(--status-warning)' }}>Notes required for approval</p>
+                  )}
+                  {!canApprovePayments && (
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Only managers with approval permission can use &quot;Via Manager&quot;</p>
+                  )}
                 </div>
               )}
 
-              {canManagePayments && paymentStatus === 'pending_approval' && (
-                <div className="flex gap-2 pt-1">
+              {canApprovePayments && paymentStatus === 'pending_approval' && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSavePayment('ready_to_pay')}
+                      disabled={saving || !paymentNotes.trim()}
+                      className="btn btn-primary flex-1 text-sm"
+                      style={{ opacity: saving || !paymentNotes.trim() ? 0.5 : 1 }}
+                    >
+                      {saving ? 'Saving...' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => handleSavePayment('none')}
+                      disabled={saving || !paymentNotes.trim()}
+                      className="btn btn-secondary flex-1 text-sm"
+                      style={{ opacity: saving || !paymentNotes.trim() ? 0.5 : 1 }}
+                    >
+                      {saving ? '...' : 'Reject'}
+                    </button>
+                  </div>
+                  {!paymentNotes.trim() && (
+                    <p className="text-[10px]" style={{ color: 'var(--status-warning)' }}>Notes required to approve or reject</p>
+                  )}
+                </div>
+              )}
+
+              {canIssuePayments && paymentStatus === 'ready_to_pay' && (
+                <div className="space-y-2 pt-1">
                   <button
-                    onClick={() => handleSavePayment('ready_to_pay')}
-                    disabled={saving}
-                    className="btn btn-primary flex-1 text-sm"
-                    style={{ opacity: saving ? 0.5 : 1 }}
+                    onClick={() => handleSavePayment('paid')}
+                    disabled={saving || !paymentNotes.trim()}
+                    className="btn btn-primary w-full"
+                    style={{ opacity: saving || !paymentNotes.trim() ? 0.5 : 1 }}
                   >
-                    {saving ? 'Saving...' : 'Approve'}
+                    {saving ? 'Saving...' : 'Mark Paid'}
                   </button>
+                  {!paymentNotes.trim() && (
+                    <p className="text-[10px]" style={{ color: 'var(--status-warning)' }}>Notes required (e.g., check #, payment method)</p>
+                  )}
                   <button
                     onClick={() => handleSavePayment('none')}
-                    disabled={saving}
-                    className="btn btn-secondary flex-1 text-sm"
-                    style={{ opacity: saving ? 0.5 : 1 }}
+                    disabled={saving || !paymentNotes.trim()}
+                    className="btn btn-secondary w-full text-xs"
+                    style={{ opacity: saving || !paymentNotes.trim() ? 0.5 : 1 }}
                   >
-                    {saving ? '...' : 'Reject'}
+                    {saving ? '...' : 'Reject → Reset'}
                   </button>
                 </div>
-              )}
-
-              {canManagePayments && paymentStatus === 'ready_to_pay' && (
-                <button
-                  onClick={() => handleSavePayment('paid')}
-                  disabled={saving}
-                  className="btn btn-primary w-full"
-                  style={{ opacity: saving ? 0.5 : 1 }}
-                >
-                  {saving ? 'Saving...' : 'Mark Paid'}
-                </button>
               )}
 
               {canManagePayments && paymentStatus === 'paid' && (
@@ -725,6 +862,109 @@ export default function JobDetailPage() {
               )}
             </div>
           </div>
+
+          {/* Damage Log Card */}
+          {job.assignment_type === 'contractor' && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Damage Log</h2>
+                {canManagePayments && !showDamageForm && (
+                  <button
+                    onClick={() => setShowDamageForm(true)}
+                    className="text-xs px-2 py-1 rounded"
+                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}
+                  >
+                    + Report Damage
+                  </button>
+                )}
+              </div>
+
+              {/* Add damage form */}
+              {showDamageForm && (
+                <div className="mb-4 p-3 rounded-lg space-y-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="Describe the damage..."
+                    value={damageDesc}
+                    onChange={e => setDamageDesc(e.target.value)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
+                    <input
+                      type="number"
+                      className="input flex-1"
+                      placeholder="Repair cost"
+                      value={damageCost}
+                      onChange={e => setDamageCost(e.target.value)}
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                  <textarea
+                    className="input w-full"
+                    rows={2}
+                    placeholder="Additional notes (optional)"
+                    value={damageNotes}
+                    onChange={e => setDamageNotes(e.target.value)}
+                    style={{ resize: 'vertical' }}
+                  />
+                  {damageError && (
+                    <div className="p-2 rounded text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+                      {damageError}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAddDamage}
+                      disabled={savingDamage || !damageDesc.trim() || !damageCost}
+                      className="btn btn-primary text-xs flex-1"
+                      style={{ opacity: savingDamage || !damageDesc.trim() || !damageCost ? 0.5 : 1 }}
+                    >
+                      {savingDamage ? 'Saving...' : 'Log Damage'}
+                    </button>
+                    <button
+                      onClick={() => { setShowDamageForm(false); setDamageError(null); }}
+                      className="btn btn-secondary text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Damage entries */}
+              {damages.length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No damage reported</p>
+              ) : (
+                <div className="space-y-2">
+                  {damages.map(d => (
+                    <div key={d.id} className="p-2.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{d.description}</p>
+                          {d.notes && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{d.notes}</p>}
+                          <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                            {d.reporter?.name || 'Unknown'} &middot; {formatTimestamp(d.reported_at)}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold flex-shrink-0 ml-3" style={{ color: 'var(--status-error)' }}>
+                          -{formatCurrency(d.repair_cost)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Total */}
+                  <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Total Deduction</span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--status-error)' }}>
+                      -{formatCurrency(job.damage_deduction)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Contractor Info Card */}
           {job.contractor && (
