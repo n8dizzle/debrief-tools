@@ -103,6 +103,7 @@ export interface APInstallJob {
   payment_approved_at: string | null;
   payment_approved_by: string | null;
   payment_paid_at: string | null;
+  payment_paid_by: string | null;
   payment_expected_date: string | null;
   payment_method: string | null;
   payment_notes: string | null;
@@ -115,6 +116,7 @@ export interface APInstallJob {
   technician_count: number | null;
   technician_id: string | null;
   st_technician_id: number | null;
+  damage_deduction: number;
   is_ignored: boolean;
   synced_at: string | null;
   created_at: string;
@@ -122,6 +124,22 @@ export interface APInstallJob {
   // Joined data
   contractor?: APContractor;
   technician?: { id: string; name: string; hourly_rate: number | null } | null;
+}
+
+export interface APDamageLog {
+  id: string;
+  job_id: string;
+  contractor_id: string | null;
+  description: string;
+  repair_cost: number;
+  reported_by: string | null;
+  reported_at: string;
+  status: 'reported' | 'repair_scheduled' | 'repaired' | 'deducted';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  reporter?: { name: string; email: string } | null;
 }
 
 export interface APActivityLog {
