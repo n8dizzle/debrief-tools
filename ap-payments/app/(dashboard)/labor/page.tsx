@@ -703,6 +703,7 @@ export default function LaborPage() {
                         <th>Assignment</th>
                         <th>Details</th>
                         <th style={{ textAlign: 'right' }}>Labor Cost</th>
+                        <th style={{ textAlign: 'right' }}>Labor %</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -759,25 +760,45 @@ export default function LaborPage() {
                             <td className="text-sm font-medium" style={{ textAlign: 'right', color: laborCost != null ? costColor : 'var(--text-muted)' }}>
                               {laborCost != null ? formatCurrency(laborCost) : '—'}
                             </td>
+                            <td className="text-sm font-medium" style={{ textAlign: 'right' }}>
+                              {(() => {
+                                const total = Number(job.job_total || 0);
+                                if (laborCost != null && laborCost > 0 && total > 0) {
+                                  const pct = (laborCost / total) * 100;
+                                  const color = pct > 50 ? 'var(--status-error)' : pct > 35 ? 'var(--status-warning)' : 'var(--status-success)';
+                                  return <span style={{ color }}>{pct.toFixed(1)}%</span>;
+                                }
+                                return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+                              })()}
+                            </td>
                           </tr>
                         );
                       })}
                     </tbody>
                     <tfoot>
-                      <tr>
-                        <td colSpan={7} className="text-sm font-semibold" style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
-                          Total
-                        </td>
-                        <td className="text-sm font-bold" style={{ textAlign: 'right', color: 'var(--christmas-cream)' }}>
-                          {formatCurrency(
-                            jobBreakdown.reduce((sum, j) => {
-                              if (j.assignment_type === 'contractor' && j.payment_amount != null) return sum + Number(j.payment_amount);
-                              if (j.assignment_type === 'in_house' && j.labor_cost != null) return sum + Number(j.labor_cost);
-                              return sum;
-                            }, 0)
-                          )}
-                        </td>
-                      </tr>
+                      {(() => {
+                        const totalLabor = jobBreakdown.reduce((sum, j) => {
+                          if (j.assignment_type === 'contractor' && j.payment_amount != null) return sum + Number(j.payment_amount);
+                          if (j.assignment_type === 'in_house' && j.labor_cost != null) return sum + Number(j.labor_cost);
+                          return sum;
+                        }, 0);
+                        const totalRevenue = jobBreakdown.reduce((sum, j) => sum + Number(j.job_total || 0), 0);
+                        const totalPct = totalRevenue > 0 ? (totalLabor / totalRevenue) * 100 : 0;
+                        const pctColor = totalPct > 50 ? 'var(--status-error)' : totalPct > 35 ? 'var(--status-warning)' : 'var(--status-success)';
+                        return (
+                          <tr>
+                            <td colSpan={7} className="text-sm font-semibold" style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                              Total
+                            </td>
+                            <td className="text-sm font-bold" style={{ textAlign: 'right', color: 'var(--christmas-cream)' }}>
+                              {formatCurrency(totalLabor)}
+                            </td>
+                            <td className="text-sm font-bold" style={{ textAlign: 'right', color: pctColor }}>
+                              {totalPct > 0 ? `${totalPct.toFixed(1)}%` : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })()}
                     </tfoot>
                   </table>
                 </div>

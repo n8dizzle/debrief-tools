@@ -29,18 +29,48 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 404 });
   }
 
-  // Get activity log for this job
-  const { data: activities } = await supabase
+  // Get activity log for this job (paginated)
+  const { searchParams } = new URL(request.url);
+  const activityLimit = parseInt(searchParams.get('activity_limit') || '50');
+  const activityOffset = parseInt(searchParams.get('activity_offset') || '0');
+
+  const { data: activities, count: activityCount } = await supabase
     .from('ap_activity_log')
     .select(`
       *,
       performer:portal_users!ap_activity_log_performed_by_fkey(name, email)
-    `)
+    `, { count: 'exact' })
     .eq('job_id', id)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .range(activityOffset, activityOffset + activityLimit - 1);
 
-  return NextResponse.json({ job: data, activities: activities || [] });
+  // Get approval chain details
+  const approvalChain: Record<string, any> = {};
+  if (data.payment_approved_by) {
+    const { data: approver } = await supabase
+      .from('portal_users')
+      .select('name, email')
+      .eq('id', data.payment_approved_by)
+      .single();
+    approvalChain.approved_by = approver;
+    approvalChain.approved_at = data.payment_approved_at;
+  }
+  if (data.payment_paid_by) {
+    const { data: payer } = await supabase
+      .from('portal_users')
+      .select('name, email')
+      .eq('id', data.payment_paid_by)
+      .single();
+    approvalChain.paid_by = payer;
+    approvalChain.paid_at = data.payment_paid_at;
+  }
+
+  return NextResponse.json({
+    job: data,
+    activities: activities || [],
+    activity_total: activityCount || 0,
+    approval_chain: approvalChain,
+  });
 }
 
 export async function PATCH(

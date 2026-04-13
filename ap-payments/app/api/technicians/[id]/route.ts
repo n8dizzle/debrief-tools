@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { hasAPPermission } from '@/lib/ap-utils';
 
 export async function PATCH(
   request: NextRequest,
@@ -12,8 +13,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_sync_data')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -109,6 +109,19 @@ export function getPaymentStatusLabel(status: string): string {
 /**
  * Validate cron secret or session auth for API routes
  */
+/**
+ * Server-side AP permission check. Owners always have access.
+ * Everyone else needs the specific permission enabled in portal_users.permissions.ap_payments.
+ */
+export function hasAPPermission(session: any, perm: string): boolean {
+  if (!session?.user) return false;
+  if (session.user.role === 'owner') return true;
+  return !!session.user.permissions?.ap_payments?.[perm];
+}
+
+/**
+ * Validate cron secret or session auth for API routes
+ */
 export function isValidCronRequest(request: Request): boolean {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;

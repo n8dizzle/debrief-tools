@@ -210,6 +210,18 @@ export default function JobsPage() {
     }
   };
 
+  const handleNotesChange = async (jobId: string, notes: string) => {
+    const res = await fetch(`/api/jobs/${jobId}/payment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payment_notes: notes }),
+    });
+
+    if (res.ok) {
+      setJobs(prev => prev.map(j => j.id === jobId ? { ...j, payment_notes: notes } : j));
+    }
+  };
+
   const handleBulkExclude = async (jobIds: string[], isIgnored: boolean) => {
     const res = await fetch('/api/jobs/bulk-exclude', {
       method: 'PATCH',
@@ -609,6 +621,7 @@ export default function JobsPage() {
         canManagePayments={canManagePayments}
         onAssign={handleAssign}
         onPaymentStatusChange={handlePaymentStatusChange}
+        onNotesChange={handleNotesChange}
         onBulkExclude={handleBulkExclude}
         showIgnored={showIgnored}
         columnPickerContainer={columnPickerRef}
