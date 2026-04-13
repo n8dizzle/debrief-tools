@@ -864,7 +864,7 @@ export default function JobDetailPage() {
           </div>
 
           {/* Damage Log Card */}
-          {job.assignment_type === 'contractor' && (
+          {(
             <div className="card">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Damage Log</h2>
