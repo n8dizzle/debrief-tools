@@ -184,7 +184,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0, defaultPreset 
     if (didApplyDefault.current) return;
     didApplyDefault.current = true;
     const preset = activePreset;
-    if (preset && preset !== 'custom' && !value.start && !value.end) {
+    if (preset && preset !== 'custom') {
       const found = presets.find(p => p.key === preset);
       if (found) {
         onChange(found.getRange(), preset);

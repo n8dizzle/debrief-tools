@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
-import { isValidCronRequest, formatLocalDate } from '@/lib/ap-utils';
+import { isValidCronRequest, formatLocalDate, hasAPPermission } from '@/lib/ap-utils';
 
 export const maxDuration = 300;
 
@@ -21,8 +21,7 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const role = (session.user as any).role || 'employee';
-    if (role !== 'owner' && role !== 'manager') {
+    if (!hasAPPermission(session, 'can_sync_data')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }

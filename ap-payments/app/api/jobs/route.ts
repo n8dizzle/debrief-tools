@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
     payment_amount: 'payment_amount',
     labor_cost: 'labor_cost',
     payment_status: 'payment_status',
+    notes: 'payment_notes',
   };
 
   const sortColumn = (sort && SORT_COLUMN_MAP[sort]) || 'scheduled_date';

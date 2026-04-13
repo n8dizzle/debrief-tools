@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/ap-utils';
+import { formatCurrency, hasAPPermission } from '@/lib/ap-utils';
 
 export async function POST(
   request: NextRequest,
@@ -13,8 +13,7 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_manage_assignments')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

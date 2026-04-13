@@ -24,7 +24,8 @@ type SortKey =
   | 'assignment_type'
   | 'contractor'
   | 'labor_cost'
-  | 'payment_status';
+  | 'payment_status'
+  | 'notes';
 
 interface ColumnDef {
   key: SortKey;
@@ -48,6 +49,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'contractor', label: 'Contractor', defaultWidth: 140, minWidth: 100 },
   { key: 'labor_cost', label: 'Labor Cost', defaultWidth: 120, minWidth: 90 },
   { key: 'payment_status', label: 'Pay Status', defaultWidth: 110, minWidth: 80 },
+  { key: 'notes', label: 'Notes', defaultWidth: 160, minWidth: 100 },
 ];
 
 const DEFAULT_ORDER = COLUMNS.map((_, i) => i);
@@ -109,6 +111,7 @@ function getSortValue(job: APInstallJob, key: SortKey): string | number {
       return -1;
     }
     case 'payment_status': return PAYMENT_STATUS_ORDER[job.payment_status] ?? 0;
+    case 'notes': return (job.payment_notes || '').toLowerCase();
   }
 }
 
@@ -126,6 +129,7 @@ interface JobsTableProps {
     payment_amount?: number;
   }) => Promise<void>;
   onPaymentStatusChange: (jobId: string, newStatus: string) => Promise<void>;
+  onNotesChange?: (jobId: string, notes: string) => Promise<void>;
   onBulkExclude?: (jobIds: string[], isIgnored: boolean) => Promise<void>;
   showIgnored?: boolean;
   columnPickerContainer?: React.RefObject<HTMLDivElement | null>;
@@ -143,6 +147,7 @@ function InlineAssignmentRow({
   canManagePayments,
   onAssign,
   onPaymentStatusChange,
+  onNotesChange,
   isSelected,
   onToggleSelect,
   showCheckbox,
@@ -154,6 +159,7 @@ function InlineAssignmentRow({
   canManagePayments: boolean;
   onAssign: JobsTableProps['onAssign'];
   onPaymentStatusChange: JobsTableProps['onPaymentStatusChange'];
+  onNotesChange?: JobsTableProps['onNotesChange'];
   isSelected: boolean;
   onToggleSelect: () => void;
   showCheckbox: boolean;
@@ -168,12 +174,34 @@ function InlineAssignmentRow({
   const [saving, setSaving] = useState(false);
   const [rates, setRates] = useState<APContractorRate[]>([]);
   const amountRef = useRef<HTMLInputElement>(null);
+  const [notesValue, setNotesValue] = useState(job.payment_notes || '');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setAssignmentType(job.assignment_type);
     setContractorId(job.contractor_id || '');
     setPaymentAmount(job.payment_amount != null ? String(job.payment_amount) : '');
-  }, [job.assignment_type, job.contractor_id, job.payment_amount]);
+    setNotesValue(job.payment_notes || '');
+  }, [job.assignment_type, job.contractor_id, job.payment_amount, job.payment_notes]);
+
+  const handleNotesSave = async () => {
+    const trimmed = notesValue.trim();
+    if (trimmed === (job.payment_notes || '')) {
+      setEditingNotes(false);
+      return;
+    }
+    if (onNotesChange) {
+      setSavingNotes(true);
+      try {
+        await onNotesChange(job.id, trimmed);
+      } finally {
+        setSavingNotes(false);
+      }
+    }
+    setEditingNotes(false);
+  };
 
   useEffect(() => {
     if (!contractorId || assignmentType !== 'contractor') {
@@ -282,8 +310,17 @@ function InlineAssignmentRow({
           {job.customer_name || '—'}
         </div>
         {job.job_address && (
-          <div className="text-xs truncate" style={{ color: 'var(--text-muted)', maxWidth: '100%' }}>
-            {job.job_address}
+          <div className="text-xs truncate flex items-center gap-1 group/addr" style={{ color: 'var(--text-muted)', maxWidth: '100%' }}>
+            <span className="truncate">{job.job_address}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(job.job_address || ''); }}
+              className="flex-shrink-0 opacity-0 group-hover/addr:opacity-100 transition-opacity p-0.5 rounded hover:bg-white/10"
+              title="Copy address"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
           </div>
         )}
       </td>
@@ -516,6 +553,48 @@ function InlineAssignmentRow({
         )}
       </td>
     ),
+    notes: (
+      <td key="notes" onClick={(e) => e.stopPropagation()}>
+        {editingNotes ? (
+          <div className="flex flex-col gap-1">
+            <textarea
+              ref={notesRef}
+              className="input text-xs py-1 px-2"
+              style={{ width: '100%', minHeight: '48px', resize: 'vertical' }}
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              onBlur={handleNotesSave}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  notesRef.current?.blur();
+                }
+                if (e.key === 'Escape') {
+                  setNotesValue(job.payment_notes || '');
+                  setEditingNotes(false);
+                }
+              }}
+              autoFocus
+              disabled={savingNotes}
+              placeholder="Add a note..."
+            />
+          </div>
+        ) : (
+          <div
+            className="text-xs cursor-pointer group"
+            style={{ color: notesValue ? 'var(--text-secondary)' : 'var(--text-muted)' }}
+            onClick={() => onNotesChange && setEditingNotes(true)}
+            title={notesValue || 'Click to add note'}
+          >
+            {notesValue ? (
+              <span className="line-clamp-2">{notesValue}</span>
+            ) : (
+              <span className="opacity-0 group-hover:opacity-50 transition-opacity">+ Note</span>
+            )}
+          </div>
+        )}
+      </td>
+    ),
   };
 
   const handleRowClick = (e: React.MouseEvent) => {
@@ -576,6 +655,7 @@ export default function JobsTable({
   canManagePayments,
   onAssign,
   onPaymentStatusChange,
+  onNotesChange,
   onBulkExclude,
   showIgnored,
   columnPickerContainer,
@@ -1063,6 +1143,7 @@ export default function JobsTable({
                   canManagePayments={canManagePayments}
                   onAssign={onAssign}
                   onPaymentStatusChange={onPaymentStatusChange}
+                  onNotesChange={onNotesChange}
                   isSelected={selectedIds.has(job.id)}
                   onToggleSelect={() => toggleSelect(job.id)}
                   showCheckbox={showCheckbox}

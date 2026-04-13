@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { hasAPPermission } from '@/lib/ap-utils';
 
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -29,8 +30,7 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_manage_contractors')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -127,8 +127,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_manage_contractors')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

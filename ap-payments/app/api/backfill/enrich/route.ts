@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient, formatAddress } from '@/lib/servicetitan';
+import { hasAPPermission } from '@/lib/ap-utils';
 
 export const maxDuration = 60;
 
@@ -18,8 +19,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const role = (session.user as any).role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_sync_data')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

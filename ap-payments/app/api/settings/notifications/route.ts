@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { hasAPPermission } from '@/lib/ap-utils';
 
 // GET - Fetch notification phones and emails
 export async function GET() {
@@ -50,8 +51,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_sync_data')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

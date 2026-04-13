@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { hasAPPermission } from '@/lib/ap-utils';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -30,8 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
+  if (!hasAPPermission(session, 'can_sync_data')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

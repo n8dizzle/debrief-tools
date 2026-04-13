@@ -10,27 +10,21 @@ export function useAPPermissions() {
 
   const user = session?.user;
   const role = user?.role || "employee";
+  const permissions = (user as any)?.permissions?.ap_payments || {};
 
   const isOwner = role === "owner";
   const isManager = role === "manager";
   const isEmployee = role === "employee";
 
-  // AP Payments Permission Matrix
-  // | Action                 | Employee | Manager | Owner |
-  // |------------------------|----------|---------|-------|
-  // | View jobs/dashboard    | yes      | yes     | yes   |
-  // | Assign jobs            | no       | yes     | yes   |
-  // | Manage payments        | no       | yes     | yes   |
-  // | Manage contractors     | no       | yes     | yes   |
-  // | Trigger sync           | no       | yes     | yes   |
-  // | Approve payments       | no       | no      | yes   |
-
-  const canViewJobs = true;
-  const canManageAssignments = isOwner || isManager;
-  const canManagePayments = isOwner || isManager;
-  const canApprovePayments = isOwner;
-  const canManageContractors = isOwner || isManager;
-  const canSyncData = isOwner || isManager;
+  // All access is driven by portal permission toggles.
+  // Owners always have full access. Everyone else needs explicit permissions.
+  const canViewJobs = isOwner || !!permissions.can_view_jobs;
+  const canManageAssignments = isOwner || !!permissions.can_manage_assignments;
+  const canManagePayments = isOwner || !!permissions.can_manage_payments;
+  const canApprovePayments = isOwner || !!permissions.can_approve_payments;
+  const canIssuePayments = isOwner || !!permissions.can_issue_payments;
+  const canManageContractors = isOwner || !!permissions.can_manage_contractors;
+  const canSyncData = isOwner || !!permissions.can_sync_data;
 
   const userId = user?.id;
 
@@ -47,6 +41,7 @@ export function useAPPermissions() {
     canManageAssignments,
     canManagePayments,
     canApprovePayments,
+    canIssuePayments,
     canManageContractors,
     canSyncData,
   };

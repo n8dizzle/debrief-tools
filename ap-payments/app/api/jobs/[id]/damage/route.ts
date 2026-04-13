@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { hasAPPermission } from '@/lib/ap-utils';
 
 /**
  * GET /api/jobs/[id]/damage — list damage entries for a job
@@ -49,9 +50,8 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const role = session.user.role || 'employee';
-  if (role !== 'owner' && role !== 'manager') {
-    return NextResponse.json({ error: 'Forbidden — managers and owners only' }, { status: 403 });
+  if (!hasAPPermission(session, 'can_manage_payments')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await params;
