@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CelNominationPeriod, CelNomination, NominationPeriodStatus, getCategoryByKey } from '@/lib/supabase';
 import { useCelebrationsPermissions } from '@/hooks/useCelebrationsPermissions';
+import { CopyButton } from '@/components/NominationCard';
 
 export default function PeriodDashboardPage() {
   const { periodId } = useParams();
@@ -609,13 +610,21 @@ export default function PeriodDashboardPage() {
                     <td className="px-4 py-3" style={{ color: 'var(--christmas-cream)' }}>
                       <div className="font-medium">{n.nominee_name}</div>
                       {isExpanded && (
-                        <div className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                          {n.story}
+                        <div className="mt-2 text-xs leading-relaxed flex items-start gap-1 group" style={{ color: 'var(--text-secondary)' }}>
+                          <span className="flex-1">{n.story}</span>
+                          <span className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <CopyButton text={n.story} label="quote" />
+                          </span>
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
-                      {n.nominator_name}
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-0.5 group" style={{ color: 'var(--text-secondary)' }}>
+                        {n.nominator_name}
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <CopyButton text={n.nominator_name} label="nominator" />
+                        </span>
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       {cat && (
