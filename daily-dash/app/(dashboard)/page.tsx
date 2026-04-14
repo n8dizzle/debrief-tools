@@ -310,8 +310,8 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
           <span
             className="text-sm font-semibold px-2 py-0.5 rounded"
             style={{
-              backgroundColor: `${statusColor}15`,
-              color: statusColor,
+              backgroundColor: `${isAheadOfPace ? 'var(--christmas-green)' : '#EF4444'}15`,
+              color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444',
             }}
           >
             {loading ? '...' : `${percentage}%`}
