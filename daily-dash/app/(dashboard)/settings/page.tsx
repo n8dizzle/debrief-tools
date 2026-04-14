@@ -31,7 +31,7 @@ const sheetMappings = {
 };
 
 // Business days per month (2026)
-const businessDaysPerMonth = [22, 19, 22, 22, 21, 22, 23, 21, 21, 23, 19, 23];
+const businessDaysPerMonth = [23.5, 22, 24, 24, 22.5, 24, 24, 23.5, 23, 24.5, 21, 24];
 
 // Monthly revenue targets (in dollars)
 const MONTHLY_TARGETS = {

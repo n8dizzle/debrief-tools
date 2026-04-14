@@ -24,7 +24,7 @@ const REVIEW_TARGETS_2026 = {
 };
 
 // Business days per month for 2026 (Mon-Fri minus holidays, plus Saturdays as 0.5)
-const BUSINESS_DAYS_2026 = [22.5, 21, 24, 24, 22.5, 24, 24, 23.5, 23, 24.5, 21, 23];
+const BUSINESS_DAYS_2026 = [23.5, 22, 24, 24, 22.5, 24, 24, 23.5, 23, 24.5, 21, 24];
 
 // Major holidays for 2026
 const HOLIDAYS_2026 = [
