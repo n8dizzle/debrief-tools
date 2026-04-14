@@ -48,6 +48,42 @@ export default function JobDetailPage() {
   const [smsResult, setSmsResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showSmsForm, setShowSmsForm] = useState(false);
 
+  // Invoice upload state
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
+
+  const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingInvoice(true);
+    setInvoiceError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`/api/jobs/${id}/invoice`, { method: 'POST', body: formData });
+      if (res.ok) {
+        await loadJob();
+      } else {
+        const data = await res.json();
+        setInvoiceError(data.error || 'Upload failed');
+      }
+    } catch {
+      setInvoiceError('Upload failed');
+    } finally {
+      setUploadingInvoice(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleInvoiceRemove = async () => {
+    setUploadingInvoice(true);
+    try {
+      const res = await fetch(`/api/jobs/${id}/invoice`, { method: 'DELETE' });
+      if (res.ok) await loadJob();
+    } catch {}
+    setUploadingInvoice(false);
+  };
+
   // Damage log state
   const [damages, setDamages] = useState<APDamageLog[]>([]);
   const [showDamageForm, setShowDamageForm] = useState(false);
@@ -717,6 +753,68 @@ export default function JobDetailPage() {
                   disabled={!canManagePayments}
                   style={{ resize: 'vertical' }}
                 />
+              </div>
+
+              {/* Invoice Upload */}
+              <div>
+                <label className="text-xs font-medium uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Invoice</label>
+                {job.invoice_file_url ? (
+                  <div className="flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--status-success)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <a
+                      href={job.invoice_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs flex-1 truncate hover:underline"
+                      style={{ color: 'var(--christmas-green-light)' }}
+                    >
+                      View Invoice
+                    </a>
+                    {canManagePayments && (
+                      <button
+                        onClick={handleInvoiceRemove}
+                        disabled={uploadingInvoice}
+                        className="text-xs px-1.5 py-0.5 rounded hover:opacity-80"
+                        style={{ color: 'var(--status-error)' }}
+                        title="Remove invoice"
+                      >
+                        {uploadingInvoice ? '...' : '×'}
+                      </button>
+                    )}
+                  </div>
+                ) : canManagePayments ? (
+                  <label
+                    className="flex items-center justify-center gap-2 p-3 rounded-lg cursor-pointer transition-colors hover:opacity-80"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px dashed var(--border-subtle)' }}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handleInvoiceUpload}
+                      disabled={uploadingInvoice}
+                      className="hidden"
+                    />
+                    {uploadingInvoice ? (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Uploading...</span>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Upload invoice (PDF, JPG, PNG)</span>
+                      </>
+                    )}
+                  </label>
+                ) : (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No invoice uploaded</p>
+                )}
+                {invoiceError && (
+                  <div className="mt-1 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+                    {invoiceError}
+                  </div>
+                )}
               </div>
 
               {/* Approval Chain */}
