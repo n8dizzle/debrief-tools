@@ -529,22 +529,17 @@ export async function GET(request: NextRequest) {
       return result;
     }
 
-    // Fetch TODAY live from ServiceTitan (Report 222 + 234), everything else from Supabase snapshots.
-    // This keeps the dashboard fast (1 API call instead of 10+) and avoids rate limits.
-    const isToday = date === getTodayDateString();
-
-    // WTD, MTD, QTD, YTD — sum from trade_daily_snapshots (instant from Supabase)
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
+    // ALL data from Supabase — zero ST API calls on page load.
+    // Today's data is kept fresh by a 10-min cron that syncs to trade_daily_snapshots.
+    // The Sync button triggers /api/trades/sync for manual refresh.
 
     try {
-      // Fetch all snapshots from start of year to yesterday in one query
+      // Single query: all snapshots from start of year to today (includes today's cached data)
       const { data: allSnaps } = await supabase
         .from('trade_daily_snapshots')
         .select('snapshot_date, trade, department, revenue, completed_revenue, non_job_revenue, adj_revenue, sales')
         .gte('snapshot_date', yearStartDate)
-        .lte('snapshot_date', isToday ? yesterdayStr : date)
+        .lte('snapshot_date', date)
         .order('snapshot_date');
 
       if (allSnaps && allSnaps.length > 0) {
@@ -561,66 +556,39 @@ export async function GET(request: NextRequest) {
           };
         };
 
-        // WTD (Monday to yesterday)
-        const wtdEnd = isToday ? yesterdayStr : date;
-        if (mondayStr <= wtdEnd) {
-          const wtd = sumRange(mondayStr, wtdEnd);
+        // Today
+        const todayData = sumRange(date, date);
+        tradeData.hvac.today = todayData.hvac;
+        tradeData.plumbing.today = todayData.plumbing;
+
+        // WTD (Monday to date)
+        if (mondayStr <= date) {
+          const wtd = sumRange(mondayStr, date);
           tradeData.hvac.wtd = wtd.hvac;
           tradeData.plumbing.wtd = wtd.plumbing;
         }
 
-        // MTD (1st of month to yesterday)
-        const mtdEnd = isToday ? yesterdayStr : date;
-        if (firstOfMonth <= mtdEnd) {
-          const mtd = sumRange(firstOfMonth, mtdEnd);
+        // MTD (1st of month to date)
+        if (firstOfMonth <= date) {
+          const mtd = sumRange(firstOfMonth, date);
           tradeData.hvac.mtd = mtd.hvac;
           tradeData.plumbing.mtd = mtd.plumbing;
         }
 
-        // QTD (quarter start to yesterday)
-        const qtdEnd = isToday ? yesterdayStr : date;
-        if (quarterStartDate <= qtdEnd) {
-          const qtd = sumRange(quarterStartDate, qtdEnd);
+        // QTD (quarter start to date)
+        if (quarterStartDate <= date) {
+          const qtd = sumRange(quarterStartDate, date);
           tradeData.hvac.qtd = qtd.hvac;
           tradeData.plumbing.qtd = qtd.plumbing;
         }
 
-        // YTD (Jan 1 to yesterday)
-        const ytdEnd = isToday ? yesterdayStr : date;
-        const ytd = sumRange(yearStartDate, ytdEnd);
+        // YTD (Jan 1 to date)
+        const ytd = sumRange(yearStartDate, date);
         tradeData.hvac.ytd = ytd.hvac;
         tradeData.plumbing.ytd = ytd.plumbing;
-
-        // For historical dates, also populate today from snapshots
-        if (!isToday) {
-          const todayData = sumRange(date, date);
-          tradeData.hvac.today = todayData.hvac;
-          tradeData.plumbing.today = todayData.plumbing;
-        }
       }
     } catch (snapError) {
       console.error('Error fetching trade snapshots:', snapError);
-    }
-
-    // Fetch only TODAY live from ServiceTitan (2 API calls: Report 222 + 234)
-    if (isToday && stClient.isConfigured()) {
-      try {
-        const todayMetrics = await stClient.getTradeMetrics(date);
-        tradeData.hvac.today = todayMetrics.hvac;
-        tradeData.plumbing.today = todayMetrics.plumbing;
-
-        // Add today's live data to the period totals
-        tradeData.hvac.wtd = addTradeMetrics(tradeData.hvac.wtd, todayMetrics.hvac);
-        tradeData.plumbing.wtd = addTradeMetrics(tradeData.plumbing.wtd, todayMetrics.plumbing);
-        tradeData.hvac.mtd = addTradeMetrics(tradeData.hvac.mtd, todayMetrics.hvac);
-        tradeData.plumbing.mtd = addTradeMetrics(tradeData.plumbing.mtd, todayMetrics.plumbing);
-        tradeData.hvac.qtd = addTradeMetrics(tradeData.hvac.qtd, todayMetrics.hvac);
-        tradeData.plumbing.qtd = addTradeMetrics(tradeData.plumbing.qtd, todayMetrics.plumbing);
-        tradeData.hvac.ytd = addTradeMetrics(tradeData.hvac.ytd, todayMetrics.hvac);
-        tradeData.plumbing.ytd = addTradeMetrics(tradeData.plumbing.ytd, todayMetrics.plumbing);
-      } catch (tradeError) {
-        console.error('Error fetching today trade metrics:', tradeError);
-      }
     }
 
     // Helper to get yesterday's date string

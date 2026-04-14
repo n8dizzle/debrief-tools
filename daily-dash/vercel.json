@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/trades/sync?today=true",
+      "schedule": "*/10 14-23 * * 1-6"
+    },
+    {
       "path": "/api/trades/sync",
       "schedule": "0 12 * * *"
     },
