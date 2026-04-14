@@ -117,6 +117,8 @@ export interface APInstallJob {
   technician_id: string | null;
   st_technician_id: number | null;
   damage_deduction: number;
+  invoice_file_url: string | null;
+  invoice_storage_path: string | null;
   is_ignored: boolean;
   synced_at: string | null;
   created_at: string;
