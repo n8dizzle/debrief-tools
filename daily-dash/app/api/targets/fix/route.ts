@@ -17,18 +17,18 @@ const REVENUE_TARGETS_2026: Record<string, number[]> = {
 // Business days per month (2026) - from your spreadsheet
 // Must match /api/targets/seed/route.ts
 const businessDays: Record<number, number> = {
-  1: 22,  // Jan
-  2: 19,  // Feb (Presidents Day)
-  3: 22,  // Mar
-  4: 22,  // Apr
-  5: 21,  // May (Memorial Day)
-  6: 22,  // Jun
-  7: 23,  // Jul
-  8: 21,  // Aug
-  9: 21,  // Sep (Labor Day)
-  10: 23, // Oct
-  11: 19, // Nov (Thanksgiving)
-  12: 23, // Dec (Christmas)
+  1: 23.5,  // Jan (New Year's Day)
+  2: 22,    // Feb
+  3: 24,    // Mar
+  4: 24,    // Apr
+  5: 22.5,  // May (Memorial Day)
+  6: 24,    // Jun
+  7: 24,    // Jul (July 4th observed)
+  8: 23.5,  // Aug
+  9: 23,    // Sep (Labor Day)
+  10: 24.5, // Oct
+  11: 21,   // Nov (Thanksgiving)
+  12: 24,   // Dec (Christmas)
 };
 
 // POST /api/targets/fix - Fix monthly targets from spreadsheet values
