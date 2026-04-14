@@ -151,7 +151,6 @@ const HVAC_BUSINESS_UNITS = [
   'HVAC - Install',
   'HVAC - Service',
   'HVAC - Maintenance',
-  'HVAC - Commercial',              // Counted as Service
   'HVAC - Sales',                   // Sales team revenue
   'Mims - Service',                 // Counted as Service
   // Legacy DNU business units (still have historical revenue)
@@ -165,7 +164,6 @@ const PLUMBING_BUSINESS_UNITS = [
   'Plumbing - Service',
   'Plumbing - Maintenance',
   'Plumbing - Sales',
-  'Plumbing - Commercial',
 ];
 
 // Map HVAC business unit names to department
@@ -173,7 +171,6 @@ const HVAC_DEPT_MAPPING: Record<string, HVACDepartment> = {
   'HVAC - Install': 'Install',
   'HVAC - Service': 'Service',
   'HVAC - Maintenance': 'Maintenance',
-  'HVAC - Commercial': 'Service',              // Commercial counts as Service
   'HVAC - Sales': 'Install',                   // Sales revenue counts as Install
   'Mims - Service': 'Service',                 // Mims counts as Service
   // Legacy DNU business units
@@ -395,7 +392,7 @@ export class ServiceTitanClient {
   /**
    * Get business unit IDs for a specific HVAC department
    * - Install: HVAC - Install
-   * - Service: HVAC - Service + HVAC - Commercial + Mims - Service
+   * - Service: HVAC - Service + Mims - Service
    * - Maintenance: HVAC - Maintenance
    */
   async getBusinessUnitIdsForHVACDepartment(department: HVACDepartment): Promise<number[]> {
@@ -474,6 +471,70 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Get sales broken down by HVAC department (Install/Service/Maintenance) and Plumbing.
+   * Fetches sold estimates for the date range, then maps each estimate to a department
+   * via its job's business unit.
+   */
+  async getSalesByDepartment(
+    startDate: string,
+    endDate?: string
+  ): Promise<{
+    hvac: { install: number; service: number; maintenance: number; total: number };
+    plumbing: number;
+    total: number;
+  }> {
+    const effectiveEndDate = endDate || startDate;
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
+
+    const estimates = await this.getSoldEstimates(startDate, dayAfterEnd);
+    if (estimates.length === 0) {
+      return { hvac: { install: 0, service: 0, maintenance: 0, total: 0 }, plumbing: 0, total: 0 };
+    }
+
+    // Collect unique jobIds from estimates
+    const jobIds = [...new Set(estimates.filter(e => e.jobId).map(e => e.jobId!))];
+
+    // Batch-fetch jobs to get their business units
+    const jobMap = jobIds.length > 0 ? await this.getJobsByIds(jobIds) : new Map<number, STJob>();
+
+    // Get BU name lookup
+    const businessUnits = await this.getBusinessUnits();
+    const buIdToName = new Map<number, string>();
+    businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
+
+    const result = {
+      hvac: { install: 0, service: 0, maintenance: 0, total: 0 },
+      plumbing: 0,
+      total: 0,
+    };
+
+    for (const est of estimates) {
+      const amount = Number(est.subtotal) || 0;
+      result.total += amount;
+
+      if (!est.jobId) continue;
+      const job = jobMap.get(est.jobId);
+      if (!job) continue;
+
+      const buName = buIdToName.get(job.businessUnitId) || '';
+      const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
+      const isPlumbing = PLUMBING_BUSINESS_UNITS.includes(buName);
+
+      if (isHvac) {
+        result.hvac.total += amount;
+        const dept = HVAC_DEPT_MAPPING[buName];
+        if (dept === 'Install') result.hvac.install += amount;
+        else if (dept === 'Service') result.hvac.service += amount;
+        else if (dept === 'Maintenance') result.hvac.maintenance += amount;
+      } else if (isPlumbing) {
+        result.plumbing += amount;
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Get revenue for an HVAC department for a date range
    * @param startDate - Start date (inclusive) in YYYY-MM-DD format
    * @param endDate - End date (inclusive) in YYYY-MM-DD format, defaults to startDate
@@ -492,16 +553,11 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get all trade metrics for a date range (optimized to reduce API calls)
-   * Returns TOTAL REVENUE (Completed + Non-Job + Adj) for both HVAC and Plumbing,
-   * plus HVAC department breakdown.
+   * Get all trade metrics using the ST Reporting API (Report 222: BU Dashboard - Revenue).
+   * This pulls the exact same numbers ServiceTitan shows on their Business Unit Dashboard,
+   * broken out by BU with Completed Revenue, Non-Job Revenue, Adj Revenue, and Total Revenue.
    *
-   * Matches ServiceTitan's Total Revenue formula:
-   * Total Revenue = Completed Revenue + Non-Job Revenue + Adj. Revenue
-   *
-   * - Completed Revenue: sum of job.total for jobs COMPLETED in the date range
-   * - Non-Job Revenue: sum of invoice totals WITHOUT job, filtered by createdOn
-   * - Adj Revenue: sum of invoice totals WITH adjustmentToId, filtered by createdOn
+   * Much more accurate than the old approach of fetching jobs + invoices separately.
    */
   async getTradeMetrics(startDate: string, endDate?: string): Promise<{
     hvac: {
@@ -523,142 +579,149 @@ export class ServiceTitanClient {
     };
   }> {
     const effectiveEndDate = endDate || startDate;
-    const dayAfterEnd = this.getNextDay(effectiveEndDate);
 
-    // Fetch business units once
-    const hvacBuIds = await this.getBusinessUnitIdsForTrade('HVAC');
-    const plumbingBuIds = await this.getBusinessUnitIdsForTrade('Plumbing');
-    const hvacInstallBuIds = await this.getBusinessUnitIdsForHVACDepartment('Install');
-    const hvacServiceBuIds = await this.getBusinessUnitIdsForHVACDepartment('Service');
-    const hvacMaintenanceBuIds = await this.getBusinessUnitIdsForHVACDepartment('Maintenance');
+    // Fetch BU Dashboard - Revenue report (Report 222)
+    const reportData = await this.getBUDashboardRevenue(startDate, effectiveEndDate);
 
-    // === COMPLETED REVENUE: From job.total for jobs completed in date range ===
-    const jobs = await this.getCompletedJobs(startDate, dayAfterEnd);
+    // Build BU name -> department mapping for aggregation
+    const businessUnits = await this.getBusinessUnits();
+    const buIdToName = new Map<number, string>();
+    businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
 
-    const hvacJobs = jobs.filter(j => hvacBuIds.includes(j.businessUnitId));
-    const plumbingJobs = jobs.filter(j => plumbingBuIds.includes(j.businessUnitId));
-    const hvacInstallJobs = jobs.filter(j => hvacInstallBuIds.includes(j.businessUnitId));
-    const hvacServiceJobs = jobs.filter(j => hvacServiceBuIds.includes(j.businessUnitId));
-    const hvacMaintenanceJobs = jobs.filter(j => hvacMaintenanceBuIds.includes(j.businessUnitId));
+    // Initialize accumulators
+    const hvac = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 };
+    const plumbing = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 };
+    const hvacDepts = {
+      install: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 },
+      service: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 },
+      maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 },
+    };
 
-    const hvacCompletedRevenue = hvacJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const plumbingCompletedRevenue = plumbingJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const hvacInstallCompletedRevenue = hvacInstallJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const hvacServiceCompletedRevenue = hvacServiceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-    const hvacMaintenanceCompletedRevenue = hvacMaintenanceJobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
-
-    // === NON-JOB & ADJ REVENUE: From invoices ===
-    // Fetch invoices created in the date range
-    const invoices = await this.getInvoicesDateRange(startDate, dayAfterEnd);
-
-    // Build job -> businessUnit map
-    const jobToBuMap = new Map<number, number>();
-    jobs.forEach(j => jobToBuMap.set(j.id, j.businessUnitId));
-    for (const inv of invoices) {
-      if (inv.job?.id && inv.businessUnit?.id) {
-        jobToBuMap.set(inv.job.id, inv.businessUnit.id);
-      }
-    }
-
-    // Initialize Non-Job and Adj accumulators
-    let hvacNonJobRevenue = 0;
-    let hvacAdjRevenue = 0;
-    let hvacInstallAdjRevenue = 0;
-    let hvacServiceAdjRevenue = 0;
-    let hvacMaintenanceNonJobRevenue = 0;
-    let hvacMaintenanceAdjRevenue = 0;
-
-    let plumbingNonJobRevenue = 0;
-    let plumbingAdjRevenue = 0;
-
-    // Process invoices for Non-Job and Adj Revenue
-    for (const inv of invoices) {
-      const total = Number(inv.total) || 0;
-
-      // Determine business unit
-      let invoiceBuId: number | undefined;
-      if (inv.businessUnit?.id) {
-        invoiceBuId = inv.businessUnit.id;
-      } else if (inv.job?.id) {
-        invoiceBuId = jobToBuMap.get(inv.job.id);
-      }
-
-      if (!invoiceBuId) continue;
-
-      const hasJob = inv.job?.id != null;
-      const isAdjustment = inv.adjustmentToId != null;
-
-      const isHvac = hvacBuIds.includes(invoiceBuId);
-      const isPlumbing = plumbingBuIds.includes(invoiceBuId);
+    // Aggregate report rows by trade and department
+    for (const row of reportData) {
+      const buName = row.businessUnitName;
+      const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
+      const isPlumbing = PLUMBING_BUSINESS_UNITS.includes(buName);
 
       if (!isHvac && !isPlumbing) continue;
 
-      if (!hasJob) {
-        // === NON-JOB REVENUE ===
-        if (isHvac) {
-          hvacNonJobRevenue += total;
-          hvacMaintenanceNonJobRevenue += total;
-        } else if (isPlumbing) {
-          plumbingNonJobRevenue += total;
+      if (isHvac) {
+        hvac.completedRevenue += row.completedRevenue;
+        hvac.nonJobRevenue += row.nonJobRevenue;
+        hvac.adjRevenue += row.adjRevenue;
+        hvac.revenue += row.totalRevenue;
+
+        // Map to HVAC department
+        const dept = HVAC_DEPT_MAPPING[buName];
+        if (dept === 'Install') {
+          hvacDepts.install.completedRevenue += row.completedRevenue;
+          hvacDepts.install.nonJobRevenue += row.nonJobRevenue;
+          hvacDepts.install.adjRevenue += row.adjRevenue;
+          hvacDepts.install.revenue += row.totalRevenue;
+        } else if (dept === 'Service') {
+          hvacDepts.service.completedRevenue += row.completedRevenue;
+          hvacDepts.service.nonJobRevenue += row.nonJobRevenue;
+          hvacDepts.service.adjRevenue += row.adjRevenue;
+          hvacDepts.service.revenue += row.totalRevenue;
+        } else if (dept === 'Maintenance') {
+          hvacDepts.maintenance.completedRevenue += row.completedRevenue;
+          hvacDepts.maintenance.nonJobRevenue += row.nonJobRevenue;
+          hvacDepts.maintenance.adjRevenue += row.adjRevenue;
+          hvacDepts.maintenance.revenue += row.totalRevenue;
         }
-      } else if (isAdjustment) {
-        // === ADJ REVENUE ===
-        if (isHvac) {
-          hvacAdjRevenue += total;
-          if (hvacInstallBuIds.includes(invoiceBuId)) hvacInstallAdjRevenue += total;
-          else if (hvacServiceBuIds.includes(invoiceBuId)) hvacServiceAdjRevenue += total;
-          else if (hvacMaintenanceBuIds.includes(invoiceBuId)) hvacMaintenanceAdjRevenue += total;
-        } else if (isPlumbing) {
-          plumbingAdjRevenue += total;
-        }
+      } else if (isPlumbing) {
+        plumbing.completedRevenue += row.completedRevenue;
+        plumbing.nonJobRevenue += row.nonJobRevenue;
+        plumbing.adjRevenue += row.adjRevenue;
+        plumbing.revenue += row.totalRevenue;
       }
     }
 
-    // Department non-job revenue
-    const hvacInstallNonJobRevenue = 0;
-    const hvacServiceNonJobRevenue = 0;
-
-    // Calculate Total Revenue = Completed + Non-Job + Adj
-    const hvacTotalRevenue = hvacCompletedRevenue + hvacNonJobRevenue + hvacAdjRevenue;
-    const plumbingTotalRevenue = plumbingCompletedRevenue + plumbingNonJobRevenue + plumbingAdjRevenue;
-    const hvacInstallTotalRevenue = hvacInstallCompletedRevenue + hvacInstallNonJobRevenue + hvacInstallAdjRevenue;
-    const hvacServiceTotalRevenue = hvacServiceCompletedRevenue + hvacServiceNonJobRevenue + hvacServiceAdjRevenue;
-    const hvacMaintenanceTotalRevenue = hvacMaintenanceCompletedRevenue + hvacMaintenanceNonJobRevenue + hvacMaintenanceAdjRevenue;
-
     return {
       hvac: {
-        completedRevenue: hvacCompletedRevenue,
-        nonJobRevenue: hvacNonJobRevenue,
-        adjRevenue: hvacAdjRevenue,
-        revenue: hvacTotalRevenue,
-        departments: {
-          install: {
-            completedRevenue: hvacInstallCompletedRevenue,
-            nonJobRevenue: hvacInstallNonJobRevenue,
-            adjRevenue: hvacInstallAdjRevenue,
-            revenue: hvacInstallTotalRevenue,
-          },
-          service: {
-            completedRevenue: hvacServiceCompletedRevenue,
-            nonJobRevenue: hvacServiceNonJobRevenue,
-            adjRevenue: hvacServiceAdjRevenue,
-            revenue: hvacServiceTotalRevenue,
-          },
-          maintenance: {
-            completedRevenue: hvacMaintenanceCompletedRevenue,
-            nonJobRevenue: hvacMaintenanceNonJobRevenue,
-            adjRevenue: hvacMaintenanceAdjRevenue,
-            revenue: hvacMaintenanceTotalRevenue,
-          },
-        },
+        ...hvac,
+        departments: hvacDepts,
       },
-      plumbing: {
-        completedRevenue: plumbingCompletedRevenue,
-        nonJobRevenue: plumbingNonJobRevenue,
-        adjRevenue: plumbingAdjRevenue,
-        revenue: plumbingTotalRevenue,
-      },
+      plumbing,
     };
+  }
+
+  /**
+   * Fetch BU Dashboard - Revenue report (Report 222) from the ST Reporting API.
+   * Returns one row per business unit with revenue breakdown columns.
+   */
+  private async getBUDashboardRevenue(startDate: string, endDate: string): Promise<{
+    businessUnitName: string;
+    completedRevenue: number;
+    nonJobRevenue: number;
+    adjRevenue: number;
+    totalRevenue: number;
+  }[]> {
+    const allRows: {
+      businessUnitName: string;
+      completedRevenue: number;
+      nonJobRevenue: number;
+      adjRevenue: number;
+      totalRevenue: number;
+    }[] = [];
+
+    let page = 1;
+    let hasMore = true;
+    let fieldMap: Map<string, number> | null = null;
+
+    while (hasMore && page <= 50) {
+      const response = await this.request<{
+        fields: { name: string; label: string }[];
+        data: any[][];
+        hasMore: boolean;
+        page: number;
+        pageSize: number;
+      }>(
+        'POST',
+        `reporting/v2/tenant/${this.tenantId}/report-category/business-unit-dashboard/reports/222/data`,
+        {
+          body: {
+            parameters: [
+              { name: 'From', value: startDate },
+              { name: 'To', value: endDate },
+            ],
+            pageSize: 2000,
+            page,
+          },
+        }
+      );
+
+      // Build field index map from first page
+      if (!fieldMap) {
+        fieldMap = new Map<string, number>();
+        (response.fields || []).forEach((f, i) => fieldMap!.set(f.name, i));
+        console.log(`[Report 222] Fields: ${response.fields?.map(f => `${f.name} (${f.label})`).join(', ')}`);
+      }
+
+      // Field mapping from Report 222 response:
+      // Name, CompletedRevenue, NonJobRevenue, AdjustmentRevenue, TotalRevenue
+      const buNameIdx = fieldMap.get('Name') ?? 0;
+      const completedIdx = fieldMap.get('CompletedRevenue') ?? 1;
+      const nonJobIdx = fieldMap.get('NonJobRevenue') ?? 2;
+      const adjIdx = fieldMap.get('AdjustmentRevenue') ?? 3;
+      const totalIdx = fieldMap.get('TotalRevenue') ?? 4;
+
+      for (const row of (response.data || [])) {
+        allRows.push({
+          businessUnitName: (row[buNameIdx] || '').toString().trim(),
+          completedRevenue: parseFloat(row[completedIdx]) || 0,
+          nonJobRevenue: parseFloat(row[nonJobIdx]) || 0,
+          adjRevenue: parseFloat(row[adjIdx]) || 0,
+          totalRevenue: parseFloat(row[totalIdx]) || 0,
+        });
+      }
+
+      hasMore = response.hasMore === true;
+      page++;
+    }
+
+    console.log(`[Report 222] ${allRows.length} BU rows across ${page - 1} pages`);
+    return allRows;
   }
 
   /**

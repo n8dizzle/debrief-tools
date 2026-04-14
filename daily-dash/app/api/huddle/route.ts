@@ -368,30 +368,39 @@ export async function GET(request: NextRequest) {
       completedRevenue: number;
       nonJobRevenue: number;
       adjRevenue: number;
+      sales: number;
     }
 
-    const zeroDeptRevenue: DeptRevenue = { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 };
+    const zeroDeptRevenue: DeptRevenue = { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0 };
+
+    // Per-department daily/weekly targets
+    const installDaily = deptTargets['HVAC Install']?.daily || 0;
+    const serviceDaily = deptTargets['HVAC Service']?.daily || 0;
+    const maintenanceDaily = deptTargets['HVAC Maintenance']?.daily || 0;
+    const installWeekly = installDaily * totalWeekBusinessDays;
+    const serviceWeekly = serviceDaily * totalWeekBusinessDays;
+    const maintenanceWeekly = maintenanceDaily * totalWeekBusinessDays;
 
     let tradeData = {
       hvac: {
         today: {
-          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0,
           departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
         },
         wtd: {
-          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0,
           departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
         },
         mtd: {
-          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0,
           departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
         },
         qtd: {
-          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0,
           departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
         },
         ytd: {
-          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0,
+          revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0,
           departments: { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
         },
         targets: {
@@ -401,18 +410,18 @@ export async function GET(request: NextRequest) {
           quarterly: hvacQuarterlyTarget,
           annual: hvacAnnualTarget,
           departments: {
-            install: deptTargets['HVAC Install']?.monthly || 0,
-            service: deptTargets['HVAC Service']?.monthly || 0,
-            maintenance: deptTargets['HVAC Maintenance']?.monthly || 0,
+            install: { monthly: deptTargets['HVAC Install']?.monthly || 0, daily: installDaily, weekly: installWeekly },
+            service: { monthly: deptTargets['HVAC Service']?.monthly || 0, daily: serviceDaily, weekly: serviceWeekly },
+            maintenance: { monthly: deptTargets['HVAC Maintenance']?.monthly || 0, daily: maintenanceDaily, weekly: maintenanceWeekly },
           },
         },
       },
       plumbing: {
-        today: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
-        wtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
-        mtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
-        qtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
-        ytd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0 },
+        today: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0 },
+        wtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0 },
+        mtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0 },
+        qtd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0 },
+        ytd: { revenue: 0, completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, sales: 0 },
         targets: {
           daily: plumbingDailyTarget,
           weekly: plumbingWeeklyTarget,
@@ -434,12 +443,13 @@ export async function GET(request: NextRequest) {
       adj_revenue: number;
     }
 
-    function aggregateTradeSnapshots(snapshots: TradeSnapshot[]): typeof tradeData.hvac.today & { departments?: typeof tradeData.hvac.today.departments } {
+    function aggregateTradeSnapshots(snapshots: TradeSnapshot[]) {
       const result = {
         revenue: 0,
         completedRevenue: 0,
         nonJobRevenue: 0,
         adjRevenue: 0,
+        sales: 0,
         departments: {
           install: { ...zeroDeptRevenue },
           service: { ...zeroDeptRevenue },
@@ -480,41 +490,69 @@ export async function GET(request: NextRequest) {
 
     if (stClient.isConfigured()) {
       try {
-        // Fetch Today, WTD, MTD directly from ServiceTitan in parallel
-        // This makes 3 API calls but ensures data matches ServiceTitan exactly
-        const [todayMetrics, wtdMetrics, mtdMetrics] = await Promise.all([
+        // Fetch Today, WTD, MTD revenue + sales from ServiceTitan in parallel
+        const [todayMetrics, wtdMetrics, mtdMetrics, todaySalesDept, wtdSalesDept, mtdSalesDept] = await Promise.all([
           stClient.getTradeMetrics(date),           // Today only
           stClient.getTradeMetrics(mondayStr, date), // Monday through today
           stClient.getTradeMetrics(firstOfMonth, date), // First of month through today
+          stClient.getSalesByDepartment(date),           // Sales today
+          stClient.getSalesByDepartment(mondayStr, date), // Sales WTD
+          stClient.getSalesByDepartment(firstOfMonth, date), // Sales MTD
         ]);
 
+        // Helper to merge revenue metrics with sales data
+        const mergeHvacPeriod = (
+          metrics: typeof todayMetrics.hvac,
+          sales: typeof todaySalesDept
+        ) => ({
+          ...metrics,
+          sales: sales.hvac.total,
+          departments: {
+            install: { ...metrics.departments.install, sales: sales.hvac.install },
+            service: { ...metrics.departments.service, sales: sales.hvac.service },
+            maintenance: { ...metrics.departments.maintenance, sales: sales.hvac.maintenance },
+          },
+        });
+
         // TODAY
-        tradeData.hvac.today = todayMetrics.hvac;
-        tradeData.plumbing.today = todayMetrics.plumbing;
+        tradeData.hvac.today = mergeHvacPeriod(todayMetrics.hvac, todaySalesDept);
+        tradeData.plumbing.today = { ...todayMetrics.plumbing, sales: todaySalesDept.plumbing };
 
-        // WTD (Monday through selected date) - live from ServiceTitan
-        tradeData.hvac.wtd = wtdMetrics.hvac;
-        tradeData.plumbing.wtd = wtdMetrics.plumbing;
+        // WTD
+        tradeData.hvac.wtd = mergeHvacPeriod(wtdMetrics.hvac, wtdSalesDept);
+        tradeData.plumbing.wtd = { ...wtdMetrics.plumbing, sales: wtdSalesDept.plumbing };
 
-        // MTD (First of month through selected date) - live from ServiceTitan
-        tradeData.hvac.mtd = mtdMetrics.hvac;
-        tradeData.plumbing.mtd = mtdMetrics.plumbing;
+        // MTD
+        tradeData.hvac.mtd = mergeHvacPeriod(mtdMetrics.hvac, mtdSalesDept);
+        tradeData.plumbing.mtd = { ...mtdMetrics.plumbing, sales: mtdSalesDept.plumbing };
 
-        // QTD - fetch live from ServiceTitan for accuracy
+        // QTD - fetch live from ServiceTitan for accuracy (no sales breakdown for QTD)
         const qtdMetrics = await stClient.getTradeMetrics(quarterStartDate, date);
-        tradeData.hvac.qtd = qtdMetrics.hvac;
-        tradeData.plumbing.qtd = qtdMetrics.plumbing;
+        tradeData.hvac.qtd = {
+          ...qtdMetrics.hvac, sales: 0,
+          departments: {
+            install: { ...qtdMetrics.hvac.departments.install, sales: 0 },
+            service: { ...qtdMetrics.hvac.departments.service, sales: 0 },
+            maintenance: { ...qtdMetrics.hvac.departments.maintenance, sales: 0 },
+          },
+        };
+        tradeData.plumbing.qtd = { ...qtdMetrics.plumbing, sales: 0 };
 
         // YTD - for Q1, YTD equals QTD. For other quarters, fetch full year live.
         if (quarter === 1) {
-          // Q1: YTD = QTD
-          tradeData.hvac.ytd = qtdMetrics.hvac;
-          tradeData.plumbing.ytd = qtdMetrics.plumbing;
+          tradeData.hvac.ytd = { ...tradeData.hvac.qtd };
+          tradeData.plumbing.ytd = { ...tradeData.plumbing.qtd };
         } else {
-          // Q2+: Fetch full YTD live from ServiceTitan
           const ytdMetrics = await stClient.getTradeMetrics(yearStartDate, date);
-          tradeData.hvac.ytd = ytdMetrics.hvac;
-          tradeData.plumbing.ytd = ytdMetrics.plumbing;
+          tradeData.hvac.ytd = {
+            ...ytdMetrics.hvac, sales: 0,
+            departments: {
+              install: { ...ytdMetrics.hvac.departments.install, sales: 0 },
+              service: { ...ytdMetrics.hvac.departments.service, sales: 0 },
+              maintenance: { ...ytdMetrics.hvac.departments.maintenance, sales: 0 },
+            },
+          };
+          tradeData.plumbing.ytd = { ...ytdMetrics.plumbing, sales: 0 };
         }
 
         // If viewing a historical date, fetch that day's data from Supabase
@@ -528,11 +566,18 @@ export async function GET(request: NextRequest) {
             const hvacTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'hvac');
             const plumbingTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'plumbing');
             const hvacTodayAgg = aggregateTradeSnapshots(hvacTodaySnaps);
+            const depts = hvacTodayAgg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } };
             tradeData.hvac.today = {
               ...hvacTodayAgg,
-              departments: hvacTodayAgg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } },
+              sales: 0,
+              departments: {
+                install: { ...depts.install, sales: 0 },
+                service: { ...depts.service, sales: 0 },
+                maintenance: { ...depts.maintenance, sales: 0 },
+              },
             };
-            tradeData.plumbing.today = aggregateTradeSnapshots(plumbingTodaySnaps);
+            const plumbingAgg = aggregateTradeSnapshots(plumbingTodaySnaps);
+            tradeData.plumbing.today = { ...plumbingAgg, sales: 0 };
           }
         }
       } catch (tradeError) {

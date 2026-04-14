@@ -19,6 +19,7 @@ interface DepartmentRevenue {
   completedRevenue: number;
   nonJobRevenue: number;
   adjRevenue: number;
+  sales: number;
 }
 
 // Trade metrics for a single time period
@@ -27,11 +28,19 @@ interface TradeMetrics {
   completedRevenue: number;
   nonJobRevenue: number;
   adjRevenue: number;
+  sales: number;
   departments?: {
     install: DepartmentRevenue;
     service: DepartmentRevenue;
     maintenance: DepartmentRevenue;
   };
+}
+
+// Per-department targets
+interface DeptTargets {
+  monthly: number;
+  daily: number;
+  weekly: number;
 }
 
 // Trade targets
@@ -41,10 +50,10 @@ interface HVACTargets {
   monthly: number;
   quarterly: number;
   annual: number;
-  departments: {
-    install: number;
-    service: number;
-    maintenance: number;
+  departments?: {
+    install: DeptTargets;
+    service: DeptTargets;
+    maintenance: DeptTargets;
   };
 }
 
@@ -62,6 +71,7 @@ interface PlumbingMetrics {
   completedRevenue: number;
   nonJobRevenue: number;
   adjRevenue: number;
+  sales: number;
 }
 
 // All trade data across time periods
@@ -757,6 +767,179 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
 }
 
 // ============================================
+// TRADE SCOREBOARD COMPONENT
+// ============================================
+interface TradeScoreboardProps {
+  trade: 'hvac' | 'plumbing';
+  tradeData: TradeData;
+  targets: HVACTargets | PlumbingTargets | undefined;
+  dailyPacing: number;
+  weeklyPacing: number;
+  monthlyPacing: number;
+  loading: boolean;
+}
+
+function ScoreboardCell({
+  actual,
+  target,
+  expectedPacing,
+  loading,
+}: {
+  actual: number;
+  target: number;
+  expectedPacing: number;
+  loading: boolean;
+}) {
+  if (loading) return <span style={{ color: 'var(--text-muted)' }}>--</span>;
+  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
+  const color = target > 0 ? getStatusColor(Math.round((pct / Math.max(expectedPacing, 1)) * 100)) : 'var(--text-muted)';
+  return (
+    <div className="text-right">
+      <span style={{ color }} className="font-semibold">{formatCurrencyCompact(actual)}</span>
+      {target > 0 && (
+        <span style={{ color: 'var(--text-muted)' }} className="text-[10px] sm:text-xs"> / {formatCurrencyCompact(target)}</span>
+      )}
+    </div>
+  );
+}
+
+function SalesCell({ actual, loading }: { actual: number; loading: boolean }) {
+  if (loading) return <span style={{ color: 'var(--text-muted)' }}>--</span>;
+  return (
+    <div className="text-right">
+      <span style={{ color: 'var(--christmas-cream)' }} className="font-semibold">{formatCurrencyCompact(actual)}</span>
+    </div>
+  );
+}
+
+function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing, monthlyPacing, loading }: TradeScoreboardProps) {
+  const isHvac = trade === 'hvac';
+  const accentColor = isHvac ? '#3B82F6' : '#8B5CF6';
+  const data = tradeData[trade];
+
+  const hvacTargets = targets as HVACTargets | undefined;
+  const depts = isHvac ? ['install', 'service', 'maintenance'] as const : [];
+  const deptLabels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
+
+  // Get department data for a period
+  const getDept = (period: 'today' | 'wtd' | 'mtd', dept: 'install' | 'service' | 'maintenance') => {
+    const periodData = data[period] as TradeMetrics;
+    return periodData?.departments?.[dept] || { revenue: 0, sales: 0 };
+  };
+
+  const getDeptTarget = (dept: 'install' | 'service' | 'maintenance', period: 'daily' | 'weekly' | 'monthly') => {
+    return hvacTargets?.departments?.[dept]?.[period] || 0;
+  };
+
+  return (
+    <div
+      className="p-4 sm:p-5 rounded-xl mb-4"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: `1px solid ${accentColor}4D`,
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: `${accentColor}33` }}
+          >
+            {isHvac ? (
+              <svg className="w-4 h-4" fill="none" stroke={accentColor} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke={accentColor} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            )}
+          </div>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            {isHvac ? 'HVAC' : 'Plumbing'}
+          </h3>
+        </div>
+      </div>
+
+      {/* Scoreboard Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs sm:text-sm" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+          <thead>
+            <tr>
+              <th className="text-left py-2 pr-2 font-medium" style={{ color: 'var(--text-muted)', width: '100px' }}></th>
+              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Today</th>
+              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Week</th>
+              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Month</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Department rows (HVAC only) */}
+            {isHvac && depts.map((dept) => (
+              <tr key={dept}>
+                <td className="py-1.5 pr-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  {deptLabels[dept]}
+                </td>
+                <td className="py-1.5 px-2">
+                  <ScoreboardCell actual={getDept('today', dept).revenue} target={getDeptTarget(dept, 'daily')} expectedPacing={dailyPacing} loading={loading} />
+                </td>
+                <td className="py-1.5 px-2">
+                  <ScoreboardCell actual={getDept('wtd', dept).revenue} target={getDeptTarget(dept, 'weekly')} expectedPacing={weeklyPacing} loading={loading} />
+                </td>
+                <td className="py-1.5 px-2">
+                  <ScoreboardCell actual={getDept('mtd', dept).revenue} target={getDeptTarget(dept, 'monthly')} expectedPacing={monthlyPacing} loading={loading} />
+                </td>
+              </tr>
+            ))}
+
+            {/* Separator */}
+            {isHvac && (
+              <tr>
+                <td colSpan={4} className="py-1">
+                  <div className="h-px w-full" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
+                </td>
+              </tr>
+            )}
+
+            {/* Total Revenue row */}
+            <tr>
+              <td className="py-1.5 pr-2 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Revenue
+              </td>
+              <td className="py-1.5 px-2">
+                <ScoreboardCell actual={data.today.revenue} target={targets?.daily || 0} expectedPacing={dailyPacing} loading={loading} />
+              </td>
+              <td className="py-1.5 px-2">
+                <ScoreboardCell actual={data.wtd.revenue} target={targets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} />
+              </td>
+              <td className="py-1.5 px-2">
+                <ScoreboardCell actual={data.mtd.revenue} target={targets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} />
+              </td>
+            </tr>
+
+            {/* Total Sales row */}
+            <tr>
+              <td className="py-1.5 pr-2 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Sales
+              </td>
+              <td className="py-1.5 px-2">
+                <SalesCell actual={(data.today as TradeMetrics).sales || 0} loading={loading} />
+              </td>
+              <td className="py-1.5 px-2">
+                <SalesCell actual={(data.wtd as TradeMetrics).sales || 0} loading={loading} />
+              </td>
+              <td className="py-1.5 px-2">
+                <SalesCell actual={(data.mtd as TradeMetrics).sales || 0} loading={loading} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // MAIN DASHBOARD PAGE
 // ============================================
 export default function DashboardPage() {
@@ -817,15 +1000,6 @@ export default function DashboardPage() {
 
   // Trade data
   const trades = pacing?.trades;
-  const hvacToday = trades?.hvac?.today?.revenue || 0;
-  const hvacWtd = trades?.hvac?.wtd?.revenue || 0;
-  const hvacMtd = trades?.hvac?.mtd?.revenue || 0;
-  const hvacInstallMtd = trades?.hvac?.mtd?.departments?.install?.revenue || 0;
-  const hvacServiceMtd = trades?.hvac?.mtd?.departments?.service?.revenue || 0;
-  const hvacMaintenanceMtd = trades?.hvac?.mtd?.departments?.maintenance?.revenue || 0;
-  const plumbingToday = trades?.plumbing?.today?.revenue || 0;
-  const plumbingWtd = trades?.plumbing?.wtd?.revenue || 0;
-  const plumbingMtd = trades?.plumbing?.mtd?.revenue || 0;
 
   // Trade targets
   const hvacTargets = trades?.hvac?.targets;
@@ -968,159 +1142,31 @@ export default function DashboardPage() {
       {/* Section Divider - By Trade */}
       <SectionDivider label="By Trade" />
 
-      {/* HVAC Trade Section */}
-      <div
-        className="p-4 sm:p-5 rounded-xl mb-4"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
-        }}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-              HVAC
-            </h3>
-          </div>
-          <div className="text-right">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>MTD: </span>
-            <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-              {loading ? '...' : formatCurrencyCompact(hvacMtd)}
-            </span>
-          </div>
-        </div>
+      {/* HVAC Scoreboard */}
+      {trades && (
+        <TradeScoreboard
+          trade="hvac"
+          tradeData={trades}
+          targets={hvacTargets}
+          dailyPacing={dailyPacing}
+          weeklyPacing={weeklyPacing}
+          monthlyPacing={monthlyPacing}
+          loading={loading}
+        />
+      )}
 
-        {/* Time Period Cards - Today, Week, Month only */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-          <MiniTradeCard
-            label="Today"
-            revenue={hvacToday}
-            target={hvacTargets?.daily || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={dailyPacing}
-          />
-          <MiniTradeCard
-            label="Week"
-            revenue={hvacWtd}
-            target={hvacTargets?.weekly || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={weeklyPacing}
-          />
-          <MiniTradeCard
-            label="Month"
-            revenue={hvacMtd}
-            target={hvacTargets?.monthly || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={monthlyPacing}
-          />
-        </div>
-
-        {/* Separator */}
-        <div className="h-px w-full mb-4" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
-
-        {/* Department Label */}
-        <p className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-          Departments (MTD)
-        </p>
-
-        {/* HVAC Departments */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <MiniTradeCard
-            label="Install"
-            revenue={hvacInstallMtd}
-            target={hvacTargets?.departments?.install || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={monthlyPacing}
-          />
-          <MiniTradeCard
-            label="Service"
-            revenue={hvacServiceMtd}
-            target={hvacTargets?.departments?.service || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={monthlyPacing}
-          />
-          <MiniTradeCard
-            label="Maintenance"
-            revenue={hvacMaintenanceMtd}
-            target={hvacTargets?.departments?.maintenance || 0}
-            loading={loading}
-            accentColor="#3B82F6"
-            expectedPacing={monthlyPacing}
-          />
-        </div>
-      </div>
-
-      {/* Plumbing Trade Section */}
-      <div
-        className="p-4 sm:p-5 rounded-xl mb-8"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid rgba(139, 92, 246, 0.3)',
-        }}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)' }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-              Plumbing
-            </h3>
-          </div>
-          <div className="text-right">
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>MTD: </span>
-            <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-              {loading ? '...' : formatCurrencyCompact(plumbingMtd)}
-            </span>
-          </div>
-        </div>
-
-        {/* Time Period Cards - Today, Week, Month only */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <MiniTradeCard
-            label="Today"
-            revenue={plumbingToday}
-            target={plumbingTargets?.daily || 0}
-            loading={loading}
-            accentColor="#8B5CF6"
-            expectedPacing={dailyPacing}
-          />
-          <MiniTradeCard
-            label="Week"
-            revenue={plumbingWtd}
-            target={plumbingTargets?.weekly || 0}
-            loading={loading}
-            accentColor="#8B5CF6"
-            expectedPacing={weeklyPacing}
-          />
-          <MiniTradeCard
-            label="Month"
-            revenue={plumbingMtd}
-            target={plumbingTargets?.monthly || 0}
-            loading={loading}
-            accentColor="#8B5CF6"
-            expectedPacing={monthlyPacing}
-          />
-        </div>
-      </div>
+      {/* Plumbing Scoreboard */}
+      {trades && (
+        <TradeScoreboard
+          trade="plumbing"
+          tradeData={trades}
+          targets={plumbingTargets}
+          dailyPacing={dailyPacing}
+          weeklyPacing={weeklyPacing}
+          monthlyPacing={monthlyPacing}
+          loading={loading}
+        />
+      )}
     </div>
   );
 }
