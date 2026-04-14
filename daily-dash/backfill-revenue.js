@@ -59,6 +59,36 @@ async function getToken() {
   return token;
 }
 
+async function getSalesReport(from, to, retryCount = 0) {
+  const tk = await getToken();
+  const res = await fetch(
+    `${BASE_URL}/reporting/v2/tenant/${tenantId}/report-category/business-unit-dashboard/reports/234/data`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${tk}`,
+        'ST-App-Key': process.env.ST_APP_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        parameters: [
+          { name: 'From', value: from },
+          { name: 'To', value: to },
+        ],
+        pageSize: 2000,
+        page: 1,
+      }),
+    }
+  );
+  if (res.status === 429) {
+    if (retryCount >= 5) return { data: [] }; // Skip sales if rate limited
+    await sleep(120 * 1000);
+    return getSalesReport(from, to, retryCount + 1);
+  }
+  if (!res.ok) return { data: [] }; // Skip sales on error, don't fail the whole run
+  return res.json();
+}
+
 async function getReport(from, to, retryCount = 0) {
   const tk = await getToken();
   const res = await fetch(
@@ -126,6 +156,27 @@ function aggregate(rows) {
   return { hvac, plumbing, depts };
 }
 
+function aggregateSales(rows) {
+  const salesByBU = new Map();
+  for (const r of (rows || [])) {
+    const name = (r[0] || '').toString().trim();
+    const sales = parseFloat(r[1]) || 0;
+    salesByBU.set(name, sales);
+  }
+  let hvacSales = 0, plumbingSales = 0;
+  const deptSales = { install: 0, service: 0, maintenance: 0 };
+  for (const [name, sales] of salesByBU) {
+    if (HVAC_BUS.includes(name)) {
+      hvacSales += sales;
+      const dept = DEPT_MAP[name];
+      if (dept) deptSales[dept] += sales;
+    } else if (PLUMBING_BUS.includes(name)) {
+      plumbingSales += sales;
+    }
+  }
+  return { hvacSales, plumbingSales, deptSales };
+}
+
 function fmt(d) {
   return d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
@@ -181,14 +232,18 @@ async function findResumeDate() {
   while (current <= end) {
     const dateStr = fmt(current);
     try {
-      const data = await getReport(dateStr, dateStr);
+      const [data, salesData] = await Promise.all([
+        getReport(dateStr, dateStr),
+        getSalesReport(dateStr, dateStr),
+      ]);
       const { hvac, plumbing, depts } = aggregate(data.data);
+      const { hvacSales, plumbingSales, deptSales } = aggregateSales(salesData.data);
       const rows = [
-        { snapshot_date: dateStr, trade: 'hvac', department: null, revenue: hvac.tr, completed_revenue: hvac.cr, non_job_revenue: hvac.njr, adj_revenue: hvac.ar },
-        { snapshot_date: dateStr, trade: 'hvac', department: 'install', revenue: depts.install.tr, completed_revenue: depts.install.cr, non_job_revenue: depts.install.njr, adj_revenue: depts.install.ar },
-        { snapshot_date: dateStr, trade: 'hvac', department: 'service', revenue: depts.service.tr, completed_revenue: depts.service.cr, non_job_revenue: depts.service.njr, adj_revenue: depts.service.ar },
-        { snapshot_date: dateStr, trade: 'hvac', department: 'maintenance', revenue: depts.maintenance.tr, completed_revenue: depts.maintenance.cr, non_job_revenue: depts.maintenance.njr, adj_revenue: depts.maintenance.ar },
-        { snapshot_date: dateStr, trade: 'plumbing', department: null, revenue: plumbing.tr, completed_revenue: plumbing.cr, non_job_revenue: plumbing.njr, adj_revenue: plumbing.ar },
+        { snapshot_date: dateStr, trade: 'hvac', department: null, revenue: hvac.tr, completed_revenue: hvac.cr, non_job_revenue: hvac.njr, adj_revenue: hvac.ar, sales: hvacSales },
+        { snapshot_date: dateStr, trade: 'hvac', department: 'install', revenue: depts.install.tr, completed_revenue: depts.install.cr, non_job_revenue: depts.install.njr, adj_revenue: depts.install.ar, sales: deptSales.install },
+        { snapshot_date: dateStr, trade: 'hvac', department: 'service', revenue: depts.service.tr, completed_revenue: depts.service.cr, non_job_revenue: depts.service.njr, adj_revenue: depts.service.ar, sales: deptSales.service },
+        { snapshot_date: dateStr, trade: 'hvac', department: 'maintenance', revenue: depts.maintenance.tr, completed_revenue: depts.maintenance.cr, non_job_revenue: depts.maintenance.njr, adj_revenue: depts.maintenance.ar, sales: deptSales.maintenance },
+        { snapshot_date: dateStr, trade: 'plumbing', department: null, revenue: plumbing.tr, completed_revenue: plumbing.cr, non_job_revenue: plumbing.njr, adj_revenue: plumbing.ar, sales: plumbingSales },
       ];
       await supabase.from('trade_daily_snapshots').delete().eq('snapshot_date', dateStr);
       const { error } = await supabase.from('trade_daily_snapshots').insert(rows);

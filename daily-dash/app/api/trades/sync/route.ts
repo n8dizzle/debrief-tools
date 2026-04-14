@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
             completed_revenue: metrics.hvac.completedRevenue,
             non_job_revenue: metrics.hvac.nonJobRevenue,
             adj_revenue: metrics.hvac.adjRevenue,
+            sales: metrics.hvac.sales,
           },
           // HVAC Install
           {
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
             completed_revenue: metrics.hvac.departments?.install?.completedRevenue || 0,
             non_job_revenue: metrics.hvac.departments?.install?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.install?.adjRevenue || 0,
+            sales: metrics.hvac.departments?.install?.sales || 0,
           },
           // HVAC Service
           {
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
             completed_revenue: metrics.hvac.departments?.service?.completedRevenue || 0,
             non_job_revenue: metrics.hvac.departments?.service?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.service?.adjRevenue || 0,
+            sales: metrics.hvac.departments?.service?.sales || 0,
           },
           // HVAC Maintenance
           {
@@ -100,6 +103,7 @@ export async function POST(request: NextRequest) {
             completed_revenue: metrics.hvac.departments?.maintenance?.completedRevenue || 0,
             non_job_revenue: metrics.hvac.departments?.maintenance?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.maintenance?.adjRevenue || 0,
+            sales: metrics.hvac.departments?.maintenance?.sales || 0,
           },
           // Plumbing (no department breakdown)
           {
@@ -110,6 +114,7 @@ export async function POST(request: NextRequest) {
             completed_revenue: metrics.plumbing.completedRevenue,
             non_job_revenue: metrics.plumbing.nonJobRevenue,
             adj_revenue: metrics.plumbing.adjRevenue,
+            sales: metrics.plumbing.sales,
           },
         ];
 
@@ -156,47 +161,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/trades/sync - Check what dates have been synced
+// GET /api/trades/sync - Vercel cron jobs send GET requests, delegate to POST handler
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const supabase = getServerSupabase();
-    const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-
-    let query = supabase
-      .from('trade_daily_snapshots')
-      .select('snapshot_date')
-      .eq('trade', 'hvac')
-      .is('department', null) // Just check one row per date
-      .order('snapshot_date', { ascending: false });
-
-    if (startDate) {
-      query = query.gte('snapshot_date', startDate);
-    }
-    if (endDate) {
-      query = query.lte('snapshot_date', endDate);
-    }
-
-    const { data, error } = await query.limit(100);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const syncedDates = data?.map(d => d.snapshot_date) || [];
-
-    return NextResponse.json({
-      syncedDates,
-      count: syncedDates.length,
-    });
-  } catch (error) {
-    console.error('Error checking sync status:', error);
-    return NextResponse.json({ error: 'Failed to check sync status' }, { status: 500 });
-  }
+  return POST(request);
 }
