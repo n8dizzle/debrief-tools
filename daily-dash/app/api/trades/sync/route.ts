@@ -27,7 +27,11 @@ export async function POST(request: NextRequest) {
     console.log(`[Trades Sync] Starting ${syncSource} sync at ${new Date().toISOString()}`);
 
     const body = await request.json().catch(() => ({}));
-    const { date, backfillDays } = body;
+    const { date, backfillDays, today: syncToday } = body;
+
+    // Support ?today=true query param for GET requests (cron)
+    const url = new URL(request.url);
+    const isTodaySync = syncToday || url.searchParams.get('today') === 'true';
 
     const stClient = getServiceTitanClient();
     if (!stClient.isConfigured()) {
@@ -42,15 +46,20 @@ export async function POST(request: NextRequest) {
 
     if (backfillDays && backfillDays > 0) {
       // Backfill mode: sync multiple days
-      const today = new Date();
+      const now = new Date();
       for (let i = 1; i <= backfillDays; i++) {
-        const d = new Date(today);
+        const d = new Date(now);
         d.setDate(d.getDate() - i);
         datesToSync.push(getLocalDateString(d));
       }
+    } else if (date) {
+      datesToSync.push(date);
+    } else if (isTodaySync) {
+      // Sync today's data (for 10-min cron)
+      datesToSync.push(getLocalDateString(new Date()));
     } else {
-      // Single date mode
-      datesToSync.push(date || getYesterdayDateString());
+      // Default: sync yesterday
+      datesToSync.push(getYesterdayDateString());
     }
 
     // Process each date
