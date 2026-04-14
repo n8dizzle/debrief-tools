@@ -432,6 +432,46 @@ export async function GET(request: NextRequest) {
       },
     };
 
+    // Helper to add two trade metric objects together (for combining snapshot totals + today's live data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function addTradeMetrics(base: any, add: any): any {
+      const result = {
+        revenue: (base.revenue || 0) + (add.revenue || 0),
+        completedRevenue: (base.completedRevenue || 0) + (add.completedRevenue || 0),
+        nonJobRevenue: (base.nonJobRevenue || 0) + (add.nonJobRevenue || 0),
+        adjRevenue: (base.adjRevenue || 0) + (add.adjRevenue || 0),
+        sales: (base.sales || 0) + (add.sales || 0),
+      } as any;
+      if (base.departments || add.departments) {
+        const baseDepts = base.departments || {};
+        const addDepts = add.departments || {};
+        result.departments = {
+          install: {
+            revenue: (baseDepts.install?.revenue || 0) + (addDepts.install?.revenue || 0),
+            completedRevenue: (baseDepts.install?.completedRevenue || 0) + (addDepts.install?.completedRevenue || 0),
+            nonJobRevenue: (baseDepts.install?.nonJobRevenue || 0) + (addDepts.install?.nonJobRevenue || 0),
+            adjRevenue: (baseDepts.install?.adjRevenue || 0) + (addDepts.install?.adjRevenue || 0),
+            sales: (baseDepts.install?.sales || 0) + (addDepts.install?.sales || 0),
+          },
+          service: {
+            revenue: (baseDepts.service?.revenue || 0) + (addDepts.service?.revenue || 0),
+            completedRevenue: (baseDepts.service?.completedRevenue || 0) + (addDepts.service?.completedRevenue || 0),
+            nonJobRevenue: (baseDepts.service?.nonJobRevenue || 0) + (addDepts.service?.nonJobRevenue || 0),
+            adjRevenue: (baseDepts.service?.adjRevenue || 0) + (addDepts.service?.adjRevenue || 0),
+            sales: (baseDepts.service?.sales || 0) + (addDepts.service?.sales || 0),
+          },
+          maintenance: {
+            revenue: (baseDepts.maintenance?.revenue || 0) + (addDepts.maintenance?.revenue || 0),
+            completedRevenue: (baseDepts.maintenance?.completedRevenue || 0) + (addDepts.maintenance?.completedRevenue || 0),
+            nonJobRevenue: (baseDepts.maintenance?.nonJobRevenue || 0) + (addDepts.maintenance?.nonJobRevenue || 0),
+            adjRevenue: (baseDepts.maintenance?.adjRevenue || 0) + (addDepts.maintenance?.adjRevenue || 0),
+            sales: (baseDepts.maintenance?.sales || 0) + (addDepts.maintenance?.sales || 0),
+          },
+        };
+      }
+      return result;
+    }
+
     // Helper to aggregate trade snapshots from Supabase
     interface TradeSnapshot {
       snapshot_date: string;
@@ -484,65 +524,97 @@ export async function GET(request: NextRequest) {
       return result;
     }
 
-    // Fetch trade metrics LIVE from ServiceTitan for Today, WTD, MTD
-    // This ensures accuracy without relying on cached snapshots
+    // Fetch TODAY live from ServiceTitan (Report 222 + 234), everything else from Supabase snapshots.
+    // This keeps the dashboard fast (1 API call instead of 10+) and avoids rate limits.
     const isToday = date === getTodayDateString();
 
-    if (stClient.isConfigured()) {
-      try {
-        // Fetch Today, WTD, MTD from Report 222 in parallel (includes revenue + sales per BU)
-        const [todayMetrics, wtdMetrics, mtdMetrics] = await Promise.all([
-          stClient.getTradeMetrics(date),
-          stClient.getTradeMetrics(mondayStr, date),
-          stClient.getTradeMetrics(firstOfMonth, date),
-        ]);
+    // WTD, MTD, QTD, YTD — sum from trade_daily_snapshots (instant from Supabase)
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
 
-        // Report 222 now returns sales alongside revenue - no separate API calls needed
-        // TODAY
+    try {
+      // Fetch all snapshots from start of year to yesterday in one query
+      const { data: allSnaps } = await supabase
+        .from('trade_daily_snapshots')
+        .select('snapshot_date, trade, department, revenue, completed_revenue, non_job_revenue, adj_revenue')
+        .gte('snapshot_date', yearStartDate)
+        .lte('snapshot_date', isToday ? yesterdayStr : date)
+        .order('snapshot_date');
+
+      if (allSnaps && allSnaps.length > 0) {
+        const typedSnaps = allSnaps as TradeSnapshot[];
+
+        // Helper to sum snapshots for a date range
+        const sumRange = (startD: string, endD: string) => {
+          const rangeSnaps = typedSnaps.filter(s => s.snapshot_date >= startD && s.snapshot_date <= endD);
+          const hvacSnaps = rangeSnaps.filter(s => s.trade === 'hvac');
+          const plumbingSnaps = rangeSnaps.filter(s => s.trade === 'plumbing');
+          return {
+            hvac: aggregateTradeSnapshots(hvacSnaps),
+            plumbing: aggregateTradeSnapshots(plumbingSnaps),
+          };
+        };
+
+        // WTD (Monday to yesterday)
+        const wtdEnd = isToday ? yesterdayStr : date;
+        if (mondayStr <= wtdEnd) {
+          const wtd = sumRange(mondayStr, wtdEnd);
+          tradeData.hvac.wtd = wtd.hvac;
+          tradeData.plumbing.wtd = wtd.plumbing;
+        }
+
+        // MTD (1st of month to yesterday)
+        const mtdEnd = isToday ? yesterdayStr : date;
+        if (firstOfMonth <= mtdEnd) {
+          const mtd = sumRange(firstOfMonth, mtdEnd);
+          tradeData.hvac.mtd = mtd.hvac;
+          tradeData.plumbing.mtd = mtd.plumbing;
+        }
+
+        // QTD (quarter start to yesterday)
+        const qtdEnd = isToday ? yesterdayStr : date;
+        if (quarterStartDate <= qtdEnd) {
+          const qtd = sumRange(quarterStartDate, qtdEnd);
+          tradeData.hvac.qtd = qtd.hvac;
+          tradeData.plumbing.qtd = qtd.plumbing;
+        }
+
+        // YTD (Jan 1 to yesterday)
+        const ytdEnd = isToday ? yesterdayStr : date;
+        const ytd = sumRange(yearStartDate, ytdEnd);
+        tradeData.hvac.ytd = ytd.hvac;
+        tradeData.plumbing.ytd = ytd.plumbing;
+
+        // For historical dates, also populate today from snapshots
+        if (!isToday) {
+          const todayData = sumRange(date, date);
+          tradeData.hvac.today = todayData.hvac;
+          tradeData.plumbing.today = todayData.plumbing;
+        }
+      }
+    } catch (snapError) {
+      console.error('Error fetching trade snapshots:', snapError);
+    }
+
+    // Fetch only TODAY live from ServiceTitan (2 API calls: Report 222 + 234)
+    if (isToday && stClient.isConfigured()) {
+      try {
+        const todayMetrics = await stClient.getTradeMetrics(date);
         tradeData.hvac.today = todayMetrics.hvac;
         tradeData.plumbing.today = todayMetrics.plumbing;
 
-        // WTD
-        tradeData.hvac.wtd = wtdMetrics.hvac;
-        tradeData.plumbing.wtd = wtdMetrics.plumbing;
-
-        // MTD
-        tradeData.hvac.mtd = mtdMetrics.hvac;
-        tradeData.plumbing.mtd = mtdMetrics.plumbing;
-
-        // QTD - fetch live from ServiceTitan for accuracy
-        const qtdMetrics = await stClient.getTradeMetrics(quarterStartDate, date);
-        tradeData.hvac.qtd = qtdMetrics.hvac;
-        tradeData.plumbing.qtd = qtdMetrics.plumbing;
-
-        // YTD - for Q1, YTD equals QTD. For other quarters, fetch full year live.
-        if (quarter === 1) {
-          tradeData.hvac.ytd = qtdMetrics.hvac;
-          tradeData.plumbing.ytd = qtdMetrics.plumbing;
-        } else {
-          const ytdMetrics = await stClient.getTradeMetrics(yearStartDate, date);
-          tradeData.hvac.ytd = ytdMetrics.hvac;
-          tradeData.plumbing.ytd = ytdMetrics.plumbing;
-        }
-
-        // If viewing a historical date, fetch that day's data from Supabase
-        if (!isToday) {
-          const { data: todaySnaps } = await supabase
-            .from('trade_daily_snapshots')
-            .select('*')
-            .eq('snapshot_date', date);
-
-          if (todaySnaps && todaySnaps.length > 0) {
-            const hvacTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'hvac');
-            const plumbingTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'plumbing');
-            const hvacTodayAgg = aggregateTradeSnapshots(hvacTodaySnaps);
-            tradeData.hvac.today = hvacTodayAgg;
-            tradeData.plumbing.today = aggregateTradeSnapshots(plumbingTodaySnaps);
-          }
-        }
+        // Add today's live data to the period totals
+        tradeData.hvac.wtd = addTradeMetrics(tradeData.hvac.wtd, todayMetrics.hvac);
+        tradeData.plumbing.wtd = addTradeMetrics(tradeData.plumbing.wtd, todayMetrics.plumbing);
+        tradeData.hvac.mtd = addTradeMetrics(tradeData.hvac.mtd, todayMetrics.hvac);
+        tradeData.plumbing.mtd = addTradeMetrics(tradeData.plumbing.mtd, todayMetrics.plumbing);
+        tradeData.hvac.qtd = addTradeMetrics(tradeData.hvac.qtd, todayMetrics.hvac);
+        tradeData.plumbing.qtd = addTradeMetrics(tradeData.plumbing.qtd, todayMetrics.plumbing);
+        tradeData.hvac.ytd = addTradeMetrics(tradeData.hvac.ytd, todayMetrics.hvac);
+        tradeData.plumbing.ytd = addTradeMetrics(tradeData.plumbing.ytd, todayMetrics.plumbing);
       } catch (tradeError) {
-        console.error('Error fetching trade metrics:', tradeError);
-        // Continue with zero values if trade data fails
+        console.error('Error fetching today trade metrics:', tradeError);
       }
     }
 
