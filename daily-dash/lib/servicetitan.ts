@@ -585,6 +585,27 @@ export class ServiceTitanClient {
       }
     }
 
+    // Pick up sales from BUs that appear in Report 234 but NOT in Report 222
+    // (e.g., "HVAC - Sales" or "Plumbing - Sales" with $0 revenue but real sales)
+    for (const [buName, sales] of salesByBU) {
+      // Skip if we already counted this BU from the revenue loop
+      if (reportData.some(r => r.businessUnitName === buName)) continue;
+      if (sales === 0) continue;
+
+      const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
+      const isPlumbingBU = PLUMBING_BUSINESS_UNITS.includes(buName);
+
+      if (isHvac) {
+        hvac.sales += sales;
+        const dept = HVAC_DEPT_MAPPING[buName];
+        if (dept === 'Install') hvacDepts.install.sales += sales;
+        else if (dept === 'Service') hvacDepts.service.sales += sales;
+        else if (dept === 'Maintenance') hvacDepts.maintenance.sales += sales;
+      } else if (isPlumbingBU) {
+        plumbing.sales += sales;
+      }
+    }
+
     return {
       hvac: {
         ...hvac,
