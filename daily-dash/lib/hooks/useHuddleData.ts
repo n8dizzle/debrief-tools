@@ -28,6 +28,7 @@ export interface DepartmentRevenue {
   completedRevenue: number;
   nonJobRevenue: number;
   adjRevenue: number;
+  sales: number;
 }
 
 export interface HVACPeriodData extends DepartmentRevenue {
@@ -38,6 +39,12 @@ export interface HVACPeriodData extends DepartmentRevenue {
   };
 }
 
+export interface DeptTargets {
+  monthly: number;
+  daily: number;
+  weekly: number;
+}
+
 export interface TradeTargets {
   daily: number;
   weekly: number;
@@ -45,9 +52,9 @@ export interface TradeTargets {
   quarterly: number;
   annual: number;
   departments?: {
-    install: number;
-    service: number;
-    maintenance: number;
+    install: DeptTargets;
+    service: DeptTargets;
+    maintenance: DeptTargets;
   };
 }
 
