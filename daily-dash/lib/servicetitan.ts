@@ -471,70 +471,6 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get sales broken down by HVAC department (Install/Service/Maintenance) and Plumbing.
-   * Fetches sold estimates for the date range, then maps each estimate to a department
-   * via its job's business unit.
-   */
-  async getSalesByDepartment(
-    startDate: string,
-    endDate?: string
-  ): Promise<{
-    hvac: { install: number; service: number; maintenance: number; total: number };
-    plumbing: number;
-    total: number;
-  }> {
-    const effectiveEndDate = endDate || startDate;
-    const dayAfterEnd = this.getNextDay(effectiveEndDate);
-
-    const estimates = await this.getSoldEstimates(startDate, dayAfterEnd);
-    if (estimates.length === 0) {
-      return { hvac: { install: 0, service: 0, maintenance: 0, total: 0 }, plumbing: 0, total: 0 };
-    }
-
-    // Collect unique jobIds from estimates
-    const jobIds = [...new Set(estimates.filter(e => e.jobId).map(e => e.jobId!))];
-
-    // Batch-fetch jobs to get their business units
-    const jobMap = jobIds.length > 0 ? await this.getJobsByIds(jobIds) : new Map<number, STJob>();
-
-    // Get BU name lookup
-    const businessUnits = await this.getBusinessUnits();
-    const buIdToName = new Map<number, string>();
-    businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
-
-    const result = {
-      hvac: { install: 0, service: 0, maintenance: 0, total: 0 },
-      plumbing: 0,
-      total: 0,
-    };
-
-    for (const est of estimates) {
-      const amount = Number(est.subtotal) || 0;
-      result.total += amount;
-
-      if (!est.jobId) continue;
-      const job = jobMap.get(est.jobId);
-      if (!job) continue;
-
-      const buName = buIdToName.get(job.businessUnitId) || '';
-      const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
-      const isPlumbing = PLUMBING_BUSINESS_UNITS.includes(buName);
-
-      if (isHvac) {
-        result.hvac.total += amount;
-        const dept = HVAC_DEPT_MAPPING[buName];
-        if (dept === 'Install') result.hvac.install += amount;
-        else if (dept === 'Service') result.hvac.service += amount;
-        else if (dept === 'Maintenance') result.hvac.maintenance += amount;
-      } else if (isPlumbing) {
-        result.plumbing += amount;
-      }
-    }
-
-    return result;
-  }
-
-  /**
    * Get revenue for an HVAC department for a date range
    * @param startDate - Start date (inclusive) in YYYY-MM-DD format
    * @param endDate - End date (inclusive) in YYYY-MM-DD format, defaults to startDate
@@ -565,10 +501,11 @@ export class ServiceTitanClient {
       completedRevenue: number;
       nonJobRevenue: number;
       adjRevenue: number;
+      sales: number;
       departments: {
-        install: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number };
-        service: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number };
-        maintenance: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number };
+        install: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
+        service: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
+        maintenance: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
       };
     };
     plumbing: {
@@ -576,25 +513,21 @@ export class ServiceTitanClient {
       completedRevenue: number;
       nonJobRevenue: number;
       adjRevenue: number;
+      sales: number;
     };
   }> {
     const effectiveEndDate = endDate || startDate;
 
-    // Fetch BU Dashboard - Revenue report (Report 222)
+    // Fetch BU Dashboard report (Report 222) - includes revenue + sales per BU
     const reportData = await this.getBUDashboardRevenue(startDate, effectiveEndDate);
 
-    // Build BU name -> department mapping for aggregation
-    const businessUnits = await this.getBusinessUnits();
-    const buIdToName = new Map<number, string>();
-    businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
-
     // Initialize accumulators
-    const hvac = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 };
-    const plumbing = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 };
+    const hvac = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 };
+    const plumbing = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 };
     const hvacDepts = {
-      install: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 },
-      service: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 },
-      maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0 },
+      install: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
+      service: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
+      maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
     };
 
     // Aggregate report rows by trade and department
@@ -610,30 +543,34 @@ export class ServiceTitanClient {
         hvac.nonJobRevenue += row.nonJobRevenue;
         hvac.adjRevenue += row.adjRevenue;
         hvac.revenue += row.totalRevenue;
+        hvac.sales += row.totalSales;
 
-        // Map to HVAC department
         const dept = HVAC_DEPT_MAPPING[buName];
         if (dept === 'Install') {
           hvacDepts.install.completedRevenue += row.completedRevenue;
           hvacDepts.install.nonJobRevenue += row.nonJobRevenue;
           hvacDepts.install.adjRevenue += row.adjRevenue;
           hvacDepts.install.revenue += row.totalRevenue;
+          hvacDepts.install.sales += row.totalSales;
         } else if (dept === 'Service') {
           hvacDepts.service.completedRevenue += row.completedRevenue;
           hvacDepts.service.nonJobRevenue += row.nonJobRevenue;
           hvacDepts.service.adjRevenue += row.adjRevenue;
           hvacDepts.service.revenue += row.totalRevenue;
+          hvacDepts.service.sales += row.totalSales;
         } else if (dept === 'Maintenance') {
           hvacDepts.maintenance.completedRevenue += row.completedRevenue;
           hvacDepts.maintenance.nonJobRevenue += row.nonJobRevenue;
           hvacDepts.maintenance.adjRevenue += row.adjRevenue;
           hvacDepts.maintenance.revenue += row.totalRevenue;
+          hvacDepts.maintenance.sales += row.totalSales;
         }
       } else if (isPlumbing) {
         plumbing.completedRevenue += row.completedRevenue;
         plumbing.nonJobRevenue += row.nonJobRevenue;
         plumbing.adjRevenue += row.adjRevenue;
         plumbing.revenue += row.totalRevenue;
+        plumbing.sales += row.totalSales;
       }
     }
 
@@ -656,6 +593,7 @@ export class ServiceTitanClient {
     nonJobRevenue: number;
     adjRevenue: number;
     totalRevenue: number;
+    totalSales: number;
   }[]> {
     const allRows: {
       businessUnitName: string;
@@ -663,6 +601,7 @@ export class ServiceTitanClient {
       nonJobRevenue: number;
       adjRevenue: number;
       totalRevenue: number;
+      totalSales: number;
     }[] = [];
 
     let page = 1;
@@ -698,13 +637,14 @@ export class ServiceTitanClient {
         console.log(`[Report 222] Fields: ${response.fields?.map(f => `${f.name} (${f.label})`).join(', ')}`);
       }
 
-      // Field mapping from Report 222 response:
-      // Name, CompletedRevenue, NonJobRevenue, AdjustmentRevenue, TotalRevenue
+      // Field mapping from Report 222 response
       const buNameIdx = fieldMap.get('Name') ?? 0;
       const completedIdx = fieldMap.get('CompletedRevenue') ?? 1;
       const nonJobIdx = fieldMap.get('NonJobRevenue') ?? 2;
       const adjIdx = fieldMap.get('AdjustmentRevenue') ?? 3;
       const totalIdx = fieldMap.get('TotalRevenue') ?? 4;
+      // TotalSales may or may not be present in Report 222
+      const salesIdx = fieldMap.get('TotalSales') ?? fieldMap.get('Sales') ?? -1;
 
       for (const row of (response.data || [])) {
         allRows.push({
@@ -713,6 +653,7 @@ export class ServiceTitanClient {
           nonJobRevenue: parseFloat(row[nonJobIdx]) || 0,
           adjRevenue: parseFloat(row[adjIdx]) || 0,
           totalRevenue: parseFloat(row[totalIdx]) || 0,
+          totalSales: salesIdx >= 0 ? (parseFloat(row[salesIdx]) || 0) : 0,
         });
       }
 
@@ -844,6 +785,45 @@ export class ServiceTitanClient {
       page++;
 
       // Safety limit to prevent infinite loops
+      if (page > 50) break;
+    }
+
+    return allJobs;
+  }
+
+  /**
+   * Get all jobs created in a date range (any status). Used for mapping estimates to BUs.
+   * Uses createdOnOrAfter/createdBefore to catch jobs tied to sold estimates.
+   */
+  async getAllJobs(
+    createdOnOrAfter: string,
+    createdBefore?: string
+  ): Promise<STJob[]> {
+    const allJobs: STJob[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params: Record<string, string> = {
+        createdOnOrAfter: `${createdOnOrAfter}T00:00:00`,
+        pageSize: '200',
+        page: page.toString(),
+      };
+
+      if (createdBefore) {
+        params.createdBefore = `${createdBefore}T00:00:00`;
+      }
+
+      const response = await this.request<STPagedResponse<STJob>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs`,
+        { params }
+      );
+
+      allJobs.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+
       if (page > 50) break;
     }
 

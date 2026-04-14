@@ -490,69 +490,39 @@ export async function GET(request: NextRequest) {
 
     if (stClient.isConfigured()) {
       try {
-        // Fetch Today, WTD, MTD revenue + sales from ServiceTitan in parallel
-        const [todayMetrics, wtdMetrics, mtdMetrics, todaySalesDept, wtdSalesDept, mtdSalesDept] = await Promise.all([
-          stClient.getTradeMetrics(date),           // Today only
-          stClient.getTradeMetrics(mondayStr, date), // Monday through today
-          stClient.getTradeMetrics(firstOfMonth, date), // First of month through today
-          stClient.getSalesByDepartment(date),           // Sales today
-          stClient.getSalesByDepartment(mondayStr, date), // Sales WTD
-          stClient.getSalesByDepartment(firstOfMonth, date), // Sales MTD
+        // Fetch Today, WTD, MTD from Report 222 in parallel (includes revenue + sales per BU)
+        const [todayMetrics, wtdMetrics, mtdMetrics] = await Promise.all([
+          stClient.getTradeMetrics(date),
+          stClient.getTradeMetrics(mondayStr, date),
+          stClient.getTradeMetrics(firstOfMonth, date),
         ]);
 
-        // Helper to merge revenue metrics with sales data
-        const mergeHvacPeriod = (
-          metrics: typeof todayMetrics.hvac,
-          sales: typeof todaySalesDept
-        ) => ({
-          ...metrics,
-          sales: sales.hvac.total,
-          departments: {
-            install: { ...metrics.departments.install, sales: sales.hvac.install },
-            service: { ...metrics.departments.service, sales: sales.hvac.service },
-            maintenance: { ...metrics.departments.maintenance, sales: sales.hvac.maintenance },
-          },
-        });
-
+        // Report 222 now returns sales alongside revenue - no separate API calls needed
         // TODAY
-        tradeData.hvac.today = mergeHvacPeriod(todayMetrics.hvac, todaySalesDept);
-        tradeData.plumbing.today = { ...todayMetrics.plumbing, sales: todaySalesDept.plumbing };
+        tradeData.hvac.today = todayMetrics.hvac;
+        tradeData.plumbing.today = todayMetrics.plumbing;
 
         // WTD
-        tradeData.hvac.wtd = mergeHvacPeriod(wtdMetrics.hvac, wtdSalesDept);
-        tradeData.plumbing.wtd = { ...wtdMetrics.plumbing, sales: wtdSalesDept.plumbing };
+        tradeData.hvac.wtd = wtdMetrics.hvac;
+        tradeData.plumbing.wtd = wtdMetrics.plumbing;
 
         // MTD
-        tradeData.hvac.mtd = mergeHvacPeriod(mtdMetrics.hvac, mtdSalesDept);
-        tradeData.plumbing.mtd = { ...mtdMetrics.plumbing, sales: mtdSalesDept.plumbing };
+        tradeData.hvac.mtd = mtdMetrics.hvac;
+        tradeData.plumbing.mtd = mtdMetrics.plumbing;
 
-        // QTD - fetch live from ServiceTitan for accuracy (no sales breakdown for QTD)
+        // QTD - fetch live from ServiceTitan for accuracy
         const qtdMetrics = await stClient.getTradeMetrics(quarterStartDate, date);
-        tradeData.hvac.qtd = {
-          ...qtdMetrics.hvac, sales: 0,
-          departments: {
-            install: { ...qtdMetrics.hvac.departments.install, sales: 0 },
-            service: { ...qtdMetrics.hvac.departments.service, sales: 0 },
-            maintenance: { ...qtdMetrics.hvac.departments.maintenance, sales: 0 },
-          },
-        };
-        tradeData.plumbing.qtd = { ...qtdMetrics.plumbing, sales: 0 };
+        tradeData.hvac.qtd = qtdMetrics.hvac;
+        tradeData.plumbing.qtd = qtdMetrics.plumbing;
 
         // YTD - for Q1, YTD equals QTD. For other quarters, fetch full year live.
         if (quarter === 1) {
-          tradeData.hvac.ytd = { ...tradeData.hvac.qtd };
-          tradeData.plumbing.ytd = { ...tradeData.plumbing.qtd };
+          tradeData.hvac.ytd = qtdMetrics.hvac;
+          tradeData.plumbing.ytd = qtdMetrics.plumbing;
         } else {
           const ytdMetrics = await stClient.getTradeMetrics(yearStartDate, date);
-          tradeData.hvac.ytd = {
-            ...ytdMetrics.hvac, sales: 0,
-            departments: {
-              install: { ...ytdMetrics.hvac.departments.install, sales: 0 },
-              service: { ...ytdMetrics.hvac.departments.service, sales: 0 },
-              maintenance: { ...ytdMetrics.hvac.departments.maintenance, sales: 0 },
-            },
-          };
-          tradeData.plumbing.ytd = { ...ytdMetrics.plumbing, sales: 0 };
+          tradeData.hvac.ytd = ytdMetrics.hvac;
+          tradeData.plumbing.ytd = ytdMetrics.plumbing;
         }
 
         // If viewing a historical date, fetch that day's data from Supabase
@@ -566,18 +536,8 @@ export async function GET(request: NextRequest) {
             const hvacTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'hvac');
             const plumbingTodaySnaps = (todaySnaps as TradeSnapshot[]).filter(s => s.trade === 'plumbing');
             const hvacTodayAgg = aggregateTradeSnapshots(hvacTodaySnaps);
-            const depts = hvacTodayAgg.departments || { install: { ...zeroDeptRevenue }, service: { ...zeroDeptRevenue }, maintenance: { ...zeroDeptRevenue } };
-            tradeData.hvac.today = {
-              ...hvacTodayAgg,
-              sales: 0,
-              departments: {
-                install: { ...depts.install, sales: 0 },
-                service: { ...depts.service, sales: 0 },
-                maintenance: { ...depts.maintenance, sales: 0 },
-              },
-            };
-            const plumbingAgg = aggregateTradeSnapshots(plumbingTodaySnaps);
-            tradeData.plumbing.today = { ...plumbingAgg, sales: 0 };
+            tradeData.hvac.today = hvacTodayAgg;
+            tradeData.plumbing.today = aggregateTradeSnapshots(plumbingTodaySnaps);
           }
         }
       } catch (tradeError) {
