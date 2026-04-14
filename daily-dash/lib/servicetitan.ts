@@ -518,8 +518,17 @@ export class ServiceTitanClient {
   }> {
     const effectiveEndDate = endDate || startDate;
 
-    // Fetch BU Dashboard report (Report 222) - includes revenue + sales per BU
-    const reportData = await this.getBUDashboardRevenue(startDate, effectiveEndDate);
+    // Fetch Report 222 (Revenue) and Report 234 (Sales) in parallel
+    const [reportData, salesData] = await Promise.all([
+      this.getBUDashboardRevenue(startDate, effectiveEndDate),
+      this.getBUDashboardSales(startDate, effectiveEndDate),
+    ]);
+
+    // Merge sales into revenue data by BU name
+    const salesByBU = new Map<string, number>();
+    for (const row of salesData) {
+      salesByBU.set(row.businessUnitName, (salesByBU.get(row.businessUnitName) || 0) + row.totalSales);
+    }
 
     // Initialize accumulators
     const hvac = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 };
@@ -538,12 +547,14 @@ export class ServiceTitanClient {
 
       if (!isHvac && !isPlumbing) continue;
 
+      const buSales = salesByBU.get(buName) || 0;
+
       if (isHvac) {
         hvac.completedRevenue += row.completedRevenue;
         hvac.nonJobRevenue += row.nonJobRevenue;
         hvac.adjRevenue += row.adjRevenue;
         hvac.revenue += row.totalRevenue;
-        hvac.sales += row.totalSales;
+        hvac.sales += buSales;
 
         const dept = HVAC_DEPT_MAPPING[buName];
         if (dept === 'Install') {
@@ -551,26 +562,26 @@ export class ServiceTitanClient {
           hvacDepts.install.nonJobRevenue += row.nonJobRevenue;
           hvacDepts.install.adjRevenue += row.adjRevenue;
           hvacDepts.install.revenue += row.totalRevenue;
-          hvacDepts.install.sales += row.totalSales;
+          hvacDepts.install.sales += buSales;
         } else if (dept === 'Service') {
           hvacDepts.service.completedRevenue += row.completedRevenue;
           hvacDepts.service.nonJobRevenue += row.nonJobRevenue;
           hvacDepts.service.adjRevenue += row.adjRevenue;
           hvacDepts.service.revenue += row.totalRevenue;
-          hvacDepts.service.sales += row.totalSales;
+          hvacDepts.service.sales += buSales;
         } else if (dept === 'Maintenance') {
           hvacDepts.maintenance.completedRevenue += row.completedRevenue;
           hvacDepts.maintenance.nonJobRevenue += row.nonJobRevenue;
           hvacDepts.maintenance.adjRevenue += row.adjRevenue;
           hvacDepts.maintenance.revenue += row.totalRevenue;
-          hvacDepts.maintenance.sales += row.totalSales;
+          hvacDepts.maintenance.sales += buSales;
         }
       } else if (isPlumbing) {
         plumbing.completedRevenue += row.completedRevenue;
         plumbing.nonJobRevenue += row.nonJobRevenue;
         plumbing.adjRevenue += row.adjRevenue;
         plumbing.revenue += row.totalRevenue;
-        plumbing.sales += row.totalSales;
+        plumbing.sales += buSales;
       }
     }
 
@@ -593,7 +604,6 @@ export class ServiceTitanClient {
     nonJobRevenue: number;
     adjRevenue: number;
     totalRevenue: number;
-    totalSales: number;
   }[]> {
     const allRows: {
       businessUnitName: string;
@@ -601,7 +611,6 @@ export class ServiceTitanClient {
       nonJobRevenue: number;
       adjRevenue: number;
       totalRevenue: number;
-      totalSales: number;
     }[] = [];
 
     let page = 1;
@@ -630,21 +639,16 @@ export class ServiceTitanClient {
         }
       );
 
-      // Build field index map from first page
       if (!fieldMap) {
         fieldMap = new Map<string, number>();
         (response.fields || []).forEach((f, i) => fieldMap!.set(f.name, i));
-        console.log(`[Report 222] Fields: ${response.fields?.map(f => `${f.name} (${f.label})`).join(', ')}`);
       }
 
-      // Field mapping from Report 222 response
       const buNameIdx = fieldMap.get('Name') ?? 0;
       const completedIdx = fieldMap.get('CompletedRevenue') ?? 1;
       const nonJobIdx = fieldMap.get('NonJobRevenue') ?? 2;
       const adjIdx = fieldMap.get('AdjustmentRevenue') ?? 3;
       const totalIdx = fieldMap.get('TotalRevenue') ?? 4;
-      // TotalSales may or may not be present in Report 222
-      const salesIdx = fieldMap.get('TotalSales') ?? fieldMap.get('Sales') ?? -1;
 
       for (const row of (response.data || [])) {
         allRows.push({
@@ -653,7 +657,6 @@ export class ServiceTitanClient {
           nonJobRevenue: parseFloat(row[nonJobIdx]) || 0,
           adjRevenue: parseFloat(row[adjIdx]) || 0,
           totalRevenue: parseFloat(row[totalIdx]) || 0,
-          totalSales: salesIdx >= 0 ? (parseFloat(row[salesIdx]) || 0) : 0,
         });
       }
 
@@ -661,7 +664,64 @@ export class ServiceTitanClient {
       page++;
     }
 
-    console.log(`[Report 222] ${allRows.length} BU rows across ${page - 1} pages`);
+    return allRows;
+  }
+
+  /**
+   * Fetch BU Dashboard - Sales report (Report 234) from the ST Reporting API.
+   * Returns one row per business unit with TotalSales.
+   */
+  private async getBUDashboardSales(startDate: string, endDate: string): Promise<{
+    businessUnitName: string;
+    totalSales: number;
+  }[]> {
+    const allRows: { businessUnitName: string; totalSales: number }[] = [];
+
+    let page = 1;
+    let hasMore = true;
+    let fieldMap: Map<string, number> | null = null;
+
+    while (hasMore && page <= 50) {
+      const response = await this.request<{
+        fields: { name: string; label: string }[];
+        data: any[][];
+        hasMore: boolean;
+        page: number;
+        pageSize: number;
+      }>(
+        'POST',
+        `reporting/v2/tenant/${this.tenantId}/report-category/business-unit-dashboard/reports/234/data`,
+        {
+          body: {
+            parameters: [
+              { name: 'From', value: startDate },
+              { name: 'To', value: endDate },
+            ],
+            pageSize: 2000,
+            page,
+          },
+        }
+      );
+
+      if (!fieldMap) {
+        fieldMap = new Map<string, number>();
+        (response.fields || []).forEach((f, i) => fieldMap!.set(f.name, i));
+      }
+
+      const buNameIdx = fieldMap.get('Name') ?? 0;
+      const salesIdx = fieldMap.get('TotalSales') ?? 1;
+
+      for (const row of (response.data || [])) {
+        allRows.push({
+          businessUnitName: (row[buNameIdx] || '').toString().trim(),
+          totalSales: parseFloat(row[salesIdx]) || 0,
+        });
+      }
+
+      hasMore = response.hasMore === true;
+      page++;
+    }
+
     return allRows;
   }
 
