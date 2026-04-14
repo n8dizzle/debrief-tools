@@ -481,6 +481,7 @@ export async function GET(request: NextRequest) {
       completed_revenue: number;
       non_job_revenue: number;
       adj_revenue: number;
+      sales: number;
     }
 
     function aggregateTradeSnapshots(snapshots: TradeSnapshot[]) {
@@ -503,21 +504,25 @@ export async function GET(request: NextRequest) {
           result.completedRevenue += Number(snap.completed_revenue) || 0;
           result.nonJobRevenue += Number(snap.non_job_revenue) || 0;
           result.adjRevenue += Number(snap.adj_revenue) || 0;
+          result.sales += Number(snap.sales) || 0;
         } else if (snap.department === 'install') {
           result.departments.install.revenue += Number(snap.revenue) || 0;
           result.departments.install.completedRevenue += Number(snap.completed_revenue) || 0;
           result.departments.install.nonJobRevenue += Number(snap.non_job_revenue) || 0;
           result.departments.install.adjRevenue += Number(snap.adj_revenue) || 0;
+          result.departments.install.sales += Number(snap.sales) || 0;
         } else if (snap.department === 'service') {
           result.departments.service.revenue += Number(snap.revenue) || 0;
           result.departments.service.completedRevenue += Number(snap.completed_revenue) || 0;
           result.departments.service.nonJobRevenue += Number(snap.non_job_revenue) || 0;
           result.departments.service.adjRevenue += Number(snap.adj_revenue) || 0;
+          result.departments.service.sales += Number(snap.sales) || 0;
         } else if (snap.department === 'maintenance') {
           result.departments.maintenance.revenue += Number(snap.revenue) || 0;
           result.departments.maintenance.completedRevenue += Number(snap.completed_revenue) || 0;
           result.departments.maintenance.nonJobRevenue += Number(snap.non_job_revenue) || 0;
           result.departments.maintenance.adjRevenue += Number(snap.adj_revenue) || 0;
+          result.departments.maintenance.sales += Number(snap.sales) || 0;
         }
       }
 
@@ -537,7 +542,7 @@ export async function GET(request: NextRequest) {
       // Fetch all snapshots from start of year to yesterday in one query
       const { data: allSnaps } = await supabase
         .from('trade_daily_snapshots')
-        .select('snapshot_date, trade, department, revenue, completed_revenue, non_job_revenue, adj_revenue')
+        .select('snapshot_date, trade, department, revenue, completed_revenue, non_job_revenue, adj_revenue, sales')
         .gte('snapshot_date', yearStartDate)
         .lte('snapshot_date', isToday ? yesterdayStr : date)
         .order('snapshot_date');
@@ -736,12 +741,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Use live trade totals for pacing cards (instead of snapshot sums)
-    // This ensures consistency with trade sections and chart
+    // Use trade data totals for pacing cards (snapshots + today's live data)
     const liveTodayRevenue = tradeData.hvac.today.revenue + tradeData.plumbing.today.revenue;
+    const liveTodaySales = tradeData.hvac.today.sales + tradeData.plumbing.today.sales;
     const liveWtdRevenue = tradeData.hvac.wtd.revenue + tradeData.plumbing.wtd.revenue;
+    const liveWtdSales = tradeData.hvac.wtd.sales + tradeData.plumbing.wtd.sales;
     const liveMtdRevenue = tradeData.hvac.mtd.revenue + tradeData.plumbing.mtd.revenue;
+    const liveMtdSales = tradeData.hvac.mtd.sales + tradeData.plumbing.mtd.sales;
     const liveQtdRevenue = tradeData.hvac.qtd.revenue + tradeData.plumbing.qtd.revenue;
+    const liveQtdSales = tradeData.hvac.qtd.sales + tradeData.plumbing.qtd.sales;
     const liveYtdRevenue = tradeData.hvac.ytd.revenue + tradeData.plumbing.ytd.revenue;
 
     // Recalculate pacing with live MTD data
@@ -750,17 +758,17 @@ export async function GET(request: NextRequest) {
     // Pacing data object
     const pacingData = {
       todayRevenue: liveTodayRevenue,
-      todaySales,
+      todaySales: liveTodaySales || todaySales,
       dailyTarget,      // Base daily target (for full business day)
       todayTarget,      // Adjusted for day of week (0 on Sunday, 50% on Saturday)
       wtdRevenue: liveWtdRevenue,
-      wtdSales,
+      wtdSales: liveWtdSales || wtdSales,
       weeklyTarget,
       mtdRevenue: liveMtdRevenue,
-      mtdSales,
+      mtdSales: liveMtdSales || mtdSales,
       monthlyTarget: monthlyTargetValue,
       qtdRevenue: liveQtdRevenue,
-      qtdSales,
+      qtdSales: liveQtdSales || qtdSales,
       quarterlyTarget: quarterlyTargetValue,
       quarter,
       ytdRevenue: liveYtdRevenue,
