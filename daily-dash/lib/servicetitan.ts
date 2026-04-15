@@ -518,41 +518,16 @@ export class ServiceTitanClient {
   }> {
     const effectiveEndDate = endDate || startDate;
 
-    const dayAfterEnd = this.getNextDay(effectiveEndDate);
-
-    // Fetch Report 222 (Revenue) and Sold Estimates (Sales) in parallel
-    const [reportData, estimates] = await Promise.all([
+    // Fetch Report 222 (Revenue by BU) and Report 234 (Sales by BU) in parallel
+    const [revenueData, salesData] = await Promise.all([
       this.getBUDashboardRevenue(startDate, effectiveEndDate),
-      this.getSoldEstimates(startDate, dayAfterEnd),
+      this.getBUDashboardSales(startDate, effectiveEndDate),
     ]);
 
-    // Build job ID -> BU name map by looking up each estimate's job
-    const businessUnits = await this.getBusinessUnits();
-    const buIdToName = new Map<number, string>();
-    businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
-
-    // Collect unique job IDs from estimates that need BU lookup
-    const jobIdsToLookup = [...new Set(
-      estimates.filter(est => est.jobId).map(est => est.jobId!)
-    )];
-
-    // Batch fetch jobs (any status, not just completed) to get their BU
-    const jobBuMap = new Map<number, string>();
-    if (jobIdsToLookup.length > 0) {
-      const jobMap = await this.getJobsByIds(jobIdsToLookup);
-      jobMap.forEach((job, id) => {
-        const buName = buIdToName.get(job.businessUnitId);
-        if (buName) jobBuMap.set(id, buName);
-      });
-    }
-
-    // Aggregate sold estimate subtotals by BU name
+    // Build sales lookup by BU name from Report 234
     const salesByBU = new Map<string, number>();
-    for (const est of estimates) {
-      const buName = est.jobId ? jobBuMap.get(est.jobId) : undefined;
-      if (buName) {
-        salesByBU.set(buName, (salesByBU.get(buName) || 0) + (Number(est.subtotal) || 0));
-      }
+    for (const row of salesData) {
+      salesByBU.set(row.businessUnitName, (salesByBU.get(row.businessUnitName) || 0) + row.totalSales);
     }
 
     // Initialize accumulators
@@ -564,68 +539,64 @@ export class ServiceTitanClient {
       maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
     };
 
-    // Aggregate report rows by trade and department
-    for (const row of reportData) {
-      const buName = row.businessUnitName;
+    // All BU names from both reports (sales may exist for BUs with $0 revenue)
+    const allBUNames = new Set([
+      ...revenueData.map(r => r.businessUnitName),
+      ...salesData.map(r => r.businessUnitName),
+    ]);
+
+    // Build revenue lookup
+    const revenueByBU = new Map<string, typeof revenueData[0]>();
+    for (const row of revenueData) {
+      revenueByBU.set(row.businessUnitName, row);
+    }
+
+    // Aggregate by trade and department
+    for (const buName of allBUNames) {
       const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
       const isPlumbing = PLUMBING_BUSINESS_UNITS.includes(buName);
-
       if (!isHvac && !isPlumbing) continue;
 
+      const rev = revenueByBU.get(buName);
       const buSales = salesByBU.get(buName) || 0;
+      const completedRevenue = rev?.completedRevenue || 0;
+      const nonJobRevenue = rev?.nonJobRevenue || 0;
+      const adjRevenue = rev?.adjRevenue || 0;
+      const totalRevenue = rev?.totalRevenue || 0;
 
       if (isHvac) {
-        hvac.completedRevenue += row.completedRevenue;
-        hvac.nonJobRevenue += row.nonJobRevenue;
-        hvac.adjRevenue += row.adjRevenue;
-        hvac.revenue += row.totalRevenue;
+        hvac.completedRevenue += completedRevenue;
+        hvac.nonJobRevenue += nonJobRevenue;
+        hvac.adjRevenue += adjRevenue;
+        hvac.revenue += totalRevenue;
         hvac.sales += buSales;
 
         const dept = HVAC_DEPT_MAPPING[buName];
         if (dept === 'Install') {
-          hvacDepts.install.completedRevenue += row.completedRevenue;
-          hvacDepts.install.nonJobRevenue += row.nonJobRevenue;
-          hvacDepts.install.adjRevenue += row.adjRevenue;
-          hvacDepts.install.revenue += row.totalRevenue;
+          hvacDepts.install.completedRevenue += completedRevenue;
+          hvacDepts.install.nonJobRevenue += nonJobRevenue;
+          hvacDepts.install.adjRevenue += adjRevenue;
+          hvacDepts.install.revenue += totalRevenue;
           hvacDepts.install.sales += buSales;
         } else if (dept === 'Service') {
-          hvacDepts.service.completedRevenue += row.completedRevenue;
-          hvacDepts.service.nonJobRevenue += row.nonJobRevenue;
-          hvacDepts.service.adjRevenue += row.adjRevenue;
-          hvacDepts.service.revenue += row.totalRevenue;
+          hvacDepts.service.completedRevenue += completedRevenue;
+          hvacDepts.service.nonJobRevenue += nonJobRevenue;
+          hvacDepts.service.adjRevenue += adjRevenue;
+          hvacDepts.service.revenue += totalRevenue;
           hvacDepts.service.sales += buSales;
         } else if (dept === 'Maintenance') {
-          hvacDepts.maintenance.completedRevenue += row.completedRevenue;
-          hvacDepts.maintenance.nonJobRevenue += row.nonJobRevenue;
-          hvacDepts.maintenance.adjRevenue += row.adjRevenue;
-          hvacDepts.maintenance.revenue += row.totalRevenue;
+          hvacDepts.maintenance.completedRevenue += completedRevenue;
+          hvacDepts.maintenance.nonJobRevenue += nonJobRevenue;
+          hvacDepts.maintenance.adjRevenue += adjRevenue;
+          hvacDepts.maintenance.revenue += totalRevenue;
           hvacDepts.maintenance.sales += buSales;
         }
       } else if (isPlumbing) {
-        plumbing.completedRevenue += row.completedRevenue;
-        plumbing.nonJobRevenue += row.nonJobRevenue;
-        plumbing.adjRevenue += row.adjRevenue;
-        plumbing.revenue += row.totalRevenue;
+        plumbing.completedRevenue += completedRevenue;
+        plumbing.nonJobRevenue += nonJobRevenue;
+        plumbing.adjRevenue += adjRevenue;
+        plumbing.revenue += totalRevenue;
         plumbing.sales += buSales;
-      }
-    }
-
-    // Pick up sales from BUs not in Report 222 (e.g., BUs with $0 revenue but real sales)
-    for (const [buName, sales] of salesByBU) {
-      if (reportData.some(r => r.businessUnitName === buName)) continue;
-      if (sales === 0) continue;
-
-      const isHvacBU = HVAC_BUSINESS_UNITS.includes(buName);
-      const isPlumbingBU = PLUMBING_BUSINESS_UNITS.includes(buName);
-
-      if (isHvacBU) {
-        hvac.sales += sales;
-        const dept = HVAC_DEPT_MAPPING[buName];
-        if (dept === 'Install') hvacDepts.install.sales += sales;
-        else if (dept === 'Service') hvacDepts.service.sales += sales;
-        else if (dept === 'Maintenance') hvacDepts.maintenance.sales += sales;
-      } else if (isPlumbingBU) {
-        plumbing.sales += sales;
       }
     }
 
