@@ -58,8 +58,13 @@ export async function POST(request: NextRequest) {
       // Sync today's data (for 10-min cron)
       datesToSync.push(getLocalDateString(new Date()));
     } else {
-      // Default: sync yesterday
-      datesToSync.push(getYesterdayDateString());
+      // Default: sync last 7 days to catch late adjustments (reopened jobs, refunds, etc.)
+      const now = new Date();
+      for (let i = 1; i <= 7; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        datesToSync.push(getLocalDateString(d));
+      }
     }
 
     // Process each date
