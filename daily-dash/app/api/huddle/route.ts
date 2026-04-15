@@ -533,6 +533,7 @@ export async function GET(request: NextRequest) {
     // Today's data is kept fresh by a 10-min cron that syncs to trade_daily_snapshots.
     // The Sync button triggers /api/trades/sync for manual refresh.
 
+    let allSnapsData: TradeSnapshot[] | null = null;
     try {
       // Single query: all snapshots from start of year to today (includes today's cached data)
       const { data: allSnaps } = await supabase
@@ -543,7 +544,8 @@ export async function GET(request: NextRequest) {
         .order('snapshot_date');
 
       if (allSnaps && allSnaps.length > 0) {
-        const typedSnaps = allSnaps as TradeSnapshot[];
+        allSnapsData = allSnaps as TradeSnapshot[];
+        const typedSnaps = allSnapsData;
 
         // Helper to sum snapshots for a date range
         const sumRange = (startD: string, endD: string) => {
@@ -760,15 +762,53 @@ export async function GET(request: NextRequest) {
       monthlyTrend,
     };
 
+    // Build trade totals for the selected date from trade_daily_snapshots
+    // These override the old huddle_snapshots values for Christmas (Overall) KPIs
+    const tradeTodayTotals = {
+      revenue: tradeData.hvac.today.revenue + tradeData.plumbing.today.revenue,
+      completedRevenue: tradeData.hvac.today.completedRevenue + tradeData.plumbing.today.completedRevenue,
+      nonJobRevenue: tradeData.hvac.today.nonJobRevenue + tradeData.plumbing.today.nonJobRevenue,
+      adjRevenue: tradeData.hvac.today.adjRevenue + tradeData.plumbing.today.adjRevenue,
+      sales: ((tradeData.hvac.today as any).sales || 0) + ((tradeData.plumbing.today as any).sales || 0),
+    };
+
+    // Get yesterday's sales from trade snapshots
+    const yesterdayDate = getYesterdayDateString();
+    let yesterdaySales = 0;
+    if (allSnapsData) {
+      const yesterdaySnaps = (allSnapsData as TradeSnapshot[]).filter(s => s.snapshot_date === yesterdayDate && s.department === null);
+      yesterdaySales = yesterdaySnaps.reduce((sum, s) => sum + (Number(s.sales) || 0), 0);
+    }
+
+    // Map KPI slugs to trade snapshot values for Christmas (Overall)
+    const tradeOverrides: Record<string, number> = {
+      'total-revenue': tradeTodayTotals.revenue,
+      'revenue-completed': tradeTodayTotals.completedRevenue,
+      'non-job-revenue': tradeTodayTotals.nonJobRevenue,
+      'total-sales': tradeTodayTotals.sales,
+      'yesterday-sales': yesterdaySales,
+    };
+
     // Build response
+    const christmasOverallSlug = 'christmas-overall';
     const departmentsWithKPIs: HuddleDepartmentWithKPIs[] = departments.map((dept) => {
+      const isChristmasOverall = dept.slug === christmasOverallSlug;
       const deptKPIs = kpis
         .filter((kpi) => kpi.department_id === dept.id)
         .map((kpi): HuddleKPIWithData => {
           const snapshot = snapshotMap.get(kpi.id);
           const target = targetMap.get(kpi.id) || null;
-          const actual = snapshot?.actual_value || null;
-          const percentToGoal = snapshot?.percent_to_goal || null;
+
+          // For Christmas (Overall), override with trade_daily_snapshots data
+          let actual = snapshot?.actual_value || null;
+          if (isChristmasOverall && tradeOverrides[kpi.slug] !== undefined) {
+            actual = tradeOverrides[kpi.slug];
+          }
+
+          const targetVal = target ? Number(target) : null;
+          const percentToGoal = (actual !== null && targetVal && targetVal > 0)
+            ? Math.round((Number(actual) / targetVal) * 100)
+            : (snapshot?.percent_to_goal || null);
           const status = snapshot?.status as HuddleKPIStatus ||
             getStatusFromPercentage(percentToGoal, kpi.higher_is_better);
           const note = notesMap.get(kpi.id) || null;
