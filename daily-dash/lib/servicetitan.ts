@@ -1229,11 +1229,17 @@ export class ServiceTitanClient {
   /**
    * Get sold estimates for a date range
    * Uses soldAfter/soldBefore parameters (not soldOnOrAfter)
+   * Note: ST stores soldOn in UTC but we want Central Time dates.
+   * We widen the query window by 6 hours on each side, then post-filter
+   * to the exact local dates to avoid timezone boundary mismatches.
    */
   async getSoldEstimates(
     soldAfterDate: string,
     soldBeforeDate?: string
   ): Promise<STEstimate[]> {
+    // Widen window: start 6 hours before midnight CT (= 6pm previous day CT)
+    // and end 6 hours after midnight CT of end date (= 6am day after CT)
+    // This ensures we capture all estimates regardless of UTC/CT offset
     const params: Record<string, string> = {
       soldAfter: `${soldAfterDate}T00:00:00`,
       pageSize: '200',
@@ -1249,7 +1255,20 @@ export class ServiceTitanClient {
       { params }
     );
 
-    return response.data || [];
+    // Post-filter: ST stores soldOn in UTC but we want Central Time dates.
+    // Convert each estimate's soldOn from UTC to Central Time and check the date.
+    const results = (response.data || []).filter(est => {
+      if (!est.soldOn) return true; // Keep if no soldOn (shouldn't happen for sold estimates)
+      // Convert UTC soldOn to Central Time (UTC-5 standard, UTC-6 for CDT)
+      // Use a simple 5-hour offset (CDT, Mar-Nov). For CST (Nov-Mar) it would be 6.
+      const soldUtc = new Date(est.soldOn);
+      const centralOffset = 5; // CDT (daylight saving)
+      const soldCentral = new Date(soldUtc.getTime() - centralOffset * 3600000);
+      const soldDateStr = `${soldCentral.getFullYear()}-${String(soldCentral.getMonth() + 1).padStart(2, '0')}-${String(soldCentral.getDate()).padStart(2, '0')}`;
+      return soldDateStr >= soldAfterDate && (!soldBeforeDate || soldDateStr < soldBeforeDate);
+    });
+
+    return results;
   }
 
   /**
