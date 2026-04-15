@@ -1185,11 +1185,14 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {/* HVAC Section Header */}
+                {/* HVAC Header + Totals */}
                 <tr>
-                  <td colSpan={4} className="pt-1 pb-1">
+                  <td className="py-1.5 pr-2">
                     <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#3B82F6' }}>HVAC</span>
                   </td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.today.revenue} sales={(trades.hvac.today as TradeMetrics).sales || 0} target={hvacTargets?.daily || 0} expectedPacing={dailyPacing} loading={loading} /></td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.wtd.revenue} sales={(trades.hvac.wtd as TradeMetrics).sales || 0} target={hvacTargets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} /></td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.mtd.revenue} sales={(trades.hvac.mtd as TradeMetrics).sales || 0} target={hvacTargets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} /></td>
                 </tr>
 
                 {/* HVAC Department rows */}
@@ -1202,21 +1205,13 @@ export default function DashboardPage() {
                   const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
                   return (
                     <tr key={`hvac-${dept}`}>
-                      <td className="py-1.5 pr-2 pl-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</td>
+                      <td className="py-1.5 pr-2 pl-4 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{labels[dept]}</td>
                       <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('today').revenue} sales={getDept('today').sales || 0} target={getDeptTarget('daily')} expectedPacing={dailyPacing} loading={loading} /></td>
                       <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('wtd').revenue} sales={getDept('wtd').sales || 0} target={getDeptTarget('weekly')} expectedPacing={weeklyPacing} loading={loading} /></td>
                       <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('mtd').revenue} sales={getDept('mtd').sales || 0} target={getDeptTarget('monthly')} expectedPacing={monthlyPacing} loading={loading} /></td>
                     </tr>
                   );
                 })}
-
-                {/* HVAC Total */}
-                <tr>
-                  <td className="py-1.5 pr-2 pl-3 font-semibold text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Total</td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.today.revenue} sales={(trades.hvac.today as TradeMetrics).sales || 0} target={hvacTargets?.daily || 0} expectedPacing={dailyPacing} loading={loading} /></td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.wtd.revenue} sales={(trades.hvac.wtd as TradeMetrics).sales || 0} target={hvacTargets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} /></td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.mtd.revenue} sales={(trades.hvac.mtd as TradeMetrics).sales || 0} target={hvacTargets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} /></td>
-                </tr>
 
                 {/* Divider */}
                 <tr><td colSpan={4} className="py-2"><div className="h-px w-full" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} /></td></tr>
