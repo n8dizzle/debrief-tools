@@ -868,9 +868,18 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
           <thead>
             <tr>
               <th className="text-left py-2 pr-2 font-medium" style={{ color: 'var(--text-muted)', width: '100px' }}></th>
-              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Today</th>
-              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Week</th>
-              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Month</th>
+              <th colSpan={2} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Today</th>
+              <th colSpan={2} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Week</th>
+              <th colSpan={2} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Month</th>
+            </tr>
+            <tr>
+              <th></th>
+              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Revenue</th>
+              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Sales</th>
+              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Revenue</th>
+              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Sales</th>
+              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Revenue</th>
+              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Sales</th>
             </tr>
           </thead>
           <tbody>
@@ -880,14 +889,23 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
                 <td className="py-1.5 pr-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>
                   {deptLabels[dept]}
                 </td>
-                <td className="py-1.5 px-2">
+                <td className="py-1.5 px-1">
                   <ScoreboardCell actual={getDept('today', dept).revenue} target={getDeptTarget(dept, 'daily')} expectedPacing={dailyPacing} loading={loading} />
                 </td>
-                <td className="py-1.5 px-2">
+                <td className="py-1.5 px-1">
+                  <SalesCell actual={getDept('today', dept).sales || 0} loading={loading} />
+                </td>
+                <td className="py-1.5 px-1">
                   <ScoreboardCell actual={getDept('wtd', dept).revenue} target={getDeptTarget(dept, 'weekly')} expectedPacing={weeklyPacing} loading={loading} />
                 </td>
-                <td className="py-1.5 px-2">
+                <td className="py-1.5 px-1">
+                  <SalesCell actual={getDept('wtd', dept).sales || 0} loading={loading} />
+                </td>
+                <td className="py-1.5 px-1">
                   <ScoreboardCell actual={getDept('mtd', dept).revenue} target={getDeptTarget(dept, 'monthly')} expectedPacing={monthlyPacing} loading={loading} />
+                </td>
+                <td className="py-1.5 px-1">
+                  <SalesCell actual={getDept('mtd', dept).sales || 0} loading={loading} />
                 </td>
               </tr>
             ))}
@@ -895,40 +913,33 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
             {/* Separator */}
             {isHvac && (
               <tr>
-                <td colSpan={4} className="py-1">
+                <td colSpan={7} className="py-1">
                   <div className="h-px w-full" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
                 </td>
               </tr>
             )}
 
-            {/* Total Revenue row */}
+            {/* Total row */}
             <tr>
               <td className="py-1.5 pr-2 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Revenue
+                Total
               </td>
-              <td className="py-1.5 px-2">
+              <td className="py-1.5 px-1">
                 <ScoreboardCell actual={data.today.revenue} target={targets?.daily || 0} expectedPacing={dailyPacing} loading={loading} />
               </td>
-              <td className="py-1.5 px-2">
-                <ScoreboardCell actual={data.wtd.revenue} target={targets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} />
-              </td>
-              <td className="py-1.5 px-2">
-                <ScoreboardCell actual={data.mtd.revenue} target={targets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} />
-              </td>
-            </tr>
-
-            {/* Total Sales row */}
-            <tr>
-              <td className="py-1.5 pr-2 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Sales
-              </td>
-              <td className="py-1.5 px-2">
+              <td className="py-1.5 px-1">
                 <SalesCell actual={(data.today as TradeMetrics).sales || 0} loading={loading} />
               </td>
-              <td className="py-1.5 px-2">
+              <td className="py-1.5 px-1">
+                <ScoreboardCell actual={data.wtd.revenue} target={targets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} />
+              </td>
+              <td className="py-1.5 px-1">
                 <SalesCell actual={(data.wtd as TradeMetrics).sales || 0} loading={loading} />
               </td>
-              <td className="py-1.5 px-2">
+              <td className="py-1.5 px-1">
+                <ScoreboardCell actual={data.mtd.revenue} target={targets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} />
+              </td>
+              <td className="py-1.5 px-1">
                 <SalesCell actual={(data.mtd as TradeMetrics).sales || 0} loading={loading} />
               </td>
             </tr>
