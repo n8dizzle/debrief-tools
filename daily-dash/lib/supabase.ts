@@ -177,6 +177,8 @@ export interface HuddlePacingData {
 
 export interface HuddleDashboardResponse {
   date: string;
+  endDate?: string;
+  daysInRange?: number;
   departments: HuddleDepartmentWithKPIs[];
   last_updated: string;
   pacing?: HuddlePacingData;

@@ -150,8 +150,12 @@ export interface HuddleApiResponse {
  * @param date Optional date string (YYYY-MM-DD) for historical data
  * @returns { data, error, isLoading, isValidating, mutate }
  */
-export function useHuddleData(date?: string) {
-  const url = date ? `/api/huddle?date=${date}` : '/api/huddle';
+export function useHuddleData(date?: string, endDate?: string) {
+  let url = '/api/huddle';
+  if (date) {
+    url = `/api/huddle?date=${date}`;
+    if (endDate && endDate !== date) url += `&endDate=${endDate}`;
+  }
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<HuddleApiResponse>(
     url,

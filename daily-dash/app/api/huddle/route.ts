@@ -115,15 +115,23 @@ export async function GET(request: NextRequest) {
     const supabase = getServerSupabase();
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get('date');
+    const endDateParam = searchParams.get('endDate');
     const date = dateParam || getTodayDateString();
+    const endDate = endDateParam || date;
+    const isRange = endDate !== date;
 
     // BATCH 1: Core huddle data - run in parallel
+    // For ranges, fetch all snapshots/notes in the range (will aggregate below)
     const [deptResult, kpiResult, snapshotResult, targetResult, notesResult] = await Promise.all([
       supabase.from('huddle_departments').select('*').eq('is_active', true).order('display_order'),
       supabase.from('huddle_kpis').select('*').eq('is_active', true).order('display_order'),
-      supabase.from('huddle_snapshots').select('*').eq('snapshot_date', date),
-      supabase.from('huddle_targets').select('*').eq('target_type', 'daily').lte('effective_date', date).order('effective_date', { ascending: false }),
-      supabase.from('huddle_notes').select('*').eq('note_date', date),
+      isRange
+        ? supabase.from('huddle_snapshots').select('*').gte('snapshot_date', date).lte('snapshot_date', endDate)
+        : supabase.from('huddle_snapshots').select('*').eq('snapshot_date', date),
+      supabase.from('huddle_targets').select('*').eq('target_type', 'daily').lte('effective_date', endDate).order('effective_date', { ascending: false }),
+      isRange
+        ? supabase.from('huddle_notes').select('*').gte('note_date', date).lte('note_date', endDate)
+        : supabase.from('huddle_notes').select('*').eq('note_date', date),
     ]);
 
     const { data: departments, error: deptError } = deptResult;
@@ -146,7 +154,10 @@ export async function GET(request: NextRequest) {
     if (targetError) console.error('Error fetching targets:', targetError);
     if (notesError) console.error('Error fetching notes:', notesError);
 
-    // Build snapshot lookup
+    // Build snapshot lookup. For ranges, aggregate by KPI format:
+    //   - currency/number (count): sum
+    //   - percent/time: weighted or simple average
+    //   - boolean/text: take latest
     type SnapshotRecord = {
       id: string;
       kpi_id: string;
@@ -159,24 +170,77 @@ export async function GET(request: NextRequest) {
       created_at: string;
       updated_at: string;
     };
+
+    // Count days in the range for target scaling
+    const daysInRange = isRange
+      ? Math.round((new Date(endDate + 'T12:00:00').getTime() - new Date(date + 'T12:00:00').getTime()) / 86400000) + 1
+      : 1;
+
+    // Map KPI format by id
+    const kpiFormatMap = new Map<string, string>();
+    kpis?.forEach((k) => kpiFormatMap.set(k.id, k.format || 'number'));
+
     const snapshotMap = new Map<string, SnapshotRecord>();
-    (snapshots as SnapshotRecord[] | null)?.forEach((s) => snapshotMap.set(s.kpi_id, s));
+    if (isRange) {
+      // Aggregate per-KPI across the range
+      const perKpi = new Map<string, SnapshotRecord[]>();
+      (snapshots as SnapshotRecord[] | null)?.forEach((s) => {
+        const list = perKpi.get(s.kpi_id) || [];
+        list.push(s);
+        perKpi.set(s.kpi_id, list);
+      });
+      for (const [kpiId, list] of perKpi) {
+        const format = kpiFormatMap.get(kpiId) || 'number';
+        const sorted = [...list].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+        const latest = sorted[sorted.length - 1];
+        let agg: number | null = null;
+        const valid = list.map(s => Number(s.actual_value)).filter(v => !isNaN(v) && v !== null);
+        if (valid.length > 0) {
+          if (format === 'percent' || format === 'time') {
+            agg = valid.reduce((sum, v) => sum + v, 0) / valid.length;
+          } else {
+            // currency, number, count -> sum
+            agg = valid.reduce((sum, v) => sum + v, 0);
+          }
+        }
+        snapshotMap.set(kpiId, { ...latest, actual_value: agg });
+      }
+    } else {
+      (snapshots as SnapshotRecord[] | null)?.forEach((s) => snapshotMap.set(s.kpi_id, s));
+    }
 
 
-    // Build target lookup (most recent for each KPI)
+    // Build target lookup (most recent for each KPI). Scale by days in range for sum-type KPIs.
     const targetMap = new Map<string, number>();
     targets?.forEach((t) => {
       if (!targetMap.has(t.kpi_id)) {
-        targetMap.set(t.kpi_id, t.target_value);
+        const format = kpiFormatMap.get(t.kpi_id) || 'number';
+        const scale = isRange && format !== 'percent' && format !== 'time' ? daysInRange : 1;
+        targetMap.set(t.kpi_id, t.target_value * scale);
       }
     });
 
-    // Build notes lookup
+    // Build notes lookup. For ranges, concatenate notes from each day.
     const notesMap = new Map<string, string>();
-    notes?.forEach((n) => notesMap.set(n.kpi_id, n.note_text || ''));
+    if (isRange) {
+      const perKpi = new Map<string, { note_date: string; note_text: string }[]>();
+      notes?.forEach((n) => {
+        if (!n.note_text) return;
+        const list = perKpi.get(n.kpi_id) || [];
+        list.push({ note_date: n.note_date, note_text: n.note_text });
+        perKpi.set(n.kpi_id, list);
+      });
+      for (const [kpiId, list] of perKpi) {
+        const sorted = list.sort((a, b) => a.note_date.localeCompare(b.note_date));
+        notesMap.set(kpiId, sorted.map(n => `${n.note_date}: ${n.note_text}`).join(' | '));
+      }
+    } else {
+      notes?.forEach((n) => notesMap.set(n.kpi_id, n.note_text || ''));
+    }
 
     // Fetch pacing data: monthly targets, business days, holidays
-    const selectedDate = new Date(date + 'T00:00:00');
+    // For range queries, use endDate as the reference for WTD/MTD calculations
+    const selectedDate = new Date(endDate + 'T00:00:00');
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth() + 1; // 1-indexed
 
@@ -243,13 +307,13 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       supabase.from('dash_business_days').select('*').eq('year', year).eq('month', month).single(),
       supabase.from('dash_holidays').select('date').eq('year', year),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', firstOfMonth).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', firstOfMonth).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-sales'),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', mondayStr).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', mondayStr).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-sales'),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', quarterStartDate).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', quarterStartDate).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-sales'),
-      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', yearStartDate).lte('snapshot_date', date).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', firstOfMonth).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', firstOfMonth).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-sales'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', mondayStr).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', mondayStr).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-sales'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', quarterStartDate).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-revenue'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', quarterStartDate).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-sales'),
+      supabase.from('huddle_snapshots').select('actual_value, huddle_kpis!inner(slug)').gte('snapshot_date', yearStartDate).lte('snapshot_date', endDate).eq('huddle_kpis.slug', 'total-revenue'),
       supabase.from('dash_monthly_targets').select('target_value, month').eq('year', year).eq('department', 'TOTAL').eq('target_type', 'revenue').order('month'),
       supabase.from('dash_monthly_targets').select('target_value').eq('year', year).gte('month', quarterStartMonth).lte('month', quarterEndMonth).eq('department', 'TOTAL').eq('target_type', 'revenue'),
     ]);
@@ -831,6 +895,8 @@ export async function GET(request: NextRequest) {
 
     const response: HuddleDashboardResponse = {
       date,
+      endDate,
+      daysInRange,
       departments: departmentsWithKPIs,
       last_updated: new Date().toISOString(),
       pacing: pacingData,

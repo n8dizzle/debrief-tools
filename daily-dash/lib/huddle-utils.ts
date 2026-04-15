@@ -178,6 +178,56 @@ export function getYesterdayDateString(): string {
 }
 
 /**
+ * Get the date range for the prior huddle day(s).
+ * Mon-Fri huddles review the prior business day. Monday aggregates Fri-Sun.
+ */
+export function getPriorHuddleRange(): { start: string; end: string; label: string } {
+  const now = new Date();
+  const centralTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const dayOfWeek = centralTime.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+
+  if (dayOfWeek === 1) {
+    // Monday: Fri-Sun weekend aggregate
+    const friday = new Date(centralTime);
+    friday.setDate(friday.getDate() - 3);
+    const sunday = new Date(centralTime);
+    sunday.setDate(sunday.getDate() - 1);
+    return { start: getLocalDateString(friday), end: getLocalDateString(sunday), label: 'Weekend' };
+  }
+
+  // Tue-Sun: just yesterday
+  const yesterday = getYesterdayDateString();
+  return { start: yesterday, end: yesterday, label: 'Yesterday' };
+}
+
+/**
+ * Build a human-friendly label for a date range relative to today.
+ */
+export function getRangeLabel(startDate: string, endDate: string): string {
+  const today = getTodayDateString();
+  const yesterday = getYesterdayDateString();
+
+  // Single-date
+  if (startDate === endDate) {
+    if (startDate === today) return 'Today';
+    if (startDate === yesterday) return 'Yesterday';
+    const d = new Date(startDate + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  // Multi-day
+  const start = new Date(startDate + 'T12:00:00');
+  const end = new Date(endDate + 'T12:00:00');
+  const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 2 && start.getDay() === 5 && end.getDay() === 0) {
+    return 'Weekend (Fri-Sun)';
+  }
+  const startLabel = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const endLabel = end.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return `${startLabel} - ${endLabel}`;
+}
+
+/**
  * Format date for display
  */
 export function formatDateForDisplay(dateString: string): string {
