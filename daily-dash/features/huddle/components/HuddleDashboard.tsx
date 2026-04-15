@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { HuddleDashboardResponse, HuddleDepartmentWithKPIs } from '@/lib/supabase';
-import { getTodayDateString, getYesterdayDateString, formatDateForDisplay } from '@/lib/huddle-utils';
+import { getTodayDateString, getYesterdayDateString, formatDateForDisplay, getPriorHuddleRange, getRangeLabel } from '@/lib/huddle-utils';
 import { useHuddleData } from '@/lib/hooks/useHuddleData';
 import DepartmentSection from './DepartmentSection';
 
@@ -98,12 +98,15 @@ export default function HuddleDashboard({
   defaultDate,
   showHeader = true,
 }: HuddleDashboardProps) {
-  const [selectedDate, setSelectedDate] = useState(defaultDate || getYesterdayDateString());
+  // Default huddle range: yesterday, or Fri-Sun on Mondays
+  const defaultRange = getPriorHuddleRange();
+  const [selectedDate, setSelectedDate] = useState(defaultDate || defaultRange.start);
+  const [selectedEndDate, setSelectedEndDate] = useState(defaultDate || defaultRange.end);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   // Use SWR for cached data fetching - instant load on navigation
-  const { data: apiData, error: fetchError, isLoading, isValidating, mutate } = useHuddleData(selectedDate);
+  const { data: apiData, error: fetchError, isLoading, isValidating, mutate } = useHuddleData(selectedDate, selectedEndDate);
 
   // Local state for optimistic updates (notes)
   const [localData, setLocalData] = useState<HuddleDashboardResponse | null>(initialData || null);
@@ -118,18 +121,30 @@ export default function HuddleDashboard({
   const data = localData;
   const error = fetchError ? 'Failed to load dashboard data' : null;
 
-  // Trigger data sync from ServiceTitan
+  // Trigger data sync from ServiceTitan for each day in the selected range
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch('/api/huddle/snapshots/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate }),
-      });
-      if (!response.ok) throw new Error('Sync failed');
+      // Build list of dates to sync
+      const dates: string[] = [];
+      const start = new Date(selectedDate + 'T12:00:00');
+      const end = new Date(selectedEndDate + 'T12:00:00');
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${day}`);
+      }
+
+      for (const d of dates) {
+        const response = await fetch('/api/huddle/snapshots/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: d }),
+        });
+        if (!response.ok) throw new Error(`Sync failed for ${d}`);
+      }
       setLastSync(new Date().toLocaleTimeString());
-      // Refresh SWR cache
       mutate();
     } catch (err) {
       console.error('Sync error:', err);
@@ -184,13 +199,23 @@ export default function HuddleDashboard({
     ].filter(g => g.depts.length > 0);
   };
 
-  // Date presets
+  // Date presets. "Prior Huddle" = yesterday on Tue-Fri, Fri-Sun on Mon.
+  const today = getTodayDateString();
+  const priorRange = getPriorHuddleRange();
   const datePresets = [
-    { label: 'Yesterday', value: getYesterdayDateString() },
-    { label: 'Today', value: getTodayDateString() },
+    { label: priorRange.label, start: priorRange.start, end: priorRange.end },
+    { label: 'Today', start: today, end: today },
   ];
+  const selectRange = (start: string, end: string) => {
+    setSelectedDate(start);
+    setSelectedEndDate(end);
+  };
+  const isPresetActive = (p: { start: string; end: string }) =>
+    selectedDate === p.start && selectedEndDate === p.end;
 
   const pacingData = getPacingData();
+  // Dynamic label for the first pacing card based on the selected range
+  const pacingCardLabel = getRangeLabel(selectedDate, selectedEndDate);
 
   return (
     <div>
@@ -199,32 +224,27 @@ export default function HuddleDashboard({
         <div className="flex items-center gap-3">
           {/* Date selector */}
           <div className="flex items-center gap-2">
-            {datePresets.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => setSelectedDate(preset.value)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  selectedDate === preset.value ? 'font-medium' : ''
-                }`}
-                style={{
-                  backgroundColor:
-                    selectedDate === preset.value
-                      ? 'var(--christmas-green)'
-                      : 'var(--bg-card)',
-                  color:
-                    selectedDate === preset.value
-                      ? 'var(--christmas-cream)'
-                      : 'var(--text-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
+            {datePresets.map((preset) => {
+              const active = isPresetActive(preset);
+              return (
+                <button
+                  key={preset.label}
+                  onClick={() => selectRange(preset.start, preset.end)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${active ? 'font-medium' : ''}`}
+                  style={{
+                    backgroundColor: active ? 'var(--christmas-green)' : 'var(--bg-card)',
+                    color: active ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
             <input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => selectRange(e.target.value, e.target.value)}
               className="px-3 py-1.5 text-sm rounded-lg"
               style={{
                 backgroundColor: 'var(--bg-card)',
@@ -324,14 +344,16 @@ export default function HuddleDashboard({
                 Revenue Pacing
               </h2>
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {formatDateForDisplay(selectedDate)}
+                {selectedDate === selectedEndDate
+                  ? formatDateForDisplay(selectedDate)
+                  : `${formatDateForDisplay(selectedDate)} → ${formatDateForDisplay(selectedEndDate)}`}
               </span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <PacingCard
-                label="Today"
+                label={pacingCardLabel}
                 current={pacingData?.todayRevenue || 0}
-                target={pacingData?.dailyTarget || 0}
+                target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.daysInRange || 1) : 0}
               />
               <PacingCard
                 label="This Week"
@@ -362,7 +384,7 @@ export default function HuddleDashboard({
                   department={dept}
                   date={selectedDate}
                   defaultExpanded={dept.slug === 'christmas-overall' || dept.slug.includes('hvac')}
-                  canEditNotes={canEditNotes}
+                  canEditNotes={canEditNotes && selectedDate === selectedEndDate}
                   onNoteChange={handleNoteChange}
                 />
               ))}
