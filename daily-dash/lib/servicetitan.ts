@@ -521,28 +521,35 @@ export class ServiceTitanClient {
     const dayAfterEnd = this.getNextDay(effectiveEndDate);
 
     // Fetch Report 222 (Revenue) and Sold Estimates (Sales) in parallel
-    const [reportData, estimates, allJobs] = await Promise.all([
+    const [reportData, estimates] = await Promise.all([
       this.getBUDashboardRevenue(startDate, effectiveEndDate),
       this.getSoldEstimates(startDate, dayAfterEnd),
-      this.getCompletedJobs(startDate, dayAfterEnd),
     ]);
 
-    // Build job ID -> BU name map from jobs + business units cache
+    // Build job ID -> BU name map by looking up each estimate's job
     const businessUnits = await this.getBusinessUnits();
     const buIdToName = new Map<number, string>();
     businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
 
+    // Collect unique job IDs from estimates that need BU lookup
+    const jobIdsToLookup = [...new Set(
+      estimates.filter(est => est.jobId).map(est => est.jobId!)
+    )];
+
+    // Batch fetch jobs (any status, not just completed) to get their BU
     const jobBuMap = new Map<number, string>();
-    allJobs.forEach(j => {
-      const buName = buIdToName.get(j.businessUnitId);
-      if (buName) jobBuMap.set(j.id, buName);
-    });
+    if (jobIdsToLookup.length > 0) {
+      const jobMap = await this.getJobsByIds(jobIdsToLookup);
+      jobMap.forEach((job, id) => {
+        const buName = buIdToName.get(job.businessUnitId);
+        if (buName) jobBuMap.set(id, buName);
+      });
+    }
 
     // Aggregate sold estimate subtotals by BU name
     const salesByBU = new Map<string, number>();
     for (const est of estimates) {
       const buName = est.jobId ? jobBuMap.get(est.jobId) : undefined;
-      // If we can map to a BU, attribute to that BU; otherwise skip
       if (buName) {
         salesByBU.set(buName, (salesByBU.get(buName) || 0) + (Number(est.subtotal) || 0));
       }
