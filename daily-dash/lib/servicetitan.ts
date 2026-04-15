@@ -518,16 +518,34 @@ export class ServiceTitanClient {
   }> {
     const effectiveEndDate = endDate || startDate;
 
-    // Fetch Report 222 (Revenue) and Report 234 (Sales) in parallel
-    const [reportData, salesData] = await Promise.all([
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
+
+    // Fetch Report 222 (Revenue) and Sold Estimates (Sales) in parallel
+    const [reportData, estimates, allJobs] = await Promise.all([
       this.getBUDashboardRevenue(startDate, effectiveEndDate),
-      this.getBUDashboardSales(startDate, effectiveEndDate),
+      this.getSoldEstimates(startDate, dayAfterEnd),
+      this.getCompletedJobs(startDate, dayAfterEnd),
     ]);
 
-    // Merge sales into revenue data by BU name
+    // Build job ID -> BU name map from jobs + business units cache
+    const businessUnits = await this.getBusinessUnits();
+    const buIdToName = new Map<number, string>();
+    businessUnits.forEach(bu => buIdToName.set(bu.id, bu.name));
+
+    const jobBuMap = new Map<number, string>();
+    allJobs.forEach(j => {
+      const buName = buIdToName.get(j.businessUnitId);
+      if (buName) jobBuMap.set(j.id, buName);
+    });
+
+    // Aggregate sold estimate subtotals by BU name
     const salesByBU = new Map<string, number>();
-    for (const row of salesData) {
-      salesByBU.set(row.businessUnitName, (salesByBU.get(row.businessUnitName) || 0) + row.totalSales);
+    for (const est of estimates) {
+      const buName = est.jobId ? jobBuMap.get(est.jobId) : undefined;
+      // If we can map to a BU, attribute to that BU; otherwise skip
+      if (buName) {
+        salesByBU.set(buName, (salesByBU.get(buName) || 0) + (Number(est.subtotal) || 0));
+      }
     }
 
     // Initialize accumulators
@@ -585,17 +603,15 @@ export class ServiceTitanClient {
       }
     }
 
-    // Pick up sales from BUs that appear in Report 234 but NOT in Report 222
-    // (e.g., "HVAC - Sales" or "Plumbing - Sales" with $0 revenue but real sales)
+    // Pick up sales from BUs not in Report 222 (e.g., BUs with $0 revenue but real sales)
     for (const [buName, sales] of salesByBU) {
-      // Skip if we already counted this BU from the revenue loop
       if (reportData.some(r => r.businessUnitName === buName)) continue;
       if (sales === 0) continue;
 
-      const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
+      const isHvacBU = HVAC_BUSINESS_UNITS.includes(buName);
       const isPlumbingBU = PLUMBING_BUSINESS_UNITS.includes(buName);
 
-      if (isHvac) {
+      if (isHvacBU) {
         hvac.sales += sales;
         const dept = HVAC_DEPT_MAPPING[buName];
         if (dept === 'Install') hvacDepts.install.sales += sales;
