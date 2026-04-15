@@ -164,10 +164,7 @@ export function calculateDailyPaceNeeded(
  * Get today's date in YYYY-MM-DD format (Central Time)
  */
 export function getTodayDateString(): string {
-  const now = new Date();
-  // Convert to Central Time
-  const centralTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-  return centralTime.toISOString().split('T')[0];
+  return getLocalDateString(new Date());
 }
 
 /**
@@ -177,7 +174,7 @@ export function getYesterdayDateString(): string {
   const now = new Date();
   const centralTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
   centralTime.setDate(centralTime.getDate() - 1);
-  return centralTime.toISOString().split('T')[0];
+  return getLocalDateString(centralTime);
 }
 
 /**

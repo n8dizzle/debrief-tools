@@ -10,7 +10,7 @@ import {
   HuddleSnapshot,
   MonthlyTrendData,
 } from '@/lib/supabase';
-import { getStatusFromPercentage, getTodayDateString } from '@/lib/huddle-utils';
+import { getStatusFromPercentage, getTodayDateString, getYesterdayDateString } from '@/lib/huddle-utils';
 import { getServiceTitanClient, TradeName, HVACDepartment } from '@/lib/servicetitan';
 
 // Helper to get business days in the current week up to the given date
@@ -28,7 +28,7 @@ function getBusinessDaysInWeekForDate(date: Date, holidays: string[]): number {
   // Count business days from Monday to the given date (inclusive)
   while (current <= date) {
     const day = current.getDay();
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
     if (!holidaySet.has(dateStr)) {
       // Monday-Friday = 1 full day each
       if (day >= 1 && day <= 5) {
@@ -60,7 +60,7 @@ function getTotalBusinessDaysInWeek(date: Date, holidays: string[]): number {
 
   // Count all business days Mon-Sat (Mon-Fri = 1 each, Sat = 0.5)
   for (let i = 0; i < 6; i++) {
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
     const currentDay = current.getDay();
     if (!holidaySet.has(dateStr)) {
       if (currentDay >= 1 && currentDay <= 5) {
@@ -86,7 +86,7 @@ function getBusinessDaysElapsedInMonth(date: Date, holidays: string[]): number {
 
   while (current <= date) {
     const day = current.getDay();
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
     if (!holidaySet.has(dateStr)) {
       // Monday-Friday = 1 full day each
       if (day >= 1 && day <= 5) {
@@ -222,15 +222,15 @@ export async function GET(request: NextRequest) {
     const plumbingDailyTarget = deptTargets['Plumbing']?.daily || 0;
 
     // Calculate date ranges for batch queries
-    const firstOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const firstOfMonth = `${year}-${String(month).padStart(2, '0')}-01`;
     const dayOfWeek = selectedDate.getDay();
     const monday = new Date(selectedDate);
     monday.setDate(selectedDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    const mondayStr = monday.toISOString().split('T')[0];
+    const mondayStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
     const quarter = Math.floor((month - 1) / 3) + 1;
     const quarterStartMonth = (quarter - 1) * 3 + 1;
     const quarterEndMonth = quarter * 3;
-    const quarterStartDate = new Date(year, quarterStartMonth - 1, 1).toISOString().split('T')[0];
+    const quarterStartDate = `${year}-${String(quarterStartMonth).padStart(2, '0')}-01`;
     const yearStartDate = `${year}-01-01`;
 
     // BATCH 2: Business days, holidays, revenue/sales snapshots, and targets - run in parallel
@@ -591,11 +591,9 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching trade snapshots:', snapError);
     }
 
-    // Helper to get yesterday's date string
+    // Helper to get yesterday's date string (Central Time)
     function getYesterdayStr(): string {
-      const d = new Date();
-      d.setDate(d.getDate() - 1);
-      return d.toISOString().split('T')[0];
+      return getYesterdayDateString();
     }
 
     // Fetch 18-month trend data for the stacked bar chart
