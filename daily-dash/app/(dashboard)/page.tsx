@@ -961,16 +961,21 @@ export default function DashboardPage() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/huddle/snapshots/sync', {
+      // Sync trade daily snapshots (revenue + sales from ST Reports)
+      await fetch('/api/trades/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: selectedDate }),
       });
-      if (res.ok) {
-        setLastSync(new Date().toLocaleTimeString());
-        // Refresh SWR cache
-        mutate();
-      }
+      // Also sync huddle snapshots
+      await fetch('/api/huddle/snapshots/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate }),
+      });
+      setLastSync(new Date().toLocaleTimeString());
+      // Refresh SWR cache
+      mutate();
     } catch (err) {
       console.error('Sync error:', err);
     } finally {
