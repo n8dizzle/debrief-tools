@@ -1156,30 +1156,84 @@ export default function DashboardPage() {
       {/* Section Divider - By Trade */}
       <SectionDivider label="By Trade" />
 
-      {/* HVAC Scoreboard */}
+      {/* Combined Trade Scoreboard */}
       {trades && (
-        <TradeScoreboard
-          trade="hvac"
-          tradeData={trades}
-          targets={hvacTargets}
-          dailyPacing={dailyPacing}
-          weeklyPacing={weeklyPacing}
-          monthlyPacing={monthlyPacing}
-          loading={loading}
-        />
-      )}
+        <div
+          className="p-4 sm:p-5 rounded-xl mb-4"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid rgba(52, 102, 67, 0.3)',
+          }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  <th className="text-left py-2 pr-2 font-medium" style={{ color: 'var(--text-muted)', width: '120px' }}></th>
+                  <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                    <div>Today</div>
+                    <div className="text-[10px] font-normal opacity-60">rev / target</div>
+                  </th>
+                  <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                    <div>Week</div>
+                    <div className="text-[10px] font-normal opacity-60">rev / target</div>
+                  </th>
+                  <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>
+                    <div>Month</div>
+                    <div className="text-[10px] font-normal opacity-60">rev / target</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* HVAC Section Header */}
+                <tr>
+                  <td colSpan={4} className="pt-1 pb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#3B82F6' }}>HVAC</span>
+                  </td>
+                </tr>
 
-      {/* Plumbing Scoreboard */}
-      {trades && (
-        <TradeScoreboard
-          trade="plumbing"
-          tradeData={trades}
-          targets={plumbingTargets}
-          dailyPacing={dailyPacing}
-          weeklyPacing={weeklyPacing}
-          monthlyPacing={monthlyPacing}
-          loading={loading}
-        />
+                {/* HVAC Department rows */}
+                {(['install', 'service', 'maintenance'] as const).map((dept) => {
+                  const getDept = (period: 'today' | 'wtd' | 'mtd') => {
+                    const pd = trades.hvac[period] as TradeMetrics;
+                    return pd?.departments?.[dept] || { revenue: 0, sales: 0 };
+                  };
+                  const getDeptTarget = (period: 'daily' | 'weekly' | 'monthly') => hvacTargets?.departments?.[dept]?.[period] || 0;
+                  const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
+                  return (
+                    <tr key={`hvac-${dept}`}>
+                      <td className="py-1.5 pr-2 pl-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</td>
+                      <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('today').revenue} sales={getDept('today').sales || 0} target={getDeptTarget('daily')} expectedPacing={dailyPacing} loading={loading} /></td>
+                      <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('wtd').revenue} sales={getDept('wtd').sales || 0} target={getDeptTarget('weekly')} expectedPacing={weeklyPacing} loading={loading} /></td>
+                      <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('mtd').revenue} sales={getDept('mtd').sales || 0} target={getDeptTarget('monthly')} expectedPacing={monthlyPacing} loading={loading} /></td>
+                    </tr>
+                  );
+                })}
+
+                {/* HVAC Total */}
+                <tr>
+                  <td className="py-1.5 pr-2 pl-3 font-semibold text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Total</td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.today.revenue} sales={(trades.hvac.today as TradeMetrics).sales || 0} target={hvacTargets?.daily || 0} expectedPacing={dailyPacing} loading={loading} /></td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.wtd.revenue} sales={(trades.hvac.wtd as TradeMetrics).sales || 0} target={hvacTargets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} /></td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.mtd.revenue} sales={(trades.hvac.mtd as TradeMetrics).sales || 0} target={hvacTargets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} /></td>
+                </tr>
+
+                {/* Divider */}
+                <tr><td colSpan={4} className="py-2"><div className="h-px w-full" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} /></td></tr>
+
+                {/* Plumbing Section */}
+                <tr>
+                  <td className="py-1.5 pr-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B5CF6' }}>Plumbing</span>
+                  </td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.plumbing.today.revenue} sales={(trades.plumbing.today as TradeMetrics).sales || 0} target={plumbingTargets?.daily || 0} expectedPacing={dailyPacing} loading={loading} /></td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.plumbing.wtd.revenue} sales={(trades.plumbing.wtd as TradeMetrics).sales || 0} target={plumbingTargets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} /></td>
+                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.plumbing.mtd.revenue} sales={(trades.plumbing.mtd as TradeMetrics).sales || 0} target={plumbingTargets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} /></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );
