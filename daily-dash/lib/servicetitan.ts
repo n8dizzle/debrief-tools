@@ -517,17 +517,30 @@ export class ServiceTitanClient {
     };
   }> {
     const effectiveEndDate = endDate || startDate;
+    const dayAfterEnd = this.getNextDay(effectiveEndDate);
 
-    // Fetch Report 222 (Revenue by BU) and Report 234 (Sales by BU) in parallel
-    const [revenueData, salesData] = await Promise.all([
+    // Fetch Report 222 (Revenue), Report 234 (Sales), and Sold Estimates in parallel.
+    // Report 234 is the source of truth for sales but drops BUs with small/zero amounts.
+    // Sold Estimates API fills in the gaps for BUs that Report 234 misses.
+    const [revenueData, salesReportData, estimates] = await Promise.all([
       this.getBUDashboardRevenue(startDate, effectiveEndDate),
       this.getBUDashboardSales(startDate, effectiveEndDate),
+      this.getSoldEstimates(startDate, dayAfterEnd),
     ]);
 
-    // Build sales lookup by BU name from Report 234
+    // Build sales lookup: start with Report 234 (authoritative)
     const salesByBU = new Map<string, number>();
-    for (const row of salesData) {
+    const report234BUs = new Set<string>();
+    for (const row of salesReportData) {
       salesByBU.set(row.businessUnitName, (salesByBU.get(row.businessUnitName) || 0) + row.totalSales);
+      report234BUs.add(row.businessUnitName);
+    }
+
+    // Fill in missing BUs from Sold Estimates API (using estimate.businessUnitName directly)
+    for (const est of estimates) {
+      const buName = (est as any).businessUnitName as string | undefined;
+      if (!buName || report234BUs.has(buName)) continue; // Skip BUs already in Report 234
+      salesByBU.set(buName, (salesByBU.get(buName) || 0) + (Number(est.subtotal) || 0));
     }
 
     // Initialize accumulators
@@ -539,10 +552,10 @@ export class ServiceTitanClient {
       maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
     };
 
-    // All BU names from both reports (sales may exist for BUs with $0 revenue)
+    // All BU names from revenue + sales (sales may exist for BUs with $0 revenue)
     const allBUNames = new Set([
       ...revenueData.map(r => r.businessUnitName),
-      ...salesData.map(r => r.businessUnitName),
+      ...salesByBU.keys(),
     ]);
 
     // Build revenue lookup
