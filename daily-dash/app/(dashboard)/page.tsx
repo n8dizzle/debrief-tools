@@ -812,6 +812,31 @@ function SalesCell({ actual, loading }: { actual: number; loading: boolean }) {
   );
 }
 
+function RevenueSalesCell({
+  revenue, sales, target, expectedPacing, loading,
+}: {
+  revenue: number; sales: number; target: number; expectedPacing: number; loading: boolean;
+}) {
+  if (loading) return <div className="text-right"><span style={{ color: 'var(--text-muted)' }}>--</span></div>;
+  const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
+  const color = target > 0 ? getStatusColor(Math.round((pct / Math.max(expectedPacing, 1)) * 100)) : 'var(--text-muted)';
+  return (
+    <div className="text-right leading-tight">
+      <div>
+        <span style={{ color }} className="font-semibold">{formatCurrencyCompact(revenue)}</span>
+        {target > 0 && (
+          <span style={{ color: 'var(--text-muted)' }} className="text-[10px] sm:text-xs"> / {formatCurrencyCompact(target)}</span>
+        )}
+      </div>
+      {sales > 0 && (
+        <div className="text-[10px]" style={{ color: 'var(--christmas-gold)', opacity: 0.8 }}>
+          {formatCurrencyCompact(sales)} sold
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing, monthlyPacing, loading }: TradeScoreboardProps) {
   const isHvac = trade === 'hvac';
   const accentColor = isHvac ? '#3B82F6' : '#8B5CF6';
@@ -868,44 +893,26 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
           <thead>
             <tr>
               <th className="text-left py-2 pr-2 font-medium" style={{ color: 'var(--text-muted)', width: '100px' }}></th>
-              <th colSpan={2} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Today</th>
-              <th colSpan={2} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Week</th>
-              <th colSpan={2} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Month</th>
-            </tr>
-            <tr>
-              <th></th>
-              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Revenue</th>
-              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Sales</th>
-              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Revenue</th>
-              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Sales</th>
-              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Revenue</th>
-              <th className="text-right py-1 px-1 font-normal text-[10px]" style={{ color: 'var(--text-muted)' }}>Sales</th>
+              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Today</th>
+              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Week</th>
+              <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Month</th>
             </tr>
           </thead>
           <tbody>
             {/* Department rows (HVAC only) */}
             {isHvac && depts.map((dept) => (
               <tr key={dept}>
-                <td className="py-1.5 pr-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <td className="py-2 pr-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>
                   {deptLabels[dept]}
                 </td>
-                <td className="py-1.5 px-1">
-                  <ScoreboardCell actual={getDept('today', dept).revenue} target={getDeptTarget(dept, 'daily')} expectedPacing={dailyPacing} loading={loading} />
+                <td className="py-2 px-2">
+                  <RevenueSalesCell revenue={getDept('today', dept).revenue} sales={getDept('today', dept).sales || 0} target={getDeptTarget(dept, 'daily')} expectedPacing={dailyPacing} loading={loading} />
                 </td>
-                <td className="py-1.5 px-1">
-                  <SalesCell actual={getDept('today', dept).sales || 0} loading={loading} />
+                <td className="py-2 px-2">
+                  <RevenueSalesCell revenue={getDept('wtd', dept).revenue} sales={getDept('wtd', dept).sales || 0} target={getDeptTarget(dept, 'weekly')} expectedPacing={weeklyPacing} loading={loading} />
                 </td>
-                <td className="py-1.5 px-1">
-                  <ScoreboardCell actual={getDept('wtd', dept).revenue} target={getDeptTarget(dept, 'weekly')} expectedPacing={weeklyPacing} loading={loading} />
-                </td>
-                <td className="py-1.5 px-1">
-                  <SalesCell actual={getDept('wtd', dept).sales || 0} loading={loading} />
-                </td>
-                <td className="py-1.5 px-1">
-                  <ScoreboardCell actual={getDept('mtd', dept).revenue} target={getDeptTarget(dept, 'monthly')} expectedPacing={monthlyPacing} loading={loading} />
-                </td>
-                <td className="py-1.5 px-1">
-                  <SalesCell actual={getDept('mtd', dept).sales || 0} loading={loading} />
+                <td className="py-2 px-2">
+                  <RevenueSalesCell revenue={getDept('mtd', dept).revenue} sales={getDept('mtd', dept).sales || 0} target={getDeptTarget(dept, 'monthly')} expectedPacing={monthlyPacing} loading={loading} />
                 </td>
               </tr>
             ))}
@@ -913,7 +920,7 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
             {/* Separator */}
             {isHvac && (
               <tr>
-                <td colSpan={7} className="py-1">
+                <td colSpan={4} className="py-1">
                   <div className="h-px w-full" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
                 </td>
               </tr>
@@ -921,26 +928,17 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
 
             {/* Total row */}
             <tr>
-              <td className="py-1.5 pr-2 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              <td className="py-2 pr-2 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Total
               </td>
-              <td className="py-1.5 px-1">
-                <ScoreboardCell actual={data.today.revenue} target={targets?.daily || 0} expectedPacing={dailyPacing} loading={loading} />
+              <td className="py-2 px-2">
+                <RevenueSalesCell revenue={data.today.revenue} sales={(data.today as TradeMetrics).sales || 0} target={targets?.daily || 0} expectedPacing={dailyPacing} loading={loading} />
               </td>
-              <td className="py-1.5 px-1">
-                <SalesCell actual={(data.today as TradeMetrics).sales || 0} loading={loading} />
+              <td className="py-2 px-2">
+                <RevenueSalesCell revenue={data.wtd.revenue} sales={(data.wtd as TradeMetrics).sales || 0} target={targets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} />
               </td>
-              <td className="py-1.5 px-1">
-                <ScoreboardCell actual={data.wtd.revenue} target={targets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} />
-              </td>
-              <td className="py-1.5 px-1">
-                <SalesCell actual={(data.wtd as TradeMetrics).sales || 0} loading={loading} />
-              </td>
-              <td className="py-1.5 px-1">
-                <ScoreboardCell actual={data.mtd.revenue} target={targets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} />
-              </td>
-              <td className="py-1.5 px-1">
-                <SalesCell actual={(data.mtd as TradeMetrics).sales || 0} loading={loading} />
+              <td className="py-2 px-2">
+                <RevenueSalesCell revenue={data.mtd.revenue} sales={(data.mtd as TradeMetrics).sales || 0} target={targets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} />
               </td>
             </tr>
           </tbody>
