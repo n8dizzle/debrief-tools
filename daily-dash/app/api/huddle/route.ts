@@ -220,6 +220,39 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Auto-fill revenue KPI targets from dash_monthly_targets (synced from admin Google Sheet).
+    // This keeps huddle targets in sync with the source of truth without manual seeding.
+    const selDate = new Date(endDate + 'T00:00:00');
+    const selYear = selDate.getFullYear();
+    const selMonth = selDate.getMonth() + 1;
+    const [monthlyTargetsAll, bizDaysRow] = await Promise.all([
+      supabase.from('dash_monthly_targets').select('department, target_value, daily_target_value')
+        .eq('year', selYear).eq('month', selMonth).eq('target_type', 'revenue'),
+      supabase.from('dash_business_days').select('total_days').eq('year', selYear).eq('month', selMonth).single(),
+    ]);
+    const bizDays = Number(bizDaysRow.data?.total_days || 22);
+    const deptDailyByName: Record<string, number> = {};
+    monthlyTargetsAll.data?.forEach((t) => {
+      deptDailyByName[t.department] = Number(t.daily_target_value) || (Number(t.target_value) / bizDays);
+    });
+
+    // Map KPI slug -> derived daily target from admin data
+    const kpiSlugToId = new Map<string, string>();
+    kpis?.forEach(k => kpiSlugToId.set(k.slug, k.id));
+    const revenueTargetBySlug: Record<string, number | undefined> = {
+      'total-revenue': deptDailyByName['TOTAL'],
+      'revenue-completed': deptDailyByName['TOTAL'],
+      'install-revenue': deptDailyByName['HVAC Install'],
+      'plumbing-revenue': deptDailyByName['Plumbing'],
+    };
+    for (const [slug, daily] of Object.entries(revenueTargetBySlug)) {
+      const id = kpiSlugToId.get(slug);
+      if (!id || !daily || targetMap.has(id)) continue;
+      const format = kpiFormatMap.get(id) || 'currency';
+      const scale = isRange && format !== 'percent' && format !== 'time' ? daysInRange : 1;
+      targetMap.set(id, daily * scale);
+    }
+
     // Build notes lookup. For ranges, concatenate notes from each day.
     const notesMap = new Map<string, string>();
     if (isRange) {
