@@ -1,0 +1,165 @@
+import Link from "next/link";
+import { getServerSupabase } from "@/lib/supabase";
+import type { Charity } from "@/lib/supabase";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
+
+export const dynamic = "force-dynamic";
+
+async function getActiveCharities(): Promise<Charity[]> {
+  const supabase = getServerSupabase();
+  const { data } = await supabase
+    .from("ref_charities")
+    .select("*")
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  return (data as Charity[]) || [];
+}
+
+export default async function TripleWinPage() {
+  const charities = await getActiveCharities();
+
+  return (
+    <>
+      <SiteHeader />
+
+      <section className="px-6 pt-16 pb-12 md:pt-24">
+        <div className="max-w-4xl mx-auto text-center">
+          <span className="badge-trust mb-4">One referral. Three winners.</span>
+          <h1 className="text-5xl md:text-7xl mt-4 mb-6">Triple Win</h1>
+          <p className="text-lg md:text-xl max-w-2xl mx-auto opacity-80">
+            When you refer a neighbor, you get your reward, they get their
+            discount, <em>and</em> we donate to a charity you choose. All three
+            wins — every single time.
+          </p>
+        </div>
+      </section>
+
+      <section className="section-white px-6 py-16">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid gap-8 md:grid-cols-3">
+            <WinCard
+              n="1"
+              title="You win"
+              body="Your full reward — $50 to $500+ — in a Visa gift card, Amazon credit, or account credit. Your choice, no strings."
+            />
+            <WinCard
+              n="2"
+              title="They win"
+              body="Your friend gets a real discount on their first service. No coupon codes, no fine print. Just a warm welcome."
+            />
+            <WinCard
+              n="3"
+              title="Your charity wins"
+              body="We add a matched donation to a cause you care about. It's our way of thanking the communities that trust us."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="section-cream px-6 py-16">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-4xl md:text-5xl text-center mb-4">
+            The charities you can choose.
+          </h2>
+          <p className="text-center text-lg opacity-80 max-w-2xl mx-auto mb-12">
+            Pick one at sign-up. Switch any time from your dashboard.
+          </p>
+
+          {charities.length === 0 ? (
+            <p className="text-center opacity-60 italic">
+              Charity list coming soon.
+            </p>
+          ) : (
+            <div className="grid gap-5 md:grid-cols-2">
+              {charities.map((c) => (
+                <div key={c.id} className="card">
+                  <h3 className="text-2xl mb-2">{c.name}</h3>
+                  <p className="opacity-80 text-sm leading-relaxed">
+                    {c.description}
+                  </p>
+                  {c.website_url && (
+                    <a
+                      href={c.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-3 text-sm font-semibold"
+                    >
+                      Learn more →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="section-green px-6 py-16">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-4xl md:text-5xl text-center mb-8">
+            The fine print, plain-spoken.
+          </h2>
+          <div className="space-y-5 text-lg opacity-90">
+            <p>
+              <strong>You keep your full reward.</strong> The charity donation
+              comes from us, not your thank-you. This is a <em>Triple</em> Win,
+              not a swap.
+            </p>
+            <p>
+              <strong>You pick the charity at sign-up.</strong> You can switch
+              your choice any time in your dashboard. The charity attached to
+              each referral is locked in when the referral is submitted, so
+              changes don&apos;t disturb in-flight referrals.
+            </p>
+            <p>
+              <strong>The match scales with the job.</strong> Bigger referrals
+              mean bigger donations — up to $100 on commercial jobs.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 py-20">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl mb-4">Ready to activate it?</h2>
+          <p className="text-lg opacity-80 mb-8">
+            Sign up in two minutes. Turn Triple Win on whenever you&apos;re ready.
+          </p>
+          <Link href="/enroll" className="btn btn-primary">
+            Join the program
+          </Link>
+        </div>
+      </section>
+
+      <SiteFooter />
+    </>
+  );
+}
+
+function WinCard({
+  n,
+  title,
+  body,
+}: {
+  n: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="card text-center">
+      <div
+        className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl"
+        style={{
+          background: "var(--ca-green)",
+          color: "var(--ca-cream)",
+          fontFamily: "var(--font-lobster)",
+        }}
+      >
+        {n}
+      </div>
+      <h3 className="text-2xl mb-3">{title}</h3>
+      <p className="opacity-80 leading-relaxed">{body}</p>
+    </div>
+  );
+}
