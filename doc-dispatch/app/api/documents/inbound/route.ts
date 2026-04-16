@@ -201,6 +201,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Run AI analysis
+        let analysisTitle = '';
         try {
           // Download the image as base64 for Claude
           const base64Image = Buffer.from(imageBuffer).toString('base64');
@@ -240,6 +241,7 @@ export async function POST(req: NextRequest) {
 
           const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, responseText];
           const analysis = JSON.parse(jsonMatch[1]!.trim());
+          analysisTitle = analysis.title || '';
 
           // Update document with analysis
           await supabase
@@ -283,6 +285,7 @@ export async function POST(req: NextRequest) {
         // Send upload notification (non-blocking)
         sendUploadNotification({
           documentId: docId,
+          documentTitle: analysisTitle,
           uploaderName: user.name || '',
           uploaderEmail: user.email,
           pageCount: 1,

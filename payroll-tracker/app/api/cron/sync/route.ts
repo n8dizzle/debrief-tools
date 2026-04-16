@@ -117,78 +117,48 @@ async function runSync(request: Request) {
     const empMap = new Map((allEmployees || []).map(e => [e.st_employee_id, e.id]));
 
     // ============================================
-    // 2. SYNC PAYROLL PERIODS
-    // ============================================
-    console.log('Syncing payroll periods...');
-    const periods = await st.getPayrollPeriods();
-    console.log(`Fetched ${periods.length} payroll periods from ST`);
-
-    if (periods.length > 0) {
-      const periodRecords = periods.map(period => ({
-        st_payroll_id: period.id,
-        start_date: period.startDate?.split('T')[0] || null,
-        end_date: period.endDate?.split('T')[0] || null,
-        check_date: period.checkDate?.split('T')[0] || null,
-        status: period.status,
-        updated_at: new Date().toISOString(),
-      }));
-
-      for (let i = 0; i < periodRecords.length; i += 50) {
-        const chunk = periodRecords.slice(i, i + 50);
-        const { error } = await supabase
-          .from('pr_payroll_periods')
-          .upsert(chunk, { onConflict: 'st_payroll_id' });
-        if (error) {
-          errors.push(`Periods batch error: ${error.message}`);
-        } else {
-          totalProcessed += chunk.length;
-        }
-      }
-    }
-
-    // Build period lookup
-    const { data: allPeriods } = await supabase
-      .from('pr_payroll_periods')
-      .select('id, st_payroll_id');
-    const periodMap = new Map((allPeriods || []).map(p => [p.st_payroll_id, p.id]));
-
-    // ============================================
-    // 3. SYNC GROSS PAY ITEMS (delete + reinsert)
-    // ST flat endpoint may not return reliable IDs
+    // 2. SYNC GROSS PAY ITEMS (single paginated call)
+    // ST's modifiedOnOrAfter returns all historically-modified records,
+    // so we fetch all pages and filter by actual date client-side.
+    // Use a recent modifiedOnOrAfter to limit the response set.
     // ============================================
     console.log('Syncing gross pay items...');
-    const payItems = await st.getGrossPayItemsFlat(startDate, endDate);
+    // Use 14 days ago as the modification window — catches any recent changes
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const payItemsModifiedSince = formatLocalDate(twoWeeksAgo);
+    const payItemsStartDate = startDate;
+
+    const payItems = await st.getGrossPayItems(payItemsModifiedSince);
     console.log(`Fetched ${payItems.length} gross pay items from ST`);
 
-    if (payItems.length > 0) {
-      // Delete existing in date range and reinsert
-      await supabase
-        .from('pr_gross_pay_items')
-        .delete()
-        .gte('date', startDate)
-        .lte('date', endDate);
+    // Delete existing in the lookback window and reinsert
+    await supabase
+      .from('pr_gross_pay_items')
+      .delete()
+      .gte('date', payItemsStartDate);
 
+    if (payItems.length > 0) {
       const payItemRecords = payItems
-        .filter(item => empMap.has(item.employeeId))
-        .map(item => {
-          const bu = item.businessUnitId ? buMap.get(item.businessUnitId) : null;
-          return {
-            st_pay_item_id: item.id || null,
-            employee_id: empMap.get(item.employeeId)!,
-            st_employee_id: item.employeeId,
-            payroll_period_id: item.payrollId ? periodMap.get(item.payrollId) || null : null,
-            st_payroll_id: item.payrollId || null,
-            st_job_id: item.jobId || null,
-            job_number: item.jobNumber || null,
-            business_unit_id: item.businessUnitId || null,
-            business_unit_name: bu?.name || null,
-            pay_type: classifyPayType(item.paidTimeType, item.activity),
-            hours: item.paidDurationHours || 0,
-            amount: item.amount || 0,
-            activity: item.activity || null,
-            date: item.date?.split('T')[0] || null,
-          };
-        });
+        .filter(item => {
+          const d = item.date?.split('T')[0];
+          return d && d >= payItemsStartDate && d <= endDate && empMap.has(item.employeeId);
+        })
+        .map(item => ({
+          st_pay_item_id: item.id || null,
+          employee_id: empMap.get(item.employeeId)!,
+          st_employee_id: item.employeeId,
+          payroll_period_id: null,
+          st_payroll_id: item.payrollId || null,
+          st_job_id: item.jobId || null,
+          job_number: item.jobNumber || null,
+          business_unit_id: null,
+          business_unit_name: item.businessUnitName || null,
+          pay_type: classifyPayType(item.paidTimeType, item.activity),
+          hours: item.paidDurationHours || 0,
+          amount: item.amount || 0,
+          activity: item.activity || null,
+          date: item.date?.split('T')[0] || null,
+        }));
 
       for (let i = 0; i < payItemRecords.length; i += 100) {
         const chunk = payItemRecords.slice(i, i + 100);
@@ -209,44 +179,56 @@ async function runSync(request: Request) {
     // 4. SYNC JOB TIMESHEETS (delete + reinsert)
     // ============================================
     console.log('Syncing job timesheets...');
-    const jobTimesheets = await st.getJobTimesheets(startDate, endDate);
-    console.log(`Fetched ${jobTimesheets.length} job timesheets from ST`);
+    let jobTimesheetCount = 0;
+    try {
+      const jobTimesheets = await st.getJobTimesheets(startDate, endDate);
+      console.log(`Fetched ${jobTimesheets.length} job timesheets from ST`);
+      jobTimesheetCount = jobTimesheets.length;
 
-    if (jobTimesheets.length > 0) {
-      await supabase
-        .from('pr_job_timesheets')
-        .delete()
-        .gte('date', startDate)
-        .lte('date', endDate);
-
-      const jobTsRecords = jobTimesheets
-        .filter(ts => empMap.has(ts.employeeId))
-        .map(ts => ({
-          st_timesheet_id: ts.id || null,
-          employee_id: empMap.get(ts.employeeId)!,
-          st_employee_id: ts.employeeId,
-          st_job_id: ts.jobId || null,
-          job_number: ts.jobNumber || null,
-          clock_in: ts.clockInDate || null,
-          clock_out: ts.clockOutDate || null,
-          duration_hours: ts.paidDurationHours || null,
-          date: ts.date?.split('T')[0] || ts.clockInDate?.split('T')[0] || null,
-        }));
-
-      for (let i = 0; i < jobTsRecords.length; i += 100) {
-        const chunk = jobTsRecords.slice(i, i + 100);
-        const { error } = await supabase
+      if (jobTimesheets.length > 0) {
+        await supabase
           .from('pr_job_timesheets')
-          .insert(chunk);
-        if (error) {
-          errors.push(`Job timesheets batch error: ${error.message}`);
-        } else {
-          totalCreated += chunk.length;
+          .delete()
+          .gte('date', startDate)
+          .lte('date', endDate);
+
+        const jobTsRecords = jobTimesheets
+          .filter(ts => empMap.has(ts.employeeId))
+          .map(ts => {
+            const startMs = ts.startedOn ? new Date(ts.startedOn).getTime() : 0;
+            const endMs = ts.endedOn ? new Date(ts.endedOn).getTime() : 0;
+            const durationHours = startMs && endMs ? (endMs - startMs) / 3600000 : null;
+            return {
+              st_timesheet_id: ts.id || null,
+              employee_id: empMap.get(ts.employeeId)!,
+              st_employee_id: ts.employeeId,
+              st_job_id: ts.jobId || null,
+              job_number: ts.jobNumber || null,
+              clock_in: ts.startedOn || null,
+              clock_out: ts.endedOn || null,
+              duration_hours: durationHours ? Math.round(durationHours * 100) / 100 : null,
+              date: ts.startedOn?.split('T')[0] || null,
+            };
+          });
+
+        for (let i = 0; i < jobTsRecords.length; i += 100) {
+          const chunk = jobTsRecords.slice(i, i + 100);
+          const { error } = await supabase
+            .from('pr_job_timesheets')
+            .insert(chunk);
+          if (error) {
+            errors.push(`Job timesheets batch error: ${error.message}`);
+          } else {
+            totalCreated += chunk.length;
+          }
+          totalProcessed += chunk.length;
         }
-        totalProcessed += chunk.length;
       }
+    } catch (err) {
+      console.warn('Job timesheets endpoint not available:', err);
+      errors.push('Job timesheets endpoint not available (may not be enabled)');
     }
-    console.log(`Job timesheets: ${jobTimesheets.length} processed`);
+    console.log(`Job timesheets: ${jobTimesheetCount} processed`);
 
     // ============================================
     // 5. SYNC NON-JOB TIMESHEETS (delete + reinsert)
@@ -256,25 +238,30 @@ async function runSync(request: Request) {
     console.log(`Fetched ${nonJobTimesheets.length} non-job timesheets from ST`);
 
     if (nonJobTimesheets.length > 0) {
+      // Delete all existing records for the sync range (and any leftover null-date records)
       await supabase
         .from('pr_nonjob_timesheets')
         .delete()
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .or(`date.gte.${startDate},date.is.null`);
 
       const nonJobTsRecords = nonJobTimesheets
-        .filter(ts => empMap.has(ts.employeeId))
-        .map(ts => ({
-          st_timesheet_id: ts.id || null,
-          employee_id: empMap.get(ts.employeeId)!,
-          st_employee_id: ts.employeeId,
-          timesheet_code_id: ts.timesheetCodeId || null,
-          timesheet_code_name: ts.timesheetCodeName || null,
-          clock_in: ts.clockInDate || null,
-          clock_out: ts.clockOutDate || null,
-          duration_hours: ts.paidDurationHours || null,
-          date: ts.date?.split('T')[0] || ts.clockInDate?.split('T')[0] || null,
-        }));
+        .filter(ts => empMap.has(ts.employeeId) && ts.startedOn)
+        .map(ts => {
+          const startMs = ts.startedOn ? new Date(ts.startedOn).getTime() : 0;
+          const endMs = ts.endedOn ? new Date(ts.endedOn).getTime() : 0;
+          const durationHours = startMs && endMs ? (endMs - startMs) / 3600000 : null;
+          return {
+            st_timesheet_id: ts.id || null,
+            employee_id: empMap.get(ts.employeeId)!,
+            st_employee_id: ts.employeeId,
+            timesheet_code_id: ts.timesheetCodeId || null,
+            timesheet_code_name: null,
+            clock_in: ts.startedOn || null,
+            clock_out: ts.endedOn || null,
+            duration_hours: durationHours ? Math.round(durationHours * 100) / 100 : null,
+            date: ts.startedOn?.split('T')[0] || null,
+          };
+        });
 
       for (let i = 0; i < nonJobTsRecords.length; i += 100) {
         const chunk = nonJobTsRecords.slice(i, i + 100);
@@ -295,11 +282,13 @@ async function runSync(request: Request) {
     // 6. SYNC ADJUSTMENTS (per recent payroll period)
     // ============================================
     console.log('Syncing payroll adjustments...');
-    const recentPeriods = periods.slice(-5);
+    // Get unique payroll IDs from the pay items we just fetched
+    const payItemPayrollIds = Array.from(new Set(payItems.filter(p => p.payrollId).map(p => p.payrollId!)));
+    const recentPayrollIds = payItemPayrollIds.slice(-5);
 
-    for (const period of recentPeriods) {
-      const adjustments = await st.getPayrollAdjustments(period.id);
-      const payrollPeriodId = periodMap.get(period.id);
+    for (const payrollId of recentPayrollIds) {
+      const adjustments = await st.getPayrollAdjustments(payrollId);
+      const payrollPeriodId = null;
 
       const adjRecords = adjustments
         .filter(adj => empMap.has(adj.employeeId))
@@ -308,7 +297,7 @@ async function runSync(request: Request) {
           employee_id: empMap.get(adj.employeeId)!,
           st_employee_id: adj.employeeId,
           payroll_period_id: payrollPeriodId || null,
-          st_payroll_id: adj.payrollId || period.id,
+          st_payroll_id: adj.payrollId || payrollId,
           adjustment_type: adj.adjustmentTypeName || adj.activity || null,
           amount: adj.amount || 0,
           memo: adj.memo || null,

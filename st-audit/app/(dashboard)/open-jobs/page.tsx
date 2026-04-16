@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import EmailModal from '@/components/EmailModal';
 
 interface OpenJob {
   id: number;
@@ -50,6 +51,21 @@ function formatDate(isoString: string): string {
   });
 }
 
+function SortHeader({ label, colKey, sortKey, sortDir, onSort }: {
+  label: string; colKey: string; sortKey: string; sortDir: 'asc' | 'desc'; onSort: (key: string) => void;
+}) {
+  return (
+    <th onClick={() => onSort(colKey)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === colKey && (
+          <span style={{ fontSize: '0.6rem' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+        )}
+      </span>
+    </th>
+  );
+}
+
 export default function OpenJobsPage() {
   const [data, setData] = useState<AuditData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +73,10 @@ export default function OpenJobsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterBU, setFilterBU] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<string>('hoursOpen');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
     fetch('/api/audit/open-jobs')
@@ -74,6 +94,54 @@ export default function OpenJobsPage() {
         setLoading(false);
       });
   }, []);
+
+  const sortedJobs = useMemo(() => {
+    if (!data) return [];
+    const filtered = data.jobs.filter(job => {
+      if (filterStatus !== 'all' && job.jobStatus !== filterStatus) return false;
+      if (filterBU !== 'all' && job.businessUnitName !== filterBU) return false;
+      if (filterSeverity !== 'all' && job.severity !== filterSeverity) return false;
+      return true;
+    });
+    return filtered.sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortKey) {
+        case 'severity': aVal = a.severity === 'critical' ? 1 : 0; bVal = b.severity === 'critical' ? 1 : 0; break;
+        case 'jobNumber': aVal = a.jobNumber; bVal = b.jobNumber; break;
+        case 'jobStatus': aVal = a.jobStatus; bVal = b.jobStatus; break;
+        case 'businessUnitName': aVal = a.businessUnitName; bVal = b.businessUnitName; break;
+        case 'jobTypeName': aVal = a.jobTypeName; bVal = b.jobTypeName; break;
+        case 'createdOn': aVal = a.createdOn; bVal = b.createdOn; break;
+        case 'hoursOpen': aVal = a.hoursOpen; bVal = b.hoursOpen; break;
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, filterStatus, filterBU, filterSeverity, sortKey, sortDir]);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'hoursOpen' || key === 'severity' ? 'desc' : 'asc');
+    }
+  };
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectedJobs = useMemo(
+    () => data?.jobs.filter(j => selectedIds.has(j.id)) || [],
+    [data, selectedIds]
+  );
 
   if (loading) {
     return (
@@ -100,26 +168,32 @@ export default function OpenJobsPage() {
 
   if (!data) return null;
 
-  const filteredJobs = data.jobs.filter(job => {
-    if (filterStatus !== 'all' && job.jobStatus !== filterStatus) return false;
-    if (filterBU !== 'all' && job.businessUnitName !== filterBU) return false;
-    if (filterSeverity !== 'all' && job.severity !== filterSeverity) return false;
-    return true;
-  });
-
   const statuses = Object.keys(data.summary.byStatus);
   const businessUnits = Object.keys(data.summary.byBusinessUnit).sort();
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-          Open Jobs Audit
-        </h1>
-        <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Jobs in In Progress, Dispatched, or Hold status for over 24 hours
-        </p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            Open Jobs Audit
+          </h1>
+          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Jobs in In Progress, Dispatched, or Hold status for over 24 hours
+          </p>
+        </div>
+        {selectedIds.size > 0 && (
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="btn btn-primary"
+          >
+            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Email {selectedIds.size} Job{selectedIds.size !== 1 ? 's' : ''}
+          </button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -158,42 +232,39 @@ export default function OpenJobsPage() {
         </div>
       </div>
 
-      {/* Breakdown Cards */}
-      {data.summary.total > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          {/* By Status */}
-          <div className="card">
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
-              By Status
-            </h3>
-            <div className="space-y-2">
-              {Object.entries(data.summary.byStatus)
-                .sort(([, a], [, b]) => b - a)
-                .map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{status}</span>
-                    <span className="badge badge-info">{count}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* By Business Unit */}
-          <div className="card">
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
-              By Business Unit
-            </h3>
-            <div className="space-y-2">
-              {Object.entries(data.summary.byBusinessUnit)
-                .sort(([, a], [, b]) => b - a)
-                .map(([bu, count]) => (
-                  <div key={bu} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{bu}</span>
-                    <span className="badge badge-info">{count}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
+      {/* BU Quick Filters */}
+      {data.summary.total > 0 && businessUnits.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Business Unit:</span>
+          <button
+            onClick={() => setFilterBU('all')}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+            style={{
+              backgroundColor: filterBU === 'all' ? 'rgba(93, 138, 102, 0.2)' : 'var(--bg-secondary)',
+              color: filterBU === 'all' ? 'var(--christmas-green-light)' : 'var(--text-secondary)',
+              border: filterBU === 'all' ? '1px solid var(--christmas-green-light)' : '1px solid var(--border-subtle)',
+            }}
+          >
+            All ({data.summary.total})
+          </button>
+          {businessUnits.map(bu => {
+            const count = data.summary.byBusinessUnit[bu] || 0;
+            const active = filterBU === bu;
+            return (
+              <button
+                key={bu}
+                onClick={() => setFilterBU(active ? 'all' : bu)}
+                className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: active ? 'rgba(93, 138, 102, 0.2)' : 'var(--bg-secondary)',
+                  color: active ? 'var(--christmas-green-light)' : 'var(--text-secondary)',
+                  border: active ? '1px solid var(--christmas-green-light)' : '1px solid var(--border-subtle)',
+                }}
+              >
+                {bu} ({count})
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -223,20 +294,8 @@ export default function OpenJobsPage() {
             ))}
           </select>
 
-          <select
-            value={filterBU}
-            onChange={(e) => setFilterBU(e.target.value)}
-            className="select"
-            style={{ width: 'auto', minWidth: '180px' }}
-          >
-            <option value="all">All Business Units</option>
-            {businessUnits.map(bu => (
-              <option key={bu} value={bu}>{bu}</option>
-            ))}
-          </select>
-
           <span className="self-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            Showing {filteredJobs.length} of {data.summary.total}
+            Showing {sortedJobs.length} of {data.summary.total}
           </span>
         </div>
       )}
@@ -264,18 +323,40 @@ export default function OpenJobsPage() {
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Severity</th>
-                  <th>Job #</th>
-                  <th>Status</th>
-                  <th>Business Unit</th>
-                  <th>Job Type</th>
-                  <th>Created</th>
-                  <th>Time Open</th>
+                  <th style={{ width: 40 }}>
+                    <input
+                      type="checkbox"
+                      checked={sortedJobs.length > 0 && selectedIds.size === sortedJobs.length}
+                      onChange={() => {
+                        if (selectedIds.size === sortedJobs.length) {
+                          setSelectedIds(new Set());
+                        } else {
+                          setSelectedIds(new Set(sortedJobs.map(j => j.id)));
+                        }
+                      }}
+                      style={{ accentColor: 'var(--christmas-green)' }}
+                    />
+                  </th>
+                  <SortHeader label="Severity" colKey="severity" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Job #" colKey="jobNumber" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Status" colKey="jobStatus" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Business Unit" colKey="businessUnitName" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Job Type" colKey="jobTypeName" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Created" colKey="createdOn" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Time Open" colKey="hoursOpen" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody>
-                {filteredJobs.map(job => (
-                  <tr key={job.id}>
+                {sortedJobs.map(job => (
+                  <tr key={job.id} style={{ background: selectedIds.has(job.id) ? 'var(--bg-card-hover)' : undefined }}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(job.id)}
+                        onChange={() => toggleSelect(job.id)}
+                        style={{ accentColor: 'var(--christmas-green)' }}
+                      />
+                    </td>
                     <td>
                       <span className={`badge ${job.severity === 'critical' ? 'badge-error' : 'badge-warning'}`}>
                         {job.severity === 'critical' ? 'Critical' : 'Warning'}
@@ -325,6 +406,12 @@ export default function OpenJobsPage() {
       <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
         Data fetched live from ServiceTitan at {data.fetchedAt}
       </p>
+
+      <EmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        jobs={selectedJobs}
+      />
     </div>
   );
 }

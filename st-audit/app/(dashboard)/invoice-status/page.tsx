@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface InvoiceItem {
   id: number;
@@ -243,6 +243,8 @@ export default function InvoiceStatusPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterBU, setFilterBU] = useState<string>('all');
   const [snapshotting, setSnapshotting] = useState(false);
+  const [sortKey, setSortKey] = useState<string>('ageHours');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetch('/api/audit/invoice-status')
@@ -315,6 +317,50 @@ export default function InvoiceStatusPage() {
     if (filterBU !== 'all' && inv.businessUnitName !== filterBU) return false;
     return true;
   });
+
+  const sortedInvoices = useMemo(() => {
+    return [...filteredInvoices].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortKey) {
+        case 'status': aVal = a.status; bVal = b.status; break;
+        case 'invoiceNumber': aVal = a.invoiceNumber; bVal = b.invoiceNumber; break;
+        case 'customerName': aVal = a.customerName; bVal = b.customerName; break;
+        case 'businessUnitName': aVal = a.businessUnitName; bVal = b.businessUnitName; break;
+        case 'jobNumber': aVal = a.jobNumber || ''; bVal = b.jobNumber || ''; break;
+        case 'total': aVal = a.total; bVal = b.total; break;
+        case 'invoiceDate': aVal = a.invoiceDate; bVal = b.invoiceDate; break;
+        case 'ageHours': aVal = a.ageHours; bVal = b.ageHours; break;
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredInvoices, sortKey, sortDir]);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'ageHours' || key === 'total' ? 'desc' : 'asc');
+    }
+  };
+
+  const SortHeader = ({ label, colKey, align }: { label: string; colKey: string; align?: string }) => (
+    <th
+      onClick={() => handleSort(colKey)}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+      className={align === 'right' ? 'text-right' : ''}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === colKey && (
+          <span style={{ fontSize: '0.6rem' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+        )}
+      </span>
+    </th>
+  );
 
   const statusCards: { label: string; key: keyof Summary; color: string; bgColor: string }[] = [
     { label: 'Pending', key: 'pending', color: '#fcd34d', bgColor: 'rgba(234, 179, 8, 0.15)' },
@@ -412,6 +458,42 @@ export default function InvoiceStatusPage() {
         <AgeTrendChart history={history} />
       </div>
 
+      {/* BU Quick Filters */}
+      {invoices.length > 0 && businessUnits.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Business Unit:</span>
+          <button
+            onClick={() => setFilterBU('all')}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+            style={{
+              backgroundColor: filterBU === 'all' ? 'rgba(93, 138, 102, 0.2)' : 'var(--bg-secondary)',
+              color: filterBU === 'all' ? 'var(--christmas-green-light)' : 'var(--text-secondary)',
+              border: filterBU === 'all' ? '1px solid var(--christmas-green-light)' : '1px solid var(--border-subtle)',
+            }}
+          >
+            All ({invoices.length})
+          </button>
+          {businessUnits.map(bu => {
+            const count = invoices.filter(i => i.businessUnitName === bu).length;
+            const active = filterBU === bu;
+            return (
+              <button
+                key={bu}
+                onClick={() => setFilterBU(active ? 'all' : bu)}
+                className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: active ? 'rgba(93, 138, 102, 0.2)' : 'var(--bg-secondary)',
+                  color: active ? 'var(--christmas-green-light)' : 'var(--text-secondary)',
+                  border: active ? '1px solid var(--christmas-green-light)' : '1px solid var(--border-subtle)',
+                }}
+              >
+                {bu} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Filters */}
       {invoices.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-4">
@@ -426,21 +508,9 @@ export default function InvoiceStatusPage() {
             <option value="Posted">Posted</option>
           </select>
 
-          <select
-            value={filterBU}
-            onChange={(e) => setFilterBU(e.target.value)}
-            className="select"
-            style={{ width: 'auto', minWidth: '180px' }}
-          >
-            <option value="all">All Business Units</option>
-            {businessUnits.map(bu => (
-              <option key={bu} value={bu}>{bu}</option>
-            ))}
-          </select>
-
           <span className="self-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
-            {' '}totaling {formatCurrency(filteredInvoices.reduce((s, i) => s + i.total, 0))}
+            {sortedInvoices.length} invoice{sortedInvoices.length !== 1 ? 's' : ''}
+            {' '}totaling {formatCurrency(sortedInvoices.reduce((s, i) => s + i.total, 0))}
           </span>
         </div>
       )}
@@ -468,18 +538,18 @@ export default function InvoiceStatusPage() {
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Status</th>
-                  <th>Invoice #</th>
-                  <th>Customer</th>
-                  <th>Business Unit</th>
-                  <th>Job #</th>
-                  <th className="text-right">Total</th>
-                  <th>Invoice Date</th>
-                  <th>Age</th>
+                  <SortHeader label="Status" colKey="status" />
+                  <SortHeader label="Invoice #" colKey="invoiceNumber" />
+                  <SortHeader label="Customer" colKey="customerName" />
+                  <SortHeader label="Business Unit" colKey="businessUnitName" />
+                  <SortHeader label="Job #" colKey="jobNumber" />
+                  <SortHeader label="Total" colKey="total" align="right" />
+                  <SortHeader label="Invoice Date" colKey="invoiceDate" />
+                  <SortHeader label="Age" colKey="ageHours" />
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map(inv => (
+                {sortedInvoices.map(inv => (
                   <tr key={inv.id}>
                     <td>
                       <span className={`badge ${inv.status === 'Pending' ? 'badge-warning' : 'badge-info'}`}>

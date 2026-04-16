@@ -226,26 +226,34 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
 
-  const addFiles = useCallback((files: FileList | File[]) => {
+  const addFiles = useCallback(async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
-    const newPages: PageFile[] = fileArray.map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    // Read file data eagerly to avoid stale File references on iOS Safari
+    // (resetting input.value can invalidate the original File objects)
+    const newPages: PageFile[] = await Promise.all(
+      fileArray.map(async (file) => {
+        const arrayBuffer = await file.arrayBuffer();
+        const freshFile = new File([arrayBuffer], file.name, { type: file.type || 'image/jpeg' });
+        return {
+          file: freshFile,
+          preview: URL.createObjectURL(freshFile),
+        };
+      })
+    );
     setPages(prev => [...prev, ...newPages]);
     setError(null);
   }, []);
 
-  const handleCameraCapture = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraCapture = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) addFiles([file]);
+    if (file) await addFiles([file]);
     // Reset input so same file can be re-selected
     e.target.value = '';
   }, [addFiles]);
 
-  const handleGallerySelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGallerySelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      addFiles(e.target.files);
+      await addFiles(e.target.files);
     }
     e.target.value = '';
   }, [addFiles]);
@@ -275,30 +283,41 @@ export default function ScanPage() {
     setError(null);
 
     try {
-      // Resize all images client-side
-      const resizedBlobs = await Promise.all(pages.map(p => resizeImage(p.file)));
-
-      // Upload all files in one FormData
-      const formData = new FormData();
-      if (resizedBlobs.length === 1) {
-        formData.append('file', resizedBlobs[0], pages[0].file.name);
-      } else {
-        resizedBlobs.forEach((blob, i) => {
-          formData.append('files', blob, pages[i].file.name);
-        });
-      }
+      // Upload page 1 to create the document
+      const firstBlob = await resizeImage(pages[0].file);
+      const firstForm = new FormData();
+      firstForm.append('file', firstBlob, pages[0].file.name);
 
       const uploadRes = await fetch('/api/documents', {
         method: 'POST',
-        body: formData,
+        body: firstForm,
       });
 
       if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        throw new Error(err.error || 'Upload failed');
+        let msg = 'Upload failed';
+        try { const err = await uploadRes.json(); msg = err.error || msg; } catch {}
+        throw new Error(msg);
       }
 
       const doc = await uploadRes.json();
+
+      // Upload remaining pages one at a time to avoid body size limits
+      for (let i = 1; i < pages.length; i++) {
+        const blob = await resizeImage(pages[i].file);
+        const pageForm = new FormData();
+        pageForm.append('file', blob, pages[i].file.name);
+        pageForm.append('page_number', String(i + 1));
+
+        const pageRes = await fetch(`/api/documents/${doc.id}/pages`, {
+          method: 'POST',
+          body: pageForm,
+        });
+
+        if (!pageRes.ok) {
+          console.error(`Failed to upload page ${i + 1}`);
+        }
+      }
+
       setUploading(false);
       setAnalyzing(true);
 

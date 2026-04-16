@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRatingsHistory } from '@/lib/hooks/useL10Data';
+import { useRatingsHistory, useRatingParticipants, usePortalUsers } from '@/lib/hooks/useL10Data';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 
 function formatLocalDate(date: Date): string {
@@ -61,6 +61,8 @@ function firstName(name: string): string {
 
 export default function RatingsTab() {
   const { data: historyData, isLoading: historyLoading, mutate: mutateHistory } = useRatingsHistory();
+  const { participants: managedParticipants, mutate: mutateParticipants } = useRatingParticipants();
+  const { users } = usePortalUsers();
 
   // Entry form state
   const [selectedDate, setSelectedDate] = useState(getThisTuesday());
@@ -69,8 +71,35 @@ export default function RatingsTab() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // L10 participants - derived from history data (everyone who's ever had a rating)
+  // Manage participants panel
+  const [showManage, setShowManage] = useState(false);
+  const [addUserId, setAddUserId] = useState('');
+
+  // Use managed participants for the form, fall back to history-derived
   const participants = historyData?.participants || [];
+
+  const handleAddParticipant = async () => {
+    if (!addUserId) return;
+    const user = users?.find((u) => u.id === addUserId);
+    if (!user) return;
+
+    await fetch('/api/l10/ratings/participants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, user_name: user.name || user.email }),
+    });
+
+    setAddUserId('');
+    mutateParticipants();
+    mutateHistory();
+  };
+
+  const handleRemoveParticipant = async (id: string) => {
+    if (!confirm('Remove this participant from ratings?')) return;
+    await fetch(`/api/l10/ratings/participants/${id}`, { method: 'DELETE' });
+    mutateParticipants();
+    mutateHistory();
+  };
 
   // Load existing ratings when date changes
   const loadDateRatings = useCallback((date: string) => {
@@ -180,10 +209,84 @@ export default function RatingsTab() {
           <div className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
             Enter Ratings
           </div>
-          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {formatDateFull(selectedDate)}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowManage(!showManage)}
+              className="text-xs px-2 py-1 rounded transition-colors"
+              style={{
+                color: showManage ? 'var(--christmas-green)' : 'var(--text-muted)',
+                backgroundColor: showManage ? 'rgba(34, 139, 34, 0.1)' : 'transparent',
+              }}
+            >
+              {showManage ? 'Done' : 'Manage Participants'}
+            </button>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {formatDateFull(selectedDate)}
+            </div>
           </div>
         </div>
+
+        {/* Manage Participants Panel */}
+        {showManage && (
+          <div
+            className="rounded-lg p-4 mb-4"
+            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
+          >
+            <div className="flex gap-2 mb-3">
+              <select
+                value={addUserId}
+                onChange={(e) => setAddUserId(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+              >
+                <option value="">Add team member...</option>
+                {users
+                  ?.filter((u) => !managedParticipants?.some((p) => p.user_id === u.id))
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                  ))}
+              </select>
+              <button
+                onClick={handleAddParticipant}
+                disabled={!addUserId}
+                className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              {managedParticipants?.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                  style={{ backgroundColor: 'var(--bg-card)' }}
+                >
+                  <span className="flex-1 text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                    {p.user_name}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveParticipant(p.id)}
+                    className="p-1"
+                    style={{ color: 'var(--text-muted)' }}
+                    title="Remove"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {!managedParticipants?.length && (
+              <div className="text-center py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                No participants yet. Add someone above to get started.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Date selector */}
         <div className="flex gap-2 mb-4 flex-wrap">

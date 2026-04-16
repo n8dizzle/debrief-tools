@@ -75,6 +75,8 @@ export interface APPaymentsPermissions {
   can_view_jobs?: boolean;
   can_manage_assignments?: boolean;
   can_manage_payments?: boolean;
+  can_approve_payments?: boolean;
+  can_issue_payments?: boolean;
   can_manage_contractors?: boolean;
   can_sync_data?: boolean;
 }
@@ -133,6 +135,14 @@ export interface VideoStudioPermissions {
   can_view_all_videos?: boolean;
 }
 
+export interface BPPTrackerPermissions {
+  can_access?: boolean;
+  can_view_assets?: boolean;
+  can_manage_assets?: boolean;
+  can_file_renditions?: boolean;
+  can_manage_categories?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -153,6 +163,7 @@ export interface UserPermissions {
   service_dashboard?: ServiceDashboardPermissions;
   hr_hub?: HRHubPermissions;
   video_studio?: VideoStudioPermissions;
+  bpp_tracker?: BPPTrackerPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -383,7 +394,17 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
       {
         key: 'can_manage_payments',
         label: 'Manage payments',
-        description: 'Update payment status (request, approve, mark paid)',
+        description: 'Update payment status (legacy — use approve/issue instead)',
+      },
+      {
+        key: 'can_approve_payments',
+        label: 'Approve payments',
+        description: 'Approve contractor payments (manager role — verifies work done and amount correct)',
+      },
+      {
+        key: 'can_issue_payments',
+        label: 'Issue payments',
+        description: 'Mark payments as paid (AP role — authorizes payment issuance)',
       },
       {
         key: 'can_manage_contractors',
@@ -601,6 +622,37 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_view_all_videos',
         label: 'View all videos',
         description: 'View videos created by all users',
+      },
+    ],
+  },
+  {
+    app: 'bpp_tracker',
+    label: 'BPP Tracker',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the BPP Tracker app',
+      },
+      {
+        key: 'can_view_assets',
+        label: 'View assets',
+        description: 'View business personal property assets and dashboard',
+      },
+      {
+        key: 'can_manage_assets',
+        label: 'Manage assets',
+        description: 'Add, edit, and dispose of property assets',
+      },
+      {
+        key: 'can_file_renditions',
+        label: 'File renditions',
+        description: 'Create and file annual BPP tax renditions',
+      },
+      {
+        key: 'can_manage_categories',
+        label: 'Manage categories',
+        description: 'Manage asset categories and depreciation schedules',
       },
     ],
   },

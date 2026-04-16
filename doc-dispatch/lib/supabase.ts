@@ -39,6 +39,7 @@ export interface DdDocument {
   owner?: { id: string; name: string; email: string } | null;
   action_items?: DdActionItem[];
   pages?: DdDocumentPage[];
+  note_attachments?: DdNoteAttachment[];
 }
 
 export interface DdDocumentPage {
@@ -67,6 +68,17 @@ export interface DdActionItem {
   updated_at: string;
   // Joined
   assignee?: { name: string; email: string };
+}
+
+export interface DdNoteAttachment {
+  id: string;
+  document_id: string;
+  image_path: string;
+  filename: string;
+  uploaded_by: string;
+  created_at: string;
+  // Runtime only (signed URL)
+  image_url?: string;
 }
 
 export interface DdChatMessage {

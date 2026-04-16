@@ -63,6 +63,13 @@ export default function SettingsPage() {
   const [stConfigLastFetched, setStConfigLastFetched] = useState<string | null>(null);
   const [stConfigMessage, setStConfigMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Default owner state
+  const [defaultOwner, setDefaultOwner] = useState('');
+  const [defaultOwnerLoading, setDefaultOwnerLoading] = useState(true);
+  const [savingDefaultOwner, setSavingDefaultOwner] = useState(false);
+  const [defaultOwnerMessage, setDefaultOwnerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [arUsers, setArUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+
   // QuickBooks state
   const [qbStatus, setQbStatus] = useState<{
     configured: boolean;
@@ -79,6 +86,8 @@ export default function SettingsPage() {
     if (canManageSettings) {
       fetchSlackSettings();
       fetchQBStatus();
+      fetchDefaultOwner();
+      fetchARUsers();
     }
     if (canManageSettings) {
       fetchJobStatuses();
@@ -112,6 +121,57 @@ export default function SettingsPage() {
       console.error('Error:', err);
     } finally {
       setSlackLoading(false);
+    }
+  }
+
+  async function fetchDefaultOwner() {
+    try {
+      const response = await fetch('/api/settings/defaults', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setDefaultOwner(data.default_invoice_owner || '');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    } finally {
+      setDefaultOwnerLoading(false);
+    }
+  }
+
+  async function fetchARUsers() {
+    try {
+      const response = await fetch('/api/users', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setArUsers(data.users || []);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  }
+
+  async function updateDefaultOwner(ownerId: string) {
+    setSavingDefaultOwner(true);
+    setDefaultOwnerMessage(null);
+    try {
+      const response = await fetch('/api/settings/defaults', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_invoice_owner: ownerId }),
+      });
+      if (response.ok) {
+        setDefaultOwner(ownerId);
+        setDefaultOwnerMessage({ type: 'success', text: 'Default owner saved' });
+      } else {
+        setDefaultOwnerMessage({ type: 'error', text: 'Failed to save' });
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setDefaultOwnerMessage({ type: 'error', text: 'Failed to save' });
+    } finally {
+      setSavingDefaultOwner(false);
+      setTimeout(() => setDefaultOwnerMessage(null), 3000);
     }
   }
 
@@ -1410,6 +1470,36 @@ export default function SettingsPage() {
             Admin Settings
           </h2>
           <div className="space-y-4">
+            <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <div className="font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                Default Invoice Owner
+              </div>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+                New invoices from sync will be automatically assigned to this person. No email notification is sent for auto-assignments.
+              </p>
+              <div className="flex items-center gap-3">
+                <select
+                  className="input flex-1"
+                  value={defaultOwner}
+                  onChange={(e) => updateDefaultOwner(e.target.value)}
+                  disabled={defaultOwnerLoading || savingDefaultOwner}
+                >
+                  <option value="">No default (unassigned)</option>
+                  {arUsers.map(user => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+                {savingDefaultOwner && (
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Saving...</span>
+                )}
+                {defaultOwnerMessage && (
+                  <span className="text-sm" style={{ color: defaultOwnerMessage.type === 'success' ? 'var(--status-success)' : 'var(--status-error)' }}>
+                    {defaultOwnerMessage.text}
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div className="font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
                 Environment

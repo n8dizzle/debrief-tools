@@ -21,6 +21,7 @@ const TOOL_APP_MAP: Record<string, keyof UserPermissions> = {
   "https://service.christmasair.com": "service_dashboard",
   "https://hr.christmasair.com": "hr_hub",
   "https://sales.christmasair.com": "sales_command_center",
+  "https://audit.christmasair.com": "st_audit",
 };
 
 // GET /api/tools - Get tools filtered by user's app access permissions

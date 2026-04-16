@@ -11,7 +11,7 @@ const STATUS_FILTERS = [
 ];
 
 const PRIORITY_FILTERS = [
-  { value: '', label: 'All' },
+  { value: '', label: 'Any Priority' },
   { value: 'high', label: 'High' },
   { value: 'medium', label: 'Medium' },
   { value: 'low', label: 'Low' },
@@ -60,6 +60,14 @@ export default function InboxPage() {
       .catch(() => {});
   }, []);
 
+  // Debounced live search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   useEffect(() => {
     fetchDocuments();
   }, [status, priority, assignedTo, search]);
@@ -86,11 +94,6 @@ export default function InboxPage() {
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -106,57 +109,65 @@ export default function InboxPage() {
       </div>
 
       {/* Filters */}
-      <div className="card mb-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-              placeholder="Search documents..."
-              className="input flex-1"
-            />
-            <button type="submit" className="btn btn-secondary">Search</button>
-          </form>
-          <div className="flex gap-2">
-            <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
-              {STATUS_FILTERS.map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => setStatus(f.value)}
-                  className="px-3 py-1.5 text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: status === f.value ? 'var(--christmas-green)' : 'transparent',
-                    color: status === f.value ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                  }}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <select
-              value={priority}
-              onChange={e => setPriority(e.target.value)}
-              className="select"
-              style={{ width: 'auto' }}
-            >
-              {PRIORITY_FILTERS.map(f => (
-                <option key={f.value} value={f.value}>{f.label} Priority</option>
-              ))}
-            </select>
-            <select
-              value={assignedTo}
-              onChange={e => setAssignedTo(e.target.value)}
-              className="select"
-              style={{ width: 'auto' }}
-            >
-              <option value="">All Owners</option>
-              <option value="unassigned">Unassigned</option>
-              {staffList.map(u => (
-                <option key={u.id} value={u.id}>{u.name || u.email}</option>
-              ))}
-            </select>
+      <div className="card mb-4 space-y-3">
+        {/* Search */}
+        <input
+          type="text"
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          placeholder="Search documents..."
+          className="input w-full"
+        />
+
+        {/* Quick filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Status */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+            {STATUS_FILTERS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setStatus(f.value)}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: status === f.value ? 'var(--christmas-green)' : 'transparent',
+                  color: status === f.value ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
+
+          {/* Priority */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+            {PRIORITY_FILTERS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setPriority(f.value)}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: priority === f.value ? 'var(--christmas-green)' : 'transparent',
+                  color: priority === f.value ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Owner */}
+          <select
+            value={assignedTo}
+            onChange={e => setAssignedTo(e.target.value)}
+            className="select"
+            style={{ width: 'auto' }}
+          >
+            <option value="">All Owners</option>
+            <option value="unassigned">Unassigned</option>
+            {staffList.map(u => (
+              <option key={u.id} value={u.id}>{u.name || u.email}</option>
+            ))}
+          </select>
         </div>
       </div>
 
