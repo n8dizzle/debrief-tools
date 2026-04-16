@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Christmas Air Brand Colors (per brand guideline 0923 V3) */
+  --ca-green: #618B60;
+  --ca-dark-green: #415440;
+  --ca-red: #874C3B;
+  --ca-cream: #F5F2DC;
+  --ca-light-green: #A6994E;
+  --ca-black: #000000;
+  --ca-white: #FFFFFF;
+
+  /* Semantic tokens - LIGHT mode for public-facing customer pages */
+  --bg-primary: var(--ca-cream);
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-muted: #F5F2DC;
+
+  --text-primary: #1A1F1A;
+  --text-secondary: var(--ca-dark-green);
+  --text-muted: #6B7C6E;
+  --text-inverse: var(--ca-cream);
+
+  --border-subtle: rgba(65, 84, 64, 0.12);
+  --border-default: rgba(65, 84, 64, 0.22);
+
+  --status-success: #22c55e;
+  --status-warning: #eab308;
+  --status-error: #ef4444;
+}
+
+body {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  font-family: var(--font-open-sans), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-lobster), cursive;
+  color: var(--ca-dark-green);
+  line-height: 1.15;
+}
+
+h4, h5, h6 {
+  font-family: var(--font-open-sans), system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--ca-dark-green);
+}
+
+a {
+  color: var(--ca-green);
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--ca-dark-green);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--ca-green);
+  outline-offset: 2px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--ca-green);
+  color: var(--ca-cream);
+}
+
+.btn-primary:hover {
+  background: var(--ca-dark-green);
+  color: var(--ca-cream);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 2px solid var(--ca-green);
+  color: var(--ca-green);
+}
+
+.btn-secondary:hover {
+  background: var(--ca-green);
+  color: var(--ca-cream);
+}
+
+.btn-accent {
+  background: var(--ca-red);
+  color: var(--ca-cream);
+}
+
+.btn-accent:hover {
+  background: #6d3c2f;
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  padding: 1.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Inputs */
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--ca-green);
+  box-shadow: 0 0 0 3px rgba(97, 139, 96, 0.2);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Section backgrounds */
+.section-cream {
+  background: var(--ca-cream);
+}
+
+.section-white {
+  background: var(--bg-secondary);
+}
+
+.section-green {
+  background: var(--ca-dark-green);
+  color: var(--ca-cream);
+}
+
+.section-green h1,
+.section-green h2,
+.section-green h3 {
+  color: var(--ca-cream);
+}
+
+/* Trust badges */
+.badge-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: rgba(97, 139, 96, 0.12);
+  color: var(--ca-dark-green);
+}
