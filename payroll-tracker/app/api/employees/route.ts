@@ -31,7 +31,16 @@ export async function GET(request: Request) {
       .order('name');
 
     if (deptList.length > 0) {
-      empQuery = empQuery.in('business_unit_name', deptList);
+      // Support filtering by role for office staff (who have null business_unit_name)
+      const buNames = deptList.filter(d => !['Admin', 'CSR', 'Dispatch', 'GeneralOffice', 'Accounting', 'Owner', 'SalesManager', 'FieldManager'].includes(d));
+      const roles = deptList.filter(d => ['Admin', 'CSR', 'Dispatch', 'GeneralOffice', 'Accounting', 'Owner', 'SalesManager', 'FieldManager'].includes(d));
+      if (buNames.length > 0 && roles.length > 0) {
+        empQuery = empQuery.or(`business_unit_name.in.(${buNames.join(',')}),role.in.(${roles.join(',')})`);
+      } else if (buNames.length > 0) {
+        empQuery = empQuery.in('business_unit_name', buNames);
+      } else if (roles.length > 0) {
+        empQuery = empQuery.in('role', roles);
+      }
     }
 
     const { data: employees } = await empQuery;
@@ -43,7 +52,28 @@ export async function GET(request: Request) {
       .gte('date', start)
       .lte('date', end);
 
-    // Aggregate per employee
+    // Get timesheet hours for date range (job + non-job)
+    const [{ data: jobTs }, { data: nonJobTs }] = await Promise.all([
+      supabase
+        .from('pr_job_timesheets')
+        .select('employee_id, duration_hours')
+        .gte('date', start)
+        .lte('date', end),
+      supabase
+        .from('pr_nonjob_timesheets')
+        .select('employee_id, duration_hours')
+        .gte('date', start)
+        .lte('date', end),
+    ]);
+
+    // Aggregate timesheet hours per employee
+    const tsHours = new Map<string, number>();
+    for (const ts of [...(jobTs || []), ...(nonJobTs || [])]) {
+      if (!ts.employee_id || !ts.duration_hours) continue;
+      tsHours.set(ts.employee_id, (tsHours.get(ts.employee_id) || 0) + Number(ts.duration_hours));
+    }
+
+    // Aggregate pay items per employee
     const empStats = new Map<string, {
       total_hours: number;
       regular_hours: number;
@@ -76,6 +106,20 @@ export async function GET(request: Request) {
       empStats.set(item.employee_id, entry);
     }
 
+    // For employees without pay item hours, use timesheet hours
+    tsHours.forEach((hours, empId) => {
+      const existing = empStats.get(empId);
+      if (!existing || existing.total_hours === 0) {
+        empStats.set(empId, {
+          total_hours: hours,
+          regular_hours: hours, // timesheets don't distinguish OT
+          overtime_hours: existing?.overtime_hours || 0,
+          performance_pay: existing?.performance_pay || 0,
+          total_pay: existing?.total_pay || 0,
+        });
+      }
+    });
+
     const result = (employees || []).map(emp => {
       const stats = empStats.get(emp.id) || {
         total_hours: 0,
@@ -90,7 +134,7 @@ export async function GET(request: Request) {
         name: emp.name,
         trade: emp.trade,
         role: emp.role,
-        business_unit_name: emp.business_unit_name,
+        business_unit_name: emp.business_unit_name || emp.role || 'Unassigned',
         total_hours: stats.total_hours,
         regular_hours: stats.regular_hours,
         overtime_hours: stats.overtime_hours,
@@ -102,16 +146,21 @@ export async function GET(request: Request) {
     // Sort by total hours descending (zero-hour employees at end)
     const sorted = result.sort((a, b) => b.total_hours - a.total_hours);
 
-    // Get ALL unique business unit names for filter dropdown (unfiltered)
+    // Get ALL unique business unit names + roles for filter dropdown (unfiltered)
     const { data: allEmps } = await supabase
       .from('pr_employees')
-      .select('business_unit_name')
-      .eq('is_active', true)
-      .not('business_unit_name', 'is', null);
+      .select('business_unit_name, role')
+      .eq('is_active', true);
 
-    const businessUnits = Array.from(new Set(
-      (allEmps || []).map((e: any) => e.business_unit_name)
-    )).sort();
+    const buSet = new Set<string>();
+    for (const e of (allEmps || [])) {
+      if (e.business_unit_name) {
+        buSet.add(e.business_unit_name);
+      } else if (e.role) {
+        buSet.add(e.role);
+      }
+    }
+    const businessUnits = Array.from(buSet).sort();
 
     return NextResponse.json({ employees: sorted, business_units: businessUnits, can_view_pay: canViewPay });
   } catch (error: any) {

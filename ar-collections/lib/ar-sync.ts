@@ -206,6 +206,17 @@ export async function runARSync(): Promise<SyncResult> {
     const locationAddressMap = await stClient.getLocationAddresses(uniqueLocationIds);
     console.log(`Got addresses for ${locationAddressMap.size} locations`);
 
+    // Step 5a: Get default invoice owner setting
+    let defaultOwnerId: string | null = null;
+    const { data: ownerSetting } = await supabase
+      .from('ar_slack_settings')
+      .select('setting_value')
+      .eq('setting_key', 'default_invoice_owner')
+      .single();
+    if (ownerSetting?.setting_value) {
+      defaultOwnerId = ownerSetting.setting_value;
+    }
+
     // Step 5: Get existing invoice IDs to track what's still open
     const { data: existingInvoices } = await supabase
       .from('ar_invoices')
@@ -250,7 +261,7 @@ export async function runARSync(): Promise<SyncResult> {
         await upsertInvoiceFromReport(
           supabase, row, dbCustomerId, stCustomer, hasInhouseFinancing,
           stJobStatus, stJobTypeName, hasMembership, bookingPaymentType,
-          nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice, stJobId, soldBy, estimateSoldBy, locationAddress
+          nextAppointmentDate, locationId, projectId, projectName, isMembershipInvoice, stJobId, soldBy, estimateSoldBy, locationAddress, defaultOwnerId
         );
 
         if (existing) {
@@ -391,7 +402,8 @@ async function upsertInvoiceFromReport(
   stJobId: number | null = null,
   soldBy: string | null = null,
   estimateSoldBy: string | null = null,
-  locationAddress: string | null = null
+  locationAddress: string | null = null,
+  defaultOwnerId: string | null = null
 ): Promise<boolean> {
   // Determine job type from business unit name
   const buName = (row.businessUnitName || '').toLowerCase();
@@ -495,14 +507,18 @@ async function upsertInvoiceFromReport(
       throw new Error(`Insert failed: ${insertErr.message}`);
     }
 
-    // Create tracking record for new invoice
+    // Create tracking record for new invoice (with default owner if configured)
     if (newInvoice) {
+      const trackingData: Record<string, any> = {
+        invoice_id: newInvoice.id,
+        control_bucket: 'ar_collectible',
+      };
+      if (defaultOwnerId) {
+        trackingData.owner_id = defaultOwnerId;
+      }
       await supabase
         .from('ar_invoice_tracking')
-        .insert({
-          invoice_id: newInvoice.id,
-          control_bucket: 'ar_collectible',
-        });
+        .insert(trackingData);
     }
     return true;
   }

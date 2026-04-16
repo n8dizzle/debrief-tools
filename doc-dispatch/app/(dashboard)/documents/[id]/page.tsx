@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { DdDocument, DdActionItem, DdChatMessage, DdDocumentPage } from '@/lib/supabase';
+import type { DdDocument, DdActionItem, DdChatMessage, DdDocumentPage, DdNoteAttachment } from '@/lib/supabase';
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New', className: 'badge-new' },
@@ -49,8 +49,15 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [reanalyzing, setReanalyzing] = useState(false);
   const [newAction, setNewAction] = useState('');
   const [addingAction, setAddingAction] = useState(false);
+  const [editingActionId, setEditingActionId] = useState<string | null>(null);
+  const [editingActionText, setEditingActionText] = useState('');
+  const [ownerConfirm, setOwnerConfirm] = useState<{ userId: string | null; userName: string } | null>(null);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
+  const [noteAttachments, setNoteAttachments] = useState<DdNoteAttachment[]>([]);
+  const [uploadingNoteImage, setUploadingNoteImage] = useState(false);
+  const [expandedNoteImage, setExpandedNoteImage] = useState<string | null>(null);
+  const noteFileInputRef = useRef<HTMLInputElement>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [driveUploading, setDriveUploading] = useState(false);
@@ -106,6 +113,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       const data = await res.json();
       setDoc(data);
       setNotes(data.notes || '');
+      setNoteAttachments(data.note_attachments || []);
       // Initialize rotations from DB
       const rots: Record<string, number> = {};
       if (data.pages?.length) {
@@ -243,9 +251,60 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  const handleSaveActionDescription = async (actionId: string, description: string) => {
+    const trimmed = description.trim();
+    if (!trimmed) { setEditingActionId(null); return; }
+    try {
+      const res = await fetch(`/api/actions/${actionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: trimmed }),
+      });
+      if (res.ok) await fetchDocument();
+    } catch (err) {
+      console.error('Edit action error:', err);
+    }
+    setEditingActionId(null);
+  };
+
   const handleSaveNotes = async () => {
     await updateDocument({ notes });
     setEditingNotes(false);
+  };
+
+  const handleNoteImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingNoteImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`/api/documents/${id}/note-attachments`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const attachment = await res.json();
+      setNoteAttachments(prev => [...prev, attachment]);
+    } catch (err) {
+      console.error('Note image upload error:', err);
+    } finally {
+      setUploadingNoteImage(false);
+      if (noteFileInputRef.current) noteFileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteNoteAttachment = async (attachmentId: string) => {
+    try {
+      const res = await fetch(`/api/documents/${id}/note-attachments?attachmentId=${attachmentId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      setNoteAttachments(prev => prev.filter(a => a.id !== attachmentId));
+      if (expandedNoteImage === attachmentId) setExpandedNoteImage(null);
+    } catch (err) {
+      console.error('Delete note attachment error:', err);
+    }
   };
 
   // Chat functions
@@ -455,8 +514,31 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       .catch(() => {});
   };
 
-  const handleAssignOwner = async (userId: string | null) => {
-    await updateDocument({ assigned_to: userId } as any);
+  const handleAssignOwner = (userId: string | null) => {
+    if (!userId) {
+      // Unassigning — no notification needed
+      updateDocument({ assigned_to: null } as any);
+      return;
+    }
+    if (userId === doc?.assigned_to) return;
+    const user = staffList.find(u => u.id === userId);
+    setOwnerConfirm({ userId, userName: user?.name || user?.email || 'this person' });
+  };
+
+  const confirmAssignOwner = async (notify: boolean) => {
+    if (!ownerConfirm) return;
+    try {
+      const res = await fetch(`/api/documents/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: ownerConfirm.userId, notify_owner: notify }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      await fetchDocument();
+    } catch (err) {
+      console.error('Assign owner error:', err);
+    }
+    setOwnerConfirm(null);
   };
 
   const handleAssignAction = async (actionId: string, userId: string | null) => {
@@ -841,11 +923,28 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           <div className="card mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Notes</h3>
-              {!editingNotes && (
-                <button onClick={() => setEditingNotes(true)} className="text-xs" style={{ color: 'var(--christmas-green-light)' }}>
-                  Edit
+              <div className="flex items-center gap-2">
+                <input
+                  ref={noteFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  className="hidden"
+                  onChange={handleNoteImageUpload}
+                />
+                <button
+                  onClick={() => noteFileInputRef.current?.click()}
+                  disabled={uploadingNoteImage}
+                  className="text-xs"
+                  style={{ color: 'var(--christmas-green-light)' }}
+                >
+                  {uploadingNoteImage ? 'Uploading...' : 'Attach Image'}
                 </button>
-              )}
+                {!editingNotes && (
+                  <button onClick={() => setEditingNotes(true)} className="text-xs" style={{ color: 'var(--christmas-green-light)' }}>
+                    Edit
+                  </button>
+                )}
+              </div>
             </div>
             {editingNotes ? (
               <div>
@@ -864,6 +963,48 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               <p className="text-sm whitespace-pre-wrap" style={{ color: doc.notes ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 {doc.notes || 'No notes yet.'}
               </p>
+            )}
+
+            {/* Note Attachments */}
+            {noteAttachments.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-primary)' }}>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {noteAttachments.map(attachment => (
+                    <div key={attachment.id} className="relative group">
+                      <img
+                        src={attachment.image_url}
+                        alt={attachment.filename}
+                        className="w-full h-20 object-cover rounded cursor-pointer"
+                        style={{ border: '1px solid var(--border-primary)' }}
+                        onClick={() => setExpandedNoteImage(expandedNoteImage === attachment.id ? null : attachment.id)}
+                      />
+                      <button
+                        onClick={() => handleDeleteNoteAttachment(attachment.id)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                        style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                        title="Remove"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {/* Expanded image */}
+                {expandedNoteImage && (() => {
+                  const img = noteAttachments.find(a => a.id === expandedNoteImage);
+                  return img?.image_url ? (
+                    <div className="mt-2">
+                      <img
+                        src={img.image_url}
+                        alt={img.filename}
+                        className="w-full rounded"
+                        style={{ border: '1px solid var(--border-primary)' }}
+                      />
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{img.filename}</p>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             )}
           </div>
 
@@ -885,8 +1026,40 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     style={{ borderColor: 'var(--border-default)' }}
                     title="Mark done"
                   />
-                  <p className="text-sm flex-1 min-w-0" style={{ color: 'var(--text-primary)' }}>{action.description}</p>
+                  {editingActionId === action.id ? (
+                    <input
+                      type="text"
+                      value={editingActionText}
+                      onChange={e => setEditingActionText(e.target.value)}
+                      onBlur={() => handleSaveActionDescription(action.id, editingActionText)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSaveActionDescription(action.id, editingActionText);
+                        if (e.key === 'Escape') setEditingActionId(null);
+                      }}
+                      className="input text-sm flex-1 min-w-0 py-0.5"
+                      autoFocus
+                    />
+                  ) : (
+                    <p
+                      className="text-sm flex-1 min-w-0 cursor-pointer hover:opacity-80"
+                      style={{ color: 'var(--text-primary)' }}
+                      onClick={() => { setEditingActionId(action.id); setEditingActionText(action.description); }}
+                      title="Click to edit"
+                    >
+                      {action.description}
+                    </p>
+                  )}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => { setEditingActionId(action.id); setEditingActionText(action.description); }}
+                      className="flex-shrink-0"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Edit"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
                     <button
                       onClick={() => handleActionStatusChange(action.id, 'dismissed')}
                       className="flex-shrink-0"
@@ -1444,6 +1617,42 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       )}
 
       {/* Delete Confirmation Modal */}
+      {ownerConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+          onClick={e => { if (e.target === e.currentTarget) setOwnerConfirm(null); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-6"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+          >
+            <h3 className="font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>Assign Document</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Assign this document to <strong style={{ color: 'var(--text-primary)' }}>{ownerConfirm.userName}</strong>?
+            </p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+              You can choose to send them an email notification about this assignment.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setOwnerConfirm(null)} className="btn btn-secondary">Cancel</button>
+              <button
+                onClick={() => confirmAssignOwner(false)}
+                className="btn btn-secondary"
+              >
+                Assign Only
+              </button>
+              <button
+                onClick={() => confirmAssignOwner(true)}
+                className="btn btn-primary"
+              >
+                Assign & Notify
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteConfirm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"

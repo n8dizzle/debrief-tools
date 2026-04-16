@@ -24,13 +24,24 @@ export async function GET(req: NextRequest) {
     supabase.from('dd_documents').select('*', { count: 'exact', head: true }).eq('priority', 'high').in('status', ['new', 'in_progress']),
   ]);
 
-  // Get pending action items count
-  const { count: pendingActionsCount } = await supabase
-    .from('dd_action_items')
-    .select('*', { count: 'exact', head: true })
-    .in('status', ['pending', 'in_progress']);
+  // Get pending action items count (only from incomplete documents)
+  const { data: incompleteDocIds } = await supabase
+    .from('dd_documents')
+    .select('id')
+    .in('status', ['new', 'in_progress']);
 
-  // Get recent documents
+  let pendingActionsCount = 0;
+  if (incompleteDocIds && incompleteDocIds.length > 0) {
+    const ids = incompleteDocIds.map(d => d.id);
+    const { count } = await supabase
+      .from('dd_action_items')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'in_progress'])
+      .in('document_id', ids);
+    pendingActionsCount = count || 0;
+  }
+
+  // Get recent incomplete documents
   const { data: recentDocs } = await supabase
     .from('dd_documents')
     .select(`
@@ -38,6 +49,7 @@ export async function GET(req: NextRequest) {
       uploader:portal_users!dd_documents_uploaded_by_fkey(name, email),
       action_items:dd_action_items(id, status)
     `)
+    .in('status', ['new', 'in_progress'])
     .order('created_at', { ascending: false })
     .limit(10);
 

@@ -3,6 +3,7 @@ import { sendEmail } from '@/lib/email';
 
 interface UploadNotificationParams {
   documentId: string;
+  documentTitle: string;
   uploaderName: string;
   uploaderEmail: string;
   pageCount: number;
@@ -22,9 +23,10 @@ export async function sendUploadNotification(params: UploadNotificationParams) {
     if (!data?.value?.enabled || !data.value.recipients?.length) return;
 
     const recipients: string[] = data.value.recipients;
-    const { documentId, uploaderName, uploaderEmail, pageCount, source } = params;
+    const { documentId, documentTitle, uploaderName, uploaderEmail, pageCount, source } = params;
     const sourceLabel = source === 'email' ? 'emailed in' : 'uploaded';
     const pageLabel = pageCount > 1 ? `${pageCount} pages` : '1 page';
+    const displayTitle = documentTitle || 'Untitled Document';
 
     const html = `
 <!DOCTYPE html>
@@ -45,8 +47,11 @@ export async function sendUploadNotification(params: UploadNotificationParams) {
         <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; padding: 24px; border-radius: 0 0 12px 12px;">
           <tr>
             <td>
-              <p style="margin: 0 0 16px; font-size: 14px; color: #374151;">
+              <p style="margin: 0 0 8px; font-size: 14px; color: #374151;">
                 <strong>${uploaderName || uploaderEmail}</strong> ${sourceLabel} a new document (${pageLabel}).
+              </p>
+              <p style="margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #1f2937;">
+                ${displayTitle}
               </p>
               <a href="https://docs.christmasair.com/documents/${documentId}" style="display: inline-block; padding: 10px 20px; background: #5D8A66; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 500;">
                 View Document
@@ -63,9 +68,9 @@ export async function sendUploadNotification(params: UploadNotificationParams) {
 </body>
 </html>`;
 
-    await sendEmail(recipients, 'New Document — Doc Dispatch', html);
+    await sendEmail(recipients, `New Document: ${displayTitle}`, html);
   } catch (err) {
-    // Non-fatal — don't break the upload flow
+    // Non-fatal — don't break the flow
     console.error('Upload notification error:', err);
   }
 }

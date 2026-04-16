@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { uploadToGoogleDrive } from '@/lib/google-drive';
+import { sendUploadNotification } from '@/lib/notifications';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
@@ -50,8 +52,11 @@ For action_items, suggest practical next steps like:
 - "Review and sign contract by [date]"
 - "Schedule warranty registration"
 - "Forward to [department] for processing"
+- "File for records"
 
-If you cannot determine a field, use null for that field. Always provide at least one action item.`;
+Always provide at least one action item. Do NOT pad the list — if only one action is genuinely needed, return only one. Only include additional actions when the document actually calls for them.
+
+If you cannot determine a field, use null for that field.`;
 
 function getMediaType(path: string): 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' {
   const ext = path.split('.').pop()?.toLowerCase();
@@ -59,6 +64,8 @@ function getMediaType(path: string): 'image/jpeg' | 'image/png' | 'image/webp' |
   if (ext === 'webp') return 'image/webp';
   return 'image/jpeg';
 }
+
+export const maxDuration = 60;
 
 export async function POST(
   req: NextRequest,
@@ -98,6 +105,7 @@ export async function POST(
 
     // Download all images and encode as base64
     const imageBlocks: Anthropic.ImageBlockParam[] = [];
+    let firstImageBuffer: ArrayBuffer | null = null;
     for (const path of imagePaths) {
       const { data: signedUrlData, error: urlError } = await supabase.storage
         .from('doc-dispatch')
@@ -110,6 +118,7 @@ export async function POST(
 
       const imageResponse = await fetch(signedUrlData.signedUrl);
       const imageBuffer = await imageResponse.arrayBuffer();
+      if (!firstImageBuffer) firstImageBuffer = imageBuffer;
       const base64Image = Buffer.from(imageBuffer).toString('base64');
 
       imageBlocks.push({
@@ -200,6 +209,31 @@ export async function POST(
         console.error('Action items insert error:', actionsError);
       }
     }
+
+    // Auto-upload to Google Drive (non-blocking)
+    if (firstImageBuffer && !doc.drive_file_id) {
+      uploadToGoogleDrive({
+        documentId: id,
+        imageBuffer: firstImageBuffer,
+        imagePath: imagePaths[0],
+        documentType: analysis.document_type || null,
+        title: analysis.title || null,
+      }).catch(err => {
+        console.error('Auto Drive upload failed:', err.message);
+      });
+    }
+
+    // Send upload notification with document title (non-blocking)
+    sendUploadNotification({
+      documentId: id,
+      documentTitle: analysis.title || '',
+      uploaderName: session.user.name || '',
+      uploaderEmail: session.user.email || '',
+      pageCount: imagePaths.length,
+      source: doc.source || 'web',
+    }).catch(err => {
+      console.error('Upload notification failed:', err.message);
+    });
 
     // Return the updated document
     const { data: updatedDoc } = await supabase

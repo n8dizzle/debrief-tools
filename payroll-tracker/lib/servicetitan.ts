@@ -41,52 +41,68 @@ export interface STBusinessUnit {
 
 export interface STPayrollPeriod {
   id: number;
-  number: number;
-  startDate: string;
-  endDate: string;
-  checkDate?: string;
+  startedOn: string;
+  endedOn: string;
+  employeeId: number;
+  employeeType?: string;
   status: string;
+  burdenRate?: number;
+  managerApprovedOn?: string | null;
+  createdOn?: string;
+  modifiedOn?: string;
+  active?: boolean;
 }
 
 export interface STGrossPayItemFlat {
-  id: number;
+  id: number | null;
   employeeId: number;
-  employeeName?: string;
   employeeType?: string;
+  businessUnitName?: string;
   payrollId?: number;
-  jobId?: number;
-  jobNumber?: string;
-  businessUnitId?: number;
-  paidDurationHours: number;
-  paidTimeType: string;
-  activity?: string;
-  amount: number;
+  employeePayrollId?: number | null;
   date: string;
+  activity?: string;
+  activityCodeId?: number | null;
+  activityCode?: string | null;
+  amount: number;
+  grossPayItemType?: string;
   startedOn?: string;
   endedOn?: string;
-  rate?: number;
+  paidDurationHours: number;
+  paidTimeType: string;
+  jobId?: number;
+  jobNumber?: string | null;
+  jobTypeName?: string | null;
+  customerId?: number | null;
+  customerName?: string | null;
+  memo?: string | null;
+  createdOn?: string;
+  modifiedOn?: string;
 }
 
 export interface STJobTimesheet {
   id: number;
   employeeId: number;
-  jobId: number;
+  employeeType?: string;
+  jobId?: number;
   jobNumber?: string;
-  clockInDate: string;
-  clockOutDate?: string;
-  paidDurationHours?: number;
-  date?: string;
+  startedOn: string;
+  endedOn?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  active?: boolean;
 }
 
 export interface STNonJobTimesheet {
   id: number;
   employeeId: number;
+  employeeType?: string;
   timesheetCodeId?: number;
-  timesheetCodeName?: string;
-  clockInDate: string;
-  clockOutDate?: string;
-  paidDurationHours?: number;
-  date?: string;
+  startedOn: string;
+  endedOn?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  active?: boolean;
 }
 
 export interface STTimesheetCode {
@@ -196,7 +212,7 @@ export class ServiceTitanClient {
     return response.json();
   }
 
-  private async requestAllPages<T>(endpoint: string, params: Record<string, string>): Promise<T[]> {
+  private async requestAllPages<T>(endpoint: string, params: Record<string, string>, maxPages = 250): Promise<T[]> {
     const all: T[] = [];
     let page = 1;
     let hasMore = true;
@@ -210,7 +226,7 @@ export class ServiceTitanClient {
       all.push(...(response.data || []));
       hasMore = response.hasMore === true;
       page++;
-      if (page > 20) break;
+      if (page > maxPages) break;
     }
 
     return all;
@@ -300,13 +316,15 @@ export class ServiceTitanClient {
   /**
    * Get payroll periods from ServiceTitan.
    */
-  async getPayrollPeriods(): Promise<STPayrollPeriod[]> {
+  async getPayrollPeriods(startDate?: string): Promise<STPayrollPeriod[]> {
     try {
+      const params: Record<string, string> = {};
+      if (startDate) params.modifiedOnOrAfter = `${startDate}T00:00:00`;
       const items = await this.requestAllPages<STPayrollPeriod>(
-        `payroll/v2/tenant/${this.tenantId}/payroll`,
-        {}
+        `payroll/v2/tenant/${this.tenantId}/payrolls`,
+        params
       );
-      console.log(`Fetched ${items.length} payroll periods`);
+      console.log(`Fetched ${items.length} payroll records`);
       return items;
     } catch (error) {
       console.error('Failed to fetch payroll periods:', error);
@@ -315,19 +333,16 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get flat gross pay items (employee-centric earnings).
-   * Each item represents one pay entry for one employee.
+   * Get gross pay items using modifiedOnOrAfter filter.
+   * Returns detailed activity breakdown with hours, amounts, job info.
    */
-  async getGrossPayItemsFlat(startDate: string, endDate: string): Promise<STGrossPayItemFlat[]> {
+  async getGrossPayItems(startDate: string): Promise<STGrossPayItemFlat[]> {
     try {
       const items = await this.requestAllPages<STGrossPayItemFlat>(
         `payroll/v2/tenant/${this.tenantId}/gross-pay-items`,
-        {
-          dateOnOrAfter: startDate,
-          dateOnOrBefore: endDate,
-        }
+        { modifiedOnOrAfter: `${startDate}T00:00:00` }
       );
-      console.log(`Fetched ${items.length} gross pay items (${startDate} to ${endDate})`);
+      console.log(`Fetched ${items.length} gross pay items (modified since ${startDate})`);
       return items;
     } catch (error) {
       console.error('Failed to fetch gross pay items:', error);
@@ -343,12 +358,16 @@ export class ServiceTitanClient {
       const items = await this.requestAllPages<STJobTimesheet>(
         `payroll/v2/tenant/${this.tenantId}/job-timesheets`,
         {
-          dateOnOrAfter: startDate,
-          dateOnOrBefore: endDate,
+          modifiedOnOrAfter: `${startDate}T00:00:00`,
         }
       );
-      console.log(`Fetched ${items.length} job timesheets (${startDate} to ${endDate})`);
-      return items;
+      // Filter to date range client-side (API only supports modifiedOnOrAfter)
+      const filtered = items.filter(ts => {
+        const d = ts.startedOn?.split('T')[0];
+        return d && d >= startDate && d <= endDate;
+      });
+      console.log(`Fetched ${items.length} job timesheets, ${filtered.length} in range (${startDate} to ${endDate})`);
+      return filtered;
     } catch (error) {
       console.error('Failed to fetch job timesheets:', error);
       return [];
@@ -363,12 +382,16 @@ export class ServiceTitanClient {
       const items = await this.requestAllPages<STNonJobTimesheet>(
         `payroll/v2/tenant/${this.tenantId}/non-job-timesheets`,
         {
-          dateOnOrAfter: startDate,
-          dateOnOrBefore: endDate,
+          modifiedOnOrAfter: `${startDate}T00:00:00`,
         }
       );
-      console.log(`Fetched ${items.length} non-job timesheets (${startDate} to ${endDate})`);
-      return items;
+      // Filter to date range client-side
+      const filtered = items.filter(ts => {
+        const d = ts.startedOn?.split('T')[0];
+        return d && d >= startDate && d <= endDate;
+      });
+      console.log(`Fetched ${items.length} non-job timesheets, ${filtered.length} in range (${startDate} to ${endDate})`);
+      return filtered;
     } catch (error) {
       console.error('Failed to fetch non-job timesheets:', error);
       return [];
@@ -427,6 +450,10 @@ export class ServiceTitanClient {
       console.error('Failed to fetch job splits:', error);
       return [];
     }
+  }
+
+  async debugRawRequest(endpoint: string, params: Record<string, string>): Promise<unknown> {
+    return this.request<unknown>('GET', endpoint, { params });
   }
 
   isConfigured(): boolean {

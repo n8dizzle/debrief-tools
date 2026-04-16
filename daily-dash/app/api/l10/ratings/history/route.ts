@@ -13,6 +13,23 @@ export async function GET() {
 
     const supabase = getServerSupabase();
 
+    // Fetch participants from explicit table
+    const { data: participantRows, error: participantsError } = await supabase
+      .from('l10_rating_participants')
+      .select('user_id, user_name')
+      .eq('is_active', true)
+      .order('display_order');
+
+    if (participantsError) {
+      console.error('Error fetching rating participants:', participantsError);
+      return NextResponse.json({ error: 'Failed to fetch participants' }, { status: 500 });
+    }
+
+    const participants = (participantRows || []).map((p) => ({
+      user_id: p.user_id,
+      user_name: p.user_name,
+    }));
+
     // Fetch all ratings
     const { data: allRatings, error: ratingsError } = await supabase
       .from('l10_meeting_ratings')
@@ -43,7 +60,6 @@ export async function GET() {
 
     // Group ratings by meeting date
     const meetingMap = new Map<string, { user_id: string; user_name: string; rating: number }[]>();
-    const participantMap = new Map<string, string>(); // user_id -> user_name
 
     (allRatings || []).forEach((r) => {
       const existing = meetingMap.get(r.meeting_date);
@@ -51,10 +67,6 @@ export async function GET() {
         existing.push({ user_id: r.user_id, user_name: r.user_name, rating: r.rating });
       } else {
         meetingMap.set(r.meeting_date, [{ user_id: r.user_id, user_name: r.user_name, rating: r.rating }]);
-      }
-      // Track most recent user_name for each user_id
-      if (!participantMap.has(r.user_id)) {
-        participantMap.set(r.user_id, r.user_name);
       }
     });
 
@@ -70,11 +82,6 @@ export async function GET() {
         };
       })
       .sort((a, b) => b.meeting_date.localeCompare(a.meeting_date));
-
-    // Build participants list (sorted by name)
-    const participants = Array.from(participantMap.entries())
-      .map(([user_id, user_name]) => ({ user_id, user_name }))
-      .sort((a, b) => a.user_name.localeCompare(b.user_name));
 
     return NextResponse.json({ meetings, participants });
   } catch (error) {

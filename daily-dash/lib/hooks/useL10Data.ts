@@ -200,6 +200,24 @@ export function useRatingsHistory() {
   return { data, error, isLoading, mutate };
 }
 
+export interface RatingParticipant {
+  id: string;
+  user_id: string;
+  user_name: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useRatingParticipants() {
+  const { data, error, isLoading, mutate } = useSWR<{
+    participants: RatingParticipant[];
+  }>('/api/l10/ratings/participants', fetcher, CACHE_OPTIONS);
+
+  return { participants: data?.participants, error, isLoading, mutate };
+}
+
 export function usePortalUsers() {
   const { data, error, isLoading } = useSWR<{
     users: { id: string; name: string; email: string }[];

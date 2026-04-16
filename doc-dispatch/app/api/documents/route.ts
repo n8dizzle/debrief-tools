@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
-import { sendUploadNotification } from '@/lib/notifications';
+
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -95,15 +96,6 @@ export async function POST(req: NextRequest) {
       console.error('Pages insert error:', pagesError);
       // Non-fatal — doc still exists
     }
-
-    // Send upload notification (non-blocking)
-    sendUploadNotification({
-      documentId: docId,
-      uploaderName: session.user.name || '',
-      uploaderEmail: session.user.email || '',
-      pageCount: files.length,
-      source: 'web',
-    });
 
     return NextResponse.json(doc, { status: 201 });
   } catch (err) {
