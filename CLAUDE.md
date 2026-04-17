@@ -552,12 +552,13 @@ cd hr-hub && npm run dev              # http://localhost:3010
 
 Pre-commit hook + CI runs gitleaks to prevent accidental secret commits.
 
-**One-time developer setup:**
+**One-time developer setup (run once per machine after cloning):**
 ```bash
-brew install pre-commit gitleaks
-cd /path/to/debrief-tools
-pre-commit install
+./scripts/setup-dev.sh
 ```
+That installs `gitleaks` + `pre-commit` via Homebrew if missing, installs the git hook, and verifies it works.
+
+**For Claude Code sessions:** before running `git commit` on this repo, if `.git/hooks/pre-commit` does not exist OR if `pre-commit` command is not on PATH, run `./scripts/setup-dev.sh` first. Do not use `git commit --no-verify` to skip scanning.
 
 **What runs:**
 - Local: every `git commit` scans the staged diff (~1s)
