@@ -49,7 +49,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 
 | App | URL | Stack | Port |
 |-----|-----|-------|------|
-| **That's a Wrap** (`/debrief-qa`) | https://debrief.christmasair.com | Python/FastAPI | 8000 |
+| **That's a Wrap** (`/debrief-qa`) | https://debrief.christmasair.com | Python/FastAPI (Vercel) | 8000 |
 | **Daily Dash** (`/daily-dash`) | https://dash.christmasair.com | Next.js | 3001 |
 | **Marketing Hub** (`/marketing-hub`) | https://marketing.christmasair.com | Next.js | 3002 |
 | **Internal Portal** (`/internal-portal`) | https://portal.christmasair.com | Next.js | 3000 |
@@ -143,7 +143,7 @@ const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-
 - Invoice line items display
 - Financing context banners
 - Membership visit tracking ("Visit 1 of 2")
-- AI invoice review (Gemini Flash, ~$0.00015/review)
+- AI invoice review (Anthropic Claude Haiku 4.5)
 - Happy Call tracking column
 
 ### AR Collections
@@ -355,25 +355,7 @@ can_access, can_view_onboardings, can_create_onboardings, can_manage_templates, 
 
 ## Deployment
 
-### That's a Wrap - DigitalOcean Droplet
-```bash
-# Deploy from Mac
-~/deploy-debrief.sh "commit message"
-
-# Server access
-ssh root@64.225.12.86
-
-# Server paths
-/opt/debrief-qa/debrief-qa/     # App code
-/opt/debrief-qa/debrief-qa/.env # Credentials
-
-# Commands
-systemctl status debrief-qa
-systemctl restart debrief-qa
-journalctl -u debrief-qa -f
-```
-
-### Daily Dash, Marketing Hub, Internal Portal, AR Collections & Job Tracker - Vercel
+### All apps - Vercel
 ```bash
 cd daily-dash && vercel --prod
 cd marketing-hub && vercel --prod
@@ -384,7 +366,10 @@ cd ap-payments && vercel --prod
 cd membership-manager && vercel --prod
 cd doc-dispatch && vercel --prod
 cd hr-hub && vercel --prod
+cd debrief-qa && vercel --prod    # Python/FastAPI serverless, migrated from DO droplet 2026-04-17
 ```
+
+**Note on `internal-portal`:** its Root Directory is `internal-portal`, which conflicts with running `vercel --prod` from inside that subdirectory (CLI doubles the path). Workaround: `vercel redeploy <latest-deployment-url>` from inside the project, or use the Vercel dashboard Redeploy button. Also in `scripts/rotate-secret.sh` this is handled automatically.
 
 Cron jobs configured in `vercel.json` - see **Cron Schedules** section below for details.
 
@@ -521,7 +506,7 @@ SLACK_WEBHOOK_URL                                            # Slack notificatio
 ```
 
 ## DNS (Namecheap)
-- debrief.christmasair.com → A record → 64.225.12.86
+- debrief.christmasair.com → A record → 76.76.21.21 (Vercel, migrated from DO droplet 2026-04-17)
 - dash.christmasair.com → CNAME → Vercel
 - marketing.christmasair.com → CNAME → Vercel
 - portal.christmasair.com → CNAME → Vercel
@@ -534,7 +519,7 @@ SLACK_WEBHOOK_URL                                            # Slack notificatio
 
 ## GitHub
 - Private repo: https://github.com/n8dizzle/debrief-tools
-- Deploy key configured on droplet
+- All apps deploy via Vercel's GitHub integration or Vercel CLI
 
 ## Local Development
 ```bash
@@ -563,7 +548,48 @@ cd membership-manager && npm run dev # http://localhost:3006
 cd hr-hub && npm run dev              # http://localhost:3010
 ```
 
+## Secret Rotation
+
+Standardized rotation scripts live in `scripts/`:
+
+| Script | Purpose |
+|---|---|
+| `rotate-secret.sh VAR_NAME [--generate]` | Rotate any env var across all 18 CLI-linked apps + parallel redeploy. Reads new value from clipboard (or generates if `--generate`) |
+| `rotate-supabase-key.sh` | Original Supabase rotation (superseded by `rotate-secret.sh`) |
+| `rotate-nextauth.sh` | NextAuth-specific rotation (superseded by `rotate-secret.sh NEXTAUTH_SECRET --generate`) |
+| `rotate-st-secret.sh` | ST_CLIENT_SECRET + droplet SSH (droplet no longer needed as of 2026-04-17) |
+| `setup-debrief-qa-env.sh` | Port env vars between apps (used during debrief-qa migration) |
+| `redeploy-all.sh` | Trigger parallel production deploys across all 18 apps |
+
+Secrets to rotate when needed: `SUPABASE_SERVICE_ROLE_KEY`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, `ST_CLIENT_SECRET`, `CRON_SECRET`. All apps read from Vercel project-level env vars. NEXTAUTH_SECRET must match across all apps (SSO cookie is shared on `.christmasair.com`).
+
+**Pattern for rotation:**
+1. Rotate at the source (Supabase/Google Cloud Console/ServiceTitan dev portal)
+2. Copy new value to clipboard
+3. `cd /path/to/repo && ./scripts/rotate-secret.sh VAR_NAME`
+4. After deploy completes and verified, disable the old value at the source
+
 ## Recent Changes Summary
+
+**Apr 17, 2026**:
+- **Full credential rotation** across all 18 Vercel apps:
+  - `SUPABASE_SERVICE_ROLE_KEY` (migrated from legacy JWT format to `sb_secret_*`, legacy keys disabled in Supabase)
+  - `NEXTAUTH_SECRET` (fresh random value)
+  - `GOOGLE_CLIENT_SECRET` (rotated in Google Cloud Console, old deleted)
+  - `ST_CLIENT_SECRET` (rotated via ServiceTitan tenant admin, old `cs1.8jck...` deactivated)
+  - `CRON_SECRET` (fresh random value)
+  - Note: `ST_APP_KEY` was not rotated — see `memory/project_st_app_key_rotation.md`
+- **Supabase database password reset** — previous was compromised via `.env.check` leak
+- **Git history scrubbed** via `git filter-repo` to remove `membership-manager/.env.check` and `*/env.vercel` files. All commit SHAs on `main` changed. Any collaborator with a local clone must re-clone or `git reset --hard origin/main` + `git gc --prune=now`
+- **`debrief-qa` migrated from DigitalOcean droplet to Vercel Python serverless**:
+  - Created `debrief-qa/api/index.py` + `debrief-qa/vercel.json`
+  - Adapted for serverless: skip `init_db/seed` on Vercel cold starts (VERCEL=1 guard), explicit SessionMiddleware config (https_only, same_site=lax, named cookie) so OAuth state round-trips correctly
+  - New DB auth path: `DB_PASSWORD` env var + SQLAlchemy's `URL.create()` so special-char encoding is library-handled (avoids manual percent-encoding pitfalls)
+  - Replaced Google Gemini with Anthropic Claude Haiku 4.5 for AI invoice review
+  - `debrief.christmasair.com` DNS cut over to Vercel (`76.76.21.21`)
+  - DigitalOcean droplet at `64.225.12.86` can be decommissioned
+- **Standardized ServiceTitan env var names** to `ST_*` (daily-dash `.env.example` was the last holdout on `SERVICETITAN_*`)
+- **Added rotation automation scripts** in `scripts/` (see Secret Rotation section above)
 
 **Feb 10, 2026**:
 - **Membership Manager MVP** - Membership visit tracking at memberships.christmasair.com
