@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Lobster, Open_Sans } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
+import AnalyticsProvider from "@/components/AnalyticsProvider";
 
 const lobster = Lobster({
   subsets: ["latin"],
@@ -30,7 +31,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${lobster.variable} ${openSans.variable}`}>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AnalyticsProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </AnalyticsProvider>
       </body>
     </html>
   );

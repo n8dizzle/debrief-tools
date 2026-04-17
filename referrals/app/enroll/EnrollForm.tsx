@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Charity } from "@/lib/supabase";
+import { trackEvent } from "@/lib/analytics";
 
 type Step = "contact" | "reward" | "triple-win" | "done";
 
@@ -64,6 +65,11 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
       }
       setResult(data);
       setStep("done");
+      trackEvent("enrollment_completed", {
+        triple_win: form.tripleWinEnabled,
+        already_enrolled: !!data.alreadyEnrolled,
+        reward_preference: form.rewardPreference,
+      });
     } catch {
       setError("Network error — please try again");
     } finally {

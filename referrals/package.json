@@ -9,11 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@sentry/browser": "^8.45.0",
+    "@sentry/node": "^8.45.0",
     "@supabase/supabase-js": "^2.89.0",
     "jose": "^5.9.6",
     "nanoid": "^5.0.7",
     "next": "^16.1.4",
     "next-auth": "^4.24.5",
+    "posthog-js": "^1.196.0",
+    "qrcode.react": "^4.1.0",
     "react": "^18",
     "react-dom": "^18",
     "resend": "^6.9.3",

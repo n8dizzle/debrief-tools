@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 type ServiceType =
   | "HVAC_SERVICE_CALL"
@@ -82,6 +83,11 @@ export default function ReferralForm({
       setResult({
         refereeDiscountLabel: data.refereeDiscountLabel,
         tripleWinCharityName: data.tripleWinCharityName,
+      });
+      trackEvent("referral_submitted", {
+        referral_code: referralCode,
+        service_type: serviceType,
+        triple_win: !!data.tripleWinCharityName,
       });
     } catch {
       setError("Network error — please try again.");
