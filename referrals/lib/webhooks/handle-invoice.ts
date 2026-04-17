@@ -9,6 +9,8 @@ import {
 } from "@/lib/rewards/calculate";
 import { findReferralByCustomerId } from "./match-referral";
 import { sendReferralCompletedEmail } from "@/lib/email/referral-completed";
+import { fulfillReward } from "@/lib/rewards/fulfill";
+import { fulfillCharityDonation } from "@/lib/charities/fulfill";
 import type { Charity, Referrer, Referral, RewardType } from "@/lib/supabase";
 
 interface InvoiceCreatedPayload {
@@ -109,27 +111,48 @@ export async function handleInvoiceCreated(
   }
   const referrer = referrerRow as Referrer;
 
-  // Create reward + optional charity donation atomically-ish
+  // Create reward + optional charity donation. For auto-approved rewards
+  // (the common case), kick off Tremendous fulfillment asynchronously after.
+  let rewardIdToFulfill: string | null = null;
+  let donationIdToFulfill: string | null = null;
+
   if (rewardAmount > 0) {
     const rewardStatus = requiresApproval ? "PENDING" : "APPROVED";
-    await supabase.from("ref_rewards").insert({
-      referral_id: referral.id,
-      referrer_id: referrer.id,
-      amount: rewardAmount,
-      type: referrer.reward_preference,
-      status: rewardStatus,
-    });
-
-    if (referral.triple_win_activated && referral.snapshot_charity_id && charityAmount > 0) {
-      await supabase.from("ref_charity_donations").insert({
+    const { data: insertedReward } = await supabase
+      .from("ref_rewards")
+      .insert({
         referral_id: referral.id,
-        charity_id: referral.snapshot_charity_id,
-        amount: charityAmount,
-        status: requiresApproval ? "PENDING" : "APPROVED",
-      });
+        referrer_id: referrer.id,
+        amount: rewardAmount,
+        type: referrer.reward_preference,
+        status: rewardStatus,
+      })
+      .select("id")
+      .single();
+
+    if (!requiresApproval && insertedReward) {
+      rewardIdToFulfill = insertedReward.id;
     }
 
-    // Update referrer lifetime counters only after reward is issuable
+    if (referral.triple_win_activated && referral.snapshot_charity_id && charityAmount > 0) {
+      const { data: insertedDonation } = await supabase
+        .from("ref_charity_donations")
+        .insert({
+          referral_id: referral.id,
+          charity_id: referral.snapshot_charity_id,
+          amount: charityAmount,
+          status: requiresApproval ? "PENDING" : "APPROVED",
+        })
+        .select("id")
+        .single();
+
+      if (!requiresApproval && insertedDonation) {
+        donationIdToFulfill = insertedDonation.id;
+      }
+    }
+
+    // total_earned tracks what the referrer EARNED (not what was delivered).
+    // Updates happen on auto-approval; manual approvals bump it via the admin route.
     if (!requiresApproval) {
       await supabase
         .from("ref_referrers")
@@ -155,7 +178,7 @@ export async function handleInvoiceCreated(
   const appUrl = process.env.NEXTAUTH_URL || "https://refer.christmasair.com";
   const friendFirstName = referral.referred_name.split(/\s+/)[0] || "your neighbor";
 
-  // Email is fire-and-forget — don't fail the webhook on delivery issues
+  // Fire-and-forget: email + auto-fulfillment. Webhook responds 200 regardless.
   sendReferralCompletedEmail({
     to: referrer.email,
     referrerFirstName: referrer.first_name,
@@ -167,6 +190,17 @@ export async function handleInvoiceCreated(
     tripleWinCharityName: charityName,
     charityAmount: charityAmount || null,
   }).catch((err) => console.error("Completed email failed:", err));
+
+  if (rewardIdToFulfill) {
+    fulfillReward(rewardIdToFulfill).catch((err) =>
+      console.error(`Auto-fulfill reward ${rewardIdToFulfill} failed:`, err)
+    );
+  }
+  if (donationIdToFulfill) {
+    fulfillCharityDonation(donationIdToFulfill).catch((err) =>
+      console.error(`Auto-fulfill donation ${donationIdToFulfill} failed:`, err)
+    );
+  }
 
   return { matched: true, referralId: referral.id };
 }
