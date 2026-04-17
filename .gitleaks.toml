@@ -1,0 +1,39 @@
+# Gitleaks config for debrief-tools.
+# Start from the bundled default rules; add allowlists for known-safe patterns
+# and historical artifacts (all rotated/public — see findings from 2026-04-17 audit).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist false positives + historical (rotated) credentials"
+
+# Public Supabase anon JWTs. These are designed to be visible client-side and
+# are already in NEXT_PUBLIC_SUPABASE_ANON_KEY env vars across all apps.
+regexes = [
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnbnN2aGVva2R1YnFtZGxhbnVhIiwicm9sZSI6ImFub24i''',
+]
+
+# Historical files that contained now-rotated secrets. Kept in allowlist so
+# they don't block CI scans of legitimate new changes.
+paths = [
+    '''\.next/.*''',
+    '''node_modules/.*''',
+    '''venv/.*''',
+    '''\.venv/.*''',
+    '''.*\.lock$''',
+    '''.*package-lock\.json$''',
+    '''debrief-qa/SESSION_LOG_.*\.md''',  # old session logs, rotated credentials
+]
+
+# Known historical commits with rotated secrets — do NOT add new ones here.
+# Each commit is documented in CLAUDE.md changelog 2026-04-17 as rotated.
+commits = [
+    "bbc3753f",  # sales-command-center: hardcoded ST creds (rotated)
+    "7380f590",  # sales-command-center: hardcoded ST creds (rotated)
+    "2cb84291",  # debrief-qa: SESSION_LOG with old DB password (rotated)
+    "414fbed5",  # internal-portal: hardcoded anon JWT in scripts (public by design)
+    "485bd95e",  # ar-collections: false positive (CSS hex)
+    "9fa66c01",  # ar-collections: false positive (CSS hex)
+    "8fadf50f",  # inventory-system/.env.example placeholder
+]
