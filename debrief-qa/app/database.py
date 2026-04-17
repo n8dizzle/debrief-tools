@@ -24,8 +24,21 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./debrief.db")
 
-# SQLite needs check_same_thread=False, PostgreSQL doesn't
-if DATABASE_URL.startswith("sqlite"):
+# If DB_PASSWORD is set, build URL via SQLAlchemy's URL builder so percent-encoding
+# is handled correctly for special chars (&, @, etc.). Otherwise use DATABASE_URL directly.
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+if DB_PASSWORD:
+    from sqlalchemy.engine.url import URL as _URL
+    _db_url_obj = _URL.create(
+        drivername="postgresql",
+        username=os.getenv("DB_USER", "postgres"),
+        password=DB_PASSWORD,
+        host=os.getenv("DB_HOST", "db.dgnsvheokdubqmdlanua.supabase.co"),
+        port=int(os.getenv("DB_PORT", "6543")),
+        database=os.getenv("DB_NAME", "postgres"),
+    )
+    engine = create_engine(_db_url_obj)
+elif DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     engine = create_engine(DATABASE_URL)

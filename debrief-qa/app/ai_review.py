@@ -1,7 +1,7 @@
 """
 AI Invoice Review Module
 
-Uses Google Gemini Flash to analyze invoice summaries and evaluate
+Uses Claude Haiku to analyze invoice summaries and evaluate
 3 pass/fail criteria for the debrief QA process:
 1. Situation - What was the job / what situation did the tech arrive to?
 2. Work Done - What did the tech do / what state was the system left in?
@@ -11,11 +11,11 @@ Uses Google Gemini Flash to analyze invoice summaries and evaluate
 import os
 from datetime import datetime
 from typing import Dict, Optional
-import google.generativeai as genai
+from anthropic import Anthropic
 from .database import TicketRaw
 
-# Configure Gemini API
-GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # Minimum lengths by job category
 MIN_LENGTHS = {
@@ -27,12 +27,11 @@ MIN_LENGTHS = {
 }
 
 
-def _get_model():
-    """Get configured Gemini model."""
-    if not GOOGLE_AI_API_KEY:
+def _get_client():
+    """Get configured Anthropic client."""
+    if not ANTHROPIC_API_KEY:
         return None
-    genai.configure(api_key=GOOGLE_AI_API_KEY)
-    return genai.GenerativeModel('gemini-2.0-flash-lite')
+    return Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 async def review_invoice_summary(
@@ -84,9 +83,8 @@ async def review_invoice_summary(
             "error": None,
         }
 
-    # Get Gemini model
-    model = _get_model()
-    if not model:
+    client = _get_client()
+    if not client:
         return {
             "situation": {"pass": True, "notes": "AI review not available. Manual review required."},
             "work_done": {"pass": True, "notes": "AI review not available. Manual review required."},
@@ -137,8 +135,12 @@ CUSTOMER_DISCUSSION_NOTES: [1 sentence explaining your assessment]
 Now evaluate:"""
 
     try:
-        response = model.generate_content(prompt)
-        response_text = response.text.strip()
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        response_text = response.content[0].text.strip()
 
         # Parse response
         result = {

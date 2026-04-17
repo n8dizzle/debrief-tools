@@ -381,6 +381,9 @@ async def handle_google_callback(request: Request, db: Session) -> dict:
     try:
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
+        import traceback
+        print(f"[TOKEN_ERROR] authorize_access_token failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return {
             "success": False,
             "error": f"Failed to get access token: {str(e)}",

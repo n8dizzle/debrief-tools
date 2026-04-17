@@ -28,4 +28,4 @@ itsdangerous==2.1.2
 starlette[full]==0.35.1
 
 # AI/ML for invoice review
-google-generativeai>=0.8.0
+anthropic>=0.40.0

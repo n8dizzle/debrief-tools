@@ -48,9 +48,29 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Session middleware for authentication
+# Log full tracebacks for all unhandled exceptions (helps debug on Vercel serverless).
+import traceback
+from fastapi.responses import PlainTextResponse
+
+@app.exception_handler(Exception)
+async def _log_and_return_500(request: Request, exc: Exception):
+    print(f"[UNHANDLED] {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
+    traceback.print_exc()
+    return PlainTextResponse(f"Internal Server Error: {type(exc).__name__}: {exc}", status_code=500)
+
+# Session middleware for authentication.
+# same_site="lax" keeps Google OAuth redirects working (top-level GET);
+# https_only=True required for cross-redirect cookie delivery on HTTPS;
+# max_age=14*24*3600 gives a 2-week session.
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    session_cookie="debrief_session",
+    same_site="lax",
+    https_only=True,
+    max_age=14 * 24 * 3600,
+)
 
 # Mount static files and templates
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -78,9 +98,11 @@ templates.env.filters["central"] = to_central
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup."""
+    """Initialize database on startup. Skipped on Vercel (serverless) — schemas
+    are managed out-of-band and cold-start connection overhead adds latency."""
+    if os.getenv("VERCEL") == "1":
+        return
     init_db()
-    # Seed business units from existing ticket data (one-time migration)
     seed_business_units_from_tickets()
 
 
