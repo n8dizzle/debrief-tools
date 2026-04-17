@@ -548,6 +548,25 @@ cd membership-manager && npm run dev # http://localhost:3006
 cd hr-hub && npm run dev              # http://localhost:3010
 ```
 
+## Secret Scanning
+
+Pre-commit hook + CI runs gitleaks to prevent accidental secret commits.
+
+**One-time developer setup:**
+```bash
+brew install pre-commit gitleaks
+cd /path/to/debrief-tools
+pre-commit install
+```
+
+**What runs:**
+- Local: every `git commit` scans the staged diff (~1s)
+- CI: `.github/workflows/gitleaks.yml` scans on every PR and push to main. Not bypassable.
+
+**Config:** `.gitleaks.toml` at repo root. Contains allowlist for public anon JWTs and known-rotated historical artifacts. Add new false positives there, never disable the hook entirely.
+
+If gitleaks flags a commit, investigate first — assume it's a real leak until proven otherwise. Rotate + allowlist the specific commit SHA if needed.
+
 ## Secret Rotation
 
 Standardized rotation scripts live in `scripts/`:
