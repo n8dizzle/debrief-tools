@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 import type { RewardConfig, RewardTier } from "@/lib/supabase";
 
@@ -23,18 +24,10 @@ export default async function ConfigPage() {
   return (
     <div>
       <h1 className="text-4xl mb-2">Reward configs</h1>
-      <p className="opacity-70 mb-2">
-        {configs.length} config{configs.length === 1 ? "" : "s"}.
-      </p>
-      <p
-        className="mb-6 p-3 rounded-lg text-sm"
-        style={{
-          background: "rgba(184,149,107,0.12)",
-          color: "#5a4520",
-        }}
-      >
-        Read-only view. The full editor + A/B test wizard ships in Sprint 6.5.
-        For now, edit values directly in Supabase if you need to.
+      <p className="opacity-70 mb-6">
+        {configs.length} config{configs.length === 1 ? "" : "s"}. Click a config
+        to edit tiers, change traffic allocation, activate, deactivate, or
+        duplicate.
       </p>
 
       <div className="grid gap-5">
@@ -55,8 +48,9 @@ function ConfigCard({ config }: { config: ConfigWithTiers }) {
   );
 
   return (
-    <div
-      className="card"
+    <Link
+      href={`/admin/config/${config.id}`}
+      className="card block transition-transform hover:-translate-y-0.5"
       style={{
         borderLeftWidth: "4px",
         borderLeftColor: config.is_active
@@ -64,6 +58,7 @@ function ConfigCard({ config }: { config: ConfigWithTiers }) {
             ? "var(--ca-green)"
             : "var(--ca-light-green)"
           : "var(--border-default)",
+        color: "inherit",
       }}
     >
       <div className="flex items-start justify-between mb-3">
@@ -103,7 +98,7 @@ function ConfigCard({ config }: { config: ConfigWithTiers }) {
           <TierRow key={t.id} tier={t} />
         ))}
       </div>
-    </div>
+    </Link>
   );
 }
 
