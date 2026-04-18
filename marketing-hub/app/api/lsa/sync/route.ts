@@ -133,6 +133,8 @@ export async function POST(request: NextRequest) {
         cost_micros: row.costMicros,
         phone_calls: row.phoneCalls,
         all_conversions: row.allConversions,
+        search_top_impression_share: row.searchTopImpressionShare || 0,
+        search_abs_top_impression_share: row.searchAbsTopImpressionShare || 0,
         synced_at: new Date().toISOString(),
       }));
 

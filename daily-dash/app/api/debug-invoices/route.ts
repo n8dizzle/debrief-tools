@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     // === DEEP ANALYSIS: Compare job.total vs invoice sums ===
     const allCompletedJobIds = new Set(jobs.map(j => j.id));
-    const hvacBuNames = ['HVAC - Install', 'HVAC - Service', 'HVAC - Maintenance', 'HVAC - Commercial', 'HVAC - Sales', 'Mims - Service'];
+    const hvacBuNames = ['HVAC - Install', 'HVAC - Service', 'HVAC - Maintenance', 'HVAC - Sales', 'Mims - Service'];
     const businessUnits = await stClient.getBusinessUnits();
     const hvacBuIds = new Set(businessUnits.filter(bu => hvacBuNames.includes(bu.name)).map(bu => bu.id));
 

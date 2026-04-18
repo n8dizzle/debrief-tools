@@ -5,6 +5,50 @@ alwaysApply: true
 
 # Claude Code Context - Christmas Air Internal Tools
 
+## REQUIRED: Development Workflow (gstack)
+
+This monorepo uses gstack skills to enforce quality at every stage. You MUST use the appropriate skill instead of doing the work manually. Do not skip skills to save time. The skills exist because manual work has caused production incidents.
+
+### When to use which skill
+
+| Situation | Skill | Why |
+|-----------|-------|-----|
+| Starting a new feature or significant change | `/office-hours` | Think through the design before writing code. Saves hours of rework. |
+| Planning architecture or scope | `/plan-ceo-review` then `/plan-eng-review` | CEO review challenges scope, eng review locks architecture. Do both before coding. |
+| UI/UX work planned but not started | `/plan-design-review` | Catch design problems in the plan, not after implementation. |
+| Ready to build a feature | `/feature-dev` | Guided implementation with codebase understanding. |
+| Something is broken or behaving unexpectedly | `/investigate` | Root cause first, fix second. Never guess-and-check in production code. |
+| Code is written and needs testing | `/qa` | Runs the site, finds bugs, fixes them, verifies fixes. |
+| Want a bug report without fixes | `/qa-only` | Report-only mode. |
+| Checking visual quality of a live page | `/design-review` | Finds spacing, hierarchy, and AI slop issues, then fixes them. |
+| Code is ready to merge | `/review` | Pre-landing review catches SQL safety, trust boundary, and structural issues. |
+| Shipping a PR | `/ship` | Handles tests, review, changelog, PR creation. Never push/PR manually. |
+| After PR is merged | `/document-release` | Syncs README, CLAUDE.md, CHANGELOG to match what shipped. |
+| Deploying to production | `/land-and-deploy` | Merges, waits for CI, verifies production health. |
+| After deploying | `/canary` | Monitors for console errors, regressions, page failures. |
+| Weekly check-in | `/retro` | What shipped, what patterns emerged, what to improve. |
+| Security concerns | `/cso` | Full security audit: secrets, deps, CI/CD, OWASP, STRIDE. |
+| Performance concerns | `/benchmark` | Baselines, before/after comparison, Core Web Vitals. |
+
+### Workflow sequences for common tasks
+
+**New feature (full flow):**
+`/office-hours` → `/plan-ceo-review` → `/plan-eng-review` → `/plan-design-review` (if UI) → build → `/qa` → `/review` → `/ship` → `/land-and-deploy` → `/canary`
+
+**Bug fix:**
+`/investigate` → fix → `/qa` → `/review` → `/ship`
+
+**Quick change (copy, config, small tweak):**
+make change → `/review` → `/ship`
+
+### Rules
+
+- NEVER run `git push` or `gh pr create` directly. Use `/ship`.
+- NEVER debug by guessing. Use `/investigate`.
+- NEVER skip `/review` before merging. It catches things humans miss.
+- NEVER deploy without `/canary` for changes that touch API routes, cron jobs, or auth.
+- If you are unsure which skill to use, describe what you are trying to do and Claude will pick the right one.
+
 ## CRITICAL: Timezone Rules (READ FIRST)
 
 **This company is in TEXAS (Central Time). All dates MUST be in Central Time, not UTC.**
@@ -355,8 +399,9 @@ can_access, can_view_onboardings, can_create_onboardings, can_manage_templates, 
 
 ## Deployment
 
-### All apps - Vercel
+### All Apps - Vercel
 ```bash
+cd debrief-qa && vercel --prod
 cd daily-dash && vercel --prod
 cd marketing-hub && vercel --prod
 cd internal-portal && vercel --prod
@@ -506,7 +551,7 @@ SLACK_WEBHOOK_URL                                            # Slack notificatio
 ```
 
 ## DNS (Namecheap)
-- debrief.christmasair.com → A record → 76.76.21.21 (Vercel, migrated from DO droplet 2026-04-17)
+- debrief.christmasair.com → CNAME → Vercel
 - dash.christmasair.com → CNAME → Vercel
 - marketing.christmasair.com → CNAME → Vercel
 - portal.christmasair.com → CNAME → Vercel

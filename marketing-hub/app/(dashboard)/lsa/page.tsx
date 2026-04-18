@@ -126,6 +126,16 @@ interface ComparisonData {
     yoy: Record<string, number>;
     mom: Record<string, number>;
   };
+  impressionsByPeriod: {
+    current: Record<string, number>;
+    yoy: Record<string, number>;
+    mom: Record<string, number>;
+  };
+  impressionShareByPeriod: {
+    current: Record<string, { topShare: number; absTopShare: number }>;
+    yoy: Record<string, { topShare: number; absTopShare: number }>;
+    mom: Record<string, { topShare: number; absTopShare: number }>;
+  };
   stMetrics: Record<string, {
     booked: number;
     revenue: number;
@@ -762,6 +772,9 @@ export default function LSAPage() {
                       <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">
                         <span className="text-[#6eb887]">H</span> / <span className="text-[#B8956B]">P</span>
                       </th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Impr</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400" title="Top impression rate on Search">Top %</th>
+                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400" title="Absolute top impression rate on Search">Abs Top %</th>
                       <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Spend</th>
                       <th className="text-right py-3 px-3 text-sm font-medium text-gray-400 border-l border-[#2a3e2a]">ST Jobs</th>
                       <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Revenue</th>
@@ -772,7 +785,7 @@ export default function LSAPage() {
                   <tbody>
                     {(!comparisonData || comparisonData.current.locations.length === 0) ? (
                       <tr>
-                        <td colSpan={10} className="py-8 text-center text-gray-500">
+                        <td colSpan={13} className="py-8 text-center text-gray-500">
                           No location data found for this period
                         </td>
                       </tr>
@@ -812,6 +825,24 @@ export default function LSAPage() {
                                 <span className="text-[#6eb887]">{loc.hvac}</span>
                                 <span className="text-gray-600 mx-0.5">/</span>
                                 <span className="text-[#B8956B]">{loc.plumbing}</span>
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {(() => {
+                                  const impr = comparisonData.impressionsByPeriod?.current[loc.customerId] || 0;
+                                  return impr > 0 ? formatNumber(impr) : '—';
+                                })()}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {(() => {
+                                  const share = comparisonData.impressionShareByPeriod?.current[loc.customerId];
+                                  return share && share.topShare > 0 ? `${(share.topShare * 100).toFixed(1)}%` : '—';
+                                })()}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {(() => {
+                                  const share = comparisonData.impressionShareByPeriod?.current[loc.customerId];
+                                  return share && share.absTopShare > 0 ? `${(share.absTopShare * 100).toFixed(1)}%` : '—';
+                                })()}
                               </td>
                               <td className="py-3 px-3 text-right text-gray-300">
                                 {currentSpend > 0 ? formatCurrency(currentSpend) : '—'}
@@ -856,6 +887,40 @@ export default function LSAPage() {
                                 <span className="text-[#6eb887]">{ct.hvac}</span>
                                 <span className="text-gray-600 mx-0.5">/</span>
                                 <span className="text-[#B8956B]">{ct.plumbing}</span>
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {(() => {
+                                  const totalImpr = Object.values(comparisonData.impressionsByPeriod?.current || {}).reduce((s, v) => s + v, 0);
+                                  return totalImpr > 0 ? formatNumber(totalImpr) : '—';
+                                })()}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {(() => {
+                                  const shares = comparisonData.impressionShareByPeriod?.current || {};
+                                  const impr = comparisonData.impressionsByPeriod?.current || {};
+                                  let weightedSum = 0, totalImpr = 0;
+                                  for (const cid of Object.keys(shares)) {
+                                    const w = impr[cid] || 0;
+                                    weightedSum += (shares[cid]?.topShare || 0) * w;
+                                    totalImpr += w;
+                                  }
+                                  const avg = totalImpr > 0 ? weightedSum / totalImpr : 0;
+                                  return avg > 0 ? `${(avg * 100).toFixed(1)}%` : '—';
+                                })()}
+                              </td>
+                              <td className="py-3 px-3 text-right text-gray-300">
+                                {(() => {
+                                  const shares = comparisonData.impressionShareByPeriod?.current || {};
+                                  const impr = comparisonData.impressionsByPeriod?.current || {};
+                                  let weightedSum = 0, totalImpr = 0;
+                                  for (const cid of Object.keys(shares)) {
+                                    const w = impr[cid] || 0;
+                                    weightedSum += (shares[cid]?.absTopShare || 0) * w;
+                                    totalImpr += w;
+                                  }
+                                  const avg = totalImpr > 0 ? weightedSum / totalImpr : 0;
+                                  return avg > 0 ? `${(avg * 100).toFixed(1)}%` : '—';
+                                })()}
                               </td>
                               <td className="py-3 px-3 text-right text-gray-300">
                                 {totalCurrentSpend > 0 ? formatCurrency(totalCurrentSpend) : '—'}

@@ -198,63 +198,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/trades/sync-monthly - Get sync status and cached months
+// GET /api/trades/sync-monthly - Vercel cron jobs send GET requests, delegate to POST handler
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const supabase = getServerSupabase();
-
-    // Get all cached monthly snapshots
-    const { data: snapshots, error } = await supabase
-      .from('trade_monthly_snapshots')
-      .select('*')
-      .order('year_month', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching monthly snapshots:', error);
-      return NextResponse.json({ error: 'Failed to fetch snapshots' }, { status: 500 });
-    }
-
-    // Get last sync info
-    const { data: lastSync } = await supabase
-      .from('dash_sync_log')
-      .select('*')
-      .eq('sync_type', 'trade_monthly_sync')
-      .order('started_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Group by month
-    const monthlyData: Record<string, { hvac: number; plumbing: number; syncedAt: string }> = {};
-    snapshots?.forEach((s) => {
-      if (!monthlyData[s.year_month]) {
-        monthlyData[s.year_month] = { hvac: 0, plumbing: 0, syncedAt: s.synced_at };
-      }
-      if (s.trade === 'hvac') {
-        monthlyData[s.year_month].hvac = Number(s.revenue);
-      } else if (s.trade === 'plumbing') {
-        monthlyData[s.year_month].plumbing = Number(s.revenue);
-      }
-    });
-
-    return NextResponse.json({
-      cachedMonths: Object.keys(monthlyData).length,
-      data: monthlyData,
-      lastSync: lastSync
-        ? {
-            startedAt: lastSync.started_at,
-            completedAt: lastSync.completed_at,
-            status: lastSync.status,
-            recordsSynced: lastSync.records_synced,
-          }
-        : null,
-    });
-  } catch (error) {
-    console.error('Error getting monthly sync status:', error);
-    return NextResponse.json({ error: 'Failed to get sync status' }, { status: 500 });
-  }
+  return POST(request);
 }
