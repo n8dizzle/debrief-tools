@@ -59,6 +59,8 @@ export interface LSADailyPerformanceRow {
   costMicros: number;
   phoneCalls: number;
   allConversions: number;
+  searchTopImpressionShare: number;
+  searchAbsTopImpressionShare: number;
 }
 
 export interface LSALocation {
@@ -491,7 +493,9 @@ class GoogleAdsClient {
             metrics.clicks,
             metrics.cost_micros,
             metrics.phone_calls,
-            metrics.all_conversions
+            metrics.all_conversions,
+            metrics.search_top_impression_share,
+            metrics.search_absolute_top_impression_share
           FROM campaign
           WHERE campaign.advertising_channel_type = 'LOCAL_SERVICES'
             AND segments.date >= '${startDate}'
@@ -518,6 +522,11 @@ class GoogleAdsClient {
             dailyRows[existingIdx].costMicros += Number(row.metrics?.cost_micros || 0);
             dailyRows[existingIdx].phoneCalls += Number(row.metrics?.phone_calls || 0);
             dailyRows[existingIdx].allConversions += Number(row.metrics?.all_conversions || 0);
+            // Impression share: take the latest non-zero value (not additive)
+            const topShare = Number(row.metrics?.search_top_impression_share || 0);
+            const absTopShare = Number(row.metrics?.search_absolute_top_impression_share || 0);
+            if (topShare > 0) dailyRows[existingIdx].searchTopImpressionShare = topShare;
+            if (absTopShare > 0) dailyRows[existingIdx].searchAbsTopImpressionShare = absTopShare;
           } else {
             dailyRows.push({
               customerId,
@@ -528,6 +537,8 @@ class GoogleAdsClient {
               costMicros: Number(row.metrics?.cost_micros || 0),
               phoneCalls: Number(row.metrics?.phone_calls || 0),
               allConversions: Number(row.metrics?.all_conversions || 0),
+              searchTopImpressionShare: Number(row.metrics?.search_top_impression_share || 0),
+              searchAbsTopImpressionShare: Number(row.metrics?.search_absolute_top_impression_share || 0),
             });
           }
         }

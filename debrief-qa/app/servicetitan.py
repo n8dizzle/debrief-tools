@@ -500,6 +500,8 @@ class ServiceTitanClient:
         estimates = estimates_response.get("data", [])
         
         # Get appointments and tech assignments
+        # Only use "Done" appointments to avoid pulling techs from old/unrelated appointments
+        # (e.g., a job may have an earlier estimate appointment with a different tech)
         appointments_response = await self.get_job_appointments(job_id)
         appointments = appointments_response.get("data", [])
         tech_name = "Unknown"
@@ -507,8 +509,12 @@ class ServiceTitanClient:
         all_techs = []  # List of all technicians on the job
 
         if appointments:
+            # Filter to only completed appointments first, fall back to all if none are done
+            done_appointments = [a for a in appointments if a.get("status") == "Done"]
+            active_appointments = done_appointments if done_appointments else appointments
+
             # Get tech from appointment-assignments endpoint
-            for appt in appointments:
+            for appt in active_appointments:
                 try:
                     assignments = await self.get_appointment_assignments(appt["id"])
                     assignment_data = assignments.get("data", [])

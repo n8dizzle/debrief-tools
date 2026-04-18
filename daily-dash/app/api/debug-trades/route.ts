@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
   try {
     // Get business units
     const businessUnits = await stClient.getBusinessUnits();
-    const hvacBuNames = ['HVAC - Install', 'HVAC - Service', 'HVAC - Maintenance', 'HVAC - Commercial', 'Mims - Service'];
-    const plumbingBuNames = ['Plumbing - Install', 'Plumbing - Service', 'Plumbing - Maintenance', 'Plumbing - Sales', 'Plumbing - Commercial'];
+    const hvacBuNames = ['HVAC - Install', 'HVAC - Service', 'HVAC - Maintenance', 'Mims - Service'];
+    const plumbingBuNames = ['Plumbing - Install', 'Plumbing - Service', 'Plumbing - Maintenance', 'Plumbing - Sales'];
 
     const hvacBuIds = businessUnits.filter(bu => hvacBuNames.includes(bu.name)).map(bu => bu.id);
     const plumbingBuIds = businessUnits.filter(bu => plumbingBuNames.includes(bu.name)).map(bu => bu.id);

@@ -73,11 +73,8 @@ DATABASE_URL=sqlite:///./debrief.db
 Pull completed jobs from ServiceTitan for the last N hours:
 
 ```bash
-# From local machine
+# Trigger sync
 curl -X POST "https://debrief.christmasair.com/api/sync?hours_back=24"
-
-# Via SSH (faster for production)
-ssh root@64.225.12.86 "curl -s -X POST 'http://localhost:8000/api/sync?hours_back=72'"
 ```
 
 ### Re-Enrich Endpoint
@@ -85,11 +82,8 @@ ssh root@64.225.12.86 "curl -s -X POST 'http://localhost:8000/api/sync?hours_bac
 Re-fetch photo and form counts for existing tickets. Useful after fixing API endpoints or to refresh data:
 
 ```bash
-# Small batch from local machine
+# Re-enrich tickets
 curl -X POST "https://debrief.christmasair.com/api/re-enrich?limit=20&force=true"
-
-# Large batch via SSH (avoids timeout)
-ssh root@64.225.12.86 "curl -s -X POST 'http://localhost:8000/api/re-enrich?limit=200&force=true'"
 ```
 
 Parameters:

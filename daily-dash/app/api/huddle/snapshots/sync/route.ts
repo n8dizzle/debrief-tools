@@ -249,3 +249,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to sync snapshots' }, { status: 500 });
   }
 }
+
+/**
+ * GET /api/huddle/snapshots/sync
+ * Vercel cron jobs send GET requests - delegate to POST handler
+ */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}

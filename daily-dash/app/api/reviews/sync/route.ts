@@ -233,3 +233,11 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+/**
+ * GET /api/reviews/sync
+ * Vercel cron jobs send GET requests - delegate to POST handler
+ */
+export async function GET(request: NextRequest) {
+  return POST(request);
+}
