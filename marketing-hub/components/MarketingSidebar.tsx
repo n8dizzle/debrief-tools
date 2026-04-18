@@ -23,6 +23,7 @@ const navLinks = [
   { href: '/leads', label: 'Lead Attribution', icon: 'funnel' },
   { href: '/lsa', label: 'Local Service Ads', icon: 'phone' },
   { href: '/gbp', label: 'GBP Insights', icon: 'chart-bar' },
+  { href: '/customers', label: 'Customer Map', icon: 'map-pin' },
   { href: '/analytics', label: 'Website Analytics', icon: 'globe' },
   { href: '/settings', label: 'Marketing Spend', icon: 'dollar' },
 ];
@@ -72,6 +73,12 @@ function NavIcon({ type }: { type: string }) {
     checklist: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    ),
+    'map-pin': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
     dollar: (
