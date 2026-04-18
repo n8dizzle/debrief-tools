@@ -8,9 +8,9 @@ export default withAuth({
 
 export const config = {
   matcher: [
-    // Protect only /admin and /dashboard. Everything else (landing, /refer/[code],
-    // /enroll, /triple-win, auth endpoints, webhooks) is public.
+    // Only /admin uses NextAuth (Google OAuth via portal_users). Everything else
+    // is public OR uses the customer magic-link cookie (see lib/customer-auth.ts).
+    // /dashboard is customer-authed, so it handles its own guard in the layout.
     "/admin/:path*",
-    "/dashboard/:path*",
   ],
 };

@@ -1,16 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
+/**
+ * All Supabase access goes through this helper. The bare `createClient`
+ * call is intentionally NOT made at module load — Next.js page-data
+ * collection imports server modules even when env vars aren't present
+ * (e.g. local builds without .env.local), and createClient throws on
+ * empty url/key. Instantiating per-call is cheap.
+ */
 export function getServerSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    return createClient(supabaseUrl, supabaseAnonKey);
-  }
-  return createClient(supabaseUrl, serviceRoleKey);
+  return createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 }
 
 // ============================================

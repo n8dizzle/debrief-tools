@@ -24,6 +24,7 @@ paths = [
     '''.*\.lock$''',
     '''.*package-lock\.json$''',
     '''debrief-qa/SESSION_LOG_.*\.md''',  # old session logs, rotated credentials
+    '''ar-collections/app/\(dashboard\)/page\.tsx''',  # false positive on `key: 'bucket_30'` TS literals
 ]
 
 # Known historical commits with rotated secrets — do NOT add new ones here.
