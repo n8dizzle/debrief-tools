@@ -448,6 +448,13 @@ Backfill endpoint: `POST /api/huddle/backfill` (requires `CRON_SECRET` header)
 
 All Vercel crons use UTC. Times shown are Central Time (CT). During daylight saving (Mar-Nov), schedules shift 1 hour later.
 
+### Debrief QA (`debrief-qa/vercel.json`)
+
+| Endpoint | Schedule | CT Time | Purpose |
+|----------|----------|---------|---------|
+| `/api/sync?hours_back=24` | `0 12 * * *` | 6am daily | Full sync of completed jobs from ServiceTitan |
+| `/api/sync?hours_back=2` | `0 14-23 * * 1-6` | 8am-5pm Mon-Sat hourly | Intraday sync of newly completed jobs |
+
 ### Daily Dash (`daily-dash/vercel.json`)
 
 | Endpoint | Schedule | CT Time | Purpose |
@@ -537,6 +544,7 @@ INTERNAL_API_SECRET          # Shared secret for SSO API calls
 ```
 PORTAL_URL=https://portal.christmasair.com
 INTERNAL_API_SECRET          # Same as Internal Portal
+CRON_SECRET                  # Required for /api/sync when called by Vercel cron
 ```
 
 ### Job Tracker

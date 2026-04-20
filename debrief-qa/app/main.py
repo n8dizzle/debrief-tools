@@ -8,8 +8,10 @@ Main entry point for the application. Handles:
 - HTML template rendering
 """
 
+import hmac
 import os
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 from fastapi import FastAPI, Request, HTTPException, Depends, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -1731,8 +1733,10 @@ async def reset_job_status(job_id: int, db: Session = Depends(get_db)):
 
 # ----- Sync / Polling Endpoint -----
 
+@app.get("/api/sync")
 @app.post("/api/sync")
 async def sync_completed_jobs(
+    request: Request,
     hours_back: int = 24,
     db: Session = Depends(get_db)
 ):
@@ -1740,16 +1744,32 @@ async def sync_completed_jobs(
     Poll ServiceTitan for recently completed jobs and add new ones to queue.
     Use this instead of webhooks if you don't have webhook access.
 
+    Supports two callers:
+    - Vercel cron: sends GET with `Authorization: Bearer $CRON_SECRET`
+    - Dispatcher UI button: sends POST with a logged-in session cookie
+
     Args:
         hours_back: How many hours back to look for completed jobs (default 24)
     """
     from .servicetitan import get_st_client
 
+    auth_header = request.headers.get("authorization", "")
+    cron_secret = os.getenv("CRON_SECRET", "")
+    expected = f"Bearer {cron_secret}" if cron_secret else ""
+    is_cron = bool(cron_secret) and hmac.compare_digest(auth_header, expected)
+
+    if not is_cron:
+        user = get_current_user_optional(request, db)
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
     client = get_st_client()
 
-    # Calculate date range
-    now = datetime.utcnow()
-    start_date = (now - timedelta(hours=hours_back)).strftime("%Y-%m-%d")
+    # Date math runs in Central (tenant) time, not UTC — ServiceTitan interprets
+    # completedOnOrAfter as tenant-local, and a UTC-based date flips to "tomorrow"
+    # for the last 6 hours of every Central day.
+    now_ct = datetime.now(ZoneInfo("America/Chicago"))
+    start_date = (now_ct - timedelta(hours=hours_back)).strftime("%Y-%m-%d")
 
     # Get enabled business unit IDs for filtering
     enabled_bus = db.query(BusinessUnit).filter(BusinessUnit.is_enabled == True).all()

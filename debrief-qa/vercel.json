@@ -11,5 +11,9 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "/api/index.py" }
+  ],
+  "crons": [
+    { "path": "/api/sync?hours_back=24", "schedule": "0 12 * * *" },
+    { "path": "/api/sync?hours_back=2", "schedule": "0 14-23 * * 1-6" }
   ]
 }
