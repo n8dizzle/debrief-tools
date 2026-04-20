@@ -33,6 +33,22 @@ function getAppUrl(req: NextRequest): string {
   return process.env.NEXTAUTH_URL || req.nextUrl.origin;
 }
 
+// Postgres SQLSTATE for unique_violation.
+const PG_UNIQUE_VIOLATION = "23505";
+
+function isUniqueViolationOn(
+  err: unknown,
+  column: string
+): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; details?: string };
+  return (
+    e.code === PG_UNIQUE_VIOLATION &&
+    typeof e.details === "string" &&
+    e.details.includes(column)
+  );
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -110,24 +126,55 @@ export async function POST(req: NextRequest) {
   const appUrl = getAppUrl(req);
   const referralLink = `${appUrl}/refer/${referralCode}`;
 
-  // Create referrer
-  const { data: inserted, error: insertErr } = await supabase
-    .from("ref_referrers")
-    .insert({
-      email,
-      phone: data.phone,
-      first_name: data.firstName,
-      last_name: data.lastName,
-      service_titan_id: serviceTitanId,
-      referral_code: referralCode,
-      referral_link: referralLink,
-      reward_preference: data.rewardPreference,
-      assigned_reward_config_id: assignedRewardConfigId,
-      triple_win_enabled: data.tripleWinEnabled,
-      selected_charity_id: data.tripleWinEnabled ? data.selectedCharityId : null,
-    })
-    .select("*")
-    .single();
+  // Create referrer. If the ST customer we matched is already linked to another
+  // referrer (shared phone, household account, prior test data), drop the ST
+  // linkage and insert without it — the referrer can be re-linked later.
+  async function insertReferrer(stId: string | null) {
+    return supabase
+      .from("ref_referrers")
+      .insert({
+        email,
+        phone: data.phone,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        service_titan_id: stId,
+        referral_code: referralCode,
+        referral_link: referralLink,
+        reward_preference: data.rewardPreference,
+        assigned_reward_config_id: assignedRewardConfigId,
+        triple_win_enabled: data.tripleWinEnabled,
+        selected_charity_id: data.tripleWinEnabled ? data.selectedCharityId : null,
+      })
+      .select("*")
+      .single();
+  }
+
+  let { data: inserted, error: insertErr } = await insertReferrer(serviceTitanId);
+
+  if (serviceTitanId && isUniqueViolationOn(insertErr, "service_titan_id")) {
+    console.warn(
+      `ST customer ${serviceTitanId} already linked to another referrer — inserting without ST linkage`
+    );
+    ({ data: inserted, error: insertErr } = await insertReferrer(null));
+  }
+
+  // Concurrent enrollment race: two POSTs for the same email arrive at nearly
+  // the same time. Both pass the early SELECT, one wins the insert, the other
+  // hits 23505 on the email UNIQUE index. Re-read and return the happy path.
+  if (isUniqueViolationOn(insertErr, "email")) {
+    const { data: raced } = await supabase
+      .from("ref_referrers")
+      .select("referral_code, referral_link")
+      .eq("email", email)
+      .maybeSingle();
+    if (raced) {
+      return NextResponse.json({
+        alreadyEnrolled: true,
+        referralCode: raced.referral_code,
+        referralLink: raced.referral_link,
+      });
+    }
+  }
 
   if (insertErr || !inserted) {
     console.error("Enrollment insert failed:", insertErr);

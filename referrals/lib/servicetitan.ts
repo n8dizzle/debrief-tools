@@ -57,18 +57,25 @@ export interface STInvoice {
   invoiceConfiguration?: string;
 }
 
+export interface STLeadContactInfo {
+  type: "Phone" | "Email";
+  value: string;
+  memo?: string;
+}
+
 export interface STLeadCreate {
-  customerId?: number;
-  name?: string;
+  /** Required by ST v2 Leads API — the campaign to attribute this lead to. */
+  campaignId: number;
+  /** Required — the narrative/description the dispatcher sees first. */
+  body: string;
+  priority?: "Low" | "Normal" | "High" | "Urgent";
   summary?: string;
+  customerId?: number;
+  locationId?: number;
   callReasonId?: number;
   followUpDate?: string;
-  priority?: "Low" | "Normal" | "High" | "Urgent";
-  // Contact info used when customerId is not known yet
-  contactInfo?: {
-    phone?: string;
-    email?: string;
-  };
+  businessUnitId?: number;
+  contactInfo?: STLeadContactInfo;
 }
 
 interface STPagedResponse<T> {
@@ -78,6 +85,14 @@ interface STPagedResponse<T> {
   totalCount: number;
   hasMore: boolean;
 }
+
+/**
+ * Default per-request timeout for ServiceTitan API calls. Chosen so a cold
+ * OAuth token fetch (observed ~20-30s on first request of the day) fails fast
+ * enough for a user-facing enrollment rather than blocking the tab, while
+ * still allowing the usual steady-state latency (1-3s).
+ */
+const ST_DEFAULT_TIMEOUT_MS = 10_000;
 
 export class ServiceTitanClient {
   private readonly BASE_URL: string;
@@ -121,13 +136,27 @@ export class ServiceTitanClient {
     return !!(this.clientId && this.clientSecret && this.tenantId && this.appKey);
   }
 
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    timeoutMs = ST_DEFAULT_TIMEOUT_MS
+  ): Promise<Response> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async getAccessToken(): Promise<string> {
     if (this.accessToken && this.tokenExpiresAt) {
       const buffer = new Date(this.tokenExpiresAt.getTime() - 60_000);
       if (new Date() < buffer) return this.accessToken;
     }
 
-    const response = await fetch(this.AUTH_URL, {
+    const response = await this.fetchWithTimeout(this.AUTH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -159,7 +188,7 @@ export class ServiceTitanClient {
       url += `?${new URLSearchParams(options.params).toString()}`;
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithTimeout(url, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,

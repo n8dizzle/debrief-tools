@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/admin/donations", label: "Donations" },
   { href: "/admin/charities", label: "Charities" },
   { href: "/admin/config", label: "Reward configs" },
+  { href: "/admin/settings", label: "Settings" },
 ];
 
 export default function AdminNav({ userEmail }: { userEmail: string }) {

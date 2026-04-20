@@ -103,6 +103,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Membership Manager** (`/membership-manager`) | https://memberships.christmasair.com | Next.js | 3006 |
 | **Doc Dispatch** (`/doc-dispatch`) | https://docs.christmasair.com | Next.js | 3007 |
 | **HR Hub** (`/hr-hub`) | https://hr.christmasair.com | Next.js | 3010 |
+| **Referrals** (`/referrals`) | https://refer.christmasair.com | Next.js | 3011 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -272,6 +273,18 @@ const [range, setRange] = useState<DateRange>({ start: '2026-01-01', end: '2026-
 - Cron: Daily at 8am CT Mon-Fri for overdue task reminders
 - Database tables: hr_workflow_templates, hr_template_phases, hr_template_steps, hr_onboardings, hr_onboarding_tasks, hr_activity_log, hr_notification_log, hr_settings
 
+### Referrals
+
+**Customer Referral Program** - Public enrollment + admin console at refer.christmasair.com
+- Public flow: `/enroll` (customer signs up, gets a unique code), `/refer/[code]` (share link that pre-fills the friend's quote request), `/dashboard` (referrer sees stage + rewards), `/triple-win` / `/faq` / `/terms` (marketing)
+- Enrolled referrals create a ServiceTitan lead attributed to a single campaign (configured at runtime via `st_referral_campaign_id` — see Settings below)
+- Reward engine: tiered reward configs (Tremendous gift cards) with per-charity split for the "triple-win" donation match
+- Webhook-driven reward trigger on invoice events from ServiceTitan
+- Admin console at `/admin` — sidebar with Dashboard, Referrers, Referrals, Rewards, Donations, Charities, Reward configs, Settings
+- **Settings** (`/admin/settings`) - Runtime key-value config (no redeploy needed). First live key: `st_referral_campaign_id`. Per-key validators catch bad input before it hits ServiceTitan. Page gated on `referrals.can_manage_settings`; whole admin area gated on `referrals.can_view_admin`
+- Database tables: all prefixed `ref_` — `ref_referrers`, `ref_referrals`, `ref_rewards`, `ref_reward_configs`, `ref_charities`, `ref_donations`, `ref_settings`
+- Migrations live in `referrals/migrations/` (001 core tables, 002 charities+default config seed, 003 `ref_settings` + seed, 004 `ref_settings` updated_at trigger)
+
 ### Internal Portal (Admin)
 
 **User Management** (`/admin/users`) - Centralized user provisioning
@@ -366,6 +379,14 @@ Key tables:
 - `hr_activity_log` - Audit trail for onboarding/task changes
 - `hr_notification_log` - Notification send history
 - `hr_settings` - App settings key-value store
+- `ref_referrers` - Enrolled customers with their unique referral code
+- `ref_referrals` - Individual referrals (one per friend referred) with stage tracking
+- `ref_rewards` - Issued rewards (Tremendous gift cards) per referral
+- `ref_reward_configs`, `ref_reward_tiers` - Tiered reward configuration (active + historical)
+- `ref_reward_config_change_log`, `ref_reward_config_change_requests` - Audit + approval flow for config edits
+- `ref_charities`, `ref_charity_donations` - Charity list and triple-win donation splits
+- `ref_webhook_events` - ServiceTitan webhook delivery log
+- `ref_settings` - Runtime key-value config for the referrals app (e.g. `st_referral_campaign_id`); `updated_at` maintained by a BEFORE UPDATE trigger
 
 ### Permission Groups
 ```typescript
@@ -395,6 +416,9 @@ can_view_memberships, can_manage_notes, can_view_reports, can_sync_data
 
 // hr_hub
 can_access, can_view_onboardings, can_create_onboardings, can_manage_templates, can_complete_any_task, can_view_reports
+
+// referrals
+can_view_admin, can_manage_charities, can_manage_config, can_manage_settings
 ```
 
 ## Deployment
@@ -635,6 +659,17 @@ Secrets to rotate when needed: `SUPABASE_SERVICE_ROLE_KEY`, `NEXTAUTH_SECRET`, `
 4. After deploy completes and verified, disable the old value at the source
 
 ## Recent Changes Summary
+
+**Apr 20, 2026**:
+- **Referrals Sprint 7** - QA fixes + runtime settings for refer.christmasair.com
+  - Enrollment flow fixes: duplicate ST customers no longer 500; each step scrolls to top; JSX whitespace no longer collapses between expression and adjacent text; friendlier enrollment error with fallback; ServiceTitan API calls now time out at 10s instead of hanging indefinitely
+  - ServiceTitan lead payload now matches the v2 Leads schema (fixed bad field mapping that was quietly dropping leads)
+  - New `ref_settings` key-value store for runtime config without redeploys
+  - New `/admin/settings` page + `GET`/`PATCH /api/admin/settings` endpoint for editing values live
+  - First registered setting: `st_referral_campaign_id` — the ServiceTitan campaign all referred leads attribute to. Per-key validator rejects bad values before they hit ST
+  - New `referrals.can_manage_settings` permission gates the page and API; whole admin area already gated on `referrals.can_view_admin`
+  - Email-collision race handling: concurrent enrollments with the same email now resolve cleanly instead of racing to partial state
+  - Database: migrations `003_create_settings_table.sql` (table + seed) and `004_ref_settings_updated_at_trigger.sql` (BEFORE UPDATE trigger) — already applied to prod
 
 **Apr 17, 2026**:
 - **Full credential rotation** across all 18 Vercel apps:

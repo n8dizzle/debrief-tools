@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Charity } from "@/lib/supabase";
 import { trackEvent } from "@/lib/analytics";
 
@@ -44,6 +44,10 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
     alreadyEnrolled?: boolean;
   } | null>(null);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
   };
@@ -59,7 +63,11 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Something went wrong");
+        const hint =
+          res.status >= 500
+            ? "Something went wrong on our end. Please try again, or call (469) 214-2013 and we'll enroll you by hand."
+            : data.error || "Please check the info above and try again.";
+        setError(hint);
         setSubmitting(false);
         return;
       }
