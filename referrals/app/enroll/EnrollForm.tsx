@@ -63,7 +63,11 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Something went wrong");
+        const hint =
+          res.status >= 500
+            ? "Something went wrong on our end. Please try again, or call (469) 214-2013 and we'll enroll you by hand."
+            : data.error || "Please check the info above and try again.";
+        setError(hint);
         setSubmitting(false);
         return;
       }
