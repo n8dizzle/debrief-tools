@@ -56,13 +56,11 @@ export async function setSetting(
   updatedBy: string
 ): Promise<void> {
   const supabase = getServerSupabase();
+  // updated_at is set by the BEFORE UPDATE trigger in migration 004 —
+  // don't pass it here or the two writes will duplicate each other.
   const { data, error } = await supabase
     .from("ref_settings")
-    .update({
-      value,
-      updated_by: updatedBy,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ value, updated_by: updatedBy })
     .eq("key", key)
     .select("key");
 

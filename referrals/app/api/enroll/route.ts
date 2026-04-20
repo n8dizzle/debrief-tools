@@ -158,6 +158,24 @@ export async function POST(req: NextRequest) {
     ({ data: inserted, error: insertErr } = await insertReferrer(null));
   }
 
+  // Concurrent enrollment race: two POSTs for the same email arrive at nearly
+  // the same time. Both pass the early SELECT, one wins the insert, the other
+  // hits 23505 on the email UNIQUE index. Re-read and return the happy path.
+  if (isUniqueViolationOn(insertErr, "email")) {
+    const { data: raced } = await supabase
+      .from("ref_referrers")
+      .select("referral_code, referral_link")
+      .eq("email", email)
+      .maybeSingle();
+    if (raced) {
+      return NextResponse.json({
+        alreadyEnrolled: true,
+        referralCode: raced.referral_code,
+        referralLink: raced.referral_link,
+      });
+    }
+  }
+
   if (insertErr || !inserted) {
     console.error("Enrollment insert failed:", insertErr);
     return NextResponse.json({ error: "Enrollment failed" }, { status: 500 });
