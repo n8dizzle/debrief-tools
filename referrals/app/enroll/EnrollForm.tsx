@@ -35,10 +35,6 @@ const initialState: FormState = {
 export default function EnrollForm({ charities }: { charities: Charity[] }) {
   const [step, setStep] = useState<Step>("contact");
   const [form, setForm] = useState<FormState>(initialState);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [step]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -47,6 +43,10 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
     tripleWinEnabled: boolean;
     alreadyEnrolled?: boolean;
   } | null>(null);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));

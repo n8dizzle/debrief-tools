@@ -33,6 +33,22 @@ function getAppUrl(req: NextRequest): string {
   return process.env.NEXTAUTH_URL || req.nextUrl.origin;
 }
 
+// Postgres SQLSTATE for unique_violation.
+const PG_UNIQUE_VIOLATION = "23505";
+
+function isUniqueViolationOn(
+  err: unknown,
+  column: string
+): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; details?: string };
+  return (
+    e.code === PG_UNIQUE_VIOLATION &&
+    typeof e.details === "string" &&
+    e.details.includes(column)
+  );
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -135,12 +151,7 @@ export async function POST(req: NextRequest) {
 
   let { data: inserted, error: insertErr } = await insertReferrer(serviceTitanId);
 
-  if (
-    insertErr &&
-    serviceTitanId &&
-    (insertErr as { code?: string }).code === "23505" &&
-    String((insertErr as { details?: string }).details || "").includes("service_titan_id")
-  ) {
+  if (serviceTitanId && isUniqueViolationOn(insertErr, "service_titan_id")) {
     console.warn(
       `ST customer ${serviceTitanId} already linked to another referrer — inserting without ST linkage`
     );

@@ -86,6 +86,14 @@ interface STPagedResponse<T> {
   hasMore: boolean;
 }
 
+/**
+ * Default per-request timeout for ServiceTitan API calls. Chosen so a cold
+ * OAuth token fetch (observed ~20-30s on first request of the day) fails fast
+ * enough for a user-facing enrollment rather than blocking the tab, while
+ * still allowing the usual steady-state latency (1-3s).
+ */
+const ST_DEFAULT_TIMEOUT_MS = 10_000;
+
 export class ServiceTitanClient {
   private readonly BASE_URL: string;
   private readonly AUTH_URL: string;
@@ -131,7 +139,7 @@ export class ServiceTitanClient {
   private async fetchWithTimeout(
     url: string,
     init: RequestInit,
-    timeoutMs = 10_000
+    timeoutMs = ST_DEFAULT_TIMEOUT_MS
   ): Promise<Response> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);

@@ -38,7 +38,16 @@ export async function PATCH(req: NextRequest) {
   }
 
   const normalized = parsed.data.value?.trim() || null;
-  await setSetting(parsed.data.key, normalized, admin.email);
+  try {
+    await setSetting(parsed.data.key, normalized, admin.email);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const isUnknownKey = msg.includes("unknown key");
+    return NextResponse.json(
+      { error: isUnknownKey ? "Unknown setting key" : "Save failed" },
+      { status: isUnknownKey ? 404 : 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true, key: parsed.data.key, value: normalized });
 }
