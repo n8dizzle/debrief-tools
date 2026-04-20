@@ -110,24 +110,42 @@ export async function POST(req: NextRequest) {
   const appUrl = getAppUrl(req);
   const referralLink = `${appUrl}/refer/${referralCode}`;
 
-  // Create referrer
-  const { data: inserted, error: insertErr } = await supabase
-    .from("ref_referrers")
-    .insert({
-      email,
-      phone: data.phone,
-      first_name: data.firstName,
-      last_name: data.lastName,
-      service_titan_id: serviceTitanId,
-      referral_code: referralCode,
-      referral_link: referralLink,
-      reward_preference: data.rewardPreference,
-      assigned_reward_config_id: assignedRewardConfigId,
-      triple_win_enabled: data.tripleWinEnabled,
-      selected_charity_id: data.tripleWinEnabled ? data.selectedCharityId : null,
-    })
-    .select("*")
-    .single();
+  // Create referrer. If the ST customer we matched is already linked to another
+  // referrer (shared phone, household account, prior test data), drop the ST
+  // linkage and insert without it — the referrer can be re-linked later.
+  async function insertReferrer(stId: string | null) {
+    return supabase
+      .from("ref_referrers")
+      .insert({
+        email,
+        phone: data.phone,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        service_titan_id: stId,
+        referral_code: referralCode,
+        referral_link: referralLink,
+        reward_preference: data.rewardPreference,
+        assigned_reward_config_id: assignedRewardConfigId,
+        triple_win_enabled: data.tripleWinEnabled,
+        selected_charity_id: data.tripleWinEnabled ? data.selectedCharityId : null,
+      })
+      .select("*")
+      .single();
+  }
+
+  let { data: inserted, error: insertErr } = await insertReferrer(serviceTitanId);
+
+  if (
+    insertErr &&
+    serviceTitanId &&
+    (insertErr as { code?: string }).code === "23505" &&
+    String((insertErr as { details?: string }).details || "").includes("service_titan_id")
+  ) {
+    console.warn(
+      `ST customer ${serviceTitanId} already linked to another referrer — inserting without ST linkage`
+    );
+    ({ data: inserted, error: insertErr } = await insertReferrer(null));
+  }
 
   if (insertErr || !inserted) {
     console.error("Enrollment insert failed:", insertErr);
