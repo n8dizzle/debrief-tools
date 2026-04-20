@@ -79,7 +79,7 @@ export default function SiteFooter() {
         className="max-w-6xl mx-auto mt-10 pt-6 text-xs opacity-70"
         style={{ borderTop: "1px solid rgba(245,242,220,0.15)" }}
       >
-        &copy; {new Date().getFullYear()} Christmas Air Conditioning &amp; Plumbing. Neighbors helping neighbors.
+        &copy; {new Date().getFullYear()}{" "}Christmas Air Conditioning &amp; Plumbing. Neighbors helping neighbors.
       </div>
     </footer>
   );

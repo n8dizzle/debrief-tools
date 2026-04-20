@@ -75,7 +75,7 @@ export default async function ReferPage({ params }: PageProps) {
             <span className="badge-trust">Locally-Owned</span>
           </div>
           <h1 className="text-4xl md:text-6xl mb-6 leading-tight">
-            {referrer.first_name} says we&apos;re worth a call.
+            {referrer.first_name}{" "}says we&apos;re worth a call.
           </h1>
           <p className="text-lg md:text-xl opacity-80 max-w-xl mx-auto">
             {referrer.first_name} {referrer.last_name.slice(0, 1)}. trusts
@@ -104,7 +104,7 @@ export default async function ReferPage({ params }: PageProps) {
               honor.
             </p>
             <p className="text-sm opacity-80 mt-2">
-              You save. {referrer.first_name} gets thanked. A cause they care
+              You save. {referrer.first_name}{" "}gets thanked. A cause they care
               about gets help. That&apos;s Triple Win.
             </p>
           </div>
