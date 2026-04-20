@@ -57,18 +57,25 @@ export interface STInvoice {
   invoiceConfiguration?: string;
 }
 
+export interface STLeadContactInfo {
+  type: "Phone" | "Email";
+  value: string;
+  memo?: string;
+}
+
 export interface STLeadCreate {
-  customerId?: number;
-  name?: string;
+  /** Required by ST v2 Leads API — the campaign to attribute this lead to. */
+  campaignId: number;
+  /** Required — the narrative/description the dispatcher sees first. */
+  body: string;
+  priority?: "Low" | "Normal" | "High" | "Urgent";
   summary?: string;
+  customerId?: number;
+  locationId?: number;
   callReasonId?: number;
   followUpDate?: string;
-  priority?: "Low" | "Normal" | "High" | "Urgent";
-  // Contact info used when customerId is not known yet
-  contactInfo?: {
-    phone?: string;
-    email?: string;
-  };
+  businessUnitId?: number;
+  contactInfo?: STLeadContactInfo;
 }
 
 interface STPagedResponse<T> {

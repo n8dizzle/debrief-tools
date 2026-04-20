@@ -1,5 +1,6 @@
 import { getServerSupabase } from "@/lib/supabase";
 import { getServiceTitanClient } from "@/lib/servicetitan";
+import { getSetting } from "@/lib/settings";
 import { classifyExpectedCategory, type ServiceType, SERVICE_TYPE_LABELS } from "./classify";
 import { serializeTierSnapshot } from "./snapshot";
 import { normalizePhone } from "./phone";
@@ -84,13 +85,21 @@ export async function submitReferral(
   const refereeDiscountLabel =
     tier?.referee_discount_label || "a neighbor-referral benefit";
 
-  // 4. Create Lead in ServiceTitan (best-effort — don't block submission on failure)
+  // 4. Create Lead in ServiceTitan (best-effort — don't block submission on failure).
+  //    Skipped entirely if the admin hasn't wired up a campaign ID yet.
   let serviceTitanLeadId: string | null = null;
   const st = getServiceTitanClient();
-  if (st.isConfigured()) {
+  const campaignIdRaw = await getSetting("st_referral_campaign_id");
+  const campaignId = campaignIdRaw ? Number(campaignIdRaw) : NaN;
+
+  if (st.isConfigured() && Number.isFinite(campaignId) && campaignId > 0) {
     try {
-      const summary = [
-        `Referral from ${referrer.first_name} ${referrer.last_name} (${referrer.referral_code})`,
+      const body = [
+        `Referred by: ${referrer.first_name} ${referrer.last_name} (${referrer.referral_code})`,
+        `Name: ${input.referredName}`,
+        `Phone: ${input.referredPhone}`,
+        email ? `Email: ${email}` : "",
+        input.referredAddress ? `Address: ${input.referredAddress}` : "",
         `Service: ${SERVICE_TYPE_LABELS[input.serviceType]}`,
         input.notes ? `Notes: ${input.notes}` : "",
       ]
@@ -98,18 +107,24 @@ export async function submitReferral(
         .join("\n");
 
       const lead = await st.createLead({
-        name: input.referredName,
-        summary,
-        contactInfo: {
-          phone: input.referredPhone,
-          email: email || undefined,
-        },
+        campaignId,
+        body,
+        summary: `Referral: ${input.referredName} — ${SERVICE_TYPE_LABELS[input.serviceType]}`,
         priority: "Normal",
+        contactInfo: {
+          type: "Phone",
+          value: input.referredPhone,
+          memo: input.referredName,
+        },
       });
       if (lead?.id) serviceTitanLeadId = String(lead.id);
     } catch (err) {
       console.warn("ServiceTitan lead create failed — continuing:", err);
     }
+  } else if (st.isConfigured()) {
+    console.warn(
+      "Skipping ST lead: st_referral_campaign_id not configured in /admin/settings"
+    );
   }
 
   // 5. Insert the referral
