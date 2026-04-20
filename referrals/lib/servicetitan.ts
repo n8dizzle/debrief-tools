@@ -121,13 +121,27 @@ export class ServiceTitanClient {
     return !!(this.clientId && this.clientSecret && this.tenantId && this.appKey);
   }
 
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    timeoutMs = 10_000
+  ): Promise<Response> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async getAccessToken(): Promise<string> {
     if (this.accessToken && this.tokenExpiresAt) {
       const buffer = new Date(this.tokenExpiresAt.getTime() - 60_000);
       if (new Date() < buffer) return this.accessToken;
     }
 
-    const response = await fetch(this.AUTH_URL, {
+    const response = await this.fetchWithTimeout(this.AUTH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -159,7 +173,7 @@ export class ServiceTitanClient {
       url += `?${new URLSearchParams(options.params).toString()}`;
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithTimeout(url, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
