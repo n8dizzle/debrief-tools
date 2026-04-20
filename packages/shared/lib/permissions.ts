@@ -12,6 +12,7 @@
  * - AP Payments
  * - Membership Manager
  * - Celebrations
+ * - Referrals
  *
  * JSONB stored in portal_users.permissions column
  */
@@ -143,6 +144,15 @@ export interface BPPTrackerPermissions {
   can_manage_categories?: boolean;
 }
 
+export interface ReferralsPermissions {
+  can_view_admin?: boolean;
+  can_manage_charities?: boolean;
+  can_manage_config?: boolean;
+  can_manage_settings?: boolean;
+  can_approve_rewards?: boolean;
+  can_approve_donations?: boolean;
+}
+
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -164,6 +174,7 @@ export interface UserPermissions {
   hr_hub?: HRHubPermissions;
   video_studio?: VideoStudioPermissions;
   bpp_tracker?: BPPTrackerPermissions;
+  referrals?: ReferralsPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -653,6 +664,42 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_manage_categories',
         label: 'Manage categories',
         description: 'Manage asset categories and depreciation schedules',
+      },
+    ],
+  },
+  {
+    app: 'referrals',
+    label: 'Referrals (Neighbors Helping Neighbors)',
+    permissions: [
+      {
+        key: 'can_view_admin',
+        label: 'View admin console',
+        description: 'Access the referrals admin console at refer.christmasair.com/admin',
+      },
+      {
+        key: 'can_manage_charities',
+        label: 'Manage charities',
+        description: 'Create, edit, and deactivate Triple Win charities',
+      },
+      {
+        key: 'can_manage_config',
+        label: 'Manage reward configs',
+        description: 'Edit reward tiers, A/B configs, and approve config change requests',
+      },
+      {
+        key: 'can_manage_settings',
+        label: 'Manage settings',
+        description: 'Edit runtime config (ServiceTitan campaign ID, etc.) at /admin/settings',
+      },
+      {
+        key: 'can_approve_rewards',
+        label: 'Approve rewards',
+        description: 'Approve or deny pending referral rewards',
+      },
+      {
+        key: 'can_approve_donations',
+        label: 'Approve donations',
+        description: 'Approve or deny pending Triple Win charity donations',
       },
     ],
   },
