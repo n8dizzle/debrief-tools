@@ -12,10 +12,14 @@ CREATE TABLE IF NOT EXISTS ref_settings (
 );
 
 -- Seed known settings. Values start NULL so the admin UI prompts for them.
+-- label + description are code-owned (no UI to edit them) so re-running this
+-- migration syncs metadata edits without touching the runtime `value`.
 INSERT INTO ref_settings (key, label, description) VALUES
   (
     'st_referral_campaign_id',
     'ServiceTitan referral campaign ID',
     'Every referred customer''s lead attributes to this campaign in ServiceTitan. Find the ID in ST → Marketing → Campaigns. Leave blank to stop sending leads to ST.'
   )
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (key) DO UPDATE SET
+  label = EXCLUDED.label,
+  description = EXCLUDED.description;
