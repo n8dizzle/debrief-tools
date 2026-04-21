@@ -2,6 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -229,6 +239,11 @@ export default function MarketingDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Leads chart state
+  const [leadsData, setLeadsData] = useState<any>(null);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [leadsView, setLeadsView] = useState<'category' | 'campaign'>('category');
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -244,9 +259,19 @@ export default function MarketingDashboard() {
     }
   }, [period]);
 
+  const fetchLeadsData = useCallback(async () => {
+    setLeadsLoading(true);
+    try {
+      const res = await fetch('/api/dashboard/leads?days=30', { credentials: 'include' });
+      if (res.ok) setLeadsData(await res.json());
+    } catch { /* non-blocking */ }
+    finally { setLeadsLoading(false); }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchLeadsData();
+  }, [fetchData, fetchLeadsData]);
 
   const g = data?.growth;
   const r = data?.reviews;
@@ -419,6 +444,123 @@ export default function MarketingDashboard() {
           </div>
         </>
       )}
+
+      {/* Booked Jobs Chart */}
+      <div
+        className="rounded-xl p-5"
+        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            Booked Jobs by {leadsView === 'category' ? 'Category' : 'Campaign'}
+          </h2>
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            <button
+              onClick={() => setLeadsView('category')}
+              className="px-3 py-1.5 text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: leadsView === 'category' ? 'var(--christmas-green)' : 'transparent',
+                color: leadsView === 'category' ? 'var(--christmas-cream)' : 'var(--text-muted)',
+              }}
+            >
+              Category
+            </button>
+            <button
+              onClick={() => setLeadsView('campaign')}
+              className="px-3 py-1.5 text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: leadsView === 'campaign' ? 'var(--christmas-green)' : 'transparent',
+                color: leadsView === 'campaign' ? 'var(--christmas-cream)' : 'var(--text-muted)',
+              }}
+            >
+              Campaign
+            </button>
+          </div>
+        </div>
+
+        {leadsLoading ? (
+          <div className="h-72 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
+        ) : !leadsData ? (
+          <div className="h-72 flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+            No booking data available
+          </div>
+        ) : (() => {
+          const chartData = leadsView === 'category' ? leadsData.dailyByCategory : leadsData.dailyByCampaign;
+          const keys = leadsView === 'category' ? leadsData.categories : leadsData.campaigns;
+
+          // Color palette
+          const COLORS = [
+            '#346643', '#B8956B', '#3B82F6', '#8B5CF6', '#EF4444', '#F59E0B',
+            '#10B981', '#6366F1', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
+            '#84CC16', '#A855F7', '#E11D48', '#0EA5E9',
+          ];
+
+          // For campaign view, only show top 10 by total volume
+          let displayKeys = keys;
+          if (leadsView === 'campaign' && keys.length > 10) {
+            const totals = keys.map((k: string) => ({
+              key: k,
+              total: (chartData as any[]).reduce((sum: number, d: any) => sum + (d[k] || 0), 0),
+            }));
+            totals.sort((a: any, b: any) => b.total - a.total);
+            displayKeys = totals.slice(0, 10).map((t: any) => t.key);
+          }
+
+          return (
+            <div style={{ width: '100%', height: 360 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" strokeOpacity={0.5} vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(d: string) => {
+                      const parts = d.split('-');
+                      return `${parts[1]}/${parts[2]}`;
+                    }}
+                    tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      fontSize: 12,
+                    }}
+                    labelFormatter={(label: string) => {
+                      const parts = String(label).split('-');
+                      return `${parts[1]}/${parts[2]}`;
+                    }}
+                    itemStyle={{ color: 'var(--christmas-cream)' }}
+                    labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: 4 }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }}
+                    iconType="square"
+                    iconSize={10}
+                  />
+                  {displayKeys.map((key: string, i: number) => (
+                    <Bar
+                      key={key}
+                      dataKey={key}
+                      stackId="booked"
+                      fill={COLORS[i % COLORS.length]}
+                      radius={i === displayKeys.length - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }

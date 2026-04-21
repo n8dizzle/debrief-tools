@@ -19,7 +19,7 @@ const gsdLinks = [
 
 // Analytics and insights
 const navLinks = [
-  { href: '/', label: 'Intelligence', icon: 'home' },
+  { href: '/', label: 'Dashboard', icon: 'home' },
   { href: '/leads', label: 'Lead Attribution', icon: 'funnel' },
   { href: '/lsa', label: 'Local Service Ads', icon: 'phone' },
   { href: '/gbp', label: 'GBP Insights', icon: 'chart-bar' },
