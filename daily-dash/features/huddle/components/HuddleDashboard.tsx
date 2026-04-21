@@ -665,24 +665,26 @@ export default function HuddleDashboard({
             return (
               <div className="mb-8">
                 {/* Header bar */}
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
-                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--christmas-green)' }}>
-                    Rest of Month
-                  </span>
+                <div className="flex flex-col items-center gap-1 mb-4">
+                  <div className="flex items-center gap-4 w-full">
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--christmas-green)' }}>
+                      Rest of Month
+                    </span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
+                  </div>
                   {pacingData?.businessDaysRemaining !== undefined && (
                     <span
-                      className="text-sm font-bold px-3 py-1 rounded-lg"
+                      className="text-sm font-bold px-4 py-1.5 rounded-lg"
                       style={{
                         backgroundColor: 'rgba(52, 102, 67, 0.15)',
                         color: 'var(--christmas-green)',
                         border: '1px solid rgba(52, 102, 67, 0.3)',
                       }}
                     >
-                      {pacingData.businessDaysRemaining} days left
+                      {pacingData.businessDaysRemaining} business days left
                     </span>
                   )}
-                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
                 </div>
 
                 {/* Pace gauges - 4 across */}
