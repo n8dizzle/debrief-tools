@@ -27,18 +27,32 @@ function PacingCard({
   sales,
   target,
   pacing,
+  completed,
 }: {
   label: string;
   revenue: number;
   sales: number;
   target: number;
   pacing?: number;
+  completed?: boolean;
 }) {
   const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const getRatio = () => pacing !== undefined && pacing > 0 ? pct / pacing : pct / 100;
   const ratio = getRatio();
   const color = ratio >= 1 ? 'var(--christmas-green)' : ratio >= 0.9 ? 'var(--christmas-gold)' : '#EF4444';
-  const pacingLabel = ratio >= 1 ? '▲ On track' : ratio >= 0.9 ? '▶ Slightly behind' : '▼ Behind pace';
+
+  // Completed periods get a verdict, in-progress get pacing copy
+  const getStatusLabel = () => {
+    if (completed) {
+      if (pct >= 100) return '✓ Hit goal';
+      if (pct >= 90) return '~ Nearly hit goal';
+      return '✗ Missed goal';
+    }
+    if (ratio >= 1) return '▲ On track';
+    if (ratio >= 0.9) return '▶ Slightly behind';
+    return '▼ Behind pace';
+  };
+  const statusLabel = getStatusLabel();
 
   return (
     <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
@@ -70,15 +84,15 @@ function PacingCard({
           <div className="text-xs mb-2 text-right" style={{ color: 'var(--text-muted)' }}>of {formatCardCurrency(target)} target</div>
           <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-            {pacing !== undefined && pacing > 0 && (
+            {!completed && pacing !== undefined && pacing > 0 && (
               <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
             )}
           </div>
           <div className="flex items-center justify-between mt-1.5">
             <span className="text-[10px] whitespace-nowrap" style={{ color }}>
-              {pacingLabel}
+              {statusLabel}
             </span>
-            {pacing !== undefined && (
+            {!completed && pacing !== undefined && (
               <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{pacing}% exp</span>
             )}
           </div>
@@ -487,6 +501,7 @@ export default function HuddleDashboard({
                 sales={pacingData?.todaySales || 0}
                 target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.daysInRange || 1) : 0}
                 pacing={dailyPacing}
+                completed={selectedEndDate < today}
               />
               <PacingCard
                 label="This Week"
