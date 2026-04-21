@@ -106,17 +106,7 @@ function PaceGauge({
           <path d={describeArc(cx, cy, r, -18, 10)} fill="none" stroke="#D97706" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 10, 45)} fill="none" stroke="#4D7C55" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="butt" />
-          {/* Active arc */}
-          {!noData && (
-            <path
-              d={describeArc(cx, cy, r, -90, Math.min(angle, 90))}
-              fill="none"
-              stroke={status.arcColor}
-              strokeWidth="16"
-              strokeLinecap="round"
-              opacity="0.8"
-            />
-          )}
+          {/* No active arc fill - zones stay visible, needle shows position */}
           {/* Goal tick - diagonal line from arc outward with label */}
           <line x1={cx} y1={cy - r + 8} x2={cx + 12} y2={cy - r - 18} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
           <text x={cx + 16} y={cy - r - 20} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
