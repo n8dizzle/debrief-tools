@@ -64,6 +64,11 @@ export default function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/sign-in" style={{ color: "var(--ca-cream)" }}>
+                Sign in to your dashboard
+              </Link>
+            </li>
+            <li>
               <a
                 href="https://christmasair.com"
                 style={{ color: "var(--ca-cream)" }}
