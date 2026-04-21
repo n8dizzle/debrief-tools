@@ -368,15 +368,23 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
 // ============================================
 interface SectionDividerProps {
   label: string;
+  badge?: string;
 }
 
-function SectionDivider({ label }: SectionDividerProps) {
+function SectionDivider({ label, badge }: SectionDividerProps) {
   return (
     <div className="flex items-center gap-4 my-6">
       <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle), transparent)' }} />
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-        {label}
-      </span>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+          {label}
+        </span>
+        {badge && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
+            {badge}
+          </span>
+        )}
+      </div>
       <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle), transparent)' }} />
     </div>
   );
@@ -1114,7 +1122,7 @@ export default function DashboardPage() {
       <TrendChart data={monthlyTrend} loading={loading} />
 
       {/* Section Divider - Pacing Metrics */}
-      <SectionDivider label="Pacing Metrics" />
+      <SectionDivider label="Pacing Metrics" badge={pacing?.businessDaysRemaining !== undefined ? `${pacing.businessDaysRemaining} biz days left` : undefined} />
 
       {/* Revenue Cards - 4 columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -265,6 +265,11 @@ export default function PacingPage() {
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--christmas-cream)' }}>
             Goal Pacing
           </h1>
+          {p?.businessDaysRemaining !== undefined && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
+              {p.businessDaysRemaining} biz days left
+            </span>
+          )}
           {/* Show subtle indicator when refreshing in background */}
           {isValidating && !isLoading && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs" style={{ backgroundColor: 'var(--bg-card)' }}>
