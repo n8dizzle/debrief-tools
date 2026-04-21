@@ -867,28 +867,12 @@ export async function GET(request: NextRequest) {
     try {
       const firstOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
-      const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
-
-      if (reportData.fields && reportData.data) {
-        const fieldMap = new Map<string, number>();
-        reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
-        const tglIdx = fieldMap.get('TechLeadJobs') ?? -1;
-        const mktIdx = fieldMap.get('MarketingLeadJobs') ?? -1;
-        const replIdx = fieldMap.get('ReplacementLeadJobs') ?? -1;
-        const buIdx = fieldMap.get('Name') ?? -1;
-
-        for (const row of reportData.data) {
-          // Only count HVAC BUs for replacement leads (not plumbing)
-          const buName = buIdx >= 0 ? String(row[buIdx]) : '';
-          if (buName.startsWith('Plumbing')) continue;
-
-          if (tglIdx >= 0) tglLeadsMtd += Number(row[tglIdx]) || 0;
-          if (mktIdx >= 0) marketingLeadsMtd += Number(row[mktIdx]) || 0;
-          if (replIdx >= 0) replacementLeadsMtd += Number(row[replIdx]) || 0;
-        }
-      }
+      const leads = await stClient.getReplacementLeads(firstOfMonthStr, lastOfMonthStr);
+      tglLeadsMtd = leads.tgl;
+      marketingLeadsMtd = leads.marketingLead;
+      replacementLeadsMtd = leads.total;
     } catch (err) {
-      console.error('Error fetching replacement leads report:', err);
+      console.error('Error fetching replacement leads:', err);
     }
 
     // Pacing data object

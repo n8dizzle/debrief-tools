@@ -23,6 +23,8 @@ interface STJob {
   createdOn?: string;
   total?: number;
   tagTypeIds?: number[];
+  campaignId?: number | null;
+  jobGeneratedLeadSource?: { jobId: number } | null;
 }
 
 interface STInvoice {
@@ -1438,6 +1440,63 @@ export class ServiceTitanClient {
     const date = new Date(dateStr + 'T00:00:00Z');
     date.setDate(date.getDate() + days);
     return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Get replacement leads (jobs booked in HVAC - Sales BU, classified as TGL or Marketing Lead)
+   * Mirrors the logic in scrapers/sales_funnel.py:
+   * - TGL = job.jobGeneratedLeadSource.jobId is not null
+   * - Marketing Lead = job.campaignId is not null
+   * - Jobs with neither are excluded
+   */
+  async getReplacementLeads(startDate: string, endDate: string): Promise<{
+    tgl: number;
+    marketingLead: number;
+    total: number;
+  }> {
+    // Find HVAC - Sales BU ID
+    const businessUnits = await this.getBusinessUnits();
+    const salesBU = businessUnits.find(bu => bu.name === 'HVAC - Sales');
+    if (!salesBU) return { tgl: 0, marketingLead: 0, total: 0 };
+
+    // Fetch all jobs created in date range for HVAC - Sales BU
+    const allJobs: STJob[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await this.request<STPagedResponse<STJob>>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs`,
+        {
+          params: {
+            createdOnOrAfter: `${startDate}T00:00:00`,
+            createdBefore: `${endDate}T23:59:59`,
+            businessUnitId: salesBU.id.toString(),
+            pageSize: '200',
+            page: page.toString(),
+          },
+        }
+      );
+      allJobs.push(...(response.data || []));
+      hasMore = response.hasMore;
+      page++;
+      if (page > 50) break;
+    }
+
+    // Classify by lead type
+    let tgl = 0;
+    let marketingLead = 0;
+    for (const job of allJobs) {
+      if (job.jobGeneratedLeadSource?.jobId) {
+        tgl++;
+      } else if (job.campaignId) {
+        marketingLead++;
+      }
+      // Jobs with neither are excluded (not a replacement lead)
+    }
+
+    return { tgl, marketingLead, total: tgl + marketingLead };
   }
 
   /**
