@@ -17,11 +17,19 @@ const NAV_ITEMS = [
   { href: "/admin/help", label: "Help" },
 ];
 
-export default function AdminNav({ userEmail }: { userEmail: string }) {
+export default function AdminNav({
+  userEmail,
+  onNavigate,
+}: {
+  userEmail: string;
+  /** Called when the user clicks any nav link — parent closes the mobile
+   *  drawer. No-op on desktop where the nav is always visible. */
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <aside
+    <div
       className="flex flex-col p-6"
       style={{
         background: "var(--ca-dark-green)",
@@ -52,6 +60,7 @@ export default function AdminNav({ userEmail }: { userEmail: string }) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className="px-3 py-2 rounded-lg text-sm transition-colors"
               style={{
                 background: active ? "rgba(245,242,220,0.15)" : "transparent",
@@ -77,6 +86,6 @@ export default function AdminNav({ userEmail }: { userEmail: string }) {
           Sign out
         </button>
       </div>
-    </aside>
+    </div>
   );
 }

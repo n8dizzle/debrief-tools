@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import AdminNav from "./AdminNav";
+import AdminShell from "./AdminShell";
 
 export const dynamic = "force-dynamic";
 
@@ -39,15 +39,5 @@ export default async function AdminLayout({
     );
   }
 
-  return (
-    <div
-      className="min-h-screen grid"
-      style={{ gridTemplateColumns: "minmax(0, 240px) minmax(0, 1fr)" }}
-    >
-      <AdminNav userEmail={session.user.email} />
-      <main className="p-8 overflow-x-auto" style={{ background: "var(--ca-cream)" }}>
-        {children}
-      </main>
-    </div>
-  );
+  return <AdminShell userEmail={session.user.email}>{children}</AdminShell>;
 }
