@@ -62,63 +62,62 @@ function PaceGauge({
   // Delta from goal (positive = ahead, negative = behind)
   const deltaPct = projectedPct !== null ? projectedPct - 100 : (noData ? null : -Math.round((ratio - 1) * 100));
 
-  // Status: CRUSHING (ahead), ON PACE, BEHIND, SCRAMBLE
+  // Status: CRUSHING (ahead), ON PACE, BEHIND
   const getStatus = () => {
-    if (noData) return { word: '--', color: 'var(--text-muted)', bg: 'var(--bg-secondary)', icon: '' };
-    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', color: 'var(--christmas-green)', bg: 'rgba(93, 138, 102, 0.25)', icon: '↑' };
-    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', color: 'var(--christmas-green)', bg: 'rgba(93, 138, 102, 0.2)', icon: '→' };
-    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', color: 'var(--christmas-gold)', bg: 'rgba(184, 149, 107, 0.25)', icon: '!' };
-    return { word: 'BEHIND', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.2)', icon: '!' };
+    if (noData) return { word: '--', textColor: 'var(--text-muted)', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
+    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', textColor: '#fff', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
+    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', textColor: '#fff', bg: 'var(--christmas-green-dark)', arcColor: 'var(--christmas-green)', icon: '→' };
+    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', textColor: '#fff', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
+    return { word: 'BEHIND', textColor: '#fff', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
   };
   const status = getStatus();
 
-  const cx = 110, cy = 100, r = 68;
+  const cx = 110, cy = 95, r = 65;
 
   return (
     <div className="flex-1 min-w-0 rounded-xl overflow-hidden relative group" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-      {/* Color banner */}
+      {/* Color banner - solid bg, white text */}
       <div
-        className="flex items-center justify-between px-3 py-2"
+        className="flex items-center justify-between px-4 py-2.5"
         style={{ backgroundColor: status.bg }}
       >
-        <div className="flex items-center gap-1.5">
-          {status.icon && <span className="text-xs font-bold" style={{ color: status.color }}>{status.icon}</span>}
-          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: status.color }}>{status.word}</span>
+        <div className="flex items-center gap-2">
+          {status.icon && <span className="text-sm font-black" style={{ color: status.textColor }}>{status.icon}</span>}
+          <span className="text-sm font-black uppercase tracking-wider" style={{ color: status.textColor }}>{status.word}</span>
         </div>
         {deltaPct !== null && !noData && (
-          <span className="text-xs font-bold" style={{ color: status.color }}>
+          <span className="text-sm font-black" style={{ color: status.textColor }}>
             {deltaPct >= 0 ? '+' : ''}{deltaPct}%
           </span>
         )}
       </div>
 
       {/* Label */}
-      <div className="px-3 pt-3">
-        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
+      <div className="px-4 pt-4 pb-1">
+        <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
       </div>
 
       {/* Gauge */}
-      <div className="flex justify-center px-2">
-        <svg width="220" height="125" viewBox="0 0 220 125">
-          {/* Zoned arc: green (crushing) on right, yellow (close), red (scramble) on left */}
-          {/* Note: gauge is flipped - left = behind (scramble), right = ahead (crushing) */}
-          <path d={describeArc(cx, cy, r, -90, -27)} fill="none" stroke="#EF4444" strokeWidth="14" strokeLinecap="round" opacity="0.3" />
-          <path d={describeArc(cx, cy, r, -27, 0)} fill="none" stroke="var(--christmas-gold)" strokeWidth="14" strokeLinecap="butt" opacity="0.3" />
-          <path d={describeArc(cx, cy, r, 0, 90)} fill="none" stroke="var(--christmas-green)" strokeWidth="14" strokeLinecap="round" opacity="0.3" />
+      <div className="flex justify-center">
+        <svg width="220" height="130" viewBox="0 0 220 130">
+          {/* Zoned arc: red (scramble) left, gold middle, green (crushing) right */}
+          <path d={describeArc(cx, cy, r, -90, -27)} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="round" opacity="0.25" />
+          <path d={describeArc(cx, cy, r, -27, 0)} fill="none" stroke="var(--christmas-gold)" strokeWidth="16" strokeLinecap="butt" opacity="0.25" />
+          <path d={describeArc(cx, cy, r, 0, 90)} fill="none" stroke="var(--christmas-green)" strokeWidth="16" strokeLinecap="round" opacity="0.25" />
           {/* Active arc */}
           {!noData && (
             <path
               d={describeArc(cx, cy, r, -90, Math.min(angle, 90))}
               fill="none"
-              stroke={status.color}
-              strokeWidth="14"
+              stroke={status.arcColor}
+              strokeWidth="16"
               strokeLinecap="round"
-              opacity="0.7"
+              opacity="0.8"
             />
           )}
           {/* Goal tick + label */}
-          <line x1={cx} y1={cy - r + 7} x2={cx} y2={cy - r - 10} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.7" />
-          <text x={cx + 22} y={cy - r - 2} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.7" fontWeight="600">GOAL</text>
+          <line x1={cx} y1={cy - r + 8} x2={cx} y2={cy - r - 8} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.8" />
+          <text x={cx + 20} y={cy - r - 1} fontSize="11" fill="var(--christmas-cream)" textAnchor="start" opacity="0.8" fontWeight="700">GOAL</text>
           {/* Needle */}
           {!noData && (
             <>
@@ -126,28 +125,28 @@ function PaceGauge({
                 x1={cx} y1={cy}
                 x2={cx + (r - 20) * Math.sin(angle * Math.PI / 180)}
                 y2={cy - (r - 20) * Math.cos(angle * Math.PI / 180)}
-                stroke={status.color} strokeWidth="3" strokeLinecap="round"
+                stroke={status.arcColor} strokeWidth="3.5" strokeLinecap="round"
               />
-              <circle cx={cx} cy={cy} r="6" fill="var(--bg-card)" stroke={status.color} strokeWidth="2" />
+              <circle cx={cx} cy={cy} r="6" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
             </>
           )}
-          {/* Zone labels */}
-          <text x="28" y="118" fontSize="9" fill="var(--text-muted)" textAnchor="middle" fontWeight="600">SCRAMBLE</text>
-          <text x="192" y="118" fontSize="9" fill="var(--text-muted)" textAnchor="middle" fontWeight="600">CRUSHING</text>
+          {/* Zone labels - positioned below arc with spacing */}
+          <text x="30" y="125" fontSize="8" fill="var(--text-muted)" textAnchor="middle" fontWeight="600" letterSpacing="0.5">SCRAMBLE</text>
+          <text x="190" y="125" fontSize="8" fill="var(--text-muted)" textAnchor="middle" fontWeight="600" letterSpacing="0.5">CRUSHING</text>
         </svg>
       </div>
 
-      {/* Bottom stats */}
-      <div className="flex items-end justify-between px-4 pb-4 -mt-2">
+      {/* Bottom stats - more padding, clear separation */}
+      <div className="flex items-end justify-between px-5 pb-5 pt-1">
         <div>
-          <div className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Need/day</div>
-          <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Need/day</div>
+          <div className="text-2xl font-black" style={{ color: 'var(--christmas-cream)' }}>
             {noData ? '\u2014' : `${fmt(needed)}`}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Was</div>
-          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Was</div>
+          <div className="text-base font-semibold" style={{ color: 'var(--text-muted)' }}>
             {noData ? `\u2014${sfx}` : `${fmt(target)}${sfx}`}
           </div>
         </div>
