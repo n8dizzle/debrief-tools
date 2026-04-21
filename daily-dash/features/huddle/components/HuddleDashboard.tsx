@@ -645,7 +645,7 @@ export default function HuddleDashboard({
 
           {/* Christmas Overall - Pacing Action Card */}
           {pacingData && (() => {
-            const SALES_MULTIPLIER = 1.1;
+            const SALES_MULTIPLIER = 1.05;
             const monthlyRevTarget = pacingData.monthlyTarget || 0;
             const monthlySalesTarget = monthlyRevTarget * SALES_MULTIPLIER;
             const mtdRev = pacingData.mtdRevenue || 0;
