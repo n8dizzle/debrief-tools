@@ -29,6 +29,9 @@ function PaceGauge({
   formatValue,
   suffix,
   noData,
+  mtdActual,
+  mtdGoal,
+  tooltip,
 }: {
   label: string;
   needed: number;
@@ -36,6 +39,9 @@ function PaceGauge({
   formatValue?: (v: number) => string;
   suffix?: string;
   noData?: boolean;
+  mtdActual?: number;
+  mtdGoal?: number;
+  tooltip?: string;
 }) {
   const fmt = formatValue || formatCardCurrency;
   const sfx = suffix || '/day';
@@ -47,22 +53,17 @@ function PaceGauge({
 
   const isOver = ratio > 1.05;
   const isWay = ratio > 1.3;
-  const isDone = needed <= 0 && !noData;
-  const needleColor = noData ? 'var(--text-muted)' : isDone ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
+  const isAhead = !noData && ratio <= 1 && ratio > 0;
+  const needleColor = noData ? 'var(--text-muted)' : isAhead ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
 
-  // Copy: show the gap clearly. "Need $11K more/day" or "On pace" or "Ahead by $5K/day"
-  const gap = needed - target;
+  // Pacing language: always about pace, never "goal hit"
   const gapPct = target > 0 ? Math.round(((needed - target) / target) * 100) : 0;
-  const statusText = noData ? 'No data yet'
-    : isDone ? 'Goal hit'
-    : ratio <= 1 ? `Ahead by ${fmt(Math.abs(gap))}${sfx}`
-    : `Need ${fmt(gap)}${sfx} more`;
-  const urgencyText = noData ? ''
-    : isDone ? ''
-    : ratio <= 1 ? 'Keep it up'
-    : ratio <= 1.15 ? 'Slightly behind'
-    : ratio <= 1.3 ? 'Behind pace'
-    : 'Falling behind';
+  const urgencyText = noData ? 'No data yet'
+    : ratio <= 0.5 ? `Pacing ahead (+${Math.abs(gapPct)}%)`
+    : ratio <= 1 ? `On pace (+${Math.abs(gapPct)}%)`
+    : ratio <= 1.15 ? `Slightly behind (+${gapPct}%)`
+    : ratio <= 1.3 ? `Behind pace (+${gapPct}%)`
+    : `Falling behind (+${gapPct}%)`;
 
   const cx = 100, cy = 108, r = 72;
 
@@ -106,18 +107,34 @@ function PaceGauge({
         <text x="14" y="134" fontSize="9" fill="var(--text-muted)" textAnchor="middle">easy</text>
         <text x="186" y="134" fontSize="9" fill="var(--text-muted)" textAnchor="middle">hard</text>
       </svg>
-      <div className="text-center -mt-2">
+      <div className="text-center -mt-2 relative group">
+        {/* MTD total if provided */}
+        {mtdActual !== undefined && mtdGoal !== undefined && !noData && (
+          <div className="text-sm font-bold mb-0.5" style={{ color: 'var(--christmas-cream)' }}>
+            {Math.round(mtdActual)} / {Math.round(mtdGoal)}
+            {tooltip && (
+              <span className="ml-1 text-xs cursor-help" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
+            )}
+          </div>
+        )}
         <div className="text-lg font-bold leading-tight" style={{ color: needleColor }}>
-          {noData ? '--' : isDone ? 'Goal hit' : `${fmt(needed)}${sfx}`}
+          {noData ? '--' : `${fmt(needed)}${sfx}`}
         </div>
-        {!noData && !isDone && (
+        {!noData && (
           <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             target: {fmt(target)}{sfx}
           </div>
         )}
-        {urgencyText && (
-          <div className="text-xs font-semibold mt-1" style={{ color: needleColor }}>
-            {urgencyText}{!isDone && !noData && ratio > 1 ? ` (+${gapPct}%)` : ''}
+        <div className="text-xs font-semibold mt-1" style={{ color: needleColor }}>
+          {urgencyText}
+        </div>
+        {/* Tooltip on hover */}
+        {tooltip && (
+          <div
+            className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-left whitespace-pre-line max-w-[200px] hidden group-hover:block"
+            style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+          >
+            {tooltip}
           </div>
         )}
       </div>
@@ -713,6 +730,8 @@ export default function HuddleDashboard({
                     />
                     {(() => {
                       const leadsMtd = pacingData?.replacementLeadsMtd || 0;
+                      const tglMtd = pacingData?.tglLeadsMtd || 0;
+                      const mktMtd = pacingData?.marketingLeadsMtd || 0;
                       const leadsGoal = pacingData?.replacementLeadMonthlyGoal || 0;
                       const leadsRemaining = Math.max(0, leadsGoal - leadsMtd);
                       const leadsPerDayNeeded = bdzLeft > 0 ? leadsRemaining / bdzLeft : 0;
@@ -726,6 +745,9 @@ export default function HuddleDashboard({
                           suffix="/day"
                           formatValue={(v) => v.toFixed(1)}
                           noData={leadsGoal === 0}
+                          mtdActual={leadsMtd}
+                          mtdGoal={leadsGoal}
+                          tooltip={`TGL: ${tglMtd}\nMarketing Lead: ${mktMtd}`}
                         />
                       );
                     })()}
