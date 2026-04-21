@@ -21,6 +21,117 @@ function formatCardCurrency(val: number) {
   return `$${val.toFixed(0)}`;
 }
 
+// Pace gauge - shows required daily pace vs target as a speedometer
+function PaceGauge({
+  label,
+  needed,
+  target,
+  color,
+}: {
+  label: string;
+  needed: number;
+  target: number;
+  color: string;
+}) {
+  // Ratio: 1.0 = exactly on target, >1 = need to go faster, <1 = cruising
+  const ratio = target > 0 ? needed / target : 0;
+  // Clamp between 0 and 2x for the gauge range
+  const clampedRatio = Math.min(Math.max(ratio, 0), 2);
+  // Map to angle: 0x = -90deg (left), 1x = 0deg (top), 2x = 90deg (right)
+  const angle = (clampedRatio - 1) * 90;
+
+  const isOver = ratio > 1.05;
+  const isWay = ratio > 1.3;
+  const isDone = needed <= 0;
+  const needleColor = isDone ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
+
+  const statusText = isDone ? 'Goal reached' : ratio <= 1 ? 'On pace' : ratio <= 1.15 ? 'Push slightly' : ratio <= 1.3 ? 'Push harder' : 'Stretch mode';
+
+  // SVG arc gauge
+  const cx = 80, cy = 72, r = 58;
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
+      <svg width="160" height="95" viewBox="0 0 160 95">
+        {/* Background arc segments */}
+        {/* Green zone: 0x to 1x (left half) */}
+        <path
+          d={describeArc(cx, cy, r, -90, 0)}
+          fill="none"
+          stroke="var(--christmas-green)"
+          strokeWidth="10"
+          strokeLinecap="round"
+          opacity="0.2"
+        />
+        {/* Yellow zone: 1x to 1.3x */}
+        <path
+          d={describeArc(cx, cy, r, 0, 27)}
+          fill="none"
+          stroke="var(--christmas-gold)"
+          strokeWidth="10"
+          strokeLinecap="butt"
+          opacity="0.2"
+        />
+        {/* Red zone: 1.3x to 2x */}
+        <path
+          d={describeArc(cx, cy, r, 27, 90)}
+          fill="none"
+          stroke="#EF4444"
+          strokeWidth="10"
+          strokeLinecap="round"
+          opacity="0.2"
+        />
+        {/* Target tick at center (1x) */}
+        <line x1={cx} y1={cy - r + 5} x2={cx} y2={cy - r - 7} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.5" />
+        {/* Needle */}
+        <line
+          x1={cx}
+          y1={cy}
+          x2={cx + (r - 15) * Math.sin(angle * Math.PI / 180)}
+          y2={cy - (r - 15) * Math.cos(angle * Math.PI / 180)}
+          stroke={needleColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        {/* Center dot */}
+        <circle cx={cx} cy={cy} r="4" fill={needleColor} />
+        {/* Labels */}
+        <text x="18" y="78" fontSize="9" fill="var(--text-muted)" textAnchor="middle">0x</text>
+        <text x={cx} y="10" fontSize="9" fill="var(--text-muted)" textAnchor="middle">1x</text>
+        <text x="142" y="78" fontSize="9" fill="var(--text-muted)" textAnchor="middle">2x</text>
+      </svg>
+      {/* Numbers below gauge */}
+      <div className="text-center -mt-1">
+        <div className="text-xl font-bold" style={{ color: needleColor }}>
+          {isDone ? '✓' : `${ratio.toFixed(2)}x`}
+        </div>
+        <div className="text-[11px] font-medium" style={{ color: needleColor }}>{statusText}</div>
+        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          {formatCardCurrency(needed)}/day needed
+        </div>
+        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          vs {formatCardCurrency(target)}/day target
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper to describe an SVG arc path
+function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+  const start = {
+    x: cx + r * Math.sin(startAngle * Math.PI / 180),
+    y: cy - r * Math.cos(startAngle * Math.PI / 180),
+  };
+  const end = {
+    x: cx + r * Math.sin(endAngle * Math.PI / 180),
+    y: cy - r * Math.cos(endAngle * Math.PI / 180),
+  };
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+}
+
 // Pacing card - matches dashboard screenshot exactly
 function PacingCard({
   label,
@@ -577,6 +688,22 @@ export default function HuddleDashboard({
                     </span>
                   </div>
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
+                </div>
+
+                {/* Pace gauges */}
+                <div className="flex justify-center gap-12 mb-6 py-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                  <PaceGauge
+                    label="Revenue Pace"
+                    needed={dailyRevNeeded}
+                    target={origDailyTarget}
+                    color="var(--christmas-cream)"
+                  />
+                  <PaceGauge
+                    label="Sales Pace"
+                    needed={dailySalesNeeded}
+                    target={origDailyTarget * SALES_MULTIPLIER}
+                    color="var(--christmas-gold)"
+                  />
                 </div>
 
                 {/* Scoreboard table */}
