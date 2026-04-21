@@ -5,6 +5,7 @@ import { HuddleDashboardResponse, HuddleDepartmentWithKPIs } from '@/lib/supabas
 import { getTodayDateString, getYesterdayDateString, formatDateForDisplay, getPriorHuddleRange, getRangeLabel } from '@/lib/huddle-utils';
 import { useHuddleData } from '@/lib/hooks/useHuddleData';
 import DepartmentSection from './DepartmentSection';
+import NotesInput from './NotesInput';
 
 interface HuddleDashboardProps {
   initialData?: HuddleDashboardResponse;
@@ -15,8 +16,8 @@ interface HuddleDashboardProps {
 
 // Format currency for cards
 function formatCardCurrency(val: number) {
-  if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
-  if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
+  if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+  if (val >= 1000) return `$${(val / 1000).toFixed(1)}K`;
   return `$${val.toFixed(0)}`;
 }
 
@@ -303,7 +304,6 @@ export default function HuddleDashboard({
     const warehouse = depts.find(d => d.slug === 'warehouse');
 
     return [
-      { title: null, depts: christmasOverall ? [christmasOverall] : [] },
       { title: 'HVAC', depts: [hvacOverall, hvacInstall, hvacService, hvacMaintenance].filter(Boolean) as HuddleDepartmentWithKPIs[] },
       { title: 'Plumbing', depts: plumbing ? [plumbing] : [] },
       { title: 'Operations', depts: [callCenter, marketing, finance, warehouse].filter(Boolean) as HuddleDepartmentWithKPIs[] },
@@ -529,6 +529,127 @@ export default function HuddleDashboard({
               />
             </div>
           </div>
+
+          {/* Christmas Overall - Pacing Action Card */}
+          {pacingData && (() => {
+            const SALES_MULTIPLIER = 1.1;
+            const monthlyRevTarget = pacingData.monthlyTarget || 0;
+            const monthlySalesTarget = monthlyRevTarget * SALES_MULTIPLIER;
+            const mtdRev = pacingData.mtdRevenue || 0;
+            const mtdSales = pacingData.mtdSales || 0;
+            const bdzLeft = pacingData.businessDaysRemaining || 0;
+            const origDailyTarget = pacingData.dailyTarget || 0;
+            const revRemaining = Math.max(0, monthlyRevTarget - mtdRev);
+            const salesRemaining = Math.max(0, monthlySalesTarget - mtdSales);
+            const dailyRevNeeded = bdzLeft > 0 ? revRemaining / bdzLeft : 0;
+            const dailySalesNeeded = bdzLeft > 0 ? salesRemaining / bdzLeft : 0;
+            const revOnTrack = dailyRevNeeded <= origDailyTarget;
+            const salesOnTrack = dailySalesNeeded <= (origDailyTarget * SALES_MULTIPLIER);
+
+            const wtdRev = pacingData.wtdRevenue || 0;
+            const wtdSales = pacingData.wtdSales || 0;
+            const weekTarget = pacingData.weeklyTarget || 0;
+            const weekSalesTarget = weekTarget * SALES_MULTIPLIER;
+            const weekRevRemaining = Math.max(0, weekTarget - wtdRev);
+            const weekSalesRemaining = Math.max(0, weekSalesTarget - wtdSales);
+
+            // Get department ID for general notes
+            const christmasOverallDept = data?.departments?.find(d => d.slug === 'christmas-overall');
+            const generalNoteKey = christmasOverallDept ? `dept-${christmasOverallDept.id}` : 'dept-christmas-overall';
+
+            return (
+              <div
+                className="rounded-xl overflow-hidden mb-6"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid rgba(52, 102, 67, 0.4)',
+                  background: 'linear-gradient(135deg, rgba(52, 102, 67, 0.1) 0%, var(--bg-card) 100%)',
+                }}
+              >
+                {/* Header */}
+                <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <h3 className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>What We Need to Do</h3>
+                  <span
+                    className="text-sm font-semibold px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(52, 102, 67, 0.2)', color: 'var(--christmas-green)' }}
+                  >
+                    {bdzLeft} biz days left
+                  </span>
+                </div>
+
+                <div className="p-5">
+                  {/* Monthly Pacing */}
+                  <div className="mb-5">
+                    <div className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Monthly Pace</div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Revenue pace */}
+                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Daily rev needed</div>
+                        <div className="text-lg font-bold" style={{ color: revOnTrack ? 'var(--christmas-green)' : '#EF4444' }}>
+                          {formatCardCurrency(dailyRevNeeded)}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          vs {formatCardCurrency(origDailyTarget)} target
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          {formatCardCurrency(revRemaining)} remaining
+                        </div>
+                      </div>
+                      {/* Sales pace */}
+                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Daily sales needed</div>
+                        <div className="text-lg font-bold" style={{ color: salesOnTrack ? 'var(--christmas-gold)' : '#EF4444' }}>
+                          {formatCardCurrency(dailySalesNeeded)}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          vs {formatCardCurrency(origDailyTarget * SALES_MULTIPLIER)} target (1.1x)
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          {formatCardCurrency(salesRemaining)} remaining
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weekly Pacing */}
+                  <div className="mb-4">
+                    <div className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>This Week Remaining</div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Revenue left</div>
+                        <div className="text-lg font-bold" style={{ color: weekRevRemaining <= 0 ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}>
+                          {weekRevRemaining <= 0 ? '✓ Hit' : formatCardCurrency(weekRevRemaining)}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          of {formatCardCurrency(weekTarget)} weekly target
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Sales left</div>
+                        <div className="text-lg font-bold" style={{ color: weekSalesRemaining <= 0 ? 'var(--christmas-gold)' : 'var(--christmas-cream)' }}>
+                          {weekSalesRemaining <= 0 ? '✓ Hit' : formatCardCurrency(weekSalesRemaining)}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          of {formatCardCurrency(weekSalesTarget)} weekly target (1.1x)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Notes</div>
+                    <NotesInput
+                      kpiId={generalNoteKey}
+                      date={selectedDate}
+                      initialValue={data?.generalNotes?.[generalNoteKey] || null}
+                      disabled={!canEditNotes || selectedDate !== selectedEndDate}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Department Sections */}
           {getDepartmentGroups().map((group, idx) => (

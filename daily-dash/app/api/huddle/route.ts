@@ -864,6 +864,7 @@ export async function GET(request: NextRequest) {
       wtdRevenue: liveWtdRevenue,
       wtdSales: liveWtdSales || wtdSales,
       weeklyTarget,
+      weekBusinessDaysTotal: totalWeekBusinessDays,
       mtdRevenue: liveMtdRevenue,
       mtdSales: liveMtdSales || mtdSales,
       monthlyTarget: monthlyTargetValue,
