@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentReferrer } from "@/lib/customer-auth";
 import { getServerSupabase } from "@/lib/supabase";
+import { getBooleanSetting } from "@/lib/settings";
 import type { Charity } from "@/lib/supabase";
 import CharityForm from "./CharityForm";
 
@@ -20,14 +21,18 @@ export default async function CharityPage() {
   const referrer = await getCurrentReferrer();
   if (!referrer) redirect("/sign-in");
 
-  const charities = await getActiveCharities();
+  const [charities, tripleWinEnabled] = await Promise.all([
+    getActiveCharities(),
+    getBooleanSetting("triple_win_enabled", true),
+  ]);
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-4xl mb-2">Triple Win</h1>
+      <h1 className="text-4xl mb-2">Your charity</h1>
       <p className="opacity-80 mb-8">
-        When this is on, every successful referral also triggers a donation
-        from Christmas Air to your chosen charity. You keep your full reward.
+        {tripleWinEnabled
+          ? "Every successful referral you make also triggers a matched donation from Christmas Air to the charity you pick here. You keep your full reward."
+          : "Triple Win is paused by Christmas Air right now. Your choice is saved and will activate as soon as we turn it back on. You can still update your pick."}
       </p>
 
       <div className="card mb-6" style={{ background: "rgba(97,139,96,0.06)" }}>
@@ -47,7 +52,6 @@ export default async function CharityPage() {
       </div>
 
       <CharityForm
-        initialEnabled={referrer.triple_win_enabled}
         initialCharityId={referrer.selected_charity_id}
         charities={charities}
       />

@@ -109,7 +109,7 @@ export default async function LandingPage() {
             <StepCard
               n="3"
               title="Get thanked when they book"
-              body="Once the job is complete, we send you a reward — and if Triple Win is on, we donate to your charity too."
+              body="Once the job is complete, we send you a reward — and we donate to the charity you picked, too."
             />
           </div>
         </div>
@@ -145,7 +145,7 @@ export default async function LandingPage() {
       <section className="section-green px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl mb-6">
-            Make it a Triple Win.
+            Every referral is a Triple Win.
           </h2>
           <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto mb-8">
             You keep your full reward. Your friend gets their discount. And we

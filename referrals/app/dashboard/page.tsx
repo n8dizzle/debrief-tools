@@ -1,5 +1,6 @@
 import { getCurrentReferrer } from "@/lib/customer-auth";
 import { getServerSupabase } from "@/lib/supabase";
+import { getBooleanSetting } from "@/lib/settings";
 import type { Charity, Referral } from "@/lib/supabase";
 import CopyLink from "./CopyLink";
 
@@ -61,10 +62,12 @@ export default async function DashboardPage() {
   const referrer = await getCurrentReferrer();
   if (!referrer) return null; // layout redirects
 
-  const { charity, referralCounts, recentReferrals } = await getDashboardData(
-    referrer.id,
-    referrer.selected_charity_id
-  );
+  const [{ charity, referralCounts, recentReferrals }, globalTripleWin] =
+    await Promise.all([
+      getDashboardData(referrer.id, referrer.selected_charity_id),
+      getBooleanSetting("triple_win_enabled", true),
+    ]);
+  const tripleWinActive = globalTripleWin && !!referrer.selected_charity_id;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -73,6 +76,19 @@ export default async function DashboardPage() {
           Welcome back, {referrer.first_name}.
         </h1>
         <p className="opacity-80">Here&apos;s your neighborhood impact.</p>
+        {referrer.service_titan_id && (
+          <p
+            className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full text-xs font-semibold"
+            style={{
+              background: "rgba(97,139,96,0.12)",
+              color: "var(--ca-dark-green)",
+            }}
+            title="We matched your enrollment to an existing Christmas Air customer record."
+          >
+            <span aria-hidden="true">✓</span>
+            <span>Your Christmas Air account is connected</span>
+          </p>
+        )}
       </section>
 
       {/* Share link */}
@@ -100,7 +116,7 @@ export default async function DashboardPage() {
           sub={`${referralCounts.rewardIssued} completed`}
         />
         <ImpactCard
-          tripleWin={referrer.triple_win_enabled}
+          tripleWin={tripleWinActive}
           charity={charity}
           totalDonated={Number(referrer.total_donated_on_their_behalf)}
         />
@@ -194,11 +210,14 @@ function ImpactCard({
         }}
       >
         <p className="text-sm uppercase tracking-wide opacity-60 mb-2">Triple Win</p>
-        <p className="text-lg mb-3">Off</p>
-        <p className="text-sm opacity-80 mb-3">
-          Turn it on to add a charity match to every successful referral.
+        <p className="text-lg mb-3">
+          {charity ? "Paused" : "Pick a charity"}
         </p>
-        {/* TODO: link to /dashboard/charity in a later sprint */}
+        <p className="text-sm opacity-80 mb-3">
+          {charity
+            ? "Christmas Air has Triple Win paused right now. Your pick is saved."
+            : "Choose a charity on the Your charity tab so your referrals trigger a matched donation."}
+        </p>
       </div>
     );
   }

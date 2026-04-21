@@ -1,6 +1,6 @@
 import { getServerSupabase } from "@/lib/supabase";
 import { getServiceTitanClient } from "@/lib/servicetitan";
-import { getSetting } from "@/lib/settings";
+import { getBooleanSetting, getSetting } from "@/lib/settings";
 import { classifyExpectedCategory, type ServiceType, SERVICE_TYPE_LABELS } from "./classify";
 import { serializeTierSnapshot } from "./snapshot";
 import { normalizePhone } from "./phone";
@@ -127,7 +127,32 @@ export async function submitReferral(
     );
   }
 
-  // 5. Insert the referral
+  // 5. Triple Win snapshot. Gate is: global setting ON AND referrer has a
+  //    charity picked AND that charity is still active. An inactive charity
+  //    at submission time skips TW entirely so the reward never tries to
+  //    fulfill against a deactivated charity row. The referrer's selected
+  //    charity stays set — they can re-pick from the dashboard — but this
+  //    specific referral won't trigger a match.
+  const globalTripleWin = await getBooleanSetting("triple_win_enabled", true);
+  let charityStillActive = false;
+  if (globalTripleWin && referrer.selected_charity_id) {
+    const { data: charityRow } = await supabase
+      .from("ref_charities")
+      .select("is_active")
+      .eq("id", referrer.selected_charity_id)
+      .maybeSingle();
+    charityStillActive = !!charityRow?.is_active;
+    if (referrer.selected_charity_id && !charityStillActive) {
+      console.warn(
+        `Referrer ${referrer.id} has selected_charity_id pointing to ` +
+          `inactive/missing charity ${referrer.selected_charity_id} — ` +
+          `skipping Triple Win for this referral.`
+      );
+    }
+  }
+  const willActivateTripleWin = globalTripleWin && charityStillActive;
+
+  // 6. Insert the referral
   const { data: inserted, error: insertErr } = await supabase
     .from("ref_referrals")
     .insert({
@@ -141,8 +166,8 @@ export async function submitReferral(
       service_titan_lead_id: serviceTitanLeadId,
       reward_config_id: referrer.assigned_reward_config_id,
       snapshot_tier_json: snapshot,
-      triple_win_activated: referrer.triple_win_enabled,
-      snapshot_charity_id: referrer.triple_win_enabled
+      triple_win_activated: willActivateTripleWin,
+      snapshot_charity_id: willActivateTripleWin
         ? referrer.selected_charity_id
         : null,
       status: "SUBMITTED",

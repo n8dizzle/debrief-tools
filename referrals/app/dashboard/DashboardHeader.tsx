@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/share", label: "Share" },
-  { href: "/dashboard/charity", label: "Triple Win" },
+  { href: "/dashboard/charity", label: "Your charity" },
 ];
 
 export default function DashboardHeader({ firstName }: { firstName: string }) {

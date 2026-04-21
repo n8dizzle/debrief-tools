@@ -4,30 +4,25 @@ import { getServerSupabase } from "@/lib/supabase";
 import { getServiceTitanClient } from "@/lib/servicetitan";
 import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
+import { getBooleanSetting } from "@/lib/settings";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { issueMagicLinkToken } from "@/lib/customer-auth";
 import { sendMagicLinkEmail } from "@/lib/email/magic-link";
 import type { Charity, Referrer } from "@/lib/supabase";
 
-const EnrollSchema = z
-  .object({
-    firstName: z.string().trim().min(1).max(50),
-    lastName: z.string().trim().min(1).max(50),
-    email: z.string().email().max(254),
-    phone: z.string().trim().min(10).max(25),
-    rewardPreference: z.enum([
-      "VISA_GIFT_CARD",
-      "AMAZON_GIFT_CARD",
-      "ACCOUNT_CREDIT",
-      "CHARITY_DONATION",
-    ]),
-    tripleWinEnabled: z.boolean().default(false),
-    selectedCharityId: z.string().uuid().nullable().optional(),
-  })
-  .refine(
-    (d) => !d.tripleWinEnabled || !!d.selectedCharityId,
-    { message: "Charity selection required when Triple Win is enabled" }
-  );
+const EnrollSchema = z.object({
+  firstName: z.string().trim().min(1).max(50),
+  lastName: z.string().trim().min(1).max(50),
+  email: z.string().email().max(254),
+  phone: z.string().trim().min(10).max(25),
+  rewardPreference: z.enum([
+    "VISA_GIFT_CARD",
+    "AMAZON_GIFT_CARD",
+    "ACCOUNT_CREDIT",
+    "CHARITY_DONATION",
+  ]),
+  selectedCharityId: z.string().uuid().nullable().optional(),
+});
 
 function getAppUrl(req: NextRequest): string {
   return process.env.NEXTAUTH_URL || req.nextUrl.origin;
@@ -84,13 +79,20 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Validate Triple Win charity if opted in
+  // Triple Win is admin-controlled globally (ref_settings.triple_win_enabled).
+  // If global is ON and the enrollment form submitted a charity, validate it.
+  // If global is OFF, ignore any incoming charity — we won't honor it until
+  // the admin flips the switch back on.
+  const globalTripleWin = await getBooleanSetting("triple_win_enabled", true);
   let charity: Charity | null = null;
-  if (data.tripleWinEnabled && data.selectedCharityId) {
+  const effectiveCharityId =
+    globalTripleWin && data.selectedCharityId ? data.selectedCharityId : null;
+
+  if (effectiveCharityId) {
     const { data: c } = await supabase
       .from("ref_charities")
       .select("*")
-      .eq("id", data.selectedCharityId)
+      .eq("id", effectiveCharityId)
       .eq("is_active", true)
       .single();
     if (!c) {
@@ -100,6 +102,13 @@ export async function POST(req: NextRequest) {
       );
     }
     charity = c as Charity;
+  }
+
+  if (globalTripleWin && !effectiveCharityId) {
+    return NextResponse.json(
+      { error: "Please pick a charity before finishing enrollment." },
+      { status: 400 }
+    );
   }
 
   // Best-effort ServiceTitan customer match by phone, then email
@@ -142,8 +151,11 @@ export async function POST(req: NextRequest) {
         referral_link: referralLink,
         reward_preference: data.rewardPreference,
         assigned_reward_config_id: assignedRewardConfigId,
-        triple_win_enabled: data.tripleWinEnabled,
-        selected_charity_id: data.tripleWinEnabled ? data.selectedCharityId : null,
+        // triple_win_enabled column is legacy (now admin-controlled globally).
+        // We keep writing true/false in case anything still reads it; real gate
+        // is ref_settings.triple_win_enabled + snapshot at referral submission.
+        triple_win_enabled: !!effectiveCharityId,
+        selected_charity_id: effectiveCharityId,
       })
       .select("*")
       .single();
@@ -200,6 +212,6 @@ export async function POST(req: NextRequest) {
     success: true,
     referralCode: referrer.referral_code,
     referralLink: referrer.referral_link,
-    tripleWinEnabled: referrer.triple_win_enabled,
+    tripleWinEnabled: globalTripleWin && !!referrer.selected_charity_id,
   });
 }

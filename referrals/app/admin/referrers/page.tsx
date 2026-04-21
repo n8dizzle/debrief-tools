@@ -1,16 +1,36 @@
 import { getServerSupabase } from "@/lib/supabase";
-import type { Referrer } from "@/lib/supabase";
+import { stCustomerUrl } from "@/lib/servicetitan-links";
+import STLinkBadge from "@/components/STLinkBadge";
+import type { Charity, Referrer } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-async function getReferrers(): Promise<Referrer[]> {
+interface ReferrerRow extends Referrer {
+  charity?: { id: string; name: string } | null;
+}
+
+async function getReferrers(): Promise<ReferrerRow[]> {
   const supabase = getServerSupabase();
-  const { data } = await supabase
-    .from("ref_referrers")
-    .select("*")
-    .order("enrolled_at", { ascending: false })
-    .limit(200);
-  return (data as Referrer[]) || [];
+  const [{ data: referrers }, { data: charities }] = await Promise.all([
+    supabase
+      .from("ref_referrers")
+      .select("*")
+      .order("enrolled_at", { ascending: false })
+      .limit(200),
+    supabase.from("ref_charities").select("id, name"),
+  ]);
+
+  const charityById = new Map<string, Pick<Charity, "id" | "name">>();
+  for (const c of (charities as Charity[]) || []) {
+    charityById.set(c.id, { id: c.id, name: c.name });
+  }
+
+  return ((referrers as Referrer[]) || []).map((r) => ({
+    ...r,
+    charity: r.selected_charity_id
+      ? charityById.get(r.selected_charity_id) ?? null
+      : null,
+  }));
 }
 
 export default async function ReferrersPage() {
@@ -30,7 +50,8 @@ export default async function ReferrersPage() {
               <Th>Name</Th>
               <Th>Email</Th>
               <Th>Code</Th>
-              <Th>Triple Win</Th>
+              <Th>ST customer</Th>
+              <Th>Charity</Th>
               <Th className="text-right">Lifetime</Th>
               <Th className="text-right">Earned</Th>
               <Th className="text-right">Donated</Th>
@@ -51,12 +72,17 @@ export default async function ReferrersPage() {
                   <code className="text-xs">{r.referral_code}</code>
                 </Td>
                 <Td>
-                  {r.triple_win_enabled ? (
-                    <span className="badge-trust" style={{ fontSize: "0.7rem" }}>
-                      ON
-                    </span>
+                  <STLinkBadge
+                    id={r.service_titan_id}
+                    href={stCustomerUrl(r.service_titan_id)}
+                    emptyTitle="Not linked — no matching ServiceTitan customer at enrollment"
+                  />
+                </Td>
+                <Td className="text-xs">
+                  {r.charity ? (
+                    r.charity.name
                   ) : (
-                    <span className="opacity-50 text-xs">off</span>
+                    <span className="opacity-50">—</span>
                   )}
                 </Td>
                 <Td className="text-right">{r.lifetime_referrals}</Td>
@@ -71,7 +97,7 @@ export default async function ReferrersPage() {
             ))}
             {referrers.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-8 text-center opacity-60">
+                <td colSpan={9} className="p-8 text-center opacity-60">
                   No referrers yet.
                 </td>
               </tr>

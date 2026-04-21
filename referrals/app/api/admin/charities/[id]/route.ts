@@ -3,12 +3,24 @@ import { z } from "zod";
 import { requireReferralsAdmin } from "@/lib/admin-auth";
 import { getServerSupabase } from "@/lib/supabase";
 
+// See POST route for rationale — auto-prepend https:// when an admin types a
+// bare domain, collapse empty strings to null.
+const urlField = z
+  .preprocess((v) => {
+    if (typeof v !== "string") return v ?? null;
+    const trimmed = v.trim();
+    if (!trimmed) return null;
+    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`;
+    return trimmed;
+  }, z.string().url().nullable())
+  .optional();
+
 const CharityUpdateSchema = z
   .object({
     name: z.string().trim().min(1).max(100).optional(),
     description: z.string().trim().min(1).max(2000).optional(),
-    website_url: z.string().url().nullable().optional(),
-    logo_url: z.string().url().nullable().optional(),
+    website_url: urlField,
+    logo_url: urlField,
     fulfillment_method: z
       .enum(["TREMENDOUS", "DIRECT_PAYMENT", "POOLED_QUARTERLY"])
       .optional(),
@@ -18,6 +30,13 @@ const CharityUpdateSchema = z
     is_active: z.boolean().optional(),
   })
   .strict();
+
+function firstIssueMessage(err: z.ZodError): string {
+  const issue = err.issues[0];
+  if (!issue) return "Invalid input";
+  const field = issue.path.join(".") || "field";
+  return `${field}: ${issue.message}`;
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -36,7 +55,7 @@ export async function PATCH(
   const parsed = CharityUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid input", details: parsed.error.issues },
+      { error: firstIssueMessage(parsed.error), details: parsed.error.issues },
       { status: 400 }
     );
   }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Charity } from "@/lib/supabase";
 import { trackEvent } from "@/lib/analytics";
 
-type Step = "contact" | "reward" | "triple-win" | "done";
+type Step = "contact" | "reward" | "charity" | "done";
 
 type RewardPref =
   | "VISA_GIFT_CARD"
@@ -18,7 +18,6 @@ interface FormState {
   email: string;
   phone: string;
   rewardPreference: RewardPref;
-  tripleWinEnabled: boolean;
   selectedCharityId: string | null;
 }
 
@@ -28,11 +27,18 @@ const initialState: FormState = {
   email: "",
   phone: "",
   rewardPreference: "VISA_GIFT_CARD",
-  tripleWinEnabled: false,
   selectedCharityId: null,
 };
 
-export default function EnrollForm({ charities }: { charities: Charity[] }) {
+interface EnrollFormProps {
+  charities: Charity[];
+  tripleWinEnabled: boolean;
+}
+
+export default function EnrollForm({
+  charities,
+  tripleWinEnabled,
+}: EnrollFormProps) {
   const [step, setStep] = useState<Step>("contact");
   const [form, setForm] = useState<FormState>(initialState);
   const [submitting, setSubmitting] = useState(false);
@@ -74,7 +80,7 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
       setResult(data);
       setStep("done");
       trackEvent("enrollment_completed", {
-        triple_win: form.tripleWinEnabled,
+        triple_win: tripleWinEnabled && !!form.selectedCharityId,
         already_enrolled: !!data.alreadyEnrolled,
         reward_preference: form.rewardPreference,
       });
@@ -86,12 +92,17 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
   }
 
   if (step === "done" && result) {
-    return <DoneScreen result={result} tripleWinEnabled={form.tripleWinEnabled} />;
+    return (
+      <DoneScreen
+        result={result}
+        tripleWinEnabled={tripleWinEnabled && !!form.selectedCharityId}
+      />
+    );
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <ProgressIndicator step={step} />
+      <ProgressIndicator step={step} tripleWinEnabled={tripleWinEnabled} />
 
       {step === "contact" && (
         <ContactStep
@@ -114,12 +125,20 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
           form={form}
           update={update}
           onBack={() => setStep("contact")}
-          onNext={() => setStep("triple-win")}
+          onNext={() => {
+            if (tripleWinEnabled) {
+              setStep("charity");
+            } else {
+              submit();
+            }
+          }}
+          submitting={submitting}
+          submitLabel={tripleWinEnabled ? "Continue →" : "Finish enrollment"}
         />
       )}
 
-      {step === "triple-win" && (
-        <TripleWinStep
+      {step === "charity" && (
+        <CharityStep
           form={form}
           update={update}
           charities={charities}
@@ -133,11 +152,19 @@ export default function EnrollForm({ charities }: { charities: Charity[] }) {
   );
 }
 
-function ProgressIndicator({ step }: { step: Step }) {
+function ProgressIndicator({
+  step,
+  tripleWinEnabled,
+}: {
+  step: Step;
+  tripleWinEnabled: boolean;
+}) {
   const steps: { id: Step; label: string }[] = [
     { id: "contact", label: "About you" },
     { id: "reward", label: "Reward format" },
-    { id: "triple-win", label: "Triple Win" },
+    ...(tripleWinEnabled
+      ? ([{ id: "charity", label: "Your charity" }] as const)
+      : []),
   ];
   const activeIdx = steps.findIndex((s) => s.id === step);
 
@@ -247,11 +274,15 @@ function RewardStep({
   update,
   onBack,
   onNext,
+  submitting,
+  submitLabel,
 }: {
   form: FormState;
   update: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
   onBack: () => void;
   onNext: () => void;
+  submitting: boolean;
+  submitLabel: string;
 }) {
   const options: { value: RewardPref; label: string; desc: string }[] = [
     { value: "VISA_GIFT_CARD", label: "Visa gift card", desc: "Use it anywhere." },
@@ -304,15 +335,23 @@ function RewardStep({
         <button className="btn btn-secondary" onClick={onBack}>
           ← Back
         </button>
-        <button className="btn btn-primary" onClick={onNext}>
-          Continue →
+        <button
+          className="btn btn-primary"
+          onClick={onNext}
+          disabled={submitting}
+          style={{
+            opacity: submitting ? 0.6 : 1,
+            cursor: submitting ? "not-allowed" : "pointer",
+          }}
+        >
+          {submitting ? "Enrolling…" : submitLabel}
         </button>
       </div>
     </div>
   );
 }
 
-function TripleWinStep({
+function CharityStep({
   form,
   update,
   charities,
@@ -329,84 +368,54 @@ function TripleWinStep({
   submitting: boolean;
   error: string | null;
 }) {
-  const canSubmit =
-    !form.tripleWinEnabled || (form.tripleWinEnabled && form.selectedCharityId);
+  const canSubmit = !!form.selectedCharityId;
 
   return (
     <div className="card">
-      <h2 className="text-3xl mb-2">Want to make it a Triple Win?</h2>
+      <h2 className="text-3xl mb-2">Pick the cause you&apos;d like to support.</h2>
       <p className="opacity-80 mb-6">
-        Every successful referral could also trigger a donation from Christmas Air
-        to a charity you choose.{" "}
-        <strong>You still get your full reward.</strong> This is a bonus, not a
-        swap.
+        Every successful referral from you also triggers a matched donation from
+        Christmas Air to the charity you pick.{" "}
+        <strong>You keep your full reward.</strong> This is a bonus — not a swap.
       </p>
 
-      <label
-        className="flex items-start gap-3 p-4 rounded-lg cursor-pointer mb-4"
-        style={{
-          border: `2px solid ${
-            form.tripleWinEnabled ? "var(--ca-green)" : "var(--border-subtle)"
-          }`,
-          background: form.tripleWinEnabled
-            ? "rgba(97,139,96,0.06)"
-            : "var(--bg-card)",
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={form.tripleWinEnabled}
-          onChange={(e) => {
-            update("tripleWinEnabled", e.target.checked);
-            if (!e.target.checked) update("selectedCharityId", null);
-          }}
-          className="mt-1"
-        />
-        <div>
-          <p className="font-semibold">Yes, activate Triple Win</p>
-          <p className="text-sm opacity-70">
-            We&apos;ll match every referral reward with a donation to your charity.
-          </p>
+      <div className="mb-6">
+        <div className="grid gap-3">
+          {charities.map((c) => (
+            <label
+              key={c.id}
+              className="flex items-start gap-3 p-4 rounded-lg cursor-pointer"
+              style={{
+                border: `2px solid ${
+                  form.selectedCharityId === c.id
+                    ? "var(--ca-green)"
+                    : "var(--border-subtle)"
+                }`,
+                background:
+                  form.selectedCharityId === c.id
+                    ? "rgba(97,139,96,0.06)"
+                    : "var(--bg-card)",
+              }}
+            >
+              <input
+                type="radio"
+                name="selectedCharityId"
+                value={c.id}
+                checked={form.selectedCharityId === c.id}
+                onChange={() => update("selectedCharityId", c.id)}
+                className="mt-1"
+              />
+              <div>
+                <p className="font-semibold">{c.name}</p>
+                <p className="text-sm opacity-70 mt-1">{c.description}</p>
+              </div>
+            </label>
+          ))}
         </div>
-      </label>
-
-      {form.tripleWinEnabled && (
-        <div className="mb-6">
-          <p className="font-semibold mb-3">Pick your charity</p>
-          <div className="grid gap-3">
-            {charities.map((c) => (
-              <label
-                key={c.id}
-                className="flex items-start gap-3 p-4 rounded-lg cursor-pointer"
-                style={{
-                  border: `2px solid ${
-                    form.selectedCharityId === c.id
-                      ? "var(--ca-green)"
-                      : "var(--border-subtle)"
-                  }`,
-                  background:
-                    form.selectedCharityId === c.id
-                      ? "rgba(97,139,96,0.06)"
-                      : "var(--bg-card)",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="selectedCharityId"
-                  value={c.id}
-                  checked={form.selectedCharityId === c.id}
-                  onChange={() => update("selectedCharityId", c.id)}
-                  className="mt-1"
-                />
-                <div>
-                  <p className="font-semibold">{c.name}</p>
-                  <p className="text-sm opacity-70 mt-1">{c.description}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
+        <p className="text-xs opacity-60 mt-3">
+          You can change your charity any time from your dashboard.
+        </p>
+      </div>
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
@@ -465,7 +474,7 @@ function DoneScreen({
             <h2 className="text-3xl mb-2">You&apos;re in.</h2>
             <p className="opacity-80 mb-6">
               {tripleWinEnabled
-                ? "Triple Win is activated. We sent a welcome email to your inbox."
+                ? "Triple Win is on — your referrals now support your charity. We sent a welcome email to your inbox."
                 : "We sent a welcome email to your inbox."}
             </p>
           </>

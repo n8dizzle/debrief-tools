@@ -1,5 +1,6 @@
 import { getServerSupabase } from "@/lib/supabase";
 import type { Charity } from "@/lib/supabase";
+import { getBooleanSetting } from "@/lib/settings";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import EnrollForm from "./EnrollForm";
@@ -17,7 +18,10 @@ async function getActiveCharities(): Promise<Charity[]> {
 }
 
 export default async function EnrollPage() {
-  const charities = await getActiveCharities();
+  const [charities, tripleWinEnabled] = await Promise.all([
+    getActiveCharities(),
+    getBooleanSetting("triple_win_enabled", true),
+  ]);
 
   return (
     <>
@@ -31,7 +35,7 @@ export default async function EnrollPage() {
         </div>
       </section>
       <section className="px-6 pb-24">
-        <EnrollForm charities={charities} />
+        <EnrollForm charities={charities} tripleWinEnabled={tripleWinEnabled} />
       </section>
       <SiteFooter />
     </>
