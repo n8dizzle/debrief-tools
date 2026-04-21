@@ -1,9 +1,43 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getServerSupabase } from '@/lib/supabase';
+import { google } from 'googleapis';
 
 export const dynamic = 'force-dynamic';
+
+const SPREADSHEET_ID = '1w-c6lgPYAGUwtW7biPQoGApIoZcTFgR0usyAGUtWEcw';
+
+function getOAuth2Client() {
+  const clientId = process.env.GOOGLE_BUSINESS_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_BUSINESS_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_BUSINESS_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Google API credentials not configured');
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    'https://developers.google.com/oauthplayground'
+  );
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  return oauth2Client;
+}
+
+// Parse a cell value like "$788,937" or "51%" or "4.98" into a number
+function parseCell(val: string | undefined): number {
+  if (!val) return 0;
+  const cleaned = val.replace(/[$,%]/g, '').replace(/,/g, '').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
+// Month abbreviations to column index (C=Jan, D=Feb, ... N=Dec)
+const MONTH_COL: Record<number, number> = {
+  1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7,
+  7: 8, 8: 9, 9: 10, 10: 11, 11: 12, 12: 13,
+};
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -12,105 +46,126 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const startDate = searchParams.get('startDate');
-  const endDate = searchParams.get('endDate');
+  const period = searchParams.get('period') || 'ytd'; // ytd, or month number (1-12)
 
-  if (!startDate || !endDate) {
-    return NextResponse.json({ error: 'startDate and endDate required' }, { status: 400 });
+  try {
+    const auth = getOAuth2Client();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Read the Monthly #s sheet - rows 1-80 cover all sections
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Monthly #s'!A1:N80",
+    });
+
+    const rows = res.data.values || [];
+
+    // Determine which column to read based on period
+    // Column B (index 1) = YTD, Column C (index 2) = Jan, etc.
+    let colIdx = 1; // default YTD
+    if (period !== 'ytd') {
+      const monthNum = parseInt(period, 10);
+      if (monthNum >= 1 && monthNum <= 12) {
+        colIdx = MONTH_COL[monthNum];
+      }
+    }
+
+    // Build a lookup: row label -> value
+    const getValue = (label: string): number => {
+      const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+      if (!row) return 0;
+      return parseCell(row[colIdx]);
+    };
+
+    // Build sections from the sheet data
+    const data = {
+      period: period === 'ytd' ? 'YTD' : `Month ${period}`,
+      revenueGoal: getValue('Revenue Goal'),
+
+      // Christmas Totals
+      totals: {
+        totalRevenue: getValue('Total Revenue'),
+        totalSales: getValue('Total Sales'),
+        avgTicket: getValue('AVG Ticket'),
+        totalJobsRan: getValue('Total Jobs Ran'),
+      },
+
+      // Memberships
+      memberships: {
+        totalMembers: getValue('Total Members'),
+        sold: getValue('Memberships Sold'),
+        renewed: getValue('Renewed'),
+        expired: getValue('Expired'),
+        cancelled: getValue('Cancelled'),
+        activeAtEnd: getValue('Active at End'),
+      },
+
+      // Growth
+      growth: {
+        totalLeads: getValue('Total Leads'),
+        newNamesInST: getValue('# of New Names in ST'),
+        totalNewCustomers: getValue('Total New Customers'),
+        leadsToCustomerPercent: getValue('% of Names -> customers'),
+        newCustomerRevenue: getValue('New Customer Revenue'),
+        revenuePercentOfTotal: getValue('% of total revenue'),
+        avgRevenuePerNewCustomer: getValue('Avg Revenue Per New Customer'),
+        revenuePerLead: getValue('Revenue Per Lead'),
+      },
+
+      // Reviews
+      reviews: {
+        count: getValue('# of Reviews'),
+        jobsWithReviewPercent: getValue('% of jobs with review'),
+        grossRating: getValue('Gross Rating'),
+        avgRating: getValue('AVG Rating'),
+      },
+
+      // Calls
+      calls: {
+        totalPhoneCalls: getValue('Total Phone Calls'),
+        outboundCalls: getValue('Outbound Calls'),
+        inboundPhoneCalls: getValue('Inbound Phone Calls'),
+        phoneLeads: getValue('Phone Leads'),
+        bookedJobsFromInbound: getValue('Booked Jobs from Inbound'),
+        totalJobsBooked: getValue('Total Jobs Booked'),
+        totalCancellations: getValue('Total Cancellations'),
+        netBookings: getValue('Net Bookings'),
+      },
+
+      // Monthly breakdown for trend display
+      monthly: period === 'ytd' ? buildMonthlyBreakdown(rows) : undefined,
+    };
+
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error('Dashboard overview error:', err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed to fetch dashboard data' },
+      { status: 500 }
+    );
   }
+}
 
-  const supabase = getServerSupabase();
+function buildMonthlyBreakdown(rows: string[][]) {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  // Fetch all data in parallel
-  const [
-    campaignResult,
-    newCustomersResult,
-    reviewsResult,
-    completedJobsResult,
-  ] = await Promise.all([
-    // Campaign report aggregates for the date range
-    supabase
-      .from('st_campaign_reports')
-      .select('inbound_calls, unique_inbound_calls, total_jobs_booked, booked_jobs_completed, completed_revenue, total_sales, jobs_booked_new_customers, jobs_booked_existing_customers, revenue_per_lead')
-      .gte('report_date_start', startDate)
-      .lte('report_date_end', endDate),
+  const getRow = (label: string) => rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
 
-    // New customers created in date range
-    supabase
-      .from('new_customers')
-      .select('st_customer_id, completed_revenue, total_sales, completed_jobs, lifetime_revenue')
-      .gte('created_on', startDate)
-      .lte('created_on', endDate),
+  return months.map((month, i) => {
+    const colIdx = i + 2; // Column C = index 2 = Jan
+    const revRow = getRow('Total Revenue');
+    const salesRow = getRow('Total Sales');
+    const leadsRow = getRow('Total Leads');
+    const reviewsRow = getRow('# of Reviews');
+    const newCustRow = getRow('Total New Customers');
 
-    // Google reviews in date range
-    supabase
-      .from('google_reviews')
-      .select('star_rating, create_time')
-      .gte('create_time', `${startDate}T00:00:00`)
-      .lte('create_time', `${endDate}T23:59:59`),
-
-    // Total completed jobs from campaign reports (for % of jobs with review)
-    supabase
-      .from('st_campaign_reports')
-      .select('booked_jobs_completed')
-      .gte('report_date_start', startDate)
-      .lte('report_date_end', endDate),
-  ]);
-
-  // Aggregate campaign report data
-  const campaigns = campaignResult.data || [];
-  const totalLeads = campaigns.reduce((sum, c) => sum + (c.inbound_calls || 0), 0);
-  const totalJobsBooked = campaigns.reduce((sum, c) => sum + (c.total_jobs_booked || 0), 0);
-  const totalCompleted = campaigns.reduce((sum, c) => sum + (c.booked_jobs_completed || 0), 0);
-  const totalCompletedRevenue = campaigns.reduce((sum, c) => sum + (c.completed_revenue || 0), 0);
-  const totalSales = campaigns.reduce((sum, c) => sum + (c.total_sales || 0), 0);
-  const totalNewCustomersBooked = campaigns.reduce((sum, c) => sum + (c.jobs_booked_new_customers || 0), 0);
-
-  // New customers from new_customers table
-  const newCustomers = newCustomersResult.data || [];
-  const newCustomerCount = newCustomers.length;
-  const newCustomerRevenue = newCustomers.reduce((sum, c) => sum + (c.completed_revenue || 0), 0);
-  const newCustomerSales = newCustomers.reduce((sum, c) => sum + (c.total_sales || 0), 0);
-
-  // Total revenue (completed + sales)
-  const totalRevenue = totalCompletedRevenue + totalSales;
-
-  // Growth metrics
-  const growth = {
-    totalLeads,
-    newNamesInST: newCustomerCount,
-    totalNewCustomers: totalNewCustomersBooked || newCustomerCount,
-    leadsToCustomerPercent: totalLeads > 0 ? Math.round((totalNewCustomersBooked / totalLeads) * 100) : 0,
-    newCustomerRevenue,
-    revenuePercentOfTotal: totalRevenue > 0 ? Math.round((newCustomerRevenue / totalRevenue) * 100) : 0,
-    avgRevenuePerNewCustomer: totalNewCustomersBooked > 0 ? Math.round(newCustomerRevenue / totalNewCustomersBooked) : 0,
-    revenuePerLead: totalLeads > 0 ? Math.round(totalRevenue / totalLeads) : 0,
-    totalJobsBooked,
-    totalCompleted,
-    totalCompletedRevenue,
-    totalSales,
-    totalRevenue,
-  };
-
-  // Reviews metrics
-  const reviews = reviewsResult.data || [];
-  const reviewCount = reviews.length;
-  const grossRating = reviews.reduce((sum, r) => sum + (r.star_rating || 0), 0);
-  const avgRating = reviewCount > 0 ? grossRating / reviewCount : 0;
-  const totalCompletedJobs = (completedJobsResult.data || []).reduce((sum, c) => sum + (c.booked_jobs_completed || 0), 0);
-  const jobsWithReviewPercent = totalCompletedJobs > 0 ? Math.round((reviewCount / totalCompletedJobs) * 100) : 0;
-
-  const reviewMetrics = {
-    count: reviewCount,
-    jobsWithReviewPercent,
-    grossRating,
-    avgRating: Math.round(avgRating * 100) / 100,
-    totalCompletedJobs,
-  };
-
-  return NextResponse.json({
-    dateRange: { start: startDate, end: endDate },
-    growth,
-    reviews: reviewMetrics,
+    return {
+      month,
+      revenue: parseCell(revRow?.[colIdx]),
+      sales: parseCell(salesRow?.[colIdx]),
+      leads: parseCell(leadsRow?.[colIdx]),
+      reviews: parseCell(reviewsRow?.[colIdx]),
+      newCustomers: parseCell(newCustRow?.[colIdx]),
+    };
   });
 }
