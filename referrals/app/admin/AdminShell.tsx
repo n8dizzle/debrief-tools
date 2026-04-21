@@ -113,10 +113,18 @@ export default function AdminShell({
       >
         <aside
           id="admin-drawer"
-          className="md:relative md:translate-x-0 fixed inset-y-0 left-0 z-40 w-64 transition-transform duration-200 ease-out"
-          style={{
-            transform: open ? "translateX(0)" : "translateX(-100%)",
-          }}
+          // Mobile: fixed off-canvas, slides in based on `open`. Desktop:
+          // participates in grid flow, always visible, grid cell controls
+          // width. Using Tailwind class toggles (not inline style) so
+          // md:translate-x-0 and md:w-auto actually win at breakpoint —
+          // inline styles have higher CSS specificity than classes and
+          // was silently keeping the sidebar off-screen on desktop.
+          className={[
+            "fixed inset-y-0 left-0 z-40 w-64",
+            "transition-transform duration-200 ease-out",
+            "md:relative md:translate-x-0 md:w-auto",
+            open ? "translate-x-0" : "-translate-x-full",
+          ].join(" ")}
         >
           <AdminNav
             userEmail={userEmail}
