@@ -17,6 +17,8 @@ const PER_KEY_VALIDATORS: Record<string, (v: string) => string | null> = {
     /^\d+$/.test(v) ? null : "Must be a numeric ServiceTitan campaign ID",
   st_referral_booking_provider_id: (v) =>
     /^\d+$/.test(v) ? null : "Must be a numeric ServiceTitan booking provider ID",
+  st_customer_referral_code_field_id: (v) =>
+    /^\d+$/.test(v) ? null : "Must be a numeric ServiceTitan custom field type ID",
   triple_win_enabled: (v) =>
     v === "true" || v === "false" ? null : "Must be \"true\" or \"false\"",
 };

@@ -295,6 +295,49 @@ export class ServiceTitanClient {
     }
   }
 
+  /**
+   * Set a single custom field value on an ST customer record.
+   *
+   * Used by the admin "Tag in ST" flow — writes the referral code to the
+   * customer's Referral_Code custom field so future invoice webhooks can
+   * match via path 2 (custom-field lookup) instead of relying on the
+   * fragile phone fallback.
+   *
+   * Requires the custom field to be pre-registered in ST settings. The
+   * numeric typeId is pasted into ref_settings.st_customer_referral_code_field_id
+   * by an admin after they create the field in ST's UI.
+   *
+   * Uses raw fetch instead of the request<T> helper because ST's PATCH
+   * response is small / possibly empty and we don't need to parse it —
+   * only the status code matters. Throws on non-2xx so the caller can
+   * translate into a user-visible error.
+   */
+  async setCustomerCustomField(
+    customerId: number,
+    typeId: number,
+    value: string
+  ): Promise<void> {
+    const token = await this.getAccessToken();
+    const response = await this.fetchWithTimeout(
+      `${this.BASE_URL}/crm/v2/tenant/${this.tenantId}/customers/${customerId}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "ST-App-Key": this.appKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ customFields: [{ typeId, value }] }),
+      }
+    );
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `ST customer PATCH failed ${response.status}: ${text.slice(0, 300)}`
+      );
+    }
+  }
+
   // ============================================
   // LEADS (created when referred friend books)
   // ============================================

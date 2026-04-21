@@ -132,8 +132,8 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Referrals"
-            what="Every friend a referrer has sent us. Shows current stage, the attributed referrer, and a link to the corresponding ServiceTitan record. The ServiceTitan column shows a green &ldquo;booking&rdquo; pill when the referral landed in the ST Bookings queue (preferred — higher conversion), or a &ldquo;lead&rdquo; pill when it landed in the Leads queue instead. Click either to jump to that record in ST. A dash means nothing was created on the ST side."
-            who="Anyone troubleshooting a specific referral (&ldquo;my friend Sarah said she booked, where&apos;s my reward?&rdquo;) or confirming the ST record actually landed."
+            what="Every friend a referrer has sent us. Shows current stage, the attributed referrer, and a link to the corresponding ServiceTitan record (booking pill or lead pill). Each row also has a &ldquo;tag in ST&rdquo; action that writes the referrer's code to the ST customer's Referral_Code custom field — future invoice webhooks then match via that field instead of the fragile phone fallback. Requires st_customer_referral_code_field_id to be set in Settings and the field to exist in ST. Only available after the referral has a linked ST customer."
+            who="Anyone troubleshooting a specific referral (&ldquo;my friend Sarah said she booked, where&apos;s my reward?&rdquo;), confirming the ST record landed, or tagging the ST customer for reliable future matches."
           />
           <AdminPageEntry
             title="Rewards"
@@ -157,7 +157,7 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Settings"
-            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), triple_win_enabled (global Triple Win on/off toggle). Per-key validators catch bad input before it hits downstream systems."
+            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page), triple_win_enabled (global Triple Win on/off toggle). Per-key validators catch bad input before it hits downstream systems."
             who="Admins reconfiguring the program without code changes. Requires can_manage_settings."
           />
           <AdminPageEntry
@@ -267,9 +267,10 @@ export default function HelpPage() {
           </li>
           <li>
             <strong>Invoice webhook</strong> &mdash; ServiceTitan calls our
-            endpoint at <code>/api/webhooks/servicetitan</code> when invoices
-            are updated. We match the invoice to a referral, and if it&apos;s
-            paid, we trigger the reward + donation flow.
+            endpoint at <code>/api/webhooks/servicetitan</code> on invoice
+            events. See <a href="#invoice-flow"><strong>Section 7: How
+            referrals become rewards</strong></a> below for the full match
+            + reward math.
           </li>
           <li>
             <strong>Customer notes</strong> &mdash; when a lead is created from
@@ -299,34 +300,149 @@ export default function HelpPage() {
       </Section>
 
       <Section
-        id="customer-requirement"
-        title="7. Do referrers have to be existing customers?"
+        id="invoice-flow"
+        title="7. How referrals become rewards (invoice flow)"
       >
         <p>
-          <strong>No.</strong> Anyone can enroll. The app attempts to link each
-          new referrer to an existing ServiceTitan customer record, but if
-          there&apos;s no match &mdash; or if ServiceTitan is unreachable &mdash;
-          enrollment goes through anyway. The ServiceTitan link can always be
-          added or corrected later.
+          This is the end-of-the-loop. A referred friend&apos;s invoice gets
+          paid in ServiceTitan &rarr; we receive a webhook &rarr; we figure
+          out which of our referrals it belongs to &rarr; we calculate the
+          reward + charity donation and issue them.
         </p>
         <Callout>
-          <strong>Edge case handled:</strong> if two people share a phone
-          number (spouses on a joint account, roommates), the second person to
-          enroll is saved <em>without</em> a ServiceTitan link rather than being
-          rejected. They can be manually re-linked later by updating their
-          record in the database.
+          <strong>Key fact:</strong> ServiceTitan&apos;s invoice webhook gives
+          us a customer ID &mdash; not a phone number, not an email. We have
+          to trace back from the customer ID to &ldquo;which referral was
+          this person?&rdquo;. That trace is where most of the subtlety lives.
         </Callout>
+
+        <h3 className="text-lg font-semibold mt-4 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          How we match the invoice to a referral (three paths, in order)
+        </h3>
+        <ol className="list-decimal pl-6 space-y-3">
+          <li>
+            <strong>Direct match on the stored ST customer ID.</strong> If
+            the referral row already has <code>service_titan_customer_id</code>{" "}
+            set (from a previous webhook or admin linking), we hit it on
+            the first query and stop. Fastest and most reliable.
+          </li>
+          <li>
+            <strong>ST customer&apos;s <code>Referral_Code</code> custom
+            field.</strong> We fetch the ST customer record, look for a
+            custom field named <code>Referral_Code</code> (or{" "}
+            <code>Referral Code</code>). If set, we find that referrer and
+            their most recent in-flight referral. Then we backfill
+            <code>service_titan_customer_id</code> so future webhooks win
+            on path 1.
+            <br />
+            <span className="text-sm opacity-80">
+              Requires one-time setup in ServiceTitan: ST admin creates a
+              text custom field called <code>Referral_Code</code> on the
+              Customer entity. After that, any CSR who writes the referral
+              code into that field (e.g. during booking) gives us a durable,
+              typo-resistant match.
+            </span>
+          </li>
+          <li>
+            <strong>Phone fallback.</strong> If the first two paths miss,
+            we pull the ST customer&apos;s phone, normalize to 10 digits,
+            and scan the 50 most recent in-flight referrals for a
+            normalized match on <code>referred_phone</code>. This is the
+            rescue path &mdash; it works but has edge cases (spouse uses a
+            different number to book, typo at form submission, shared
+            household phone).
+          </li>
+        </ol>
+
+        <h3 className="text-lg font-semibold mt-4 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Where the invoice amount comes from
+        </h3>
+        <p>
+          <strong>Not from the webhook payload.</strong> We call{" "}
+          <code>GET /invoices/{"{id}"}</code> against ServiceTitan to get the
+          authoritative total. The webhook&apos;s{" "}
+          <code>data.total</code> is only used as a fallback if the API call
+          fails. This protects against partial / stale webhook payloads.
+        </p>
+
+        <h3 className="text-lg font-semibold mt-4 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          How the reward is calculated
+        </h3>
+        <ol className="list-decimal pl-6 space-y-1">
+          <li>
+            Re-classify the service category from the actual job + invoice
+            (not from what the friend chose on the form). So a &ldquo;Not
+            sure yet&rdquo; click-through that turns into a $12K install
+            correctly grades as Replacement, not Service Call.
+          </li>
+          <li>
+            Look up the tier for that category in the referrer&apos;s
+            assigned reward config.
+          </li>
+          <li>
+            Run <code>calculateReward(invoiceTotal, tier)</code> — flat,
+            tiered, or percentage formula per the tier&apos;s config.
+          </li>
+          <li>
+            If Triple Win was activated at submission AND the referrer has
+            a charity picked, also run{" "}
+            <code>calculateCharityMatch(rewardAmount, tier)</code>.
+          </li>
+          <li>
+            Insert <code>ref_rewards</code> (auto-approved for most tiers,
+            PENDING if the tier requires admin approval &mdash;
+            <code>requires_admin_approval</code> flag) and optionally{" "}
+            <code>ref_charity_donations</code>.
+          </li>
+          <li>
+            If auto-approved, kick off Tremendous fulfillment (or charity
+            payout, which is manual today).
+          </li>
+        </ol>
+
+        <h3 className="text-lg font-semibold mt-4 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Most common failure mode
+        </h3>
+        <Callout>
+          The friend books under a different phone than they typed on the
+          referral form (spouse&apos;s cell, work number, etc.). Path 3
+          (phone fallback) misses. Path 2 only works if someone wrote the
+          referral code into the ST customer&apos;s{" "}
+          <code>Referral_Code</code> custom field. No one did &rarr; the
+          webhook can&apos;t find a match &rarr; reward never fires. The
+          referral stays stuck at SUBMITTED / BOOKED.
+          <br />
+          <br />
+          <strong>The durable fix:</strong> ST admin creates the{" "}
+          <code>Referral_Code</code> custom field on customers and CSRs
+          learn to set it on booked referrals. One extra click per booking
+          removes this entire category of failure.
+        </Callout>
+      </Section>
+
+      <Section
+        id="customer-requirement"
+        title="8. Do referrers have to be existing customers?"
+      >
+        <p>
+          <strong>No.</strong> Anyone can enroll. The app does not try to
+          auto-link each new referrer to an existing ServiceTitan customer
+          record &mdash; ST&apos;s customer search API is unreliable
+          (silently false-matches) so we leave referrers unlinked at
+          enrollment. Admins set the ST customer link manually via the inline
+          edit on the Referrers page.
+        </p>
         <p>
           <strong>How the customer sees it:</strong> when a referrer whose
-          enrollment linked to ServiceTitan visits their dashboard, a small
-          &ldquo;Your Christmas Air account is connected&rdquo; pill appears
-          under the welcome line. Customers who weren&apos;t linked don&apos;t
-          see an awkward negative signal &mdash; the pill just isn&apos;t
-          rendered.
+          row has <code>service_titan_id</code> set visits their dashboard,
+          a small &ldquo;Your Christmas Air account is connected&rdquo; pill
+          appears under the welcome line. Customers without a linkage
+          don&apos;t see an awkward negative signal &mdash; the pill just
+          isn&apos;t rendered.
         </p>
       </Section>
 
-      <Section id="faq" title="8. Common questions customers will ask">
+      <Section id="faq" title="9. Common questions customers will ask">
         <div className="space-y-2">
           <Faq q="A customer says they referred someone but didn't get their reward &mdash; where do I look?">
             <ol className="list-decimal pl-5 space-y-1">
@@ -395,6 +511,23 @@ export default function HelpPage() {
               ServiceTitan.
             </p>
           </Faq>
+          <Faq q="How does a referral actually become a reward?">
+            <p>
+              Short version: when the friend&apos;s invoice is paid in
+              ServiceTitan, ST sends us a webhook with the customer ID. We
+              trace that customer back to one of our referrals (three ways
+              &mdash; by stored ST customer ID, by the{" "}
+              <code>Referral_Code</code> custom field on the ST customer, or
+              by phone number as a fallback), re-derive the actual service
+              category from the invoice, calculate the reward from the
+              tier table, and issue it via Tremendous (gift cards) or queue
+              it for manual payout (charity, account credit). See{" "}
+              <a href="#invoice-flow">
+                <strong>Section 7</strong>
+              </a>{" "}
+              for the full flow and the most common failure modes.
+            </p>
+          </Faq>
           <Faq q="How do I check whether a referral created a lead in ServiceTitan?">
             <p>
               Open the <strong>Referrals</strong> page. The &ldquo;ST
@@ -430,7 +563,7 @@ export default function HelpPage() {
         </div>
       </Section>
 
-      <Section id="troubleshooting" title="9. Troubleshooting reference">
+      <Section id="troubleshooting" title="10. Troubleshooting reference">
         <div className="space-y-3">
           <TroubleshootRow
             symptom="Referral stuck in &ldquo;submitted&rdquo; stage"
@@ -462,7 +595,11 @@ export default function HelpPage() {
           />
           <TroubleshootRow
             symptom="Paid invoice but no reward issued"
-            cause="Webhook likely didn't fire. Confirm the ServiceTitan webhook is still pointing at /api/webhooks/servicetitan on the production URL."
+            cause="Either the webhook didn't fire (confirm ST webhook endpoint is pointing at /api/webhooks/servicetitan) OR the webhook couldn't match the invoice back to a referral. See Section 7 for the match order. Most common cause: the friend booked under a different phone than they typed on the referral form, and no one set the Referral_Code custom field on the ST customer. Fix: on the Referrals page, manually set service_titan_customer_id on that referral to the ST customer's ID, then re-trigger the webhook (or wait for the next invoice event — ST retries)."
+          />
+          <TroubleshootRow
+            symptom="Referral paid but wrong reward amount"
+            cause="Actual service category differed from what the friend chose on the form. Check the referral's service_category field — it's re-derived from ST's job + invoice at reward time. If the re-classification looks wrong, the fix is in classify-actual.ts (or admin can override the reward amount directly on /admin/rewards before approving)."
           />
         </div>
       </Section>
