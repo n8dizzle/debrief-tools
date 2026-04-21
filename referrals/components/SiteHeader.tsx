@@ -23,6 +23,13 @@ export default function SiteHeader() {
           <Link href="/faq" style={{ color: "var(--ca-dark-green)" }}>
             FAQ
           </Link>
+          <Link
+            href="/sign-in"
+            className="hidden sm:inline"
+            style={{ color: "var(--ca-dark-green)" }}
+          >
+            Sign in
+          </Link>
           <Link href="/enroll" className="btn btn-primary">
             Join the program
           </Link>
