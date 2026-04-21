@@ -26,93 +26,89 @@ function PaceGauge({
   label,
   needed,
   target,
-  color,
+  formatValue,
+  suffix,
+  noData,
 }: {
   label: string;
   needed: number;
   target: number;
-  color: string;
+  formatValue?: (v: number) => string;
+  suffix?: string;
+  noData?: boolean;
 }) {
+  const fmt = formatValue || formatCardCurrency;
+  const sfx = suffix || '/day';
+
   // Ratio: 1.0 = exactly on target, >1 = need to go faster, <1 = cruising
   const ratio = target > 0 ? needed / target : 0;
-  // Clamp between 0 and 2x for the gauge range
   const clampedRatio = Math.min(Math.max(ratio, 0), 2);
-  // Map to angle: 0x = -90deg (left), 1x = 0deg (top), 2x = 90deg (right)
   const angle = (clampedRatio - 1) * 90;
 
   const isOver = ratio > 1.05;
   const isWay = ratio > 1.3;
-  const isDone = needed <= 0;
-  const needleColor = isDone ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
+  const isDone = needed <= 0 && !noData;
+  const needleColor = noData ? 'var(--text-muted)' : isDone ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
 
-  const statusText = isDone ? 'Goal reached' : ratio <= 1 ? 'On pace' : ratio <= 1.15 ? 'Push slightly' : ratio <= 1.3 ? 'Push harder' : 'Stretch mode';
+  const statusText = noData ? 'No data yet' : isDone ? 'Goal reached' : ratio <= 1 ? 'On pace' : ratio <= 1.15 ? 'Push slightly' : ratio <= 1.3 ? 'Push harder' : 'Stretch mode';
 
-  // SVG arc gauge
-  const cx = 80, cy = 72, r = 58;
+  const cx = 100, cy = 88, r = 72;
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center flex-1 min-w-0">
       <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
-      <svg width="160" height="95" viewBox="0 0 160 95">
-        {/* Background arc segments */}
-        {/* Green zone: 0x to 1x (left half) */}
-        <path
-          d={describeArc(cx, cy, r, -90, 0)}
-          fill="none"
-          stroke="var(--christmas-green)"
-          strokeWidth="10"
-          strokeLinecap="round"
-          opacity="0.2"
-        />
+      <svg width="200" height="115" viewBox="0 0 200 115">
+        {/* Green zone: 0x to 1x */}
+        <path d={describeArc(cx, cy, r, -90, 0)} fill="none" stroke="var(--christmas-green)" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
         {/* Yellow zone: 1x to 1.3x */}
-        <path
-          d={describeArc(cx, cy, r, 0, 27)}
-          fill="none"
-          stroke="var(--christmas-gold)"
-          strokeWidth="10"
-          strokeLinecap="butt"
-          opacity="0.2"
-        />
+        <path d={describeArc(cx, cy, r, 0, 27)} fill="none" stroke="var(--christmas-gold)" strokeWidth="12" strokeLinecap="butt" opacity="0.2" />
         {/* Red zone: 1.3x to 2x */}
-        <path
-          d={describeArc(cx, cy, r, 27, 90)}
-          fill="none"
-          stroke="#EF4444"
-          strokeWidth="10"
-          strokeLinecap="round"
-          opacity="0.2"
-        />
-        {/* Target tick at center (1x) */}
-        <line x1={cx} y1={cy - r + 5} x2={cx} y2={cy - r - 7} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.5" />
+        <path d={describeArc(cx, cy, r, 27, 90)} fill="none" stroke="#EF4444" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
+        {/* Active arc fill up to needle */}
+        {!noData && (
+          <path
+            d={describeArc(cx, cy, r, -90, Math.min(angle, 90))}
+            fill="none"
+            stroke={needleColor}
+            strokeWidth="12"
+            strokeLinecap="round"
+            opacity="0.5"
+          />
+        )}
+        {/* Target tick at 1x */}
+        <line x1={cx} y1={cy - r + 6} x2={cx} y2={cy - r - 8} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.5" />
         {/* Needle */}
-        <line
-          x1={cx}
-          y1={cy}
-          x2={cx + (r - 15) * Math.sin(angle * Math.PI / 180)}
-          y2={cy - (r - 15) * Math.cos(angle * Math.PI / 180)}
-          stroke={needleColor}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {/* Center dot */}
-        <circle cx={cx} cy={cy} r="4" fill={needleColor} />
-        {/* Labels */}
-        <text x="18" y="78" fontSize="9" fill="var(--text-muted)" textAnchor="middle">0x</text>
-        <text x={cx} y="10" fontSize="9" fill="var(--text-muted)" textAnchor="middle">1x</text>
-        <text x="142" y="78" fontSize="9" fill="var(--text-muted)" textAnchor="middle">2x</text>
+        {!noData && (
+          <>
+            <line
+              x1={cx} y1={cy}
+              x2={cx + (r - 18) * Math.sin(angle * Math.PI / 180)}
+              y2={cy - (r - 18) * Math.cos(angle * Math.PI / 180)}
+              stroke={needleColor} strokeWidth="3" strokeLinecap="round"
+            />
+            <circle cx={cx} cy={cy} r="5" fill={needleColor} />
+          </>
+        )}
+        {/* Scale labels */}
+        <text x="22" y="94" fontSize="10" fill="var(--text-muted)" textAnchor="middle">0x</text>
+        <text x={cx} y="12" fontSize="10" fill="var(--text-muted)" textAnchor="middle">1x</text>
+        <text x="178" y="94" fontSize="10" fill="var(--text-muted)" textAnchor="middle">2x</text>
       </svg>
-      {/* Numbers below gauge */}
-      <div className="text-center -mt-1">
-        <div className="text-xl font-bold" style={{ color: needleColor }}>
-          {isDone ? '✓' : `${ratio.toFixed(2)}x`}
+      <div className="text-center -mt-2">
+        <div className="text-2xl font-bold" style={{ color: needleColor }}>
+          {noData ? '--' : isDone ? '✓' : `${ratio.toFixed(2)}x`}
         </div>
-        <div className="text-[11px] font-medium" style={{ color: needleColor }}>{statusText}</div>
-        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-          {formatCardCurrency(needed)}/day needed
-        </div>
-        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          vs {formatCardCurrency(target)}/day target
-        </div>
+        <div className="text-xs font-medium mt-0.5" style={{ color: needleColor }}>{statusText}</div>
+        {!noData && (
+          <>
+            <div className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+              {fmt(needed)} {sfx} needed
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              vs {fmt(target)} {sfx} target
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -685,25 +681,40 @@ export default function HuddleDashboard({
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
                 </div>
 
-                {/* Pace gauges */}
-                <div className="relative flex justify-center gap-12 mb-6 py-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                {/* Pace gauges - 4 across */}
+                <div className="relative mb-6 py-5 px-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
                   {pacingData?.businessDaysRemaining !== undefined && (
                     <span className="absolute top-3 right-3 text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
                       {pacingData.businessDaysRemaining} biz days left
                     </span>
                   )}
-                  <PaceGauge
-                    label="Revenue Pace"
-                    needed={dailyRevNeeded}
-                    target={origDailyTarget}
-                    color="var(--christmas-cream)"
-                  />
-                  <PaceGauge
-                    label="Sales Pace"
-                    needed={dailySalesNeeded}
-                    target={origDailyTarget * SALES_MULTIPLIER}
-                    color="var(--christmas-gold)"
-                  />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <PaceGauge
+                      label="Revenue Pace"
+                      needed={dailyRevNeeded}
+                      target={origDailyTarget}
+                    />
+                    <PaceGauge
+                      label="Sales Pace"
+                      needed={dailySalesNeeded}
+                      target={origDailyTarget * SALES_MULTIPLIER}
+                    />
+                    <PaceGauge
+                      label="Replacement Leads"
+                      needed={0}
+                      target={0}
+                      suffix="/day"
+                      formatValue={(v) => v.toFixed(0)}
+                      noData
+                    />
+                    <PaceGauge
+                      label="Avg Ticket"
+                      needed={0}
+                      target={0}
+                      suffix=""
+                      noData
+                    />
+                  </div>
                 </div>
 
                 {/* Scoreboard table */}
