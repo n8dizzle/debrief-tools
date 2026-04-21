@@ -1214,37 +1214,9 @@ export default function DashboardPage() {
                   { label: 'Today', revenue: trades.plumbing.today.revenue, sales: (trades.plumbing.today as TradeMetrics).sales || 0, target: plumbingTargets?.daily || 0, pacing: dailyPacing },
                   { label: 'This Week', revenue: trades.plumbing.wtd.revenue, sales: (trades.plumbing.wtd as TradeMetrics).sales || 0, target: plumbingTargets?.weekly || 0, pacing: weeklyPacing },
                   { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
-                ] as const).map((period) => {
-                  const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                  const color = getStatusColor(pct, period.pacing);
-                  return (
-                    <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                        {period.target > 0 && (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
-                        )}
-                      </div>
-                      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-                        {loading ? '...' : formatCurrencyCompact(period.revenue)}
-                      </div>
-                      <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
-                        {loading ? '...' : formatCurrencyCompact(period.sales)} sold
-                      </div>
-                      {period.target > 0 && (
-                        <>
-                          <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
-                          <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                            <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                            {period.pacing > 0 && !loading && (
-                              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                ] as const).map((p) => (
+                  <RevenueCard key={p.label} label={p.label} revenue={p.revenue} sales={p.sales} target={p.target} loading={loading} accentColor="purple" expectedPacing={p.pacing} />
+                ))}
               </div>
             </div>
           </div>
@@ -1279,37 +1251,9 @@ export default function DashboardPage() {
                   { label: 'Today', revenue: trades.hvac.today.revenue, sales: (trades.hvac.today as TradeMetrics).sales || 0, target: hvacTargets?.daily || 0, pacing: dailyPacing },
                   { label: 'This Week', revenue: trades.hvac.wtd.revenue, sales: (trades.hvac.wtd as TradeMetrics).sales || 0, target: hvacTargets?.weekly || 0, pacing: weeklyPacing },
                   { label: 'This Month', revenue: trades.hvac.mtd.revenue, sales: (trades.hvac.mtd as TradeMetrics).sales || 0, target: hvacTargets?.monthly || 0, pacing: monthlyPacing },
-                ] as const).map((period) => {
-                  const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                  const color = getStatusColor(pct, period.pacing);
-                  return (
-                    <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                        {period.target > 0 && (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
-                        )}
-                      </div>
-                      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-                        {loading ? '...' : formatCurrencyCompact(period.revenue)}
-                      </div>
-                      <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
-                        {loading ? '...' : formatCurrencyCompact(period.sales)} sold
-                      </div>
-                      {period.target > 0 && (
-                        <>
-                          <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
-                          <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                            <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                            {period.pacing > 0 && !loading && (
-                              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                ] as const).map((p) => (
+                  <RevenueCard key={p.label} label={p.label} revenue={p.revenue} sales={p.sales} target={p.target} loading={loading} accentColor="gold" expectedPacing={p.pacing} />
+                ))}
               </div>
             </div>
 
@@ -1331,7 +1275,7 @@ export default function DashboardPage() {
               </button>
 
               {hvacExpanded && (
-                <div className="px-5 sm:px-6 pb-5 sm:pb-6 space-y-3">
+                <div className="px-5 sm:px-6 pb-5 sm:pb-6 space-y-4">
                   {(['sales', 'install', 'service', 'maintenance'] as const).map((dept) => {
                     const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance', sales: 'Sales' };
                     const getDeptData = (period: 'today' | 'wtd' | 'mtd') => {
@@ -1340,38 +1284,16 @@ export default function DashboardPage() {
                     };
                     const getDeptTarget = (period: 'daily' | 'weekly' | 'monthly') => hvacTargets?.departments?.[dept]?.[period] || 0;
                     return (
-                      <div key={dept} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                        <div className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</div>
-                        <div className="grid grid-cols-3 gap-3">
+                      <div key={dept}>
+                        <div className="text-sm font-semibold mb-2 px-1" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {([
                             { label: 'Today', data: getDeptData('today'), target: getDeptTarget('daily'), pacing: dailyPacing },
                             { label: 'Week', data: getDeptData('wtd'), target: getDeptTarget('weekly'), pacing: weeklyPacing },
                             { label: 'Month', data: getDeptData('mtd'), target: getDeptTarget('monthly'), pacing: monthlyPacing },
-                          ] as const).map((period) => {
-                            const pct = period.target > 0 ? Math.round((period.data.revenue / period.target) * 100) : 0;
-                            const color = period.target > 0 ? getStatusColor(pct, period.pacing) : 'var(--text-muted)';
-                            return (
-                              <div key={period.label}>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                                  {period.target > 0 && (
-                                    <span className="text-xs font-semibold" style={{ color }}>{loading ? '...' : `${pct}%`}</span>
-                                  )}
-                                </div>
-                                <div className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                                  {loading ? '...' : formatCurrencyCompact(period.data.revenue)}
-                                </div>
-                                <div className="text-xs" style={{ color: 'var(--christmas-gold)' }}>
-                                  {loading ? '...' : formatCurrencyCompact(period.data.sales || 0)} sold
-                                </div>
-                                {period.target > 0 && (
-                                  <div className="relative h-1 rounded-full mt-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                                    <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                          ] as const).map((p) => (
+                            <RevenueCard key={p.label} label={p.label} revenue={p.data.revenue} sales={p.data.sales || 0} target={p.target} loading={loading} accentColor="gold" expectedPacing={p.pacing} />
+                          ))}
                         </div>
                       </div>
                     );
