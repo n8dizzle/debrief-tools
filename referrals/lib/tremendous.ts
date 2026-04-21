@@ -5,8 +5,11 @@
  * Env vars (set in Vercel project):
  *   TREMENDOUS_API_KEY
  *   TREMENDOUS_FUNDING_SOURCE_ID
- *   TREMENDOUS_VISA_PRODUCT_ID
- *   TREMENDOUS_AMAZON_PRODUCT_ID
+ *   TREMENDOUS_CAMPAIGN_ID              (required for gift-card rewards;
+ *                                        Tremendous campaign bundling many
+ *                                        card options — recipient picks at
+ *                                        redemption. Admin manages the
+ *                                        catalog in the Tremendous dashboard.)
  *   TREMENDOUS_CHARITY_PRODUCT_ID       (generic charity product; individual
  *                                        charity IDs stored per-charity on
  *                                        ref_charities.tremendous_charity_id)
@@ -16,9 +19,20 @@
 interface TremendousOrderResponse {
   order: {
     id: string;
-    status: string;
+    status: string; // pending_approval | approved | executed | declined | failed
     created_at: string;
   };
+}
+
+export interface TremendousOrderResult {
+  orderId: string;
+  /**
+   * Raw status from Tremendous at order-creation time. "pending_approval"
+   * means the org has order-approvals configured and a human has to approve
+   * inside Tremendous before the reward delivers. "approved" / "executed"
+   * means it went straight through.
+   */
+  status: string;
 }
 
 export interface TremendousOrderInput {
@@ -28,12 +42,24 @@ export interface TremendousOrderInput {
     name: string;
     email: string;
   };
-  productId: string;
+  /** Specific product (Visa, Amazon, specific charity, etc.). */
+  productId?: string;
+  /**
+   * Tremendous campaign (bundle of many products, recipient picks at redeem
+   * time). Mutually exclusive with productId — pass one or the other.
+   */
+  campaignId?: string;
   deliveryMethod?: "EMAIL" | "LINK";
   customFields?: Array<{ id: string; value: string }>;
 }
 
-export type TremendousProduct = "VISA" | "AMAZON" | "CHARITY";
+/**
+ * How a reward is routed inside Tremendous:
+ *  - GIFT_CARD → campaign (recipient picks any card in the bundle at redeem)
+ *  - CHARITY   → specific charity product ID (charity routing is per-charity,
+ *                not bundled, since the donation must name a specific nonprofit)
+ */
+export type TremendousProduct = "GIFT_CARD" | "CHARITY";
 
 export class TremendousClient {
   private readonly BASE_URL: string;
@@ -55,22 +81,47 @@ export class TremendousClient {
     return !!(this.apiKey && this.fundingSourceId);
   }
 
-  getProductId(product: TremendousProduct): string | null {
-    const map: Record<TremendousProduct, string | undefined> = {
-      VISA: process.env.TREMENDOUS_VISA_PRODUCT_ID,
-      AMAZON: process.env.TREMENDOUS_AMAZON_PRODUCT_ID,
-      CHARITY: process.env.TREMENDOUS_CHARITY_PRODUCT_ID,
-    };
-    return map[product] || null;
+  /**
+   * Tremendous campaign for gift-card rewards. Recipient picks any card from
+   * the campaign bundle at redemption. Returns null if not configured.
+   */
+  getCampaignId(): string | null {
+    return process.env.TREMENDOUS_CAMPAIGN_ID || null;
   }
 
   /**
-   * Create a Tremendous order — delivers the reward to the recipient's email.
-   * Returns the order ID on success, or throws.
+   * Specific-product IDs. GIFT_CARD intentionally returns null — gift cards
+   * always route via the campaign; there is no fallback product because a
+   * silent fallback (e.g. "just send a Visa instead") would hide a broken
+   * campaign config. CHARITY returns the generic charity product ID.
    */
-  async createOrder(input: TremendousOrderInput): Promise<string> {
+  getProductId(product: TremendousProduct): string | null {
+    if (product === "CHARITY") {
+      return process.env.TREMENDOUS_CHARITY_PRODUCT_ID || null;
+    }
+    return null;
+  }
+
+  /**
+   * Create a Tremendous order. If order-approvals are configured on the
+   * Tremendous org, the returned status will be "pending_approval" and the
+   * reward does NOT deliver until a human approves inside the Tremendous
+   * dashboard. Otherwise status is "approved" / "executed" and delivery
+   * begins immediately. Throws on API failure.
+   */
+  async createOrder(input: TremendousOrderInput): Promise<TremendousOrderResult> {
     if (!this.isConfigured()) {
       throw new Error("Tremendous credentials not configured");
+    }
+    if (!input.campaignId && !input.productId) {
+      throw new Error(
+        "createOrder requires either a campaignId or a productId"
+      );
+    }
+    if (input.campaignId && input.productId) {
+      throw new Error(
+        "createOrder: campaignId and productId are mutually exclusive"
+      );
     }
 
     const body = {
@@ -83,7 +134,9 @@ export class TremendousClient {
           },
           delivery: { method: input.deliveryMethod || "EMAIL" },
           recipient: input.recipient,
-          products: [input.productId],
+          ...(input.campaignId
+            ? { campaign_id: input.campaignId }
+            : { products: [input.productId] }),
           ...(input.customFields && { custom_fields: input.customFields }),
         },
       ],
@@ -104,7 +157,33 @@ export class TremendousClient {
     }
 
     const data = (await response.json()) as TremendousOrderResponse;
-    return data.order.id;
+    return { orderId: data.order.id, status: data.order.status };
+  }
+
+  /**
+   * Fetch current status of a previously-created order. Used to check whether
+   * a pending-approval order has been approved/declined on the Tremendous
+   * side, without requiring a webhook subscription.
+   */
+  async getOrderStatus(orderId: string): Promise<string | null> {
+    if (!this.isConfigured()) return null;
+    try {
+      const res = await fetch(`${this.BASE_URL}/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as TremendousOrderResponse;
+      return data.order.status || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Customer-facing dashboard host, used for building deep-link URLs. */
+  dashboardHost(): string {
+    return this.BASE_URL.includes("testflight")
+      ? "https://testflight.tremendous.com"
+      : "https://app.tremendous.com";
   }
 
   /**

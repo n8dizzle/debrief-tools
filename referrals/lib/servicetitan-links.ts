@@ -1,9 +1,7 @@
 /**
- * Deep-link helpers for ServiceTitan's web admin (go.servicetitan.com).
- *
- * ST uses hash-based SPA routes. These paths work for the Texas tenant; if
- * ServiceTitan changes them we only need to edit this one file and every
- * admin-side link updates.
+ * Deep-link helpers for external admin dashboards. Centralized here so if any
+ * vendor changes their URL scheme we edit one file instead of hunting call
+ * sites.
  */
 
 const ST_BASE = "https://go.servicetitan.com";
@@ -16,4 +14,21 @@ export function stCustomerUrl(id: string | number | null | undefined): string | 
 export function stLeadUrl(id: string | number | null | undefined): string | null {
   if (!id) return null;
   return `${ST_BASE}/#/Lead/${id}`;
+}
+
+/**
+ * Tremendous order page. Sandbox and production live on different hosts, so
+ * we take the env explicitly — pass the env string from the server context
+ * (`process.env.TREMENDOUS_ENV`) so the link routes to the matching dashboard.
+ */
+export function tremendousOrderUrl(
+  id: string | null | undefined,
+  env: string | null | undefined = "production"
+): string | null {
+  if (!id) return null;
+  const host =
+    (env || "production").toLowerCase() === "sandbox"
+      ? "https://testflight.tremendous.com"
+      : "https://app.tremendous.com";
+  return `${host}/rewards/${id}`;
 }

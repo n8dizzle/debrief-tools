@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
+import { tremendousOrderUrl } from "@/lib/servicetitan-links";
+import STLinkBadge from "@/components/STLinkBadge";
 import type { Reward, RewardStatus, Referrer } from "@/lib/supabase";
 import RewardActions from "./RewardActions";
 
@@ -44,6 +46,7 @@ export default async function RewardsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const statusFilter = sp.status || "PENDING";
   const rewards = await getRewards(statusFilter);
+  const tremendousEnv = (process.env.TREMENDOUS_ENV || "production").toLowerCase();
 
   return (
     <div>
@@ -79,6 +82,7 @@ export default async function RewardsPage({ searchParams }: PageProps) {
               <Th className="text-right">Amount</Th>
               <Th>Type</Th>
               <Th>Status</Th>
+              <Th>Tremendous</Th>
               <Th>Created</Th>
               <Th>Actions</Th>
             </tr>
@@ -96,6 +100,11 @@ export default async function RewardsPage({ searchParams }: PageProps) {
                 <Td className="text-xs opacity-80">{r.type.replace(/_/g, " ")}</Td>
                 <Td>
                   <RewardStatusBadge status={r.status} />
+                  {r.tremendous_status === "pending_approval" && (
+                    <div className="text-xs mt-1 opacity-80" style={{ color: "#8a6a3a" }}>
+                      waiting on Tremendous
+                    </div>
+                  )}
                   {r.failure_reason && (
                     <div
                       className="text-xs mt-1 opacity-80"
@@ -104,6 +113,13 @@ export default async function RewardsPage({ searchParams }: PageProps) {
                       {r.failure_reason.slice(0, 80)}
                     </div>
                   )}
+                </Td>
+                <Td>
+                  <STLinkBadge
+                    id={r.tremendous_order_id}
+                    href={tremendousOrderUrl(r.tremendous_order_id, tremendousEnv)}
+                    emptyTitle="No Tremendous order yet — reward hasn't been fulfilled"
+                  />
                 </Td>
                 <Td className="opacity-70 text-xs">
                   {new Date(r.created_at).toLocaleDateString()}
@@ -115,7 +131,7 @@ export default async function RewardsPage({ searchParams }: PageProps) {
             ))}
             {rewards.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center opacity-60">
+                <td colSpan={7} className="p-8 text-center opacity-60">
                   No rewards match this filter.
                 </td>
               </tr>

@@ -212,6 +212,7 @@ export interface Reward {
   type: RewardType;
   status: RewardStatus;
   tremendous_order_id: string | null;
+  tremendous_status: string | null;
   service_titan_credit_id: string | null;
   charity_name: string | null;
   issued_at: string | null;

@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/admin/charities", label: "Charities" },
   { href: "/admin/config", label: "Reward configs" },
   { href: "/admin/settings", label: "Settings" },
+  { href: "/admin/tremendous", label: "Tremendous" },
   { href: "/admin/help", label: "Help" },
 ];
 
