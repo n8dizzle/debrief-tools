@@ -711,14 +711,24 @@ export default function HuddleDashboard({
                       needed={dailySalesNeeded}
                       target={origDailyTarget * SALES_MULTIPLIER}
                     />
-                    <PaceGauge
-                      label="Replacement Leads"
-                      needed={0}
-                      target={0}
-                      suffix="/day"
-                      formatValue={(v) => v.toFixed(0)}
-                      noData
-                    />
+                    {(() => {
+                      const leadsMtd = pacingData?.replacementLeadsMtd || 0;
+                      const leadsGoal = pacingData?.replacementLeadMonthlyGoal || 0;
+                      const leadsRemaining = Math.max(0, leadsGoal - leadsMtd);
+                      const leadsPerDayNeeded = bdzLeft > 0 ? leadsRemaining / bdzLeft : 0;
+                      const leadsPerDayTarget = leadsGoal > 0 && (pacingData?.businessDaysInMonth || 0) > 0
+                        ? leadsGoal / pacingData!.businessDaysInMonth : 0;
+                      return (
+                        <PaceGauge
+                          label="Replacement Leads"
+                          needed={leadsPerDayNeeded}
+                          target={leadsPerDayTarget}
+                          suffix="/day"
+                          formatValue={(v) => v.toFixed(1)}
+                          noData={leadsGoal === 0}
+                        />
+                      );
+                    })()}
                     <PaceGauge
                       label="Avg Ticket"
                       needed={0}

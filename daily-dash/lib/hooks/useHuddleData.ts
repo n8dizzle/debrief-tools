@@ -128,6 +128,11 @@ export interface PacingData {
   reviewsMtdCount: number;
   reviewsMtdAvgRating: number;
   reviewMonthlyGoal: number;
+  // Replacement leads
+  replacementLeadsMtd: number;
+  tglLeadsMtd: number;
+  marketingLeadsMtd: number;
+  replacementLeadMonthlyGoal: number;
 }
 
 export interface HuddleApiResponse {

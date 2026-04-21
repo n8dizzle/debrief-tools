@@ -1441,6 +1441,30 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Fetch a report from the operations category (custom reports)
+   */
+  async getOperationsReport(reportId: number, startDate: string, endDate: string): Promise<{
+    fields: { name: string; label: string }[];
+    data: any[][];
+    hasMore: boolean;
+  }> {
+    return this.request(
+      'POST',
+      `reporting/v2/tenant/${this.tenantId}/report-category/operations/reports/${reportId}/data`,
+      {
+        body: {
+          parameters: [
+            { name: 'From', value: startDate },
+            { name: 'To', value: endDate },
+          ],
+          pageSize: 2000,
+          page: 1,
+        },
+      }
+    );
+  }
+
+  /**
    * Check if client is configured
    */
   isConfigured(): boolean {

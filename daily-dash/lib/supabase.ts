@@ -186,6 +186,10 @@ export interface HuddlePacingData {
   reviewsMtdCount: number;
   reviewsMtdAvgRating: number;
   reviewMonthlyGoal: number;
+  replacementLeadsMtd: number;
+  tglLeadsMtd: number;
+  marketingLeadsMtd: number;
+  replacementLeadMonthlyGoal: number;
 }
 
 export interface HuddleDashboardResponse {

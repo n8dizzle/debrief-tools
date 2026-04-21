@@ -855,6 +855,42 @@ export async function GET(request: NextRequest) {
       ? reviewsMtdRatings.reduce((sum, r) => sum + r.star_rating, 0) / reviewsMtdRatings.length
       : 0;
 
+    // --- Replacement leads from ST Report 173574034 (operations category) ---
+    const REPLACEMENT_LEAD_TARGETS: Record<number, { monthly: number[] }> = {
+      2026: { monthly: [50, 48, 70, 82, 105, 123, 119, 120, 78, 74, 61, 62] },
+    };
+    const replacementLeadMonthlyGoal = REPLACEMENT_LEAD_TARGETS[year]?.monthly[month - 1] || 0;
+
+    let replacementLeadsMtd = 0;
+    let tglLeadsMtd = 0;
+    let marketingLeadsMtd = 0;
+    try {
+      const firstOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+      const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
+
+      if (reportData.fields && reportData.data) {
+        const fieldMap = new Map<string, number>();
+        reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
+        const tglIdx = fieldMap.get('TechLeadJobs') ?? -1;
+        const mktIdx = fieldMap.get('MarketingLeadJobs') ?? -1;
+        const replIdx = fieldMap.get('ReplacementLeadJobs') ?? -1;
+        const buIdx = fieldMap.get('Name') ?? -1;
+
+        for (const row of reportData.data) {
+          // Only count HVAC BUs for replacement leads (not plumbing)
+          const buName = buIdx >= 0 ? String(row[buIdx]) : '';
+          if (buName.startsWith('Plumbing')) continue;
+
+          if (tglIdx >= 0) tglLeadsMtd += Number(row[tglIdx]) || 0;
+          if (mktIdx >= 0) marketingLeadsMtd += Number(row[mktIdx]) || 0;
+          if (replIdx >= 0) replacementLeadsMtd += Number(row[replIdx]) || 0;
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching replacement leads report:', err);
+    }
+
     // Pacing data object
     const pacingData = {
       todayRevenue: liveTodayRevenue,
@@ -897,6 +933,11 @@ export async function GET(request: NextRequest) {
       reviewsMtdCount,
       reviewsMtdAvgRating: Math.round(reviewsMtdAvgRating * 100) / 100,
       reviewMonthlyGoal,
+      // Replacement leads
+      replacementLeadsMtd,
+      tglLeadsMtd,
+      marketingLeadsMtd,
+      replacementLeadMonthlyGoal,
     };
 
     // Build trade totals for the selected date from trade_daily_snapshots
