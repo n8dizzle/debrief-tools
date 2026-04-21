@@ -39,7 +39,11 @@ function PacingCard({
   const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const getRatio = () => pacing !== undefined && pacing > 0 ? pct / pacing : pct / 100;
   const ratio = getRatio();
-  const color = ratio >= 1 ? 'var(--christmas-green)' : ratio >= 0.9 ? 'var(--christmas-gold)' : '#EF4444';
+
+  // Completed: color by actual vs target. In-progress: color by actual vs expected pacing.
+  const color = completed
+    ? (pct >= 100 ? 'var(--christmas-green)' : pct >= 90 ? 'var(--christmas-gold)' : '#EF4444')
+    : (ratio >= 1 ? 'var(--christmas-green)' : ratio >= 0.9 ? 'var(--christmas-gold)' : '#EF4444');
 
   // Completed periods get a verdict, in-progress get pacing copy
   const getStatusLabel = () => {
