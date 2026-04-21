@@ -452,7 +452,7 @@ export default function MarketingDashboard() {
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-            Booked Jobs by {leadsView === 'category' ? 'Category' : 'Campaign'}
+            Booked Jobs by {leadsView === 'category' ? 'Channel' : 'Campaign'}
           </h2>
           <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
             <button
@@ -463,7 +463,7 @@ export default function MarketingDashboard() {
                 color: leadsView === 'category' ? 'var(--christmas-cream)' : 'var(--text-muted)',
               }}
             >
-              Category
+              Channel
             </button>
             <button
               onClick={() => setLeadsView('campaign')}

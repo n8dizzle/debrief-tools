@@ -66,11 +66,11 @@ export async function GET(request: Request) {
 
     // Fallback mappings for campaigns not in st_campaign_reports
     const fallbackMap: Record<string, { channel: string; category: string }> = {
-      '01 - Existing Customer': { channel: 'Existing Customer', category: 'Retention' },
-      '03 - Outbound': { channel: 'Outbound', category: 'Sales' },
-      '04 - Loyal Customer - Active for 3 years+': { channel: 'Existing Customer', category: 'Retention' },
-      'Facebook/Meta': { channel: 'Meta/Facebook', category: 'Paid Social' },
-      'Nextdoor': { channel: 'Nextdoor', category: 'Paid Social' },
+      '01 - Existing Customer': { channel: 'Existing Customer', category: 'Existing Customer' },
+      '03 - Outbound': { channel: 'Outbound', category: 'Outbound' },
+      '04 - Loyal Customer - Active for 3 years+': { channel: 'Existing Customer', category: 'Existing Customer' },
+      'Facebook/Meta': { channel: 'Meta/Facebook', category: 'Meta/Facebook' },
+      'Nextdoor': { channel: 'Nextdoor', category: 'Nextdoor' },
     };
 
     const rows = sheetResult.data.values || [];
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 
       const campaign = row[3] || 'Unknown';
       const lookup = campaignMap.get(campaign) || fallbackMap[campaign] || { channel: campaign, category: 'Unknown' };
-      const category = lookup.category;
+      const category = lookup.channel;
 
       allCategories.add(category);
       allCampaigns.add(campaign);
