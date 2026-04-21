@@ -26,15 +26,18 @@ function PacingCard({
   current,
   target,
   sales,
+  expectedPacing,
 }: {
   label: string;
   current: number;
   target: number;
   sales?: number;
+  expectedPacing?: number;
 }) {
   const percent = target > 0 ? Math.round((current / target) * 100) : 0;
   const isAhead = percent >= 100;
   const isClose = percent >= 85;
+  const behindPace = expectedPacing !== undefined && percent < expectedPacing;
 
   return (
     <div
@@ -44,7 +47,7 @@ function PacingCard({
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
           {label}
         </span>
@@ -58,29 +61,58 @@ function PacingCard({
           </span>
         )}
       </div>
-      <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-        {formatCardCurrency(current)}
-      </div>
-      {sales !== undefined && sales > 0 && (
-        <div className="text-sm mt-0.5" style={{ color: 'var(--christmas-gold)' }}>
-          {formatCardCurrency(sales)} sold
+      {/* Revenue + Sales side by side */}
+      <div className="flex items-baseline gap-4">
+        <div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            {formatCardCurrency(current)}
+          </div>
+          <div className="text-xs font-medium uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Revenue
+          </div>
         </div>
-      )}
+        {sales !== undefined && (
+          <div>
+            <div className="text-xl font-bold" style={{ color: 'var(--christmas-gold)' }}>
+              {formatCardCurrency(sales)}
+            </div>
+            <div className="text-xs font-medium uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Sales
+            </div>
+          </div>
+        )}
+      </div>
       {target > 0 && (
-        <>
-          <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+        <div className="mt-3">
+          <div className="text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>
             of {formatCardCurrency(target)} target
           </div>
-          <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          <div className="relative h-2 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
               style={{
                 width: `${Math.min(percent, 100)}%`,
                 backgroundColor: isAhead ? '#4ade80' : isClose ? '#facc15' : '#f87171',
               }}
             />
+            {expectedPacing !== undefined && expectedPacing > 0 && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3.5"
+                style={{ left: `${Math.min(expectedPacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.7 }}
+              />
+            )}
           </div>
-        </>
+          {expectedPacing !== undefined && (
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-xs font-medium" style={{ color: behindPace ? '#f87171' : '#4ade80' }}>
+                {behindPace ? '\u25BC' : '\u25B2'} {behindPace ? 'Behind' : 'Ahead'}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {expectedPacing}% exp
+              </span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -438,31 +470,39 @@ export default function HuddleDashboard({
                   : `${formatDateForDisplay(selectedDate)} → ${formatDateForDisplay(selectedEndDate)}`}
               </span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <PacingCard
-                label={pacingCardLabel}
-                current={pacingData?.todayRevenue || 0}
-                target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.daysInRange || 1) : 0}
-                sales={pacingData?.todaySales || 0}
-              />
-              <PacingCard
-                label="This Week"
-                current={pacingData?.wtdRevenue || 0}
-                target={pacingData?.weeklyTarget || 0}
-                sales={pacingData?.wtdSales || 0}
-              />
-              <PacingCard
-                label="MTD"
-                current={pacingData?.mtdRevenue || 0}
-                target={pacingData?.monthlyTarget || 0}
-                sales={pacingData?.mtdSales || 0}
-              />
-              <ReviewCard
-                reviewCount={pacingData?.reviewsMtdCount || 0}
-                monthlyGoal={pacingData?.reviewMonthlyGoal || 0}
-                avgRating={pacingData?.reviewsMtdAvgRating || 0}
-              />
-            </div>
+            {(() => {
+              const bdElapsed = pacingData?.businessDaysElapsed || 0;
+              const bdInMonth = pacingData?.businessDaysInMonth || 22;
+              const mtdExpected = bdInMonth > 0 ? Math.round((bdElapsed / bdInMonth) * 100) : 0;
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <PacingCard
+                    label={pacingCardLabel}
+                    current={pacingData?.todayRevenue || 0}
+                    target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.daysInRange || 1) : 0}
+                    sales={pacingData?.todaySales || 0}
+                  />
+                  <PacingCard
+                    label="This Week"
+                    current={pacingData?.wtdRevenue || 0}
+                    target={pacingData?.weeklyTarget || 0}
+                    sales={pacingData?.wtdSales || 0}
+                  />
+                  <PacingCard
+                    label="MTD"
+                    current={pacingData?.mtdRevenue || 0}
+                    target={pacingData?.monthlyTarget || 0}
+                    sales={pacingData?.mtdSales || 0}
+                    expectedPacing={mtdExpected}
+                  />
+                  <ReviewCard
+                    reviewCount={pacingData?.reviewsMtdCount || 0}
+                    monthlyGoal={pacingData?.reviewMonthlyGoal || 0}
+                    avgRating={pacingData?.reviewsMtdAvgRating || 0}
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           {/* Department Sections */}
