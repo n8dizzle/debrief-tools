@@ -857,7 +857,7 @@ export async function GET(request: NextRequest) {
 
     // --- Replacement leads from ST Report 173574034 (operations category) ---
     const REPLACEMENT_LEAD_TARGETS: Record<number, { monthly: number[] }> = {
-      2026: { monthly: [50, 48, 70, 82, 105, 123, 119, 120, 78, 74, 61, 62] },
+      2026: { monthly: [80, 60, 89, 120, 173, 203, 200, 206, 113, 99, 80, 80] },
     };
     const replacementLeadMonthlyGoal = REPLACEMENT_LEAD_TARGETS[year]?.monthly[month - 1] || 0;
 
