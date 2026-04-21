@@ -1,8 +1,64 @@
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import {
+  getDefaultConfigTiers,
+  formatTierReward,
+} from "@/lib/rewards/public-display";
+import type { RewardTier } from "@/lib/supabase";
 
-export default function LandingPage() {
+export const dynamic = "force-dynamic";
+
+type TierCardData = {
+  label: string;
+  reward: string;
+  refereeBenefit: string;
+  highlight?: boolean;
+};
+
+const FALLBACK_TIERS: TierCardData[] = [
+  {
+    label: "Service Call or Repair",
+    reward: "$50",
+    refereeBenefit: "$50 off their first service",
+  },
+  {
+    label: "Maintenance Membership",
+    reward: "$75",
+    refereeBenefit: "First month free",
+  },
+  {
+    label: "HVAC or Water Heater Replacement",
+    reward: "$250 – $500",
+    refereeBenefit: "$250 off their project",
+    highlight: true,
+  },
+  {
+    label: "Commercial Services",
+    reward: "$500+",
+    refereeBenefit: "Case-by-case benefit",
+  },
+];
+
+function tierToCard(tier: RewardTier): TierCardData | null {
+  const reward = formatTierReward(tier);
+  if (!reward) return null;
+  return {
+    label: tier.service_category_label,
+    reward,
+    refereeBenefit: tier.referee_discount_label,
+    highlight: tier.service_category === "REPLACEMENT",
+  };
+}
+
+export default async function LandingPage() {
+  const dbTiers = await getDefaultConfigTiers();
+  const tierCards: TierCardData[] =
+    dbTiers
+      .map(tierToCard)
+      .filter((c): c is TierCardData => c !== null);
+  const tiers = tierCards.length > 0 ? tierCards : FALLBACK_TIERS;
+
   return (
     <>
       <SiteHeader />
@@ -69,27 +125,15 @@ export default function LandingPage() {
             Bigger jobs, bigger thanks. Your friend saves too.
           </p>
           <div className="grid gap-5 md:grid-cols-2">
-            <TierCard
-              label="Service Call or Repair"
-              reward="$50"
-              refereeBenefit="$50 off their first service"
-            />
-            <TierCard
-              label="Maintenance Membership"
-              reward="$75"
-              refereeBenefit="First month free"
-            />
-            <TierCard
-              label="HVAC or Water Heater Replacement"
-              reward="$250 – $500"
-              refereeBenefit="$250 off their project"
-              highlight
-            />
-            <TierCard
-              label="Commercial Services"
-              reward="$500+"
-              refereeBenefit="Case-by-case benefit"
-            />
+            {tiers.map((t) => (
+              <TierCard
+                key={t.label}
+                label={t.label}
+                reward={t.reward}
+                refereeBenefit={t.refereeBenefit}
+                highlight={t.highlight}
+              />
+            ))}
           </div>
           <p className="text-center text-sm opacity-60 mt-6">
             Rewards issued as a Visa gift card, Amazon credit, or account credit — your choice.

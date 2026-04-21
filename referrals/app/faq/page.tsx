@@ -1,5 +1,9 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { getDefaultConfigTiers } from "@/lib/rewards/public-display";
+import type { InvoiceBracket, RewardTier } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "FAQ — Christmas Air Referrals",
@@ -7,7 +11,46 @@ export const metadata = {
     "Common questions about the Christmas Air Neighbors Helping Neighbors referral program.",
 };
 
-const FAQ: { q: string; a: string }[] = [
+function tierMinReward(tier: RewardTier): number {
+  if (tier.reward_mode === "FLAT") return tier.flat_reward_amount || 0;
+  if (tier.reward_mode === "TIERED_BY_INVOICE") {
+    const amounts = ((tier.invoice_tier_json as InvoiceBracket[]) || [])
+      .map((b) => Number(b.rewardAmount))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return amounts.length ? Math.min(...amounts) : 0;
+  }
+  return 0;
+}
+
+function tierMaxReward(tier: RewardTier): { amount: number; openTop: boolean } {
+  if (tier.reward_mode === "FLAT") {
+    return { amount: tier.flat_reward_amount || 0, openTop: false };
+  }
+  if (tier.reward_mode === "TIERED_BY_INVOICE") {
+    const brackets = (tier.invoice_tier_json as InvoiceBracket[]) || [];
+    const amounts = brackets
+      .map((b) => Number(b.rewardAmount))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return {
+      amount: amounts.length ? Math.max(...amounts) : 0,
+      openTop: brackets.some((b) => b.maxInvoice === null),
+    };
+  }
+  return { amount: 0, openTop: false };
+}
+
+function earningsRangeCopy(tiers: RewardTier[]): string {
+  if (tiers.length === 0) {
+    return "Anywhere from $50 to $500+. Bigger jobs mean bigger thanks. See the landing page for the full breakdown by service type.";
+  }
+  const low = tierMinReward(tiers[0]);
+  const high = tierMaxReward(tiers[tiers.length - 1]);
+  const suffix = high.openTop ? "+" : "";
+  return `Anywhere from $${Math.round(low)} to $${Math.round(high.amount)}${suffix}. Bigger jobs mean bigger thanks. See the landing page for the full breakdown by service type.`;
+}
+
+function buildFaq(tiers: RewardTier[]): { q: string; a: string }[] {
+  return [
   {
     q: "Who can join?",
     a: "Any current Christmas Air customer. If you've had service with us, you're eligible. We'll match your phone or email to your account when you sign up.",
@@ -26,7 +69,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How much can I earn?",
-    a: "Anywhere from $50 (service call) to $500+ (commercial replacement). Bigger jobs mean bigger thanks. See the landing page for the full breakdown by service type.",
+    a: earningsRangeCopy(tiers),
   },
   {
     q: "Is there a limit?",
@@ -64,9 +107,13 @@ const FAQ: { q: string; a: string }[] = [
     q: "Where do I see my history?",
     a: "Your dashboard shows everyone you've referred, what stage they're at, and what you've earned and donated. Sign in any time at refer.christmasair.com/sign-in.",
   },
-];
+  ];
+}
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  const tiers = await getDefaultConfigTiers();
+  const FAQ = buildFaq(tiers);
+
   return (
     <>
       <SiteHeader />
