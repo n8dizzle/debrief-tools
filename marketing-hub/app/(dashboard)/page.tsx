@@ -12,6 +12,7 @@ interface DashboardData {
   revenueGoal: number;
   totals: {
     totalRevenue: number;
+    completedRevenue: number;
     totalSales: number;
     avgTicket: number;
     totalJobsRan: number;
@@ -167,19 +168,33 @@ function PeriodPicker({
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const currentMonth = new Date().getMonth(); // 0-indexed
 
+  const quickPicks = [
+    { val: 'today', label: 'Today' },
+    { val: 'week', label: 'This Week' },
+    { val: String(currentMonth + 1), label: months[currentMonth] },
+    { val: 'ytd', label: 'YTD' },
+  ];
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <button
-        onClick={() => onChange('ytd')}
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-        style={{
-          backgroundColor: value === 'ytd' ? 'var(--christmas-green)' : 'var(--bg-card)',
-          color: value === 'ytd' ? 'var(--christmas-cream)' : 'var(--text-muted)',
-          border: `1px solid ${value === 'ytd' ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
-        }}
-      >
-        YTD
-      </button>
+      {quickPicks.map(({ val, label }) => {
+        const active = value === val;
+        return (
+          <button
+            key={val}
+            onClick={() => onChange(val)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={{
+              backgroundColor: active ? 'var(--christmas-green)' : 'var(--bg-card)',
+              color: active ? 'var(--christmas-cream)' : 'var(--text-muted)',
+              border: `1px solid ${active ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+      <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--border-subtle)' }} />
       {months.slice(0, currentMonth + 1).map((m, i) => {
         const val = String(i + 1);
         const active = value === val;

@@ -6,6 +6,7 @@ import { google } from 'googleapis';
 export const dynamic = 'force-dynamic';
 
 const SPREADSHEET_ID = '1w-c6lgPYAGUwtW7biPQoGApIoZcTFgR0usyAGUtWEcw';
+const SHEET_NAME = 'Daily #s';
 
 function getOAuth2Client() {
   const clientId = process.env.GOOGLE_BUSINESS_CLIENT_ID;
@@ -25,7 +26,7 @@ function getOAuth2Client() {
   return oauth2Client;
 }
 
-// Parse a cell value like "$788,937" or "51%" or "4.98" into a number
+// Parse "$788,937" or "51%" or "4.98" into a number
 function parseCell(val: string | undefined): number {
   if (!val) return 0;
   const cleaned = val.replace(/[$,%]/g, '').replace(/,/g, '').trim();
@@ -33,11 +34,80 @@ function parseCell(val: string | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
-// Month abbreviations to column index (C=Jan, D=Feb, ... N=Dec)
-const MONTH_COL: Record<number, number> = {
-  1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7,
-  7: 8, 8: 9, 9: 10, 10: 11, 11: 12, 12: 13,
-};
+// Build month abbreviation map: "Jan" -> 1, "Feb" -> 2, etc.
+const MONTH_ABBREVS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Find column indices for a given month from the header row
+// Headers are like "Jan-1", "Jan-2", ..., "Feb-1", etc.
+function getMonthColumns(headers: string[], monthNum: number): number[] {
+  const prefix = MONTH_ABBREVS[monthNum - 1] + '-';
+  const indices: number[] = [];
+  for (let i = 2; i < headers.length; i++) {
+    if (headers[i]?.startsWith(prefix)) {
+      indices.push(i);
+    }
+  }
+  return indices;
+}
+
+// Find today's column index
+function getTodayColumn(headers: string[]): number | null {
+  const now = new Date();
+  const month = MONTH_ABBREVS[now.getMonth()];
+  const day = now.getDate();
+  const target = `${month}-${day}`;
+  for (let i = 2; i < headers.length; i++) {
+    if (headers[i] === target) return i;
+  }
+  return null;
+}
+
+// Find this week's column indices (Mon-Sun of current week)
+function getWeekColumns(headers: string[]): number[] {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+  const indices: number[] = [];
+  for (let d = 0; d < 7; d++) {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + d);
+    const label = `${MONTH_ABBREVS[date.getMonth()]}-${date.getDate()}`;
+    for (let i = 2; i < headers.length; i++) {
+      if (headers[i] === label) {
+        indices.push(i);
+        break;
+      }
+    }
+  }
+  return indices;
+}
+
+// Sum values across multiple columns for a given row
+function sumColumns(row: string[] | undefined, indices: number[]): number {
+  if (!row) return 0;
+  let total = 0;
+  for (const idx of indices) {
+    total += parseCell(row[idx]);
+  }
+  return total;
+}
+
+// For percentage/average rows, take the average instead of sum
+function avgColumns(row: string[] | undefined, indices: number[]): number {
+  if (!row) return 0;
+  let total = 0;
+  let count = 0;
+  for (const idx of indices) {
+    const val = parseCell(row[idx]);
+    if (val > 0) {
+      total += val;
+      count++;
+    }
+  }
+  return count > 0 ? Math.round((total / count) * 100) / 100 : 0;
+}
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -46,51 +116,91 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') || 'ytd'; // ytd, or month number (1-12)
+  // period: "ytd", "today", "week", or month number "1"-"12"
+  const period = searchParams.get('period') || 'ytd';
 
   try {
     const auth = getOAuth2Client();
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Read the Monthly #s sheet - rows 1-80 cover all sections
+    // Read the entire Daily #s sheet (all rows, all columns)
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Monthly #s'!A1:N80",
+      range: `'${SHEET_NAME}'`,
     });
 
     const rows = res.data.values || [];
-
-    // Determine which column to read based on period
-    // Column B (index 1) = YTD, Column C (index 2) = Jan, etc.
-    let colIdx = 1; // default YTD
-    if (period !== 'ytd') {
-      const monthNum = parseInt(period, 10);
-      if (monthNum >= 1 && monthNum <= 12) {
-        colIdx = MONTH_COL[monthNum];
-      }
+    if (rows.length === 0) {
+      return NextResponse.json({ error: 'No data in sheet' }, { status: 500 });
     }
 
-    // Build a lookup: row label -> value
-    const getValue = (label: string): number => {
-      const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
-      if (!row) return 0;
-      return parseCell(row[colIdx]);
-    };
+    const headers = rows[0] || [];
 
-    // Build sections from the sheet data
+    // Determine how to extract values based on period
+    let getValue: (label: string) => number;
+    let getAvgValue: (label: string) => number;
+    let periodLabel: string;
+
+    if (period === 'ytd') {
+      // Column B (index 1) has YTD totals
+      getValue = (label: string) => {
+        const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+        return row ? parseCell(row[1]) : 0;
+      };
+      getAvgValue = getValue; // YTD averages are already computed in the sheet
+      periodLabel = 'YTD';
+    } else if (period === 'today') {
+      const todayIdx = getTodayColumn(headers);
+      if (todayIdx === null) {
+        return NextResponse.json({ error: 'Today\'s column not found' }, { status: 404 });
+      }
+      getValue = (label: string) => {
+        const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+        return row ? parseCell(row[todayIdx]) : 0;
+      };
+      getAvgValue = getValue;
+      periodLabel = 'Today';
+    } else if (period === 'week') {
+      const weekCols = getWeekColumns(headers);
+      getValue = (label: string) => {
+        const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+        return sumColumns(row, weekCols);
+      };
+      getAvgValue = (label: string) => {
+        const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+        return avgColumns(row, weekCols);
+      };
+      periodLabel = 'This Week';
+    } else {
+      // Month number
+      const monthNum = parseInt(period, 10);
+      if (monthNum < 1 || monthNum > 12) {
+        return NextResponse.json({ error: 'Invalid period' }, { status: 400 });
+      }
+      const monthCols = getMonthColumns(headers, monthNum);
+      getValue = (label: string) => {
+        const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+        return sumColumns(row, monthCols);
+      };
+      getAvgValue = (label: string) => {
+        const row = rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
+        return avgColumns(row, monthCols);
+      };
+      periodLabel = MONTH_ABBREVS[monthNum - 1] + ' 2026';
+    }
+
     const data = {
-      period: period === 'ytd' ? 'YTD' : `Month ${period}`,
+      period: periodLabel,
       revenueGoal: getValue('Revenue Goal'),
 
-      // Christmas Totals
       totals: {
         totalRevenue: getValue('Total Revenue'),
+        completedRevenue: getValue('Completed Revenue'),
         totalSales: getValue('Total Sales'),
-        avgTicket: getValue('AVG Ticket'),
+        avgTicket: getAvgValue('AVG Ticket'),
         totalJobsRan: getValue('Total Jobs Ran'),
       },
 
-      // Memberships
       memberships: {
         totalMembers: getValue('Total Members'),
         sold: getValue('Memberships Sold'),
@@ -100,27 +210,24 @@ export async function GET(request: Request) {
         activeAtEnd: getValue('Active at End'),
       },
 
-      // Growth
       growth: {
         totalLeads: getValue('Total Leads'),
         newNamesInST: getValue('# of New Names in ST'),
         totalNewCustomers: getValue('Total New Customers'),
-        leadsToCustomerPercent: getValue('% of Names -> customers'),
+        leadsToCustomerPercent: getAvgValue('% of leads -> customers'),
         newCustomerRevenue: getValue('New Customer Revenue'),
-        revenuePercentOfTotal: getValue('% of total revenue'),
-        avgRevenuePerNewCustomer: getValue('Avg Revenue Per New Customer'),
-        revenuePerLead: getValue('Revenue Per Lead'),
+        revenuePercentOfTotal: getAvgValue('% of total revenue'),
+        avgRevenuePerNewCustomer: getAvgValue('Avg Revenue Per New Customer'),
+        revenuePerLead: getAvgValue('Revenue Per Lead'),
       },
 
-      // Reviews
       reviews: {
         count: getValue('# of Reviews'),
-        jobsWithReviewPercent: getValue('% of jobs with review'),
+        jobsWithReviewPercent: getAvgValue('% of jobs with review'),
         grossRating: getValue('Gross Rating'),
-        avgRating: getValue('AVG Rating'),
+        avgRating: getAvgValue('AVG Rating'),
       },
 
-      // Calls
       calls: {
         totalPhoneCalls: getValue('Total Phone Calls'),
         outboundCalls: getValue('Outbound Calls'),
@@ -131,9 +238,6 @@ export async function GET(request: Request) {
         totalCancellations: getValue('Total Cancellations'),
         netBookings: getValue('Net Bookings'),
       },
-
-      // Monthly breakdown for trend display
-      monthly: period === 'ytd' ? buildMonthlyBreakdown(rows) : undefined,
     };
 
     return NextResponse.json(data);
@@ -144,28 +248,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
-
-function buildMonthlyBreakdown(rows: string[][]) {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  const getRow = (label: string) => rows.find(r => r[0]?.trim().toLowerCase() === label.toLowerCase());
-
-  return months.map((month, i) => {
-    const colIdx = i + 2; // Column C = index 2 = Jan
-    const revRow = getRow('Total Revenue');
-    const salesRow = getRow('Total Sales');
-    const leadsRow = getRow('Total Leads');
-    const reviewsRow = getRow('# of Reviews');
-    const newCustRow = getRow('Total New Customers');
-
-    return {
-      month,
-      revenue: parseCell(revRow?.[colIdx]),
-      sales: parseCell(salesRow?.[colIdx]),
-      leads: parseCell(leadsRow?.[colIdx]),
-      reviews: parseCell(reviewsRow?.[colIdx]),
-      newCustomers: parseCell(newCustRow?.[colIdx]),
-    };
-  });
 }
