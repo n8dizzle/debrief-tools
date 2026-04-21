@@ -195,6 +195,7 @@ export interface HuddleDashboardResponse {
   departments: HuddleDepartmentWithKPIs[];
   last_updated: string;
   pacing?: HuddlePacingData;
+  generalNotes?: Record<string, string>;
 }
 
 export interface HuddleHistoricalData {

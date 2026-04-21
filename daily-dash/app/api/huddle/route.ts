@@ -965,6 +965,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Extract department-level general notes (keyed as dept-{id})
+    const generalNotes: Record<string, string> = {};
+    notesMap.forEach((text, key) => {
+      if (key.startsWith('dept-')) generalNotes[key] = text;
+    });
+
     const response: HuddleDashboardResponse = {
       date,
       endDate,
@@ -972,6 +978,7 @@ export async function GET(request: NextRequest) {
       departments: departmentsWithKPIs,
       last_updated: new Date().toISOString(),
       pacing: pacingData,
+      generalNotes,
     };
 
     // Add debug version to verify deployment

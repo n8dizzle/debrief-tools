@@ -192,16 +192,32 @@ export default function HistoricalTable({ days = 7 }: HistoricalTableProps) {
                         return (
                           <td
                             key={date}
-                            className="py-2 px-3 text-center font-medium"
+                            className="py-2 px-3 text-center font-medium relative group"
                             style={{
                               backgroundColor: statusBackgrounds[status as HuddleKPIStatus],
                               color: actual !== null
                                 ? statusColors[status as HuddleKPIStatus]
                                 : 'var(--text-muted)',
                             }}
-                            title={value?.note || undefined}
                           >
                             {formatted}
+                            {value?.note && (
+                              <>
+                                <svg
+                                  className="w-3 h-3 absolute top-1 right-1 opacity-40 group-hover:opacity-100 transition-opacity"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                <div
+                                  className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-left whitespace-normal max-w-[200px] hidden group-hover:block"
+                                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                                >
+                                  {value.note}
+                                </div>
+                              </>
+                            )}
                           </td>
                         );
                       })}

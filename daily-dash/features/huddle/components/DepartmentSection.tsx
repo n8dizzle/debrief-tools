@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { HuddleDepartmentWithKPIs } from '@/lib/supabase';
 import KPIRow from './KPIRow';
+import NotesInput from './NotesInput';
 
 interface DepartmentSectionProps {
   department: HuddleDepartmentWithKPIs;
@@ -10,6 +11,7 @@ interface DepartmentSectionProps {
   defaultExpanded?: boolean;
   canEditNotes?: boolean;
   onNoteChange?: (kpiId: string, note: string) => void;
+  generalNote?: string | null;
 }
 
 // Department icon component
@@ -72,6 +74,7 @@ export default function DepartmentSection({
   defaultExpanded = true,
   canEditNotes = true,
   onNoteChange,
+  generalNote,
 }: DepartmentSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -178,9 +181,27 @@ export default function DepartmentSection({
                   date={date}
                   canEditNotes={canEditNotes}
                   onNoteChange={onNoteChange}
-                  isLast={idx === department.kpis.length - 1}
+                  isLast={false}
                 />
               ))}
+              {/* General notes row */}
+              <tr style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <td
+                  colSpan={4}
+                  className="py-2.5 px-4 text-xs font-medium uppercase tracking-wide"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Notes
+                </td>
+                <td className="py-2 px-4">
+                  <NotesInput
+                    kpiId={`dept-${department.id}`}
+                    date={date}
+                    initialValue={generalNote || null}
+                    disabled={!canEditNotes}
+                  />
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

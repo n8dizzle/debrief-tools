@@ -538,6 +538,7 @@ export default function HuddleDashboard({
                   defaultExpanded={dept.slug === 'christmas-overall' || dept.slug.includes('hvac')}
                   canEditNotes={canEditNotes && selectedDate === selectedEndDate}
                   onNoteChange={handleNoteChange}
+                  generalNote={data?.generalNotes?.[`dept-${dept.id}`] || null}
                 />
               ))}
             </div>
