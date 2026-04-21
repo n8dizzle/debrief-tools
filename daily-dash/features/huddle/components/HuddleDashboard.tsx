@@ -21,7 +21,7 @@ function formatCardCurrency(val: number) {
   return `$${val.toFixed(0)}`;
 }
 
-// Pace gauge - shows required daily pace vs target as a speedometer
+// Pace gauge V6 - color banner + zoned arc + status word
 function PaceGauge({
   label,
   needed,
@@ -50,102 +50,118 @@ function PaceGauge({
   const fmt = formatValue || formatCardCurrency;
   const sfx = suffix || '/day';
 
-  // Ratio: 1.0 = exactly on target, >1 = need to go faster, <1 = cruising
   const ratio = target > 0 ? needed / target : 0;
   const clampedRatio = Math.min(Math.max(ratio, 0), 2);
   const angle = (clampedRatio - 1) * 90;
 
-  const isOver = ratio > 1.05;
-  const isWay = ratio > 1.3;
-  const isAhead = !noData && ratio <= 1 && ratio > 0;
-  const needleColor = noData ? 'var(--text-muted)' : isAhead ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
-
-  // Projected finish: extrapolate current MTD rate across full month
-  // projectedPct = what % of the goal we'll hit if we keep this daily rate
+  // Projected % of goal
   const projectedPct = (mtdActual !== undefined && mtdGoal && daysElapsed && daysInMonth && daysElapsed > 0)
     ? Math.round(((mtdActual / daysElapsed) * daysInMonth / mtdGoal) * 100)
     : null;
 
-  const urgencyText = noData ? 'No data yet'
-    : projectedPct !== null
-      ? (projectedPct >= 100
-        ? `Pacing to ${projectedPct}% of goal`
-        : `Pacing to ${projectedPct}% of goal`)
-      : (ratio <= 1 ? 'On pace' : 'Behind pace');
+  // Delta from goal (positive = ahead, negative = behind)
+  const deltaPct = projectedPct !== null ? projectedPct - 100 : (noData ? null : -Math.round((ratio - 1) * 100));
 
-  const cx = 100, cy = 108, r = 72;
+  // Status: CRUSHING (ahead), ON PACE, BEHIND, SCRAMBLE
+  const getStatus = () => {
+    if (noData) return { word: '--', color: 'var(--text-muted)', bg: 'var(--bg-secondary)', icon: '' };
+    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', color: 'var(--christmas-green)', bg: 'rgba(93, 138, 102, 0.25)', icon: '↑' };
+    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', color: 'var(--christmas-green)', bg: 'rgba(93, 138, 102, 0.2)', icon: '→' };
+    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', color: 'var(--christmas-gold)', bg: 'rgba(184, 149, 107, 0.25)', icon: '!' };
+    return { word: 'BEHIND', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.2)', icon: '!' };
+  };
+  const status = getStatus();
+
+  const cx = 110, cy = 100, r = 68;
 
   return (
-    <div className="flex flex-col items-center flex-1 min-w-0">
-      <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{label}</div>
-      <svg width="200" height="148" viewBox="0 0 200 148">
-        {/* Green zone: 0x to 1x */}
-        <path d={describeArc(cx, cy, r, -90, 0)} fill="none" stroke="var(--christmas-green)" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
-        {/* Yellow zone: 1x to 1.3x */}
-        <path d={describeArc(cx, cy, r, 0, 27)} fill="none" stroke="var(--christmas-gold)" strokeWidth="12" strokeLinecap="butt" opacity="0.2" />
-        {/* Red zone: 1.3x to 2x */}
-        <path d={describeArc(cx, cy, r, 27, 90)} fill="none" stroke="#EF4444" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
-        {/* Active arc fill up to needle */}
-        {!noData && (
-          <path
-            d={describeArc(cx, cy, r, -90, Math.min(angle, 90))}
-            fill="none"
-            stroke={needleColor}
-            strokeWidth="12"
-            strokeLinecap="round"
-            opacity="0.5"
-          />
-        )}
-        {/* Target tick at 1x with goal label */}
-        <line x1={cx} y1={cy - r + 6} x2={cx} y2={cy - r - 12} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.6" />
-        <text x={cx} y={cy - r - 16} fontSize="10" fill="var(--christmas-cream)" textAnchor="middle" opacity="0.7" fontWeight="500">goal</text>
-        {/* Needle */}
-        {!noData && (
-          <>
-            <line
-              x1={cx} y1={cy}
-              x2={cx + (r - 18) * Math.sin(angle * Math.PI / 180)}
-              y2={cy - (r - 18) * Math.cos(angle * Math.PI / 180)}
-              stroke={needleColor} strokeWidth="3" strokeLinecap="round"
-            />
-            <circle cx={cx} cy={cy} r="5" fill={needleColor} />
-          </>
-        )}
-        {/* Scale labels */}
-        <text x="14" y="134" fontSize="9" fill="var(--text-muted)" textAnchor="middle">easy</text>
-        <text x="186" y="134" fontSize="9" fill="var(--text-muted)" textAnchor="middle">hard</text>
-      </svg>
-      <div className="text-center -mt-2 relative group">
-        {/* MTD total if provided */}
-        {mtdActual !== undefined && mtdGoal !== undefined && !noData && (
-          <div className="text-sm font-bold mb-0.5" style={{ color: 'var(--christmas-cream)' }}>
-            {Math.round(mtdActual)} / {Math.round(mtdGoal)}
-            {tooltip && (
-              <span className="ml-1 text-xs cursor-help" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
-            )}
-          </div>
-        )}
-        <div className="text-lg font-bold leading-tight" style={{ color: needleColor }}>
-          {noData ? '--' : `${fmt(needed)}${sfx}`}
+    <div className="flex-1 min-w-0 rounded-xl overflow-hidden relative group" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+      {/* Color banner */}
+      <div
+        className="flex items-center justify-between px-3 py-2"
+        style={{ backgroundColor: status.bg }}
+      >
+        <div className="flex items-center gap-1.5">
+          {status.icon && <span className="text-xs font-bold" style={{ color: status.color }}>{status.icon}</span>}
+          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: status.color }}>{status.word}</span>
         </div>
-        {!noData && (
-          <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            target: {fmt(target)}{sfx}
-          </div>
-        )}
-        <div className="text-xs font-semibold mt-1" style={{ color: needleColor }}>
-          {urgencyText}
-        </div>
-        {/* Tooltip on hover */}
-        {tooltip && (
-          <div
-            className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-left whitespace-pre-line max-w-[200px] hidden group-hover:block"
-            style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-          >
-            {tooltip}
-          </div>
+        {deltaPct !== null && !noData && (
+          <span className="text-xs font-bold" style={{ color: status.color }}>
+            {deltaPct >= 0 ? '+' : ''}{deltaPct}%
+          </span>
         )}
       </div>
+
+      {/* Label */}
+      <div className="px-3 pt-3">
+        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
+      </div>
+
+      {/* Gauge */}
+      <div className="flex justify-center px-2">
+        <svg width="220" height="125" viewBox="0 0 220 125">
+          {/* Zoned arc: green (crushing) on right, yellow (close), red (scramble) on left */}
+          {/* Note: gauge is flipped - left = behind (scramble), right = ahead (crushing) */}
+          <path d={describeArc(cx, cy, r, -90, -27)} fill="none" stroke="#EF4444" strokeWidth="14" strokeLinecap="round" opacity="0.3" />
+          <path d={describeArc(cx, cy, r, -27, 0)} fill="none" stroke="var(--christmas-gold)" strokeWidth="14" strokeLinecap="butt" opacity="0.3" />
+          <path d={describeArc(cx, cy, r, 0, 90)} fill="none" stroke="var(--christmas-green)" strokeWidth="14" strokeLinecap="round" opacity="0.3" />
+          {/* Active arc */}
+          {!noData && (
+            <path
+              d={describeArc(cx, cy, r, -90, Math.min(angle, 90))}
+              fill="none"
+              stroke={status.color}
+              strokeWidth="14"
+              strokeLinecap="round"
+              opacity="0.7"
+            />
+          )}
+          {/* Goal tick + label */}
+          <line x1={cx} y1={cy - r + 7} x2={cx} y2={cy - r - 10} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.7" />
+          <text x={cx + 22} y={cy - r - 2} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.7" fontWeight="600">GOAL</text>
+          {/* Needle */}
+          {!noData && (
+            <>
+              <line
+                x1={cx} y1={cy}
+                x2={cx + (r - 20) * Math.sin(angle * Math.PI / 180)}
+                y2={cy - (r - 20) * Math.cos(angle * Math.PI / 180)}
+                stroke={status.color} strokeWidth="3" strokeLinecap="round"
+              />
+              <circle cx={cx} cy={cy} r="6" fill="var(--bg-card)" stroke={status.color} strokeWidth="2" />
+            </>
+          )}
+          {/* Zone labels */}
+          <text x="28" y="118" fontSize="9" fill="var(--text-muted)" textAnchor="middle" fontWeight="600">SCRAMBLE</text>
+          <text x="192" y="118" fontSize="9" fill="var(--text-muted)" textAnchor="middle" fontWeight="600">CRUSHING</text>
+        </svg>
+      </div>
+
+      {/* Bottom stats */}
+      <div className="flex items-end justify-between px-4 pb-4 -mt-2">
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Need/day</div>
+          <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            {noData ? '\u2014' : `${fmt(needed)}`}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Was</div>
+          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+            {noData ? `\u2014${sfx}` : `${fmt(target)}${sfx}`}
+          </div>
+        </div>
+      </div>
+
+      {/* Tooltip on hover */}
+      {tooltip && (
+        <div
+          className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-left whitespace-pre-line max-w-[200px] hidden group-hover:block"
+          style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+        >
+          {tooltip}
+        </div>
+      )}
     </div>
   );
 }
