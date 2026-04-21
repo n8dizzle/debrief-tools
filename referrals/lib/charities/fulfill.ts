@@ -58,7 +58,10 @@ export async function fulfillCharityDonation(donationId: string): Promise<{
     return { ok: true, reason: "Queued for manual disbursement" };
   }
 
-  // TREMENDOUS path
+  // TREMENDOUS path — preserved for future use. No charity currently uses
+  // this method (Christmas Air went local-only on charities). When this path
+  // is re-enabled, each charity must have its own tremendous_charity_id set
+  // on ref_charities — no env-var fallback, no generic charity product.
   const tremendous = getTremendousClient();
   if (!tremendous.isConfigured()) {
     await supabase
@@ -71,23 +74,18 @@ export async function fulfillCharityDonation(donationId: string): Promise<{
     return { ok: false, reason: "Tremendous not configured" };
   }
 
-  // Prefer the charity-specific Tremendous product ID if set;
-  // fall back to the generic charity product env var.
-  const productId =
-    charity.tremendous_charity_id || tremendous.getProductId("CHARITY");
+  const productId = charity.tremendous_charity_id;
   if (!productId) {
     await supabase
       .from("ref_charity_donations")
       .update({
         status: "FAILED",
-        failure_reason: "No Tremendous product ID for this charity",
+        failure_reason: `Charity "${charity.name}" has fulfillment_method=TREMENDOUS but no tremendous_charity_id set`,
       })
       .eq("id", donationId);
-    return { ok: false, reason: "Missing Tremendous product ID" };
+    return { ok: false, reason: "Missing tremendous_charity_id on charity" };
   }
 
-  // Pull referral + referrer for recipient info (donation delivery email
-  // goes to the referrer with a thank-you-for-the-referral framing)
   const { data: referralRow } = await supabase
     .from("ref_referrals")
     .select("*, referrer:ref_referrers(*)")
@@ -98,36 +96,46 @@ export async function fulfillCharityDonation(donationId: string): Promise<{
   const referrer = (referralRow as Referral & { referrer: Referrer }).referrer;
 
   try {
-    const orderId = await tremendous.createOrder({
+    const { orderId, status: tStatus } = await tremendous.createOrder({
       amount: Number(d.amount),
       recipient: {
         name: `${referrer.first_name} ${referrer.last_name}`.trim(),
         email: referrer.email,
       },
       productId,
-      customFields: [
-        { id: "referral_id", value: d.referral_id },
-        { id: "charity_id", value: d.charity_id },
-      ],
     });
+
+    const isFullyIssued = tStatus === "approved" || tStatus === "executed";
+    const isDeclined = tStatus === "declined" || tStatus === "failed";
+
+    const donationUpdate: Record<string, unknown> = {
+      fulfillment_reference: orderId,
+    };
+    if (isFullyIssued) {
+      donationUpdate.status = "ISSUED";
+      donationUpdate.issued_at = new Date().toISOString();
+    } else if (isDeclined) {
+      donationUpdate.status = "FAILED";
+      donationUpdate.failure_reason = `Tremendous ${tStatus} the order`;
+    }
+    // pending_approval keeps status = APPROVED; waiting on Tremendous-side review.
 
     await supabase
       .from("ref_charity_donations")
-      .update({
-        status: "ISSUED",
-        fulfillment_reference: orderId,
-        issued_at: new Date().toISOString(),
-      })
+      .update(donationUpdate)
       .eq("id", donationId);
 
-    // Bump the referrer's lifetime charity impact counter
-    await supabase
-      .from("ref_referrers")
-      .update({
-        total_donated_on_their_behalf:
-          Number(referrer.total_donated_on_their_behalf) + Number(d.amount),
-      })
-      .eq("id", referrer.id);
+    if (isFullyIssued) {
+      // Bump the referrer's lifetime charity impact counter only once the
+      // donation is truly issued — not while pending Tremendous approval.
+      await supabase
+        .from("ref_referrers")
+        .update({
+          total_donated_on_their_behalf:
+            Number(referrer.total_donated_on_their_behalf) + Number(d.amount),
+        })
+        .eq("id", referrer.id);
+    }
 
     return { ok: true };
   } catch (err) {

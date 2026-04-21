@@ -142,8 +142,8 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Donations"
-            what="Every charity donation triggered by a completed referral. Shows the charity, amount, and which referral generated it."
-            who="Managers tracking community impact numbers; requires can_approve_donations to approve."
+            what="Every charity donation triggered by a completed referral, plus a Payout Queue at the top showing how much Christmas Air owes each charity across all approved-but-unpaid donations. Pick a charity, click &ldquo;Mark N paid&rdquo;, enter the check number and date, and the whole batch flips to CONFIRMED. Charity donations fulfill manually today (no Tremendous routing) because we're supporting local neighborhood charities that aren't on Tremendous's catalog."
+            who="Managers tracking community impact; finance using the Payout Queue to batch quarterly check-writing. Requires can_approve_donations."
           />
           <AdminPageEntry
             title="Charities"
