@@ -19,10 +19,10 @@ const departmentNames: Record<string, string> = {
 // Mock data - will be replaced with API calls
 const mockDepartmentData: Record<string, {
   pacing: {
-    today: { current: number; target: number };
-    week: { current: number; target: number };
-    month: { current: number; target: number };
-    year: { current: number; target: number };
+    today: { revenue: number; sales: number; target: number };
+    week: { revenue: number; sales: number; target: number };
+    month: { revenue: number; sales: number; target: number };
+    quarter: { revenue: number; sales: number; target: number };
   };
   kpis: Array<{
     name: string;
@@ -33,10 +33,10 @@ const mockDepartmentData: Record<string, {
 }> = {
   christmas: {
     pacing: {
-      today: { current: 129000, target: 34000 },
-      week: { current: 95000, target: 184000 },
-      month: { current: 450000, target: 821000 },
-      year: { current: 450000, target: 15100000 },
+      today: { revenue: 129000, sales: 0, target: 34000 },
+      week: { revenue: 95000, sales: 0, target: 184000 },
+      month: { revenue: 450000, sales: 0, target: 821000 },
+      quarter: { revenue: 450000, sales: 0, target: 15100000 },
     },
     kpis: [
       { name: 'Jobs Scheduled', value: '48', target: '45', pacing: 107 },
@@ -46,10 +46,10 @@ const mockDepartmentData: Record<string, {
   },
   'hvac-service': {
     pacing: {
-      today: { current: 45200, target: 12000 },
-      week: { current: 45200, target: 84000 },
-      month: { current: 320000, target: 305000 },
-      year: { current: 320000, target: 3660000 },
+      today: { revenue: 45200, sales: 0, target: 12000 },
+      week: { revenue: 45200, sales: 0, target: 84000 },
+      month: { revenue: 320000, sales: 0, target: 305000 },
+      quarter: { revenue: 320000, sales: 0, target: 3660000 },
     },
     kpis: [
       { name: 'Jobs Completed', value: '32', target: '35', pacing: 91 },
@@ -61,10 +61,10 @@ const mockDepartmentData: Record<string, {
   },
   plumbing: {
     pacing: {
-      today: { current: 14200, target: 5000 },
-      week: { current: 14200, target: 35000 },
-      month: { current: 85000, target: 109000 },
-      year: { current: 85000, target: 1308000 },
+      today: { revenue: 14200, sales: 0, target: 5000 },
+      week: { revenue: 14200, sales: 0, target: 35000 },
+      month: { revenue: 85000, sales: 0, target: 109000 },
+      quarter: { revenue: 85000, sales: 0, target: 1308000 },
     },
     kpis: [
       { name: 'Sales', value: '$14,200', target: '$15,000', pacing: 95 },
