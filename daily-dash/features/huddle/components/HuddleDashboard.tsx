@@ -100,12 +100,10 @@ function PaceGauge({
       {/* Gauge */}
       <div className="flex justify-center">
         <svg width="220" height="130" viewBox="0 0 220 130">
-          {/* Zoned arc: 5 segments for smooth gradient feel, full opacity */}
-          <path d={describeArc(cx, cy, r, -90, -45)} fill="none" stroke="#B91C1C" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, -45, -18)} fill="none" stroke="#DC2626" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, -18, 10)} fill="none" stroke="#D97706" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, 10, 45)} fill="none" stroke="#4D7C55" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="butt" />
+          {/* 3 zones: Behind (red), Slightly Behind (gold/orange), Ahead (green) */}
+          <path d={describeArc(cx, cy, r, -90, -27)} fill="none" stroke="#DC2626" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, -27, 0)} fill="none" stroke="#D97706" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 0, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="butt" />
           {/* No active arc fill - zones stay visible, needle shows position */}
           {/* Goal tick - diagonal line from arc outward with label */}
           <line x1={cx} y1={cy - r + 8} x2={cx + 12} y2={cy - r - 18} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
