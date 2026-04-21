@@ -670,16 +670,23 @@ export default function HuddleDashboard({
                   <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--christmas-green)' }}>
                     Rest of Month
                   </span>
+                  {pacingData?.businessDaysRemaining !== undefined && (
+                    <span
+                      className="text-sm font-bold px-3 py-1 rounded-lg"
+                      style={{
+                        backgroundColor: 'rgba(52, 102, 67, 0.15)',
+                        color: 'var(--christmas-green)',
+                        border: '1px solid rgba(52, 102, 67, 0.3)',
+                      }}
+                    >
+                      {pacingData.businessDaysRemaining} days left
+                    </span>
+                  )}
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
                 </div>
 
                 {/* Pace gauges - 4 across */}
                 <div className="relative mb-6 py-5 px-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                  {pacingData?.businessDaysRemaining !== undefined && (
-                    <span className="absolute top-3 right-3 text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
-                      {pacingData.businessDaysRemaining} biz days left
-                    </span>
-                  )}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <PaceGauge
                       label="Revenue Pace"
