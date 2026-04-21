@@ -105,7 +105,9 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
     if (href === '/') {
       return pathname === '/';
     }
-    return pathname.startsWith(href);
+    // Exact match to avoid parent routes highlighting when on child routes
+    // e.g. /huddle should not highlight when on /huddle/history
+    return pathname === href;
   };
 
   const isOwner = session?.user?.role === 'owner';
