@@ -17,7 +17,7 @@ interface HuddleDashboardProps {
 // Format currency for cards
 function formatCardCurrency(val: number) {
   if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
-  if (val >= 1000) return `$${(val / 1000).toFixed(1)}K`;
+  if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
   return `$${val.toFixed(0)}`;
 }
 
@@ -557,88 +557,94 @@ export default function HuddleDashboard({
             const christmasOverallDept = data?.departments?.find(d => d.slug === 'christmas-overall');
             const generalNoteKey = christmasOverallDept ? `dept-${christmasOverallDept.id}` : 'dept-christmas-overall';
 
+            const revDelta = dailyRevNeeded - origDailyTarget;
+            const salesDelta = dailySalesNeeded - (origDailyTarget * SALES_MULTIPLIER);
+
             return (
-              <div
-                className="rounded-xl overflow-hidden mb-6"
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid rgba(52, 102, 67, 0.4)',
-                  background: 'linear-gradient(135deg, rgba(52, 102, 67, 0.1) 0%, var(--bg-card) 100%)',
-                }}
-              >
-                {/* Header */}
-                <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <h3 className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>What We Need to Do</h3>
-                  <span
-                    className="text-sm font-semibold px-3 py-1 rounded-full"
-                    style={{ backgroundColor: 'rgba(52, 102, 67, 0.2)', color: 'var(--christmas-green)' }}
-                  >
-                    {bdzLeft} biz days left
-                  </span>
+              <div className="mb-8">
+                {/* Header bar */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--christmas-green)' }}>
+                      Rest of Month
+                    </span>
+                    <span
+                      className="text-lg font-bold px-4 py-1.5 rounded-full"
+                      style={{ backgroundColor: 'rgba(52, 102, 67, 0.15)', color: 'var(--christmas-green)', border: '1px solid rgba(52, 102, 67, 0.3)' }}
+                    >
+                      {bdzLeft} days left
+                    </span>
+                  </div>
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--christmas-green), transparent)', opacity: 0.3 }} />
                 </div>
 
-                <div className="p-5">
-                  {/* Monthly Pacing */}
-                  <div className="mb-5">
-                    <div className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Monthly Pace</div>
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Revenue pace */}
-                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Daily rev needed</div>
-                        <div className="text-lg font-bold" style={{ color: revOnTrack ? 'var(--christmas-green)' : '#EF4444' }}>
-                          {formatCardCurrency(dailyRevNeeded)}
-                        </div>
-                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          vs {formatCardCurrency(origDailyTarget)} target
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                          {formatCardCurrency(revRemaining)} remaining
-                        </div>
-                      </div>
-                      {/* Sales pace */}
-                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Daily sales needed</div>
-                        <div className="text-lg font-bold" style={{ color: salesOnTrack ? 'var(--christmas-gold)' : '#EF4444' }}>
-                          {formatCardCurrency(dailySalesNeeded)}
-                        </div>
-                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          vs {formatCardCurrency(origDailyTarget * SALES_MULTIPLIER)} target (1.1x)
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                          {formatCardCurrency(salesRemaining)} remaining
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Weekly Pacing */}
-                  <div className="mb-4">
-                    <div className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>This Week Remaining</div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Revenue left</div>
-                        <div className="text-lg font-bold" style={{ color: weekRevRemaining <= 0 ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}>
+                {/* Scoreboard table */}
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        <th className="text-left py-3 px-4 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}></th>
+                        <th className="text-right py-3 px-4 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Remaining</th>
+                        <th className="text-right py-3 px-4 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Daily Pace</th>
+                        <th className="text-right py-3 px-4 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Target</th>
+                        <th className="text-right py-3 px-4 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Delta</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Monthly Revenue */}
+                      <tr style={{ backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-subtle)' }}>
+                        <td className="py-3 px-4 font-semibold" style={{ color: 'var(--christmas-cream)' }}>Monthly Revenue</td>
+                        <td className="py-3 px-4 text-right font-medium" style={{ color: 'var(--christmas-cream)' }}>{formatCardCurrency(revRemaining)}</td>
+                        <td className="py-3 px-4 text-right font-bold" style={{ color: revOnTrack ? 'var(--christmas-green)' : '#EF4444' }}>{formatCardCurrency(dailyRevNeeded)}/day</td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--text-muted)' }}>{formatCardCurrency(origDailyTarget)}/day</td>
+                        <td className="py-3 px-4 text-right font-semibold" style={{ color: revOnTrack ? 'var(--christmas-green)' : '#EF4444' }}>
+                          {revDelta <= 0 ? '▼' : '▲'} {formatCardCurrency(Math.abs(revDelta))}
+                        </td>
+                      </tr>
+                      {/* Monthly Sales */}
+                      <tr style={{ backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-subtle)' }}>
+                        <td className="py-3 px-4 font-semibold" style={{ color: 'var(--christmas-gold)' }}>Monthly Sales</td>
+                        <td className="py-3 px-4 text-right font-medium" style={{ color: 'var(--christmas-gold)' }}>{formatCardCurrency(salesRemaining)}</td>
+                        <td className="py-3 px-4 text-right font-bold" style={{ color: salesOnTrack ? 'var(--christmas-green)' : '#EF4444' }}>{formatCardCurrency(dailySalesNeeded)}/day</td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--text-muted)' }}>{formatCardCurrency(origDailyTarget * SALES_MULTIPLIER)}/day</td>
+                        <td className="py-3 px-4 text-right font-semibold" style={{ color: salesOnTrack ? 'var(--christmas-green)' : '#EF4444' }}>
+                          {salesDelta <= 0 ? '▼' : '▲'} {formatCardCurrency(Math.abs(salesDelta))}
+                        </td>
+                      </tr>
+                      {/* Divider */}
+                      <tr><td colSpan={5} className="py-0" style={{ borderTop: '2px solid var(--border-subtle)' }}></td></tr>
+                      {/* Weekly Revenue */}
+                      <tr style={{ backgroundColor: 'var(--bg-card)' }}>
+                        <td className="py-3 px-4 font-semibold" style={{ color: 'var(--christmas-cream)' }}>Weekly Revenue</td>
+                        <td className="py-3 px-4 text-right font-medium" style={{ color: weekRevRemaining <= 0 ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}>
                           {weekRevRemaining <= 0 ? '✓ Hit' : formatCardCurrency(weekRevRemaining)}
-                        </div>
-                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          of {formatCardCurrency(weekTarget)} weekly target
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Sales left</div>
-                        <div className="text-lg font-bold" style={{ color: weekSalesRemaining <= 0 ? 'var(--christmas-gold)' : 'var(--christmas-cream)' }}>
+                        </td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--text-muted)' }} colSpan={2}>
+                          of {formatCardCurrency(weekTarget)} target
+                        </td>
+                        <td className="py-3 px-4 text-right font-semibold" style={{ color: weekRevRemaining <= 0 ? 'var(--christmas-green)' : 'var(--text-muted)' }}>
+                          {weekRevRemaining <= 0 ? '✓' : `${Math.round((wtdRev / weekTarget) * 100)}%`}
+                        </td>
+                      </tr>
+                      {/* Weekly Sales */}
+                      <tr style={{ backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-subtle)' }}>
+                        <td className="py-3 px-4 font-semibold" style={{ color: 'var(--christmas-gold)' }}>Weekly Sales</td>
+                        <td className="py-3 px-4 text-right font-medium" style={{ color: weekSalesRemaining <= 0 ? 'var(--christmas-green)' : 'var(--christmas-gold)' }}>
                           {weekSalesRemaining <= 0 ? '✓ Hit' : formatCardCurrency(weekSalesRemaining)}
-                        </div>
-                        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          of {formatCardCurrency(weekSalesTarget)} weekly target (1.1x)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                        </td>
+                        <td className="py-3 px-4 text-right" style={{ color: 'var(--text-muted)' }} colSpan={2}>
+                          of {formatCardCurrency(weekSalesTarget)} target
+                        </td>
+                        <td className="py-3 px-4 text-right font-semibold" style={{ color: weekSalesRemaining <= 0 ? 'var(--christmas-green)' : 'var(--text-muted)' }}>
+                          {weekSalesRemaining <= 0 ? '✓' : `${Math.round((wtdSales / weekSalesTarget) * 100)}%`}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
 
                   {/* Notes */}
-                  <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Notes</div>
+                  <div className="px-4 py-3" style={{ backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-subtle)' }}>
                     <NotesInput
                       kpiId={generalNoteKey}
                       date={selectedDate}
