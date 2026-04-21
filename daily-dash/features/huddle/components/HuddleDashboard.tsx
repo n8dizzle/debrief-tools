@@ -100,12 +100,12 @@ function PaceGauge({
       {/* Gauge */}
       <div className="flex justify-center">
         <svg width="220" height="130" viewBox="0 0 220 130">
-          {/* Dark track behind zones */}
-          <path d={describeArc(cx, cy, r, -90, 90)} fill="none" stroke="#0D1210" strokeWidth="18" strokeLinecap="round" opacity="0.6" />
-          {/* Zoned arc: red (scramble) left, gold middle, green (crushing) right */}
-          <path d={describeArc(cx, cy, r, -90, -27)} fill="none" stroke="#DC2626" strokeWidth="16" strokeLinecap="round" opacity="0.5" />
-          <path d={describeArc(cx, cy, r, -27, 0)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" opacity="0.5" />
-          <path d={describeArc(cx, cy, r, 0, 90)} fill="none" stroke="#5D8A66" strokeWidth="16" strokeLinecap="round" opacity="0.5" />
+          {/* Zoned arc: 5 segments for smooth gradient feel, full opacity */}
+          <path d={describeArc(cx, cy, r, -90, -45)} fill="none" stroke="#B91C1C" strokeWidth="16" strokeLinecap="round" />
+          <path d={describeArc(cx, cy, r, -45, -18)} fill="none" stroke="#DC2626" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, -18, 10)} fill="none" stroke="#D97706" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 10, 45)} fill="none" stroke="#4D7C55" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="round" />
           {/* Active arc */}
           {!noData && (
             <path
