@@ -57,7 +57,7 @@ function PaceGauge({
   return (
     <div className="flex flex-col items-center flex-1 min-w-0">
       <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
-      <svg width="200" height="115" viewBox="0 0 200 115">
+      <svg width="200" height="125" viewBox="0 0 200 125">
         {/* Green zone: 0x to 1x */}
         <path d={describeArc(cx, cy, r, -90, 0)} fill="none" stroke="var(--christmas-green)" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
         {/* Yellow zone: 1x to 1.3x */}
@@ -89,10 +89,10 @@ function PaceGauge({
             <circle cx={cx} cy={cy} r="5" fill={needleColor} />
           </>
         )}
-        {/* Scale labels */}
-        <text x="22" y="94" fontSize="10" fill="var(--text-muted)" textAnchor="middle">0x</text>
-        <text x={cx} y="12" fontSize="10" fill="var(--text-muted)" textAnchor="middle">1x</text>
-        <text x="178" y="94" fontSize="10" fill="var(--text-muted)" textAnchor="middle">2x</text>
+        {/* Scale labels - positioned outside the arc */}
+        <text x="16" y="108" fontSize="10" fill="var(--text-muted)" textAnchor="middle">0x</text>
+        <text x={cx} y="8" fontSize="10" fill="var(--text-muted)" textAnchor="middle">1x</text>
+        <text x="184" y="108" fontSize="10" fill="var(--text-muted)" textAnchor="middle">2x</text>
       </svg>
       <div className="text-center -mt-2">
         <div className="text-2xl font-bold" style={{ color: needleColor }}>
