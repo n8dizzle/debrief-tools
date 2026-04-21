@@ -121,6 +121,10 @@ export async function submitReferral(
     ? Number(bookingProviderIdRaw)
     : NaN;
 
+  // Body is used for leads (ST stores + displays it prominently). For
+  // bookings, ST silently drops body — only `summary` is persisted. So we
+  // build two views of the same narrative and use each in the right place
+  // below.
   const body = [
     `Referred by: ${referrer.first_name} ${referrer.last_name} (${referrer.referral_code})`,
     `Name: ${input.referredName}`,
@@ -133,7 +137,22 @@ export async function submitReferral(
     .filter(Boolean)
     .join("\n");
 
+  // For leads: short summary is fine since body carries the detail.
   const summary = `Referral: ${input.referredName} — ${SERVICE_TYPE_LABELS[input.serviceType]}`;
+
+  // For bookings: summary carries everything because body is dropped. Pipe
+  // separators keep it readable inside ST's list view (which truncates long
+  // summaries with an ellipsis).
+  const bookingSummary = [
+    `Referral from ${referrer.first_name} ${referrer.last_name.slice(0, 1)}. (${referrer.referral_code})`,
+    input.referredName,
+    SERVICE_TYPE_LABELS[input.serviceType],
+    input.referredPhone ? `Phone: ${input.referredPhone}` : "",
+    email ? `Email: ${email}` : "",
+    input.notes ? `Notes: ${input.notes}` : "",
+  ]
+    .filter(Boolean)
+    .join(" — ");
 
   const useBooking =
     st.isConfigured() &&
@@ -177,7 +196,11 @@ export async function submitReferral(
       const booking = await st.createBooking(bookingProviderId, {
         name: input.referredName,
         source: "Christmas Air Referrals",
-        summary,
+        // Full narrative including referrer, service type, contact, notes.
+        // Body is also sent (ST's booking-provider endpoint requires it to
+        // be present in the request), but ST stores empty and only surfaces
+        // summary — so summary has to carry everything.
+        summary: bookingSummary,
         body,
         externalId,
         isFirstTimeClient: true,
