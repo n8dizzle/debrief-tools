@@ -14,7 +14,7 @@ const overviewLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
   { href: '/pacing', label: 'Goal Pacing', icon: 'target' },
   { href: '/huddle', label: 'Daily Huddle', icon: 'clipboard' },
-  { href: '/huddle/history', label: 'History', icon: 'calendar' },
+  { href: '/huddle/history', label: 'Huddle History', icon: 'calendar' },
   { href: '/reviews', label: 'Reviews', icon: 'star' },
   { href: '/l10', label: 'L10 Meeting', icon: 'users' },
 ];
