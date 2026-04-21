@@ -16,6 +16,15 @@ export function stLeadUrl(id: string | number | null | undefined): string | null
   return `${ST_BASE}/#/Lead/${id}`;
 }
 
+export function stBookingUrl(id: string | number | null | undefined): string | null {
+  if (!id) return null;
+  // ServiceTitan routes booking provider submissions through the Bookings
+  // management screen. Deep link is a best-effort guess — if the tenant
+  // uses a different path, adjusting this single call site updates every
+  // pill in the admin UI.
+  return `${ST_BASE}/#/BookingProviderManagement/Booking/${id}`;
+}
+
 /**
  * Tremendous order page. Sandbox and production live on different hosts, so
  * we take the env explicitly — pass the env string from the server context

@@ -132,8 +132,8 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Referrals"
-            what="Every friend a referrer has sent us. Shows current stage, the attributed referrer, and a ServiceTitan lead link. The ST lead column is a green pill for referrals where we created a lead in ServiceTitan &mdash; click to jump straight to that lead. A dash means no lead was created (usually because the campaign ID was unset or ServiceTitan was unreachable at submission)."
-            who="Anyone troubleshooting a specific referral (&ldquo;my friend Sarah said she booked, where&apos;s my reward?&rdquo;) or confirming the ST lead actually landed."
+            what="Every friend a referrer has sent us. Shows current stage, the attributed referrer, and a link to the corresponding ServiceTitan record. The ServiceTitan column shows a green &ldquo;booking&rdquo; pill when the referral landed in the ST Bookings queue (preferred — higher conversion), or a &ldquo;lead&rdquo; pill when it landed in the Leads queue instead. Click either to jump to that record in ST. A dash means nothing was created on the ST side."
+            who="Anyone troubleshooting a specific referral (&ldquo;my friend Sarah said she booked, where&apos;s my reward?&rdquo;) or confirming the ST record actually landed."
           />
           <AdminPageEntry
             title="Rewards"
@@ -157,7 +157,7 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Settings"
-            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (the ServiceTitan campaign referred leads attribute to), triple_win_enabled (global Triple Win on/off toggle). Per-key validators catch bad input before it hits downstream systems."
+            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), triple_win_enabled (global Triple Win on/off toggle). Per-key validators catch bad input before it hits downstream systems."
             who="Admins reconfiguring the program without code changes. Requires can_manage_settings."
           />
           <AdminPageEntry
@@ -241,12 +241,29 @@ export default function HelpPage() {
             the match worked, a dash when it didn&apos;t.
           </li>
           <li>
-            <strong>Lead creation</strong> &mdash; when a referred friend
-            submits the quote form, we create a ServiceTitan lead tagged with
-            the referral campaign ID so reporting attributes it correctly. The
-            campaign ID is set in Settings. The Referrals page shows a green
-            pill under &ldquo;ST lead&rdquo; when a lead was created
-            successfully.
+            <strong>Booking or lead creation</strong> &mdash; when a referred
+            friend submits the quote form, we push them into ServiceTitan
+            using whichever path Settings has configured:
+            <ul className="list-disc pl-6 mt-2 space-y-1">
+              <li>
+                If <code>st_referral_booking_provider_id</code> is set, we
+                create a <strong>booking</strong>. Lands in Follow Up &rarr;
+                Bookings. Dispatch confirms details and converts to a
+                scheduled appointment. Preferred path &mdash; warm referrals
+                convert better from a Bookings queue than from a Leads queue.
+              </li>
+              <li>
+                If only <code>st_referral_campaign_id</code> is set, we create
+                a <strong>lead</strong> attributed to that campaign. Lands in
+                Follow Up &rarr; Leads. Dispatch calls back to qualify.
+              </li>
+              <li>
+                If neither is set, the referral stays in our DB but does not
+                flow to ServiceTitan.
+              </li>
+            </ul>
+            The Referrals admin page shows a green pill (booking or lead)
+            with a link straight to that record in ST.
           </li>
           <li>
             <strong>Invoice webhook</strong> &mdash; ServiceTitan calls our
@@ -430,8 +447,12 @@ export default function HelpPage() {
             cause="Have them visit /sign-in and request a fresh magic link. Nothing for staff to click &mdash; the system emails them automatically."
           />
           <TroubleshootRow
-            symptom="Leads aren't showing up in ServiceTitan after referrals"
-            cause="On the Referrals page, check the ST lead column. If it's dashes across the board, Settings: st_referral_campaign_id is probably unset &mdash; by design, leads are skipped silently when no campaign ID is configured."
+            symptom="Nothing is showing up in ServiceTitan after referrals"
+            cause="On the Referrals page, check the ServiceTitan column. Dashes everywhere means neither Settings key is set. To send referrals as bookings, populate st_referral_booking_provider_id (register a booking provider in ST first). To send them as leads, populate st_referral_campaign_id. If both are blank, ST is skipped silently by design."
+          />
+          <TroubleshootRow
+            symptom="Referrals are still creating leads after setting the booking provider"
+            cause="The setting is read per-request, no caching. If leads are still being created, re-check st_referral_booking_provider_id on /admin/settings &mdash; confirm it saved to a numeric value (not blank). Old referrals submitted before the setting was populated will still show as leads; that's expected."
           />
           <TroubleshootRow
             symptom="A customer says they're an existing Christmas Air customer but the admin shows them as unlinked"

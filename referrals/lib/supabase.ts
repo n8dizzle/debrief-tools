@@ -189,6 +189,7 @@ export interface Referral {
   service_requested: string;
   notes: string | null;
   service_titan_lead_id: string | null;
+  service_titan_booking_id: string | null;
   service_titan_customer_id: string | null;
   service_titan_job_id: string | null;
   service_titan_invoice_id: string | null;

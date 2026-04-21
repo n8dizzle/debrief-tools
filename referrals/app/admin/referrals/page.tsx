@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
-import { stLeadUrl } from "@/lib/servicetitan-links";
+import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
 import STLinkBadge from "@/components/STLinkBadge";
 import type { Referral, ReferralStatus, Referrer } from "@/lib/supabase";
 
@@ -78,7 +78,7 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
               <Th>Referred by</Th>
               <Th>Service</Th>
               <Th>Status</Th>
-              <Th>ST lead</Th>
+              <Th>ServiceTitan</Th>
               <Th className="text-right">Invoice</Th>
               <Th>Submitted</Th>
             </tr>
@@ -101,11 +101,37 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
                   <ReferralStatusBadge status={r.status} />
                 </Td>
                 <Td>
-                  <STLinkBadge
-                    id={r.service_titan_lead_id}
-                    href={stLeadUrl(r.service_titan_lead_id)}
-                    emptyTitle="No ServiceTitan lead was created — either the campaign ID was unset at submission or ST was unreachable"
-                  />
+                  {r.service_titan_booking_id ? (
+                    <div className="flex flex-col gap-1">
+                      <STLinkBadge
+                        id={r.service_titan_booking_id}
+                        href={stBookingUrl(r.service_titan_booking_id)}
+                      />
+                      <span
+                        className="text-[10px] uppercase tracking-wide opacity-60"
+                      >
+                        booking
+                      </span>
+                    </div>
+                  ) : r.service_titan_lead_id ? (
+                    <div className="flex flex-col gap-1">
+                      <STLinkBadge
+                        id={r.service_titan_lead_id}
+                        href={stLeadUrl(r.service_titan_lead_id)}
+                      />
+                      <span
+                        className="text-[10px] uppercase tracking-wide opacity-60"
+                      >
+                        lead
+                      </span>
+                    </div>
+                  ) : (
+                    <STLinkBadge
+                      id={null}
+                      href={null}
+                      emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
+                    />
+                  )}
                 </Td>
                 <Td className="text-right">
                   {r.invoice_total

@@ -85,38 +85,87 @@ export async function submitReferral(
   const refereeDiscountLabel =
     tier?.referee_discount_label || "a neighbor-referral benefit";
 
-  // 4. Create Lead in ServiceTitan (best-effort — don't block submission on failure).
-  //    Skipped entirely if the admin hasn't wired up a campaign ID yet.
+  // 4. Send the referral to ServiceTitan. Two possible paths:
+  //      - Booking path: if st_referral_booking_provider_id is set. Lands
+  //        in ST's Bookings queue. Preferred for warm referrals (higher
+  //        conversion, dispatch just confirms details rather than qualifying).
+  //      - Lead path: if only st_referral_campaign_id is set. Lands in the
+  //        Leads queue — what we did before booking support was added.
+  //    Both are best-effort — a ServiceTitan failure never blocks the
+  //    referral from being recorded on our side.
   let serviceTitanLeadId: string | null = null;
+  let serviceTitanBookingId: string | null = null;
   const st = getServiceTitanClient();
-  const campaignIdRaw = await getSetting("st_referral_campaign_id");
+  const [campaignIdRaw, bookingProviderIdRaw] = await Promise.all([
+    getSetting("st_referral_campaign_id"),
+    getSetting("st_referral_booking_provider_id"),
+  ]);
   const campaignId = campaignIdRaw ? Number(campaignIdRaw) : NaN;
+  const bookingProviderId = bookingProviderIdRaw
+    ? Number(bookingProviderIdRaw)
+    : NaN;
 
-  if (st.isConfigured() && Number.isFinite(campaignId) && campaignId > 0) {
+  const body = [
+    `Referred by: ${referrer.first_name} ${referrer.last_name} (${referrer.referral_code})`,
+    `Name: ${input.referredName}`,
+    `Phone: ${input.referredPhone}`,
+    email ? `Email: ${email}` : "",
+    input.referredAddress ? `Address: ${input.referredAddress}` : "",
+    `Service: ${SERVICE_TYPE_LABELS[input.serviceType]}`,
+    input.notes ? `Notes: ${input.notes}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const summary = `Referral: ${input.referredName} — ${SERVICE_TYPE_LABELS[input.serviceType]}`;
+
+  const useBooking =
+    st.isConfigured() &&
+    Number.isFinite(bookingProviderId) &&
+    bookingProviderId > 0;
+  const useLead =
+    !useBooking &&
+    st.isConfigured() &&
+    Number.isFinite(campaignId) &&
+    campaignId > 0;
+
+  if (useBooking) {
     try {
-      const body = [
-        `Referred by: ${referrer.first_name} ${referrer.last_name} (${referrer.referral_code})`,
-        `Name: ${input.referredName}`,
-        `Phone: ${input.referredPhone}`,
-        email ? `Email: ${email}` : "",
-        input.referredAddress ? `Address: ${input.referredAddress}` : "",
-        `Service: ${SERVICE_TYPE_LABELS[input.serviceType]}`,
-        input.notes ? `Notes: ${input.notes}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-
+      // externalId uses a stable-ish prefix + the insert-pending referral's
+      // identity. The referral row isn't inserted yet, so there's no UUID —
+      // we fall back to phone + timestamp which is good enough for dedup
+      // on accidental double-submits in a short window.
+      const externalId = `cref:${normalizePhone(input.referredPhone)}:${Date.now()}`;
+      const booking = await st.createBooking(bookingProviderId, {
+        name: input.referredName,
+        source: "Christmas Air Referrals",
+        summary,
+        body,
+        externalId,
+        isFirstTimeClient: true,
+        priority: "Normal",
+        customerType:
+          input.serviceType === "COMMERCIAL" ? "Commercial" : "Residential",
+        ...(Number.isFinite(campaignId) && campaignId > 0
+          ? { campaignId }
+          : {}),
+        ...(email ? { email } : {}),
+      });
+      if (booking?.id) serviceTitanBookingId = String(booking.id);
+    } catch (err) {
+      console.warn("ServiceTitan booking create failed — continuing:", err);
+    }
+  } else if (useLead) {
+    try {
       // ServiceTitan's v2 Leads API requires either followUpDate OR
-      // callReasonId. We don't know a reason here (the referrer just picks a
-      // service type), so default to a follow-up date 24 hours out — gives
-      // dispatch a natural tomorrow-morning deadline to call the lead back.
-      // Without this the API returns 400 "Follow up date or Call Reason ID is required."
+      // callReasonId. Default to 24h out so dispatch has a tomorrow-morning
+      // deadline. Without this the API returns 400.
       const followUpIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       const lead = await st.createLead({
         campaignId,
         body,
-        summary: `Referral: ${input.referredName} — ${SERVICE_TYPE_LABELS[input.serviceType]}`,
+        summary,
         priority: "Normal",
         followUpDate: followUpIso,
         contactInfo: {
@@ -131,7 +180,7 @@ export async function submitReferral(
     }
   } else if (st.isConfigured()) {
     console.warn(
-      "Skipping ST lead: st_referral_campaign_id not configured in /admin/settings"
+      "Skipping ST: neither st_referral_booking_provider_id nor st_referral_campaign_id is configured in /admin/settings"
     );
   }
 
@@ -172,6 +221,7 @@ export async function submitReferral(
       service_requested: SERVICE_TYPE_LABELS[input.serviceType],
       notes: input.notes,
       service_titan_lead_id: serviceTitanLeadId,
+      service_titan_booking_id: serviceTitanBookingId,
       reward_config_id: referrer.assigned_reward_config_id,
       snapshot_tier_json: snapshot,
       triple_win_activated: willActivateTripleWin,
