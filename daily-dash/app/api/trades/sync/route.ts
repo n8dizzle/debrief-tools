@@ -119,6 +119,17 @@ export async function POST(request: NextRequest) {
             adj_revenue: metrics.hvac.departments?.maintenance?.adjRevenue || 0,
             sales: metrics.hvac.departments?.maintenance?.sales || 0,
           },
+          // HVAC Sales
+          {
+            snapshot_date: syncDate,
+            trade: 'hvac',
+            department: 'sales',
+            revenue: metrics.hvac.departments?.sales?.revenue || 0,
+            completed_revenue: metrics.hvac.departments?.sales?.completedRevenue || 0,
+            non_job_revenue: metrics.hvac.departments?.sales?.nonJobRevenue || 0,
+            adj_revenue: metrics.hvac.departments?.sales?.adjRevenue || 0,
+            sales: metrics.hvac.departments?.sales?.sales || 0,
+          },
           // Plumbing (no department breakdown)
           {
             snapshot_date: syncDate,

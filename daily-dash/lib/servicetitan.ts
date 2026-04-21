@@ -144,7 +144,7 @@ export interface STCall {
 export type TradeName = 'HVAC' | 'Plumbing';
 
 // HVAC department types
-export type HVACDepartment = 'Install' | 'Service' | 'Maintenance';
+export type HVACDepartment = 'Install' | 'Service' | 'Maintenance' | 'Sales';
 
 // Business units that belong to each trade
 const HVAC_BUSINESS_UNITS = [
@@ -171,7 +171,7 @@ const HVAC_DEPT_MAPPING: Record<string, HVACDepartment> = {
   'HVAC - Install': 'Install',
   'HVAC - Service': 'Service',
   'HVAC - Maintenance': 'Maintenance',
-  'HVAC - Sales': 'Install',                   // Sales revenue counts as Install
+  'HVAC - Sales': 'Sales',
   'Mims - Service': 'Service',                 // Mims counts as Service
   // Legacy DNU business units
   'z-DNU - Christmas HVAC- Install': 'Install',
@@ -506,6 +506,7 @@ export class ServiceTitanClient {
         install: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
         service: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
         maintenance: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
+        sales: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
       };
     };
     plumbing: {
@@ -550,6 +551,7 @@ export class ServiceTitanClient {
       install: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
       service: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
       maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
+      sales: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
     };
 
     // All BU names from revenue + sales (sales may exist for BUs with $0 revenue)
@@ -603,6 +605,12 @@ export class ServiceTitanClient {
           hvacDepts.maintenance.adjRevenue += adjRevenue;
           hvacDepts.maintenance.revenue += totalRevenue;
           hvacDepts.maintenance.sales += buSales;
+        } else if (dept === 'Sales') {
+          hvacDepts.sales.completedRevenue += completedRevenue;
+          hvacDepts.sales.nonJobRevenue += nonJobRevenue;
+          hvacDepts.sales.adjRevenue += adjRevenue;
+          hvacDepts.sales.revenue += totalRevenue;
+          hvacDepts.sales.sales += buSales;
         }
       } else if (isPlumbing) {
         plumbing.completedRevenue += completedRevenue;

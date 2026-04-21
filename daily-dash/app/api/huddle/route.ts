@@ -592,6 +592,7 @@ export async function GET(request: NextRequest) {
           install: { ...zeroDeptRevenue },
           service: { ...zeroDeptRevenue },
           maintenance: { ...zeroDeptRevenue },
+          sales: { ...zeroDeptRevenue },
         },
       };
 
@@ -620,6 +621,12 @@ export async function GET(request: NextRequest) {
           result.departments.maintenance.nonJobRevenue += Number(snap.non_job_revenue) || 0;
           result.departments.maintenance.adjRevenue += Number(snap.adj_revenue) || 0;
           result.departments.maintenance.sales += Number(snap.sales) || 0;
+        } else if (snap.department === 'sales') {
+          result.departments.sales.revenue += Number(snap.revenue) || 0;
+          result.departments.sales.completedRevenue += Number(snap.completed_revenue) || 0;
+          result.departments.sales.nonJobRevenue += Number(snap.non_job_revenue) || 0;
+          result.departments.sales.adjRevenue += Number(snap.adj_revenue) || 0;
+          result.departments.sales.sales += Number(snap.sales) || 0;
         }
       }
 

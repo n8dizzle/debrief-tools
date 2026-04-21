@@ -33,6 +33,7 @@ interface TradeMetrics {
     install: DepartmentRevenue;
     service: DepartmentRevenue;
     maintenance: DepartmentRevenue;
+    sales: DepartmentRevenue;
   };
 }
 
@@ -54,6 +55,7 @@ interface HVACTargets {
     install: DeptTargets;
     service: DeptTargets;
     maintenance: DeptTargets;
+    sales: DeptTargets;
   };
 }
 
@@ -843,16 +845,16 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
   const data = tradeData[trade];
 
   const hvacTargets = targets as HVACTargets | undefined;
-  const depts = isHvac ? ['install', 'service', 'maintenance'] as const : [];
-  const deptLabels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
+  const depts = isHvac ? ['install', 'service', 'maintenance', 'sales'] as const : [];
+  const deptLabels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance', sales: 'Sales' };
 
   // Get department data for a period
-  const getDept = (period: 'today' | 'wtd' | 'mtd', dept: 'install' | 'service' | 'maintenance') => {
+  const getDept = (period: 'today' | 'wtd' | 'mtd', dept: 'install' | 'service' | 'maintenance' | 'sales') => {
     const periodData = data[period] as TradeMetrics;
     return periodData?.departments?.[dept] || { revenue: 0, sales: 0 };
   };
 
-  const getDeptTarget = (dept: 'install' | 'service' | 'maintenance', period: 'daily' | 'weekly' | 'monthly') => {
+  const getDeptTarget = (dept: 'install' | 'service' | 'maintenance' | 'sales', period: 'daily' | 'weekly' | 'monthly') => {
     return hvacTargets?.departments?.[dept]?.[period] || 0;
   };
 
@@ -1159,6 +1161,67 @@ export default function DashboardPage() {
       {/* Trade Breakdown Cards */}
       {trades && (
         <div className="space-y-4">
+          {/* Plumbing Card */}
+          <div
+            className="p-5 sm:p-6 rounded-xl"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+            }}
+          >
+            {/* Trade Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Plumbing</h3>
+            </div>
+
+            {/* Plumbing Period Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {([
+                { label: 'Today', revenue: trades.plumbing.today.revenue, sales: (trades.plumbing.today as TradeMetrics).sales || 0, target: plumbingTargets?.daily || 0, pacing: dailyPacing },
+                { label: 'This Week', revenue: trades.plumbing.wtd.revenue, sales: (trades.plumbing.wtd as TradeMetrics).sales || 0, target: plumbingTargets?.weekly || 0, pacing: weeklyPacing },
+                { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
+              ] as const).map((period) => {
+                const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
+                const color = getStatusColor(pct);
+                return (
+                  <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                      {period.target > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                      {loading ? '...' : formatCurrencyCompact(period.revenue)}
+                    </div>
+                    <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
+                      {loading ? '...' : formatCurrencyCompact(period.sales)} sold
+                    </div>
+                    {period.target > 0 && (
+                      <>
+                        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
+                        <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                          {period.pacing > 0 && !loading && (
+                            <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* HVAC Card */}
           <div
             className="p-5 sm:p-6 rounded-xl"
@@ -1223,8 +1286,8 @@ export default function DashboardPage() {
             <div className="pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
               <div className="text-xs font-medium uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Department Breakdown</div>
               <div className="space-y-3">
-                {(['install', 'service', 'maintenance'] as const).map((dept) => {
-                  const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
+                {(['install', 'service', 'maintenance', 'sales'] as const).map((dept) => {
+                  const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance', sales: 'Sales' };
                   const getDeptData = (period: 'today' | 'wtd' | 'mtd') => {
                     const pd = trades.hvac[period] as TradeMetrics;
                     return pd?.departments?.[dept] || { revenue: 0, sales: 0 };
@@ -1268,67 +1331,6 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
-          {/* Plumbing Card */}
-          <div
-            className="p-5 sm:p-6 rounded-xl"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
-            }}
-          >
-            {/* Trade Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)' }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Plumbing</h3>
-            </div>
-
-            {/* Plumbing Period Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {([
-                { label: 'Today', revenue: trades.plumbing.today.revenue, sales: (trades.plumbing.today as TradeMetrics).sales || 0, target: plumbingTargets?.daily || 0, pacing: dailyPacing },
-                { label: 'This Week', revenue: trades.plumbing.wtd.revenue, sales: (trades.plumbing.wtd as TradeMetrics).sales || 0, target: plumbingTargets?.weekly || 0, pacing: weeklyPacing },
-                { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
-              ] as const).map((period) => {
-                const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                const color = getStatusColor(pct);
-                return (
-                  <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                      {period.target > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
-                      )}
-                    </div>
-                    <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-                      {loading ? '...' : formatCurrencyCompact(period.revenue)}
-                    </div>
-                    <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
-                      {loading ? '...' : formatCurrencyCompact(period.sales)} sold
-                    </div>
-                    {period.target > 0 && (
-                      <>
-                        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
-                        <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                          <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                          {period.pacing > 0 && !loading && (
-                            <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

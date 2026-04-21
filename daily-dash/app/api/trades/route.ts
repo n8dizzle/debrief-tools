@@ -25,6 +25,7 @@ interface HVACMetrics extends DeptRevenue {
     install: DeptRevenue;
     service: DeptRevenue;
     maintenance: DeptRevenue;
+    sales: DeptRevenue;
   };
 }
 
@@ -108,6 +109,7 @@ function createEmptyMetrics(): TradeMetrics {
         install: { ...zeroDept },
         service: { ...zeroDept },
         maintenance: { ...zeroDept },
+        sales: { ...zeroDept },
       },
     },
     plumbing: { ...zeroDept },
@@ -144,6 +146,11 @@ function applySnapshotToMetrics(metrics: TradeMetrics, snap: TradeSnapshot): voi
       metrics.hvac.departments.maintenance.completedRevenue += values.completedRevenue;
       metrics.hvac.departments.maintenance.nonJobRevenue += values.nonJobRevenue;
       metrics.hvac.departments.maintenance.adjRevenue += values.adjRevenue;
+    } else if (snap.department === 'sales') {
+      metrics.hvac.departments.sales.revenue += values.revenue;
+      metrics.hvac.departments.sales.completedRevenue += values.completedRevenue;
+      metrics.hvac.departments.sales.nonJobRevenue += values.nonJobRevenue;
+      metrics.hvac.departments.sales.adjRevenue += values.adjRevenue;
     }
   } else if (snap.trade === 'plumbing') {
     metrics.plumbing.revenue += values.revenue;

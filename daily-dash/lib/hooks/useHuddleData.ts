@@ -36,6 +36,7 @@ export interface HVACPeriodData extends DepartmentRevenue {
     install: DepartmentRevenue;
     service: DepartmentRevenue;
     maintenance: DepartmentRevenue;
+    sales: DepartmentRevenue;
   };
 }
 
@@ -55,6 +56,7 @@ export interface TradeTargets {
     install: DeptTargets;
     service: DeptTargets;
     maintenance: DeptTargets;
+    sales: DeptTargets;
   };
 }
 
