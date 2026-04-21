@@ -127,8 +127,8 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Referrers"
-            what="Every enrolled customer with their code, ServiceTitan customer link, charity pick, lifetime referral count, total earned, total donated. The ST customer column shows a green pill for referrers we matched to an existing ServiceTitan customer at enrollment &mdash; click the pill to open that customer in ServiceTitan. A dash means no match was found."
-            who="CSRs looking up whether a caller is enrolled, which code they have, or whether they're linked to our main customer record."
+            what="Every enrolled customer with their code, ServiceTitan customer link, charity pick, lifetime referral count, total earned, total donated. The ST customer column is editable &mdash; click &ldquo;link&rdquo; next to a referrer, paste the numeric ID from the ST URL, preview the customer name that resolves, save. Click &ldquo;edit&rdquo; on an existing linkage to change or clear it."
+            who="CSRs looking up whether a caller is enrolled, and linking referrers to their ServiceTitan customer record."
           />
           <AdminPageEntry
             title="Referrals"
@@ -232,13 +232,13 @@ export default function HelpPage() {
         </p>
         <ol className="list-decimal pl-6 space-y-3">
           <li>
-            <strong>Customer lookup on enrollment</strong> &mdash; when someone
-            signs up, we try to match them to an existing ServiceTitan customer
-            by phone first, then by email. Best-effort: if the lookup times out
-            or fails, enrollment still succeeds and the link can be added later.
-            You can see the result on the Referrers page &mdash; the &ldquo;ST
-            customer&rdquo; column shows a green pill with the customer ID when
-            the match worked, a dash when it didn&apos;t.
+            <strong>Customer linkage (manual)</strong> &mdash; there is no
+            auto-match at enrollment. ST&apos;s customer-search API silently
+            false-matches (ignores the email filter, returns partial phone
+            matches), so we leave the linkage blank and let admins set it
+            explicitly. On the Referrers page, click &ldquo;link&rdquo; next
+            to a referrer, paste the numeric customer ID from the ST URL,
+            verify the name preview, save. One click to fix; no false positives.
           </li>
           <li>
             <strong>Booking or lead creation</strong> &mdash; when a referred
@@ -382,15 +382,17 @@ export default function HelpPage() {
               details.
             </p>
           </Faq>
-          <Faq q="How do I check if a referrer is linked to our ServiceTitan customer records?">
+          <Faq q="How do I link a referrer to their ServiceTitan customer record?">
             <p>
-              Open the <strong>Referrers</strong> page. The &ldquo;ST
-              customer&rdquo; column shows a green pill with the ST customer
-              ID when we matched them, or a dash when we didn&apos;t. Click
-              the pill to jump straight to the customer record in
-              ServiceTitan. If someone should be linked but isn&apos;t, they
-              can be manually reconnected by updating their record in the
-              database.
+              Open the <strong>Referrers</strong> page. Next to each
+              referrer, click <strong>link</strong> (or <strong>edit</strong>{" "}
+              if there&apos;s already a linkage). Paste the numeric customer
+              ID from the ServiceTitan URL &mdash; the part after{" "}
+              <code>/#/customer/</code> &mdash; and the admin page will
+              look up the customer name so you can verify it&apos;s the right
+              person before saving. Leave the field blank and save to unlink.
+              Click the green pill any time to open that customer in
+              ServiceTitan.
             </p>
           </Faq>
           <Faq q="How do I check whether a referral created a lead in ServiceTitan?">
@@ -456,7 +458,7 @@ export default function HelpPage() {
           />
           <TroubleshootRow
             symptom="A customer says they're an existing Christmas Air customer but the admin shows them as unlinked"
-            cause="The ST customer column on the Referrers page didn't find a match by phone or email at enrollment. Common causes: they enrolled with a different phone/email than what's on their ST record, or ServiceTitan was briefly unreachable during enrollment. A dev can manually set service_titan_id on their ref_referrers row to re-link them."
+            cause="All referrers enroll unlinked by default — ST's search API is unreliable for matching, so we don't auto-link. Find them in ServiceTitan, copy the numeric ID from the URL, paste into the inline edit on the Referrers page, and save. The name preview confirms you grabbed the right person."
           />
           <TroubleshootRow
             symptom="Paid invoice but no reward issued"

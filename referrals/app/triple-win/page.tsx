@@ -28,7 +28,7 @@ export default async function TripleWinPage() {
       <SiteHeader />
 
       {!tripleWinEnabled && (
-        <section className="px-6 pt-8">
+        <section className="px-4 md:px-6 pt-6 md:pt-8">
           <div
             className="max-w-3xl mx-auto p-4 rounded-lg text-center"
             style={{
@@ -44,11 +44,13 @@ export default async function TripleWinPage() {
         </section>
       )}
 
-      <section className="px-6 pt-16 pb-12 md:pt-24">
+      <section className="px-4 md:px-6 pt-12 md:pt-24 pb-8 md:pb-12">
         <div className="max-w-4xl mx-auto text-center">
           <span className="badge-trust mb-4">One referral. Three winners.</span>
-          <h1 className="text-5xl md:text-7xl mt-4 mb-6">Triple Win</h1>
-          <p className="text-lg md:text-xl max-w-2xl mx-auto opacity-80">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl mt-4 mb-5 md:mb-6 leading-tight">
+            Triple Win
+          </h1>
+          <p className="text-base md:text-xl max-w-2xl mx-auto opacity-80">
             When you refer a neighbor, you get your reward, they get their
             discount, <em>and</em> we donate to a charity you choose. All three
             wins — every single time.
@@ -56,9 +58,9 @@ export default async function TripleWinPage() {
         </div>
       </section>
 
-      <section className="section-white px-6 py-16">
+      <section className="section-white px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-5xl mx-auto">
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-6 md:gap-8 md:grid-cols-3">
             <WinCard
               n="1"
               title="You win"
@@ -78,12 +80,12 @@ export default async function TripleWinPage() {
         </div>
       </section>
 
-      <section className="section-cream px-6 py-16">
+      <section className="section-cream px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-4xl md:text-5xl text-center mb-4">
+          <h2 className="text-3xl md:text-5xl text-center mb-4">
             The charities you can choose.
           </h2>
-          <p className="text-center text-lg opacity-80 max-w-2xl mx-auto mb-12">
+          <p className="text-center text-base md:text-lg opacity-80 max-w-2xl mx-auto mb-10 md:mb-12">
             Pick one at sign-up. Switch any time from your dashboard.
           </p>
 
@@ -92,7 +94,7 @@ export default async function TripleWinPage() {
               Charity list coming soon.
             </p>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-4 md:gap-5 md:grid-cols-2">
               {charities.map((c) => (
                 <div key={c.id} className="card">
                   <h3 className="text-2xl mb-2">{c.name}</h3>
@@ -116,12 +118,12 @@ export default async function TripleWinPage() {
         </div>
       </section>
 
-      <section className="section-green px-6 py-16">
+      <section className="section-green px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl md:text-5xl text-center mb-8">
+          <h2 className="text-3xl md:text-5xl text-center mb-6 md:mb-8">
             The fine print, plain-spoken.
           </h2>
-          <div className="space-y-5 text-lg opacity-90">
+          <div className="space-y-4 md:space-y-5 text-base md:text-lg opacity-90">
             <p>
               <strong>You keep your full reward.</strong> The charity donation
               comes from us, not your thank-you. This is a <em>Triple</em> Win,
@@ -142,7 +144,7 @@ export default async function TripleWinPage() {
         </div>
       </section>
 
-      <section className="px-6 py-20">
+      <section className="px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl mb-4">Ready to join?</h2>
           <p className="text-lg opacity-80 mb-8">

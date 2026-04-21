@@ -6,25 +6,50 @@ import { sendReferralConfirmedToFriend } from "@/lib/email/referral-confirmed-fr
 import { sendReferralSubmittedToReferrer } from "@/lib/email/referral-submitted-to-referrer";
 import type { Charity, Referrer } from "@/lib/supabase";
 
-const SubmitSchema = z.object({
-  referralCode: z.string().min(3).max(40),
-  referredName: z.string().trim().min(1).max(100),
-  referredEmail: z.string().email().max(254).nullable().optional(),
-  referredPhone: z.string().trim().min(10).max(25),
-  referredAddress: z.string().trim().max(200).nullable().optional(),
-  serviceType: z.enum([
-    "HVAC_SERVICE_CALL",
-    "HVAC_MAINTENANCE",
-    "HVAC_INSTALLATION",
-    "PLUMBING_SERVICE_CALL",
-    "PLUMBING_MAINTENANCE",
-    "PLUMBING_INSTALLATION",
-    "WATER_HEATER",
-    "COMMERCIAL",
-    "OTHER",
-  ]),
-  notes: z.string().trim().max(1000).nullable().optional(),
-});
+const SubmitSchema = z
+  .object({
+    referralCode: z.string().min(3).max(40),
+    referredName: z.string().trim().min(1).max(100),
+    // Either phone OR email is required — enforced by .refine() below.
+    // Empty strings are normalized to null so downstream logic (submit.ts
+    // dedup, ST contact array builder) has a single "absent" sentinel.
+    referredPhone: z
+      .string()
+      .trim()
+      .max(25)
+      .transform((v) => (v.length === 0 ? null : v))
+      .nullable()
+      .optional(),
+    referredEmail: z
+      .string()
+      .trim()
+      .max(254)
+      .transform((v) => (v.length === 0 ? null : v))
+      .nullable()
+      .optional()
+      .refine(
+        (v) => v === null || v === undefined || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+        { message: "Invalid email address" }
+      ),
+    serviceType: z.enum([
+      "HVAC",
+      "PLUMBING",
+      "WATER_HEATER",
+      "COMMERCIAL",
+      "NOT_SURE",
+    ]),
+    notes: z.string().trim().max(1000).nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      (data.referredPhone && data.referredPhone.length >= 10) ||
+      (data.referredEmail && data.referredEmail.length > 0),
+    {
+      message:
+        "Please share either a phone number or an email so we can reach out.",
+      path: ["referredPhone"],
+    }
+  );
 
 function getAppUrl(req: NextRequest): string {
   return process.env.NEXTAUTH_URL || req.nextUrl.origin;
@@ -65,12 +90,14 @@ export async function POST(req: NextRequest) {
   }
   const referrer = referrerRow as Referrer;
 
-  // Submit
+  // Submit. Phone and email are both optional at this layer (the Zod refine
+  // above guarantees at least one is present); submit.ts handles the absent
+  // case in dedup + ST payload construction.
   const result = await submitReferral(referrer, {
     referredName: data.referredName,
     referredEmail: data.referredEmail || null,
-    referredPhone: data.referredPhone,
-    referredAddress: data.referredAddress || null,
+    referredPhone: data.referredPhone || null,
+    referredAddress: null,
     serviceType: data.serviceType,
     notes: data.notes || null,
   });

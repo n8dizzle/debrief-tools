@@ -2,42 +2,42 @@ import type { ServiceCategory } from "@/lib/supabase";
 
 /**
  * Service type options shown to the friend on /refer/[code].
- * Drives the expected ServiceCategory snapshot at submission time.
- * Actual category is re-classified from ST job/invoice data at conversion.
+ *
+ * Collapsed from 9 → 5 buckets: the granular HVAC/Plumbing service-vs-
+ * maintenance-vs-install distinction was more than a "curious neighbor"
+ * could reasonably know about their own problem, and the precision was
+ * illusory anyway — the actual reward tier is re-derived from the
+ * ServiceTitan invoice at conversion via classifyActualCategory(), not
+ * from the submission snapshot. Dispatch drills into specifics on the
+ * callback.
+ *
+ * NOT_SURE is deliberate: visitors who don't know what they need shouldn't
+ * feel forced to guess. Styled softer in the UI and mapped conservatively.
  */
 export type ServiceType =
-  | "HVAC_SERVICE_CALL"
-  | "HVAC_MAINTENANCE"
-  | "HVAC_INSTALLATION"
-  | "PLUMBING_SERVICE_CALL"
-  | "PLUMBING_MAINTENANCE"
-  | "PLUMBING_INSTALLATION"
+  | "HVAC"
+  | "PLUMBING"
   | "WATER_HEATER"
   | "COMMERCIAL"
-  | "OTHER";
+  | "NOT_SURE";
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
-  HVAC_SERVICE_CALL: "HVAC repair / not cooling / not heating",
-  HVAC_MAINTENANCE: "HVAC tune-up or maintenance plan",
-  HVAC_INSTALLATION: "New HVAC system or replacement",
-  PLUMBING_SERVICE_CALL: "Plumbing repair / leak / drain",
-  PLUMBING_MAINTENANCE: "Plumbing inspection / maintenance",
-  PLUMBING_INSTALLATION: "New fixtures or re-piping",
-  WATER_HEATER: "Water heater (repair or replace)",
-  COMMERCIAL: "Commercial property / business",
-  OTHER: "Something else",
+  HVAC: "Something's not right with my HVAC",
+  PLUMBING: "A plumbing issue (leak, drain, fixture, etc.)",
+  WATER_HEATER: "Water heater trouble or replacement",
+  COMMERCIAL: "Commercial property or business",
+  NOT_SURE: "Not sure yet — I just have a question",
 };
 
 const CATEGORY_MAP: Record<ServiceType, ServiceCategory> = {
-  HVAC_SERVICE_CALL: "SERVICE_CALL",
-  HVAC_MAINTENANCE: "MAINTENANCE",
-  HVAC_INSTALLATION: "REPLACEMENT",
-  PLUMBING_SERVICE_CALL: "SERVICE_CALL",
-  PLUMBING_MAINTENANCE: "MAINTENANCE",
-  PLUMBING_INSTALLATION: "REPLACEMENT",
+  // HVAC and Plumbing default to SERVICE_CALL — the most common conversion
+  // type for an inbound inquiry. If the invoice turns out to be a Maintenance
+  // plan or Install, classifyActualCategory overrides this at reward time.
+  HVAC: "SERVICE_CALL",
+  PLUMBING: "SERVICE_CALL",
   WATER_HEATER: "REPLACEMENT",
   COMMERCIAL: "COMMERCIAL",
-  OTHER: "SERVICE_CALL",
+  NOT_SURE: "SERVICE_CALL",
 };
 
 /**

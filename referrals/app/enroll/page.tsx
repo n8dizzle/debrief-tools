@@ -26,15 +26,15 @@ export default async function EnrollPage() {
   return (
     <>
       <SiteHeader />
-      <section className="px-6 pt-12 pb-6 md:pt-16">
+      <section className="px-4 md:px-6 pt-10 md:pt-16 pb-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl mb-4">Join the program.</h1>
-          <p className="text-lg opacity-80">
+          <h1 className="text-4xl md:text-6xl mb-4 leading-tight">Join the program.</h1>
+          <p className="text-base md:text-lg opacity-80">
             Two minutes. No obligations. Free to leave any time.
           </p>
         </div>
       </section>
-      <section className="px-6 pb-24">
+      <section className="px-4 md:px-6 pb-20 md:pb-24">
         <EnrollForm charities={charities} tripleWinEnabled={tripleWinEnabled} />
       </section>
       <SiteFooter />

@@ -1,7 +1,6 @@
 import { getServerSupabase } from "@/lib/supabase";
-import { stCustomerUrl } from "@/lib/servicetitan-links";
-import STLinkBadge from "@/components/STLinkBadge";
 import type { Charity, Referrer } from "@/lib/supabase";
+import STCustomerEdit from "./STCustomerEdit";
 
 export const dynamic = "force-dynamic";
 
@@ -72,10 +71,9 @@ export default async function ReferrersPage() {
                   <code className="text-xs">{r.referral_code}</code>
                 </Td>
                 <Td>
-                  <STLinkBadge
-                    id={r.service_titan_id}
-                    href={stCustomerUrl(r.service_titan_id)}
-                    emptyTitle="Not linked — no matching ServiceTitan customer at enrollment"
+                  <STCustomerEdit
+                    referrerId={r.id}
+                    initialId={r.service_titan_id}
                   />
                 </Td>
                 <Td className="text-xs">

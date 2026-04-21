@@ -4,26 +4,18 @@ import { useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 
 type ServiceType =
-  | "HVAC_SERVICE_CALL"
-  | "HVAC_MAINTENANCE"
-  | "HVAC_INSTALLATION"
-  | "PLUMBING_SERVICE_CALL"
-  | "PLUMBING_MAINTENANCE"
-  | "PLUMBING_INSTALLATION"
+  | "HVAC"
+  | "PLUMBING"
   | "WATER_HEATER"
   | "COMMERCIAL"
-  | "OTHER";
+  | "NOT_SURE";
 
-const SERVICE_TYPES: { value: ServiceType; label: string }[] = [
-  { value: "HVAC_SERVICE_CALL", label: "HVAC repair / not cooling / not heating" },
-  { value: "HVAC_MAINTENANCE", label: "HVAC tune-up or maintenance plan" },
-  { value: "HVAC_INSTALLATION", label: "New HVAC system or replacement" },
-  { value: "PLUMBING_SERVICE_CALL", label: "Plumbing repair / leak / drain" },
-  { value: "PLUMBING_MAINTENANCE", label: "Plumbing inspection / maintenance" },
-  { value: "PLUMBING_INSTALLATION", label: "New fixtures or re-piping" },
-  { value: "WATER_HEATER", label: "Water heater (repair or replace)" },
-  { value: "COMMERCIAL", label: "Commercial property / business" },
-  { value: "OTHER", label: "Something else" },
+const SERVICE_TYPES: { value: ServiceType; label: string; soft?: boolean }[] = [
+  { value: "HVAC", label: "Something's not right with my HVAC" },
+  { value: "PLUMBING", label: "A plumbing issue (leak, drain, fixture, etc.)" },
+  { value: "WATER_HEATER", label: "Water heater trouble or replacement" },
+  { value: "COMMERCIAL", label: "Commercial property or business" },
+  { value: "NOT_SURE", label: "Not sure yet — I just have a question", soft: true },
 ];
 
 interface Props {
@@ -40,7 +32,6 @@ export default function ReferralForm({
   const [referredName, setReferredName] = useState("");
   const [referredPhone, setReferredPhone] = useState("");
   const [referredEmail, setReferredEmail] = useState("");
-  const [referredAddress, setReferredAddress] = useState("");
   const [serviceType, setServiceType] = useState<ServiceType | "">("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +44,13 @@ export default function ReferralForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!serviceType) {
-      setError("Please pick what you need help with.");
+      setError("Let us know what's going on so we can route this to the right person.");
+      return;
+    }
+    const phoneTrim = referredPhone.trim();
+    const emailTrim = referredEmail.trim();
+    if (!phoneTrim && !emailTrim) {
+      setError("We need either a phone number or an email so we can reach out.");
       return;
     }
     setSubmitting(true);
@@ -66,9 +63,8 @@ export default function ReferralForm({
         body: JSON.stringify({
           referralCode,
           referredName: referredName.trim(),
-          referredPhone: referredPhone.trim(),
-          referredEmail: referredEmail.trim() || null,
-          referredAddress: referredAddress.trim() || null,
+          referredPhone: phoneTrim || null,
+          referredEmail: emailTrim || null,
           serviceType,
           notes: notes.trim() || null,
         }),
@@ -145,11 +141,31 @@ export default function ReferralForm({
   return (
     <form onSubmit={submit} className="max-w-2xl mx-auto">
       <div className="card">
-        <h2 className="text-3xl mb-2">Tell us what you need.</h2>
+        <h2 className="text-3xl mb-2">How can we help?</h2>
         <p className="opacity-70 mb-6">
-          We&apos;ll call or text within one business day. No pressure, no hard
-          sell.
+          Tell us as much or as little as you want. We&apos;ll reach out within
+          one business day.
         </p>
+
+        {/* Exit ramp for folks who'd rather pick up the phone than fill out a
+            form. Matches the "no pressure" tone of the page header. */}
+        <div
+          className="mb-6 p-4 rounded-lg text-sm"
+          style={{
+            background: "rgba(97,139,96,0.08)",
+            borderLeft: "3px solid var(--ca-green)",
+          }}
+        >
+          Prefer to just call? Dial{" "}
+          <a
+            href="tel:4692142013"
+            className="font-semibold"
+            style={{ color: "var(--ca-dark-green)" }}
+          >
+            (469) 214-2013
+          </a>{" "}
+          and tell us {referrerFirstName} sent you.
+        </div>
 
         <Field label="Your name" required>
           <input
@@ -162,78 +178,100 @@ export default function ReferralForm({
           />
         </Field>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Phone" required>
-            <input
-              className="input"
-              type="tel"
-              required
-              value={referredPhone}
-              onChange={(e) => setReferredPhone(e.target.value)}
-              autoComplete="tel"
-              placeholder="(469) 214-2013"
-            />
-          </Field>
-          <Field label="Email (optional)">
-            <input
-              className="input"
-              type="email"
-              value={referredEmail}
-              onChange={(e) => setReferredEmail(e.target.value)}
-              autoComplete="email"
-            />
-          </Field>
+        {/* Phone OR email — either works, both welcome. Validation is handled
+            both client-side (submit handler above) and server-side (Zod refine). */}
+        <div className="mb-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="block text-sm font-semibold">
+              How should we reach you?
+              <span style={{ color: "var(--ca-red)" }} className="ml-0.5">
+                *
+              </span>
+            </span>
+            <span className="text-xs opacity-60">(pick one or both)</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="sr-only">Phone</span>
+              <input
+                className="input"
+                type="tel"
+                value={referredPhone}
+                onChange={(e) => setReferredPhone(e.target.value)}
+                autoComplete="tel"
+                placeholder="Phone — (469) 214-2013"
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">Email</span>
+              <input
+                className="input"
+                type="email"
+                value={referredEmail}
+                onChange={(e) => setReferredEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="Email — you@example.com"
+              />
+            </label>
+          </div>
+          <p className="text-xs opacity-60 mt-2">
+            We only need one. We&apos;ll use whichever you prefer.
+          </p>
         </div>
 
-        <Field label="Address (optional)">
-          <input
-            className="input"
-            value={referredAddress}
-            onChange={(e) => setReferredAddress(e.target.value)}
-            autoComplete="street-address"
-            placeholder="Speeds up scheduling"
-          />
-        </Field>
-
-        <Field label="What do you need help with?" required>
+        <Field label="What's going on?" required>
           <div className="grid gap-2">
-            {SERVICE_TYPES.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex items-start gap-3 p-3 rounded-lg cursor-pointer"
-                style={{
-                  border: `2px solid ${
-                    serviceType === opt.value
-                      ? "var(--ca-green)"
-                      : "var(--border-subtle)"
-                  }`,
-                  background:
-                    serviceType === opt.value
+            {SERVICE_TYPES.map((opt) => {
+              const selected = serviceType === opt.value;
+              return (
+                <label
+                  key={opt.value}
+                  className="flex items-start gap-3 p-3 rounded-lg cursor-pointer"
+                  style={{
+                    border: opt.soft
+                      ? `2px dashed ${selected ? "var(--ca-green)" : "var(--border-subtle)"}`
+                      : `2px solid ${selected ? "var(--ca-green)" : "var(--border-subtle)"}`,
+                    background: selected
                       ? "rgba(97,139,96,0.06)"
                       : "var(--bg-card)",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="serviceType"
-                  value={opt.value}
-                  checked={serviceType === opt.value}
-                  onChange={() => setServiceType(opt.value)}
-                  className="mt-1"
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="serviceType"
+                    value={opt.value}
+                    checked={selected}
+                    onChange={() => setServiceType(opt.value)}
+                    className="mt-1"
+                  />
+                  <span
+                    style={{
+                      fontStyle: opt.soft ? "italic" : "normal",
+                      opacity: opt.soft && !selected ? 0.75 : 1,
+                    }}
+                  >
+                    {opt.label}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </Field>
 
-        <Field label="Anything else we should know? (optional)">
+        <Field
+          label={
+            <>
+              Tell us the story{" "}
+              <span className="font-normal opacity-60">(optional)</span>
+            </>
+          }
+        >
           <textarea
             className="input"
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Best time to reach you, specific concerns, etc."
+            placeholder="What's happening, when it started, best time to reach you — whatever's helpful."
           />
         </Field>
 
@@ -242,9 +280,9 @@ export default function ReferralForm({
             className="text-sm opacity-80 mb-4 p-3 rounded-lg"
             style={{ background: "var(--ca-cream)" }}
           >
-            By submitting, you&apos;re helping {referrerFirstName} trigger a
-            donation to <strong>{tripleWinCharityName}</strong> when your service
-            is complete.
+            By getting in touch, you&apos;re helping {referrerFirstName} trigger
+            a donation to <strong>{tripleWinCharityName}</strong> once your
+            service is complete. No cost to you.
           </p>
         )}
 
@@ -267,12 +305,12 @@ export default function ReferralForm({
           disabled={submitting}
           style={{ opacity: submitting ? 0.6 : 1 }}
         >
-          {submitting ? "Sending…" : "Book my service"}
+          {submitting ? "Sending…" : "Have someone reach out"}
         </button>
 
         <p className="mt-4 text-center text-xs opacity-60">
           By submitting, you agree to be contacted by Christmas Air at the phone
-          number and email provided.
+          number or email provided.
         </p>
       </div>
     </form>
@@ -284,7 +322,7 @@ function Field({
   required,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   required?: boolean;
   children: React.ReactNode;
 }) {

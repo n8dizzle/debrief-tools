@@ -78,12 +78,25 @@ export interface STLeadCreate {
   contactInfo?: STLeadContactInfo;
 }
 
+export interface STBookingContact {
+  type: "Phone" | "Email";
+  value: string;
+  memo?: string;
+}
+
 /**
- * Bare-minimum booking payload for ST's booking-provider endpoint. Every
- * field here is actually required — probed against the live API, ST returns
- * 400 if any are missing. Everything else (time slot, business unit, job
- * type, address) is optional at submission and gets assigned by dispatch
- * when they accept the booking into a scheduled appointment.
+ * Bare-minimum booking payload for ST's booking-provider endpoint. Probed
+ * against the live API — these field names and requirements come from
+ * actual 400 responses, not docs:
+ *
+ *  - name, source, summary, body, externalId, isFirstTimeClient:
+ *    hard-required. ST 400s with "Required property X not found" if missing.
+ *  - contacts OR address: at least one is required. ST 400s with
+ *    "At least one Contact or Address is required" if neither. Our referrals
+ *    always collect a phone so we always send a contact — address is still
+ *    sent when available for dispatch routing.
+ *  - Everything else (time slot, business unit, job type) is filled in by
+ *    dispatch when they accept the booking into a scheduled appointment.
  */
 export interface STBookingCreate {
   /** Customer-facing name (the referred friend). */
@@ -92,18 +105,16 @@ export interface STBookingCreate {
   source: string;
   /** Short headline dispatch sees in the bookings queue. */
   summary: string;
-  /** Full narrative — phone, address, service type, referrer, notes. */
+  /** Full narrative — referrer, service type, notes. */
   body: string;
-  /** Our dedup key. ST rejects duplicates by externalId, so reusing the
-   *  referral UUID makes resubmissions idempotent. */
+  /** Our dedup key. ST rejects duplicates by externalId, so a stable value
+   *  makes accidental resubmissions idempotent. */
   externalId: string;
   /** Boolean — default true for referrals (friend of a customer is usually
    *  a net-new customer). */
   isFirstTimeClient: boolean;
-  /** Optional recommended additions — dispatch uses these when calling back. */
-  campaignId?: number;
-  priority?: "Low" | "Normal" | "High" | "Urgent";
-  customerType?: "Residential" | "Commercial";
+  /** Contact method array. At least one contact OR address is required. */
+  contacts?: STBookingContact[];
   address?: {
     street?: string;
     unit?: string;
@@ -112,6 +123,10 @@ export interface STBookingCreate {
     zip?: string;
     country?: string;
   };
+  /** Optional recommended additions — dispatch uses these when calling back. */
+  campaignId?: number;
+  priority?: "Low" | "Normal" | "High" | "Urgent";
+  customerType?: "Residential" | "Commercial";
   email?: string;
 }
 
