@@ -262,10 +262,19 @@ function formatCurrencyCompact(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
-function getStatusColor(pacing: number): string {
-  if (pacing >= 100) return 'var(--christmas-green)';
-  if (pacing >= 90) return '#3B82F6';
-  if (pacing >= 75) return 'var(--christmas-gold)';
+function getStatusColor(actualPct: number, expectedPct?: number): string {
+  // If we have expected pacing, color based on whether ahead or behind
+  if (expectedPct !== undefined && expectedPct > 0) {
+    const ratio = actualPct / expectedPct;
+    if (ratio >= 1) return 'var(--christmas-green)';
+    if (ratio >= 0.9) return '#3B82F6';
+    if (ratio >= 0.75) return 'var(--christmas-gold)';
+    return '#EF4444';
+  }
+  // Fallback: just use absolute percentage
+  if (actualPct >= 100) return 'var(--christmas-green)';
+  if (actualPct >= 90) return '#3B82F6';
+  if (actualPct >= 75) return 'var(--christmas-gold)';
   return '#EF4444';
 }
 
@@ -290,7 +299,7 @@ interface AnnualBannerProps {
 function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBannerProps) {
   const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const isAheadOfPace = percentage >= expectedPercent;
-  const statusColor = getStatusColor(percentage);
+  const statusColor = getStatusColor(percentage, expectedPercent);
   const year = new Date().getFullYear();
 
   return (
@@ -568,7 +577,7 @@ interface RevenueCardProps {
 
 function RevenueCard({ label, revenue, sales, target, loading, accentColor, expectedPacing }: RevenueCardProps) {
   const percentage = target > 0 ? Math.round((revenue / target) * 100) : 0;
-  const statusColor = getStatusColor(percentage);
+  const statusColor = getStatusColor(percentage, expectedPacing);
   const isAheadOfPace = expectedPacing !== undefined && percentage >= expectedPacing;
 
   const accentColors = {
@@ -702,7 +711,7 @@ interface MiniTradeCardProps {
 
 function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedPacing }: MiniTradeCardProps) {
   const percentage = target && target > 0 ? Math.round((revenue / target) * 100) : null;
-  const statusColor = percentage !== null ? getStatusColor(percentage) : accentColor;
+  const statusColor = percentage !== null ? getStatusColor(percentage, expectedPacing) : accentColor;
   const isAheadOfPace = expectedPacing !== undefined && percentage !== null && percentage >= expectedPacing;
 
   return (
@@ -802,7 +811,7 @@ function ScoreboardCell({
 }) {
   if (loading) return <span style={{ color: 'var(--text-muted)' }}>--</span>;
   const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-  const color = target > 0 ? getStatusColor(Math.round((pct / Math.max(expectedPacing, 1)) * 100)) : 'var(--text-muted)';
+  const color = target > 0 ? getStatusColor(pct, expectedPacing) : 'var(--text-muted)';
   return (
     <div className="text-right">
       <span style={{ color }} className="font-semibold">{formatCurrencyCompact(actual)}</span>
@@ -829,7 +838,7 @@ function RevenueSalesCell({
 }) {
   if (loading) return <div className="text-right"><span style={{ color: 'var(--text-muted)' }}>--</span></div>;
   const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
-  const color = target > 0 ? getStatusColor(Math.round((pct / Math.max(expectedPacing, 1)) * 100)) : 'var(--text-muted)';
+  const color = target > 0 ? getStatusColor(pct, expectedPacing) : 'var(--text-muted)';
   return (
     <div className="text-right leading-tight">
       <div>
@@ -1207,7 +1216,7 @@ export default function DashboardPage() {
                   { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
                 ] as const).map((period) => {
                   const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                  const color = getStatusColor(pct);
+                  const color = getStatusColor(pct, period.pacing);
                   return (
                     <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
                       <div className="flex items-center justify-between mb-3">
@@ -1272,7 +1281,7 @@ export default function DashboardPage() {
                   { label: 'This Month', revenue: trades.hvac.mtd.revenue, sales: (trades.hvac.mtd as TradeMetrics).sales || 0, target: hvacTargets?.monthly || 0, pacing: monthlyPacing },
                 ] as const).map((period) => {
                   const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                  const color = getStatusColor(pct);
+                  const color = getStatusColor(pct, period.pacing);
                   return (
                     <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
                       <div className="flex items-center justify-between mb-3">
@@ -1340,7 +1349,7 @@ export default function DashboardPage() {
                             { label: 'Month', data: getDeptData('mtd'), target: getDeptTarget('monthly'), pacing: monthlyPacing },
                           ] as const).map((period) => {
                             const pct = period.target > 0 ? Math.round((period.data.revenue / period.target) * 100) : 0;
-                            const color = period.target > 0 ? getStatusColor(pct) : 'var(--text-muted)';
+                            const color = period.target > 0 ? getStatusColor(pct, period.pacing) : 'var(--text-muted)';
                             return (
                               <div key={period.label}>
                                 <div className="flex items-center justify-between mb-1.5">
