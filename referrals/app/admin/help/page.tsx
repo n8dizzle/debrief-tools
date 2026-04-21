@@ -137,7 +137,7 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Rewards"
-            what="Every gift card that&apos;s been issued, is pending, or failed. Status values: PENDING, APPROVED, ISSUED, DELIVERED, FAILED."
+            what="Every gift card that's been issued, is pending, or failed. Status values: PENDING, APPROVED, ISSUED, DELIVERED, FAILED. Includes a Tremendous column — green pill with the order ID when an order exists (click to open it in Tremendous), &ldquo;waiting on Tremendous&rdquo; subtext if we're blocked on their order-approval gate."
             who="Staff verifying a reward went out; requires can_approve_rewards to approve or deny."
           />
           <AdminPageEntry
@@ -159,6 +159,11 @@ export default function HelpPage() {
             title="Settings"
             what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (the ServiceTitan campaign referred leads attribute to), triple_win_enabled (global Triple Win on/off toggle). Per-key validators catch bad input before it hits downstream systems."
             who="Admins reconfiguring the program without code changes. Requires can_manage_settings."
+          />
+          <AdminPageEntry
+            title="Tremendous"
+            what="Test harness for the Tremendous gift-card integration. Shows which env vars are set, pings Tremendous to verify credentials, and lets you send a sandbox/prod test reward end-to-end to confirm the full pipeline works before a real customer reward hits it. Cap of $100 per test order for safety."
+            who="Admins verifying the integration after env-var changes, or troubleshooting why a reward failed. Requires can_manage_settings."
           />
           <AdminPageEntry
             title="Help"

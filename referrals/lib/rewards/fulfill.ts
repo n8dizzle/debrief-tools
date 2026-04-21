@@ -3,8 +3,11 @@ import { getTremendousClient, type TremendousProduct } from "@/lib/tremendous";
 import type { Referrer, Reward, RewardType } from "@/lib/supabase";
 
 const PRODUCT_BY_REWARD_TYPE: Record<RewardType, TremendousProduct | null> = {
-  VISA_GIFT_CARD: "VISA",
-  AMAZON_GIFT_CARD: "AMAZON",
+  // Both Visa and Amazon reward preferences now route through the shared
+  // Tremendous campaign — the referrer's original pick is still stored for
+  // analytics, but the recipient picks their actual card at redemption.
+  VISA_GIFT_CARD: "GIFT_CARD",
+  AMAZON_GIFT_CARD: "GIFT_CARD",
   CHARITY_DONATION: "CHARITY",
   ACCOUNT_CREDIT: null, // ServiceTitan credit — manual MVP
 };
@@ -73,46 +76,81 @@ export async function fulfillReward(rewardId: string): Promise<{
     return { ok: false, reason: "Tremendous not configured" };
   }
 
-  const productId = tremendous.getProductId(product);
-  if (!productId) {
+  // GIFT_CARD rewards route through the Tremendous campaign (bundle of card
+  // options, recipient picks at redeem). CHARITY rewards route through a
+  // specific product ID because donations must name a specific nonprofit.
+  // Campaigns and products are mutually exclusive at the Tremendous API
+  // level, and there is no silent fallback — if the right config is missing
+  // the reward flips to FAILED so the admin notices.
+  const campaignId =
+    product === "GIFT_CARD" ? tremendous.getCampaignId() : null;
+  const productId =
+    product === "CHARITY" ? tremendous.getProductId(product) : null;
+
+  if (!campaignId && !productId) {
+    const missing =
+      product === "GIFT_CARD"
+        ? "TREMENDOUS_CAMPAIGN_ID not set"
+        : "TREMENDOUS_CHARITY_PRODUCT_ID not set";
     await supabase
       .from("ref_rewards")
       .update({
         status: "FAILED",
-        failure_reason: `No product ID configured for ${product}`,
+        failure_reason: missing,
       })
       .eq("id", rewardId);
-    return { ok: false, reason: `Missing product ID for ${product}` };
+    return { ok: false, reason: missing };
   }
 
   try {
-    const orderId = await tremendous.createOrder({
+    // No customFields: Tremendous rejects unregistered custom field IDs with
+    // a 400. We don't pre-register any in this org. Audit trail lives in our
+    // own ref_rewards row (tremendous_order_id stores the returned ID so you
+    // can cross-reference). If we ever want filters/search inside Tremendous
+    // by referral_id, register the field in their dashboard first, then
+    // re-add it here.
+    const { orderId, status: tStatus } = await tremendous.createOrder({
       amount: Number(r.amount),
       recipient: {
         name: `${referrer.first_name} ${referrer.last_name}`.trim(),
         email: referrer.email,
       },
-      productId,
-      customFields: [{ id: "referral_id", value: r.referral_id }],
+      ...(campaignId ? { campaignId } : { productId: productId! }),
     });
 
-    await supabase
-      .from("ref_rewards")
-      .update({
-        status: "ISSUED",
-        tremendous_order_id: orderId,
-        issued_at: new Date().toISOString(),
-      })
-      .eq("id", rewardId);
+    // Tremendous-side state drives how far we advance our own status. When
+    // order-approvals are enabled, the first response is "pending_approval"
+    // and nothing has been emailed yet — we stay at APPROVED (meaning "our
+    // side signed off, waiting on Tremendous review"). Only on approved/
+    // executed do we flip to ISSUED + propagate to the parent referral.
+    const isFullyIssued = tStatus === "approved" || tStatus === "executed";
+    const isDeclined = tStatus === "declined" || tStatus === "failed";
 
-    // Mark the parent referral as REWARD_ISSUED
-    await supabase
-      .from("ref_referrals")
-      .update({
-        status: "REWARD_ISSUED",
-        reward_issued_at: new Date().toISOString(),
-      })
-      .eq("id", r.referral_id);
+    const rewardUpdate: Record<string, unknown> = {
+      tremendous_order_id: orderId,
+      tremendous_status: tStatus,
+    };
+    if (isFullyIssued) {
+      rewardUpdate.status = "ISSUED";
+      rewardUpdate.issued_at = new Date().toISOString();
+    } else if (isDeclined) {
+      rewardUpdate.status = "FAILED";
+      rewardUpdate.failure_reason = `Tremendous ${tStatus} the order`;
+    }
+    // For "pending_approval" we leave status at APPROVED — the order exists
+    // in Tremendous but hasn't delivered. Admin will finalize it over there.
+
+    await supabase.from("ref_rewards").update(rewardUpdate).eq("id", rewardId);
+
+    if (isFullyIssued) {
+      await supabase
+        .from("ref_referrals")
+        .update({
+          status: "REWARD_ISSUED",
+          reward_issued_at: new Date().toISOString(),
+        })
+        .eq("id", r.referral_id);
+    }
 
     return { ok: true };
   } catch (err) {
