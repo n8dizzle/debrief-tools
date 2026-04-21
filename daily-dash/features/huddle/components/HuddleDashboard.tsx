@@ -67,7 +67,7 @@ function PacingCard({
       <div className="h-px w-full mb-2" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
       {target > 0 && (
         <>
-          <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCardCurrency(target)} target</div>
+          <div className="text-xs mb-2 text-right" style={{ color: 'var(--text-muted)' }}>of {formatCardCurrency(target)} target</div>
           <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
             {pacing !== undefined && pacing > 0 && (
@@ -93,15 +93,18 @@ function ReviewCard({
   reviewCount,
   monthlyGoal,
   avgRating,
+  pacing,
 }: {
   reviewCount: number;
   monthlyGoal: number;
   avgRating: number;
+  pacing?: number;
 }) {
   const percent = monthlyGoal > 0 ? Math.round((reviewCount / monthlyGoal) * 100) : 0;
-  const getRatio = () => monthlyGoal > 0 ? percent / 100 : 1;
+  const getRatio = () => pacing !== undefined && pacing > 0 ? percent / pacing : percent / 100;
   const ratio = getRatio();
   const color = ratio >= 1 ? 'var(--christmas-green)' : ratio >= 0.9 ? 'var(--christmas-gold)' : '#EF4444';
+  const pacingLabel = ratio >= 1 ? '▲ On track' : ratio >= 0.9 ? '▶ Slightly behind' : '▼ Behind pace';
 
   return (
     <div
@@ -143,15 +146,26 @@ function ReviewCard({
       <div className="h-px w-full mb-2" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
       {monthlyGoal > 0 && (
         <>
-          <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {monthlyGoal} goal</div>
-          <div className="relative h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-2 text-right" style={{ color: 'var(--text-muted)' }}>of {monthlyGoal} goal</div>
+          <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
               style={{
                 width: `${Math.min(percent, 100)}%`,
                 backgroundColor: color,
               }}
             />
+            {pacing !== undefined && pacing > 0 && (
+              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-[10px] whitespace-nowrap" style={{ color }}>
+              {pacingLabel}
+            </span>
+            {pacing !== undefined && (
+              <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{pacing}% exp</span>
+            )}
           </div>
         </>
       )}
@@ -492,6 +506,7 @@ export default function HuddleDashboard({
                 reviewCount={pacingData?.reviewsMtdCount || 0}
                 monthlyGoal={pacingData?.reviewMonthlyGoal || 0}
                 avgRating={pacingData?.reviewsMtdAvgRating || 0}
+                pacing={monthlyPacing}
               />
             </div>
           </div>
