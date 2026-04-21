@@ -117,9 +117,9 @@ function PaceGauge({
               opacity="0.8"
             />
           )}
-          {/* Goal tick + label */}
-          <line x1={cx} y1={cy - r + 8} x2={cx} y2={cy - r - 8} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.8" />
-          <text x={cx + 20} y={cy - r - 1} fontSize="11" fill="var(--christmas-cream)" textAnchor="start" opacity="0.8" fontWeight="700">GOAL</text>
+          {/* Goal tick - diagonal line from arc outward with label */}
+          <line x1={cx} y1={cy - r + 8} x2={cx + 12} y2={cy - r - 18} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
+          <text x={cx + 16} y={cy - r - 20} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
           {/* Needle */}
           {!noData && (
             <>
