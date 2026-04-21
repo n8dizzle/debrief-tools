@@ -11,10 +11,10 @@ export const config = {
     // Protect all routes except:
     // - login page
     // - api/auth (NextAuth endpoints)
-    // - api/huddle/backfill (cron endpoint - uses CRON_SECRET)
-    // - api/huddle/snapshots/sync (cron endpoint - uses CRON_SECRET)
-    // - api/trades/sync-monthly (cron endpoint - uses CRON_SECRET)
+    // - api/huddle/* (cron endpoints - use CRON_SECRET)
+    // - api/trades/sync* (cron endpoints - use CRON_SECRET)
+    // - api/reviews/sync (cron endpoint - uses CRON_SECRET)
     // - static files
-    "/((?!login|api/auth|api/huddle/backfill|api/huddle/snapshots/sync|api/trades/sync-monthly|_next/static|_next/image|favicon.ico|logo.png).*)",
+    "/((?!login|api/auth|api/huddle/backfill|api/huddle/snapshots/sync|api/trades/sync|api/trades/sync-monthly|api/reviews/sync|_next/static|_next/image|favicon.ico|logo.png).*)",
   ],
 };
