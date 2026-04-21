@@ -106,11 +106,19 @@ export async function submitReferral(
         .filter(Boolean)
         .join("\n");
 
+      // ServiceTitan's v2 Leads API requires either followUpDate OR
+      // callReasonId. We don't know a reason here (the referrer just picks a
+      // service type), so default to a follow-up date 24 hours out — gives
+      // dispatch a natural tomorrow-morning deadline to call the lead back.
+      // Without this the API returns 400 "Follow up date or Call Reason ID is required."
+      const followUpIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
       const lead = await st.createLead({
         campaignId,
         body,
         summary: `Referral: ${input.referredName} — ${SERVICE_TYPE_LABELS[input.serviceType]}`,
         priority: "Normal",
+        followUpDate: followUpIso,
         contactInfo: {
           type: "Phone",
           value: input.referredPhone,
