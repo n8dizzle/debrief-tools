@@ -75,7 +75,7 @@ function getTotalBusinessDaysInWeek(date: Date, holidays: string[]): number {
   return count;
 }
 
-// Helper to get business days elapsed in month up to given date
+// Helper to get COMPLETED business days in month (excludes today since the day isn't over)
 // Saturday counts as 0.5 business day, Sunday counts as 0
 function getBusinessDaysElapsedInMonth(date: Date, holidays: string[]): number {
   const holidaySet = new Set(holidays);
@@ -84,19 +84,15 @@ function getBusinessDaysElapsedInMonth(date: Date, holidays: string[]): number {
   let count = 0;
   const current = new Date(firstOfMonth);
 
-  while (current <= date) {
+  while (current < date) { // strictly less than: excludes today
     const day = current.getDay();
     const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
     if (!holidaySet.has(dateStr)) {
-      // Monday-Friday = 1 full day each
       if (day >= 1 && day <= 5) {
         count++;
-      }
-      // Saturday = 0.5 day
-      else if (day === 6) {
+      } else if (day === 6) {
         count += 0.5;
       }
-      // Sunday = 0
     }
     current.setDate(current.getDate() + 1);
   }
