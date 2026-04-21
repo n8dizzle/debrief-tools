@@ -50,44 +50,44 @@ function PaceGauge({
   const fmt = formatValue || formatCardCurrency;
   const sfx = suffix || '/day';
 
-  const ratio = target > 0 ? needed / target : 0;
-  const clampedRatio = Math.min(Math.max(ratio, 0), 2);
-  const angle = (clampedRatio - 1) * 90;
-
-  // Projected % of goal
+  // Projected % of goal based on current MTD rate
   const projectedPct = (mtdActual !== undefined && mtdGoal && daysElapsed && daysInMonth && daysElapsed > 0)
     ? Math.round(((mtdActual / daysElapsed) * daysInMonth / mtdGoal) * 100)
     : null;
 
-  // Delta from goal (positive = ahead, negative = behind)
-  const deltaPct = projectedPct !== null ? projectedPct - 100 : (noData ? null : -Math.round((ratio - 1) * 100));
+  // Needle angle based on projected pacing (not needed/target ratio)
+  // Map: 0% projected = -90 (far left), 100% = 45 (goal mark), 150%+ = 90 (far right)
+  const pacingForNeedle = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : (target > 0 ? 1 / (needed / target) : 0));
+  const needleAngle = noData ? -90 : Math.min(Math.max((pacingForNeedle - 0.5) * 120, -90), 90);
 
-  // Status: CRUSHING (ahead), ON PACE, BEHIND
+  // Status thresholds: <90% = red/behind, 90-99% = gold/slightly behind, 100%+ = green
+  const pacingRatio = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : pacingForNeedle);
+
   const getStatus = () => {
-    if (noData) return { word: '--', textColor: 'var(--text-muted)', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
-    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', textColor: 'var(--christmas-cream)', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
-    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', textColor: 'var(--christmas-cream)', bg: 'var(--christmas-green-dark)', arcColor: 'var(--christmas-green)', icon: '→' };
-    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', textColor: 'var(--bg-primary)', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
-    return { word: 'BEHIND', textColor: 'var(--christmas-cream)', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
+    if (noData) return { word: '--', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
+    if (pacingRatio >= 1.0) return { word: 'CRUSHING', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
+    if (pacingRatio >= 0.9) return { word: 'BEHIND', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
+    return { word: 'BEHIND', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
   };
   const status = getStatus();
+  const bannerTextColor = 'var(--bg-primary)';
 
   const cx = 110, cy = 95, r = 65;
 
   return (
     <div className="flex-1 min-w-0 rounded-xl overflow-hidden relative group" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-      {/* Color banner - solid bg, white text */}
+      {/* Color banner */}
       <div
         className="flex items-center justify-between px-4 py-2.5"
         style={{ backgroundColor: status.bg }}
       >
         <div className="flex items-center gap-2">
-          {status.icon && <span className="text-sm font-bold" style={{ color: status.textColor }}>{status.icon}</span>}
-          <span className="text-sm font-bold uppercase tracking-wider" style={{ color: status.textColor }}>{status.word}</span>
+          {status.icon && <span className="text-sm font-bold" style={{ color: bannerTextColor }}>{status.icon}</span>}
+          <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
         </div>
-        {deltaPct !== null && !noData && (
-          <span className="text-sm font-bold" style={{ color: status.textColor }}>
-            {deltaPct >= 0 ? '+' : ''}{deltaPct}%
+        {projectedPct !== null && !noData && (
+          <span className="text-sm font-bold" style={{ color: bannerTextColor }}>
+            Pacing to {projectedPct}%
           </span>
         )}
       </div>
@@ -126,8 +126,8 @@ function PaceGauge({
             <>
               <line
                 x1={cx} y1={cy}
-                x2={cx + (r + 4) * Math.sin(angle * Math.PI / 180)}
-                y2={cy - (r + 4) * Math.cos(angle * Math.PI / 180)}
+                x2={cx + (r + 4) * Math.sin(needleAngle * Math.PI / 180)}
+                y2={cy - (r + 4) * Math.cos(needleAngle * Math.PI / 180)}
                 stroke={status.arcColor} strokeWidth="3" strokeLinecap="round"
               />
               <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
