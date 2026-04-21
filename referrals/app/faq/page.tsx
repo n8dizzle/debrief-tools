@@ -81,11 +81,11 @@ function buildFaq(tiers: RewardTier[]): { q: string; a: string }[] {
   },
   {
     q: "What's Triple Win?",
-    a: "An optional add-on. Turn it on, and every successful referral also triggers a donation from Christmas Air to a charity you choose — at no cost to your reward. You still get your full thank-you. The charity match is a bonus we add, not a swap.",
+    a: "Every successful referral also triggers a donation from Christmas Air to a charity you choose — at no cost to your reward. You still get your full thank-you. The charity match is a bonus we add, not a swap. You pick your charity at sign-up.",
   },
   {
     q: "Can I change my charity?",
-    a: "Any time, from your dashboard. Note: the charity attached to a specific referral is locked in when you submit it. Changing your preference doesn't disturb in-flight referrals.",
+    a: "Any time, from your dashboard. Note: the charity attached to a specific referral is locked in when you submit it. Changing your pick doesn't disturb referrals already in flight.",
   },
   {
     q: "Will my friend feel pressured?",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
+import { getBooleanSetting } from "@/lib/settings";
 import type { Charity } from "@/lib/supabase";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -17,11 +18,31 @@ async function getActiveCharities(): Promise<Charity[]> {
 }
 
 export default async function TripleWinPage() {
-  const charities = await getActiveCharities();
+  const [charities, tripleWinEnabled] = await Promise.all([
+    getActiveCharities(),
+    getBooleanSetting("triple_win_enabled", true),
+  ]);
 
   return (
     <>
       <SiteHeader />
+
+      {!tripleWinEnabled && (
+        <section className="px-6 pt-8">
+          <div
+            className="max-w-3xl mx-auto p-4 rounded-lg text-center"
+            style={{
+              background: "rgba(166,153,78,0.15)",
+              border: "1px solid rgba(166,153,78,0.4)",
+            }}
+          >
+            <p className="text-sm">
+              <strong>Triple Win is paused right now.</strong> Your referrals
+              still earn you a reward. We&apos;ll resume charity matching soon.
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="px-6 pt-16 pb-12 md:pt-24">
         <div className="max-w-4xl mx-auto text-center">
@@ -107,10 +128,11 @@ export default async function TripleWinPage() {
               not a swap.
             </p>
             <p>
-              <strong>You pick the charity at sign-up.</strong> You can switch
-              your choice any time in your dashboard. The charity attached to
-              each referral is locked in when the referral is submitted, so
-              changes don&apos;t disturb in-flight referrals.
+              <strong>You pick the charity at sign-up — and it stays in your
+              hands.</strong> Switch your choice any time from your dashboard.
+              The charity attached to each referral is locked in when the
+              referral is submitted, so changes don&apos;t disturb in-flight
+              referrals.
             </p>
             <p>
               <strong>The match scales with the job.</strong> Bigger referrals
@@ -122,9 +144,9 @@ export default async function TripleWinPage() {
 
       <section className="px-6 py-20">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl mb-4">Ready to activate it?</h2>
+          <h2 className="text-4xl md:text-5xl mb-4">Ready to join?</h2>
           <p className="text-lg opacity-80 mb-8">
-            Sign up in two minutes. Turn Triple Win on whenever you&apos;re ready.
+            Sign up in two minutes. Pick your charity. Share your link.
           </p>
           <Link href="/enroll" className="btn btn-primary">
             Join the program

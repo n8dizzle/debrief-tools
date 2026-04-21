@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase";
+import { getBooleanSetting } from "@/lib/settings";
 import type { Charity, Referrer } from "@/lib/supabase";
 import SiteFooter from "@/components/SiteFooter";
 import ReferralForm from "./ReferralForm";
@@ -15,17 +16,21 @@ async function getReferrerData(code: string): Promise<{
   charity: Charity | null;
 } | null> {
   const supabase = getServerSupabase();
-  const { data: referrer } = await supabase
-    .from("ref_referrers")
-    .select("*")
-    .eq("referral_code", code)
-    .eq("is_active", true)
-    .single();
+  const [referrerResult, globalTripleWin] = await Promise.all([
+    supabase
+      .from("ref_referrers")
+      .select("*")
+      .eq("referral_code", code)
+      .eq("is_active", true)
+      .single(),
+    getBooleanSetting("triple_win_enabled", true),
+  ]);
 
+  const referrer = referrerResult.data;
   if (!referrer) return null;
 
   let charity: Charity | null = null;
-  if (referrer.triple_win_enabled && referrer.selected_charity_id) {
+  if (globalTripleWin && referrer.selected_charity_id) {
     const { data } = await supabase
       .from("ref_charities")
       .select("*")

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
+import { stLeadUrl } from "@/lib/servicetitan-links";
+import STLinkBadge from "@/components/STLinkBadge";
 import type { Referral, ReferralStatus, Referrer } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +78,7 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
               <Th>Referred by</Th>
               <Th>Service</Th>
               <Th>Status</Th>
+              <Th>ST lead</Th>
               <Th className="text-right">Invoice</Th>
               <Th>Submitted</Th>
             </tr>
@@ -97,6 +100,13 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
                 <Td>
                   <ReferralStatusBadge status={r.status} />
                 </Td>
+                <Td>
+                  <STLinkBadge
+                    id={r.service_titan_lead_id}
+                    href={stLeadUrl(r.service_titan_lead_id)}
+                    emptyTitle="No ServiceTitan lead was created — either the campaign ID was unset at submission or ST was unreachable"
+                  />
+                </Td>
                 <Td className="text-right">
                   {r.invoice_total
                     ? `$${Number(r.invoice_total).toFixed(0)}`
@@ -109,7 +119,7 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
             ))}
             {referrals.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center opacity-60">
+                <td colSpan={7} className="p-8 text-center opacity-60">
                   No referrals match this filter.
                 </td>
               </tr>

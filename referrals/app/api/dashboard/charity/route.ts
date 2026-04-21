@@ -3,15 +3,9 @@ import { z } from "zod";
 import { getCurrentReferrer } from "@/lib/customer-auth";
 import { getServerSupabase } from "@/lib/supabase";
 
-const UpdateSchema = z
-  .object({
-    tripleWinEnabled: z.boolean(),
-    selectedCharityId: z.string().uuid().nullable().optional(),
-  })
-  .refine(
-    (d) => !d.tripleWinEnabled || !!d.selectedCharityId,
-    { message: "Charity selection required when Triple Win is enabled" }
-  );
+const UpdateSchema = z.object({
+  selectedCharityId: z.string().uuid().nullable(),
+});
 
 export async function POST(req: NextRequest) {
   const referrer = await getCurrentReferrer();
@@ -36,8 +30,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServerSupabase();
 
-  // Validate the charity exists + is active when turning Triple Win on
-  if (parsed.data.tripleWinEnabled && parsed.data.selectedCharityId) {
+  if (parsed.data.selectedCharityId) {
     const { data: charity } = await supabase
       .from("ref_charities")
       .select("id")
@@ -52,13 +45,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // triple_win_enabled column is legacy (admin-controlled globally now) but
+  // we keep it aligned with whether the referrer has picked a charity so any
+  // lingering reader sees a consistent value.
   await supabase
     .from("ref_referrers")
     .update({
-      triple_win_enabled: parsed.data.tripleWinEnabled,
-      selected_charity_id: parsed.data.tripleWinEnabled
-        ? parsed.data.selectedCharityId
-        : null,
+      selected_charity_id: parsed.data.selectedCharityId,
+      triple_win_enabled: !!parsed.data.selectedCharityId,
     })
     .eq("id", referrer.id);
 

@@ -1,8 +1,41 @@
 import { requireReferralsAdmin } from "@/lib/admin-auth";
 import { getAllSettings } from "@/lib/settings";
+import { getServerSupabase } from "@/lib/supabase";
 import SettingsEditor from "./SettingsEditor";
 
 export const dynamic = "force-dynamic";
+
+async function getTripleWinCounts(): Promise<{
+  withCharity: number;
+  withoutCharity: number;
+  eligibleForAnnouncement: number;
+}> {
+  const supabase = getServerSupabase();
+  const [withCharity, withoutCharity, eligibleForAnnouncement] =
+    await Promise.all([
+      supabase
+        .from("ref_referrers")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true)
+        .not("selected_charity_id", "is", null),
+      supabase
+        .from("ref_referrers")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true)
+        .is("selected_charity_id", null),
+      supabase
+        .from("ref_referrers")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true)
+        .is("selected_charity_id", null)
+        .is("triple_win_announcement_sent_at", null),
+    ]);
+  return {
+    withCharity: withCharity.count ?? 0,
+    withoutCharity: withoutCharity.count ?? 0,
+    eligibleForAnnouncement: eligibleForAnnouncement.count ?? 0,
+  };
+}
 
 export default async function SettingsPage() {
   const admin = await requireReferralsAdmin("can_manage_settings");
@@ -19,7 +52,10 @@ export default async function SettingsPage() {
     );
   }
 
-  const settings = await getAllSettings();
+  const [settings, tripleWinCounts] = await Promise.all([
+    getAllSettings(),
+    getTripleWinCounts(),
+  ]);
 
   return (
     <div>
@@ -28,7 +64,10 @@ export default async function SettingsPage() {
         Runtime config for the referrals program. Changes take effect
         immediately — no redeploy needed.
       </p>
-      <SettingsEditor initial={settings} />
+      <SettingsEditor
+        initial={settings}
+        tripleWinCounts={tripleWinCounts}
+      />
     </div>
   );
 }

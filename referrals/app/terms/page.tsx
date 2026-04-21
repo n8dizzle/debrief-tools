@@ -71,15 +71,21 @@ export default function TermsPage() {
 
           <Section title="5. Triple Win charity match">
             <p>
-              If you have Triple Win activated, Christmas Air will make a
-              matched donation to your selected charity in addition to your
-              full reward — not in place of it. The match amount and cap are
-              determined by the service category and are funded entirely by
-              Christmas Air. Christmas Air selects fulfillment partners
-              (currently Tremendous, with some donations pooled for quarterly
-              direct payment to local charities). Your selected charity is
-              snapshotted at the time each referral is submitted; later changes
-              to your preference do not affect in-flight referrals.
+              Triple Win is a company-wide policy, not a per-referrer opt-in.
+              When Christmas Air has Triple Win enabled and you have a charity
+              selected in your account, every successful referral you make
+              also triggers a matched donation to your selected charity, in
+              addition to your full reward — not in place of it. The match
+              amount and cap are determined by the service category and are
+              funded entirely by Christmas Air. Christmas Air selects
+              fulfillment partners (currently Tremendous, with some donations
+              pooled for quarterly direct payment to local charities). Your
+              selected charity is snapshotted at the time each referral is
+              submitted; later changes to your preference do not affect
+              in-flight referrals. Christmas Air may pause or resume the
+              Triple Win program at any time; during a pause, new referrals
+              will not trigger charity matches, but already-submitted
+              referrals keep their snapshot and are honored.
             </p>
           </Section>
 

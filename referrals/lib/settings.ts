@@ -31,6 +31,23 @@ export async function getSetting(key: string): Promise<string | null> {
   return (data?.value as string | null) ?? null;
 }
 
+/**
+ * Fetch a boolean-typed setting. Parses the stored text value "true"/"false".
+ * Returns the defaultValue on missing/unset/error rather than exposing null,
+ * so feature gates don't have to branch on three states.
+ */
+export async function getBooleanSetting(
+  key: string,
+  defaultValue: boolean
+): Promise<boolean> {
+  const raw = await getSetting(key);
+  if (raw === null) return defaultValue;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return defaultValue;
+}
+
 export async function getAllSettings(): Promise<Setting[]> {
   const supabase = getServerSupabase();
   const { data, error } = await supabase
