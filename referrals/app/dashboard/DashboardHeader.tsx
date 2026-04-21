@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -25,13 +26,17 @@ export default function DashboardHeader({ firstName }: { firstName: string }) {
           href="/dashboard"
           className="flex items-center gap-3"
           style={{ color: "var(--ca-dark-green)" }}
+          aria-label="Christmas Air — Dashboard home"
         >
-          <span
-            className="text-2xl"
-            style={{ fontFamily: "var(--font-lobster)" }}
-          >
-            Christmas Air
-          </span>
+          <Image
+            src="/logo.png"
+            alt="Christmas Air Conditioning & Plumbing"
+            width={300}
+            height={200}
+            priority
+            className="h-12 md:h-14"
+            style={{ width: "auto" }}
+          />
           <span className="text-xs opacity-70 hidden sm:inline">Dashboard</span>
         </Link>
         <div className="flex items-center gap-4 text-sm">

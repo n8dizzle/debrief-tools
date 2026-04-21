@@ -64,21 +64,21 @@ export default async function LandingPage() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="px-6 pt-16 pb-20 md:pt-24 md:pb-28">
+      <section className="px-4 md:px-6 pt-12 pb-16 md:pt-24 md:pb-28">
         <div className="max-w-5xl mx-auto text-center">
-          <div className="flex justify-center gap-2 mb-6">
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
             <span className="badge-trust">Veteran-Owned</span>
             <span className="badge-trust">Locally-Owned since day one</span>
           </div>
-          <h1 className="text-5xl md:text-7xl mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl mb-6 leading-tight">
             Neighbors helping neighbors.
           </h1>
-          <p className="text-lg md:text-xl max-w-2xl mx-auto opacity-80">
+          <p className="text-base md:text-xl max-w-2xl mx-auto opacity-80">
             You&apos;ve trusted us with your home. Tell your friends, and we&apos;ll
             say thanks in a big way — for you, for them, and for a cause you
             care about.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="mt-8 md:mt-10 flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/enroll" className="btn btn-primary">
               Join the program
             </Link>
@@ -90,12 +90,12 @@ export default async function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="section-white px-6 py-20">
+      <section className="section-white px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-4xl md:text-5xl text-center mb-14">
+          <h2 className="text-3xl md:text-5xl text-center mb-10 md:mb-14">
             Three simple steps.
           </h2>
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-6 md:gap-8 md:grid-cols-3">
             <StepCard
               n="1"
               title="Join in two minutes"
@@ -116,15 +116,15 @@ export default async function LandingPage() {
       </section>
 
       {/* Reward tiers */}
-      <section className="section-cream px-6 py-20">
+      <section className="section-cream px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-4xl md:text-5xl text-center mb-4">
+          <h2 className="text-3xl md:text-5xl text-center mb-4">
             What&apos;s the reward?
           </h2>
-          <p className="text-center text-lg opacity-80 max-w-2xl mx-auto mb-12">
+          <p className="text-center text-base md:text-lg opacity-80 max-w-2xl mx-auto mb-10 md:mb-12">
             Bigger jobs, bigger thanks. Your friend saves too.
           </p>
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-4 md:gap-5 md:grid-cols-2">
             {tiers.map((t) => (
               <TierCard
                 key={t.label}
@@ -142,12 +142,12 @@ export default async function LandingPage() {
       </section>
 
       {/* Triple Win teaser */}
-      <section className="section-green px-6 py-20">
+      <section className="section-green px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl mb-6">
+          <h2 className="text-3xl md:text-5xl mb-5 md:mb-6">
             Every referral is a Triple Win.
           </h2>
-          <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto mb-8">
+          <p className="text-base md:text-xl opacity-90 max-w-2xl mx-auto mb-6 md:mb-8">
             You keep your full reward. Your friend gets their discount. And we
             donate to a charity you pick — at no cost to you.
           </p>
@@ -165,10 +165,10 @@ export default async function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="px-6 py-20">
+      <section className="px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl mb-4">Ready when you are.</h2>
-          <p className="text-lg opacity-80 mb-8">
+          <h2 className="text-3xl md:text-5xl mb-4">Ready when you are.</h2>
+          <p className="text-base md:text-lg opacity-80 mb-6 md:mb-8">
             Takes two minutes. No obligations. Free to leave any time.
           </p>
           <Link href="/enroll" className="btn btn-primary">

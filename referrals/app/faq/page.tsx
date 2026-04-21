@@ -117,10 +117,10 @@ export default async function FAQPage() {
   return (
     <>
       <SiteHeader />
-      <section className="px-6 pt-12 pb-6 md:pt-16">
+      <section className="px-4 md:px-6 pt-10 md:pt-16 pb-6">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl mb-4">FAQ</h1>
-          <p className="text-lg opacity-80">
+          <h1 className="text-4xl md:text-6xl mb-4 leading-tight">FAQ</h1>
+          <p className="text-base md:text-lg opacity-80">
             Don&apos;t see your question? Call us at{" "}
             <a href="tel:4692142013" className="font-semibold">
               (469) 214-2013
@@ -130,7 +130,7 @@ export default async function FAQPage() {
         </div>
       </section>
 
-      <section className="px-6 py-16">
+      <section className="px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-3xl mx-auto space-y-3">
           {FAQ.map((item, i) => (
             <details

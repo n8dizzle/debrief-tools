@@ -9,7 +9,9 @@ import type { Referrer, Referral, RewardTier } from "@/lib/supabase";
 export interface ReferralInput {
   referredName: string;
   referredEmail: string | null;
-  referredPhone: string;
+  /** Phone is optional — the form allows submission with just email. Route
+   *  layer enforces that at least one is present. */
+  referredPhone: string | null;
   referredAddress: string | null;
   serviceType: ServiceType;
   notes: string | null;
@@ -33,27 +35,41 @@ export async function submitReferral(
   input: ReferralInput
 ): Promise<SubmitResult> {
   const supabase = getServerSupabase();
-  const phone = normalizePhone(input.referredPhone);
+  const phone = input.referredPhone ? normalizePhone(input.referredPhone) : null;
   const email = input.referredEmail?.toLowerCase() || null;
 
-  // 1. Self-referral guard
+  // 1. Self-referral guard — match on either contact channel, skip the
+  //    channel the friend didn't provide.
   if (email && email === referrer.email) {
     return { ok: false, code: "SELF_REFERRAL", message: "You can't refer yourself." };
   }
-  if (phone === normalizePhone(referrer.phone || "")) {
+  if (phone && phone === normalizePhone(referrer.phone || "")) {
     return { ok: false, code: "SELF_REFERRAL", message: "You can't refer yourself." };
   }
 
-  // 2. Duplicate detection — same phone actively in-flight from a DIFFERENT referrer
-  const { data: existingDupes } = await supabase
-    .from("ref_referrals")
-    .select("id, referrer_id, status")
-    .eq("referred_phone", input.referredPhone)
-    .in("status", ["SUBMITTED", "BOOKED", "COMPLETED", "REWARD_ISSUED"]);
-
-  const conflictingRef = (existingDupes || []).find(
-    (r) => r.referrer_id !== referrer.id
-  );
+  // 2. Duplicate detection — same contact actively in-flight from a DIFFERENT
+  //    referrer. Checks phone and email independently so either channel
+  //    catches the dup. Skipped entirely if the friend provided neither
+  //    (guarded upstream — API route's refine blocks this).
+  const activeStatuses = ["SUBMITTED", "BOOKED", "COMPLETED", "REWARD_ISSUED"];
+  const dupeRows: { referrer_id: string }[] = [];
+  if (input.referredPhone) {
+    const { data } = await supabase
+      .from("ref_referrals")
+      .select("referrer_id")
+      .eq("referred_phone", input.referredPhone)
+      .in("status", activeStatuses);
+    if (data) dupeRows.push(...(data as { referrer_id: string }[]));
+  }
+  if (email) {
+    const { data } = await supabase
+      .from("ref_referrals")
+      .select("referrer_id")
+      .eq("referred_email", email)
+      .in("status", activeStatuses);
+    if (data) dupeRows.push(...(data as { referrer_id: string }[]));
+  }
+  const conflictingRef = dupeRows.find((r) => r.referrer_id !== referrer.id);
   if (conflictingRef) {
     return {
       ok: false,
@@ -108,7 +124,7 @@ export async function submitReferral(
   const body = [
     `Referred by: ${referrer.first_name} ${referrer.last_name} (${referrer.referral_code})`,
     `Name: ${input.referredName}`,
-    `Phone: ${input.referredPhone}`,
+    input.referredPhone ? `Phone: ${input.referredPhone}` : "",
     email ? `Email: ${email}` : "",
     input.referredAddress ? `Address: ${input.referredAddress}` : "",
     `Service: ${SERVICE_TYPE_LABELS[input.serviceType]}`,
@@ -135,7 +151,29 @@ export async function submitReferral(
       // identity. The referral row isn't inserted yet, so there's no UUID —
       // we fall back to phone + timestamp which is good enough for dedup
       // on accidental double-submits in a short window.
-      const externalId = `cref:${normalizePhone(input.referredPhone)}:${Date.now()}`;
+      // externalId seed: phone if we have it, else email, else a random
+      // token — all prefixed + timestamped to stay unique against ST's
+      // dedup. The Zod refine upstream guarantees at least one of phone/
+      // email is present.
+      const externalIdSeed = input.referredPhone
+        ? normalizePhone(input.referredPhone)
+        : email || Math.random().toString(36).slice(2, 10);
+      const externalId = `cref:${externalIdSeed}:${Date.now()}`;
+
+      // Contacts: at least one of phone/email is required by ST's booking
+      // endpoint. Add whichever the friend provided — often both.
+      const contacts: { type: "Phone" | "Email"; value: string; memo?: string }[] = [];
+      if (input.referredPhone) {
+        contacts.push({
+          type: "Phone",
+          value: input.referredPhone,
+          memo: input.referredName,
+        });
+      }
+      if (email) {
+        contacts.push({ type: "Email", value: email });
+      }
+
       const booking = await st.createBooking(bookingProviderId, {
         name: input.referredName,
         source: "Christmas Air Referrals",
@@ -143,13 +181,13 @@ export async function submitReferral(
         body,
         externalId,
         isFirstTimeClient: true,
+        contacts,
         priority: "Normal",
         customerType:
           input.serviceType === "COMMERCIAL" ? "Commercial" : "Residential",
         ...(Number.isFinite(campaignId) && campaignId > 0
           ? { campaignId }
           : {}),
-        ...(email ? { email } : {}),
       });
       if (booking?.id) serviceTitanBookingId = String(booking.id);
     } catch (err) {
@@ -162,17 +200,26 @@ export async function submitReferral(
       // deadline. Without this the API returns 400.
       const followUpIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
+      // Lead contactInfo takes one channel. Prefer phone (dispatch usually
+      // calls back), fall back to email when phone wasn't provided.
+      const leadContact =
+        input.referredPhone
+          ? {
+              type: "Phone" as const,
+              value: input.referredPhone,
+              memo: input.referredName,
+            }
+          : email
+          ? { type: "Email" as const, value: email, memo: input.referredName }
+          : undefined;
+
       const lead = await st.createLead({
         campaignId,
         body,
         summary,
         priority: "Normal",
         followUpDate: followUpIso,
-        contactInfo: {
-          type: "Phone",
-          value: input.referredPhone,
-          memo: input.referredName,
-        },
+        ...(leadContact ? { contactInfo: leadContact } : {}),
       });
       if (lead?.id) serviceTitanLeadId = String(lead.id);
     } catch (err) {

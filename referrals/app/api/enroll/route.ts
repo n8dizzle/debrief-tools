@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSupabase } from "@/lib/supabase";
-import { getServiceTitanClient } from "@/lib/servicetitan";
 import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
 import { getBooleanSetting } from "@/lib/settings";
@@ -111,21 +110,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Best-effort ServiceTitan customer match by phone, then email
-  let serviceTitanId: string | null = null;
-  const st = getServiceTitanClient();
-  if (st.isConfigured()) {
-    try {
-      const byPhone = await st.findCustomerByPhone(data.phone);
-      if (byPhone) serviceTitanId = String(byPhone.id);
-      else {
-        const byEmail = await st.findCustomerByEmail(email);
-        if (byEmail) serviceTitanId = String(byEmail.id);
-      }
-    } catch (err) {
-      console.warn("ServiceTitan lookup failed — continuing without match:", err);
-    }
-  }
+  // ServiceTitan customer linkage is set MANUALLY by admin after enrollment
+  // (via /admin/referrers). The enrollment-time auto-lookup was removed
+  // because ST's /crm/v2/customers search endpoint silently ignores the
+  // email filter (returns the alphabetically-first customer regardless of
+  // what you pass), producing confident-looking false matches — e.g. every
+  // enrollee whose email wasn't in ST got stamped with the first "I" name
+  // in the tenant. See also: phone search returns noise too. Until ST gives
+  // us a reliable contact-lookup endpoint, no link is safer than a wrong
+  // one, and dispatch can link real customers in seconds from the admin UI.
+  const serviceTitanId: string | null = null;
 
   // Assign A/B config (sticky from this point on)
   const assignedRewardConfigId = await assignRewardConfig();

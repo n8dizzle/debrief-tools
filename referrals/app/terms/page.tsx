@@ -12,10 +12,10 @@ export default function TermsPage() {
     <>
       <SiteHeader />
 
-      <section className="px-6 pt-12 pb-6 md:pt-16">
+      <section className="px-4 md:px-6 pt-10 md:pt-16 pb-6">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl mb-4">Program Terms</h1>
-          <p className="opacity-80">
+          <h1 className="text-4xl md:text-6xl mb-4 leading-tight">Program Terms</h1>
+          <p className="text-sm md:text-base opacity-80">
             Effective April 17, 2026. Christmas Air Conditioning &amp; Plumbing
             (&ldquo;Christmas Air&rdquo;) reserves the right to update these terms;
             material changes will be emailed to active program participants.
@@ -23,7 +23,7 @@ export default function TermsPage() {
         </div>
       </section>
 
-      <section className="px-6 py-16">
+      <section className="px-4 md:px-6 py-12 md:py-16">
         <div
           className="max-w-3xl mx-auto card"
           style={{ lineHeight: 1.7 }}
