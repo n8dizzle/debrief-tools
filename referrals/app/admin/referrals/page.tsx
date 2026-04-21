@@ -4,6 +4,7 @@ import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
 import STLinkBadge from "@/components/STLinkBadge";
 import type { Referral, ReferralStatus, Referrer } from "@/lib/supabase";
 import TagInSTButton from "./TagInSTButton";
+import SimulateCompletionButton from "./SimulateCompletionButton";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,10 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
                     <TagInSTButton
                       referralId={r.id}
                       customerId={r.service_titan_customer_id}
+                    />
+                    <SimulateCompletionButton
+                      referralId={r.id}
+                      status={r.status}
                     />
                   </div>
                 </Td>

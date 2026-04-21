@@ -132,8 +132,8 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Referrals"
-            what="Every friend a referrer has sent us. Shows current stage, the attributed referrer, and a link to the corresponding ServiceTitan record (booking pill or lead pill). Each row also has a &ldquo;tag in ST&rdquo; action that writes the referrer's code to the ST customer's Referral_Code custom field — future invoice webhooks then match via that field instead of the fragile phone fallback. Requires st_customer_referral_code_field_id to be set in Settings and the field to exist in ST. Only available after the referral has a linked ST customer."
-            who="Anyone troubleshooting a specific referral (&ldquo;my friend Sarah said she booked, where&apos;s my reward?&rdquo;), confirming the ST record landed, or tagging the ST customer for reliable future matches."
+            what="Every friend a referrer has sent us. Shows current stage, the attributed referrer, and a link to the corresponding ServiceTitan record (booking pill or lead pill). Row-level actions: (a) &ldquo;tag in ST&rdquo; writes the referrer's code to the ST customer's Referral_Code custom field for reliable future webhook matches; (b) &ldquo;simulate paid&rdquo; (sandbox only) fakes an invoice-paid event against the referral so you can test the reward pipeline end-to-end without waiting on a real ST job/invoice cycle."
+            who="Anyone troubleshooting a specific referral, confirming the ST record landed, tagging the ST customer, or rehearsing the reward flow in sandbox."
           />
           <AdminPageEntry
             title="Rewards"
