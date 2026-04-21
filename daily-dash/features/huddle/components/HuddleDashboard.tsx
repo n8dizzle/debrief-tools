@@ -101,11 +101,11 @@ function PaceGauge({
       <div className="flex justify-center">
         <svg width="220" height="130" viewBox="0 0 220 130">
           {/* Zoned arc: 5 segments for smooth gradient feel, full opacity */}
-          <path d={describeArc(cx, cy, r, -90, -45)} fill="none" stroke="#B91C1C" strokeWidth="16" strokeLinecap="round" />
+          <path d={describeArc(cx, cy, r, -90, -45)} fill="none" stroke="#B91C1C" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, -45, -18)} fill="none" stroke="#DC2626" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, -18, 10)} fill="none" stroke="#D97706" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 10, 45)} fill="none" stroke="#4D7C55" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="round" />
+          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="butt" />
           {/* Active arc */}
           {!noData && (
             <path
