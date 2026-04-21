@@ -100,14 +100,15 @@ function PaceGauge({
       {/* Gauge */}
       <div className="flex justify-center">
         <svg width="220" height="130" viewBox="0 0 220 130">
-          {/* 3 zones: Behind (red), Slightly Behind (gold), Ahead (green) */}
-          <path d={describeArc(cx, cy, r, -90, -27)} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, -27, 0)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, 0, 90)} fill="none" stroke="#5D8A66" strokeWidth="16" strokeLinecap="butt" />
+          {/* 3 zones: Behind 60% (red), Slightly Behind 15% (gold), Ahead 25% (green) */}
+          <path d={describeArc(cx, cy, r, -90, 18)} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 18, 45)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#5D8A66" strokeWidth="16" strokeLinecap="butt" />
           {/* No active arc fill - zones stay visible, needle shows position */}
-          {/* Goal tick - starts at arc center, short diagonal to label */}
-          <line x1={cx} y1={cy - r} x2={cx + 10} y2={cy - r - 14} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
-          <text x={cx + 14} y={cy - r - 12} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
+          {/* Goal tick - overlaps the arc, then diagonal to label */}
+          <line x1={cx} y1={cy - r + 10} x2={cx} y2={cy - r - 10} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.9" />
+          <line x1={cx} y1={cy - r - 10} x2={cx + 10} y2={cy - r - 16} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
+          <text x={cx + 14} y={cy - r - 13} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
           {/* Needle */}
           {!noData && (
             <>
