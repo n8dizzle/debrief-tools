@@ -23,7 +23,6 @@ export default async function TremendousPage() {
     env: (process.env.TREMENDOUS_ENV || "production").toLowerCase(),
     fundingSourceId: process.env.TREMENDOUS_FUNDING_SOURCE_ID || null,
     campaignId: process.env.TREMENDOUS_CAMPAIGN_ID || null,
-    charityProductId: process.env.TREMENDOUS_CHARITY_PRODUCT_ID || null,
   };
 
   return (

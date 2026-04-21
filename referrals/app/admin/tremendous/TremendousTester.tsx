@@ -7,7 +7,6 @@ export interface TremendousEnvInfo {
   env: string;
   fundingSourceId: string | null;
   campaignId: string | null;
-  charityProductId: string | null;
 }
 
 export default function TremendousTester({
@@ -100,11 +99,6 @@ function EnvStatusCard({
             label="Campaign ID"
             value={env.campaignId || "missing"}
             tone={env.campaignId ? "ok" : "err"}
-          />
-          <StatusRow
-            label="Charity product"
-            value={env.charityProductId || "not set (deferred)"}
-            tone={env.charityProductId ? "ok" : "muted"}
           />
         </tbody>
       </table>

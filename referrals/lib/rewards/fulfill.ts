@@ -3,13 +3,15 @@ import { getTremendousClient, type TremendousProduct } from "@/lib/tremendous";
 import type { Referrer, Reward, RewardType } from "@/lib/supabase";
 
 const PRODUCT_BY_REWARD_TYPE: Record<RewardType, TremendousProduct | null> = {
-  // Both Visa and Amazon reward preferences now route through the shared
+  // Both Visa and Amazon reward preferences route through the shared
   // Tremendous campaign — the referrer's original pick is still stored for
   // analytics, but the recipient picks their actual card at redemption.
   VISA_GIFT_CARD: "GIFT_CARD",
   AMAZON_GIFT_CARD: "GIFT_CARD",
-  CHARITY_DONATION: "CHARITY",
-  ACCOUNT_CREDIT: null, // ServiceTitan credit — manual MVP
+  // CHARITY_DONATION and ACCOUNT_CREDIT don't go through Tremendous. Finance
+  // team reconciles them manually from /admin/rewards + /admin/donations.
+  CHARITY_DONATION: null,
+  ACCOUNT_CREDIT: null,
 };
 
 /**
@@ -44,9 +46,18 @@ export async function fulfillReward(rewardId: string): Promise<{
     return { ok: false, reason: `Reward not in APPROVED state (got ${r.status})` };
   }
 
-  // ACCOUNT_CREDIT sits for manual handling — not a failure
+  // ACCOUNT_CREDIT and CHARITY_DONATION are handled manually by finance
+  // (ServiceTitan credit-memo and charity check-cutting, respectively).
+  // Reward stays APPROVED; the admin pages let staff mark them paid.
   if (r.type === "ACCOUNT_CREDIT") {
     return { ok: true, reason: "ACCOUNT_CREDIT requires manual ServiceTitan issuance" };
+  }
+  if (r.type === "CHARITY_DONATION") {
+    return {
+      ok: true,
+      reason:
+        "CHARITY_DONATION routes to a local charity — paid manually via /admin/donations",
+    };
   }
 
   const product = PRODUCT_BY_REWARD_TYPE[r.type];
@@ -76,30 +87,20 @@ export async function fulfillReward(rewardId: string): Promise<{
     return { ok: false, reason: "Tremendous not configured" };
   }
 
-  // GIFT_CARD rewards route through the Tremendous campaign (bundle of card
-  // options, recipient picks at redeem). CHARITY rewards route through a
-  // specific product ID because donations must name a specific nonprofit.
-  // Campaigns and products are mutually exclusive at the Tremendous API
-  // level, and there is no silent fallback — if the right config is missing
-  // the reward flips to FAILED so the admin notices.
-  const campaignId =
-    product === "GIFT_CARD" ? tremendous.getCampaignId() : null;
-  const productId =
-    product === "CHARITY" ? tremendous.getProductId(product) : null;
-
-  if (!campaignId && !productId) {
-    const missing =
-      product === "GIFT_CARD"
-        ? "TREMENDOUS_CAMPAIGN_ID not set"
-        : "TREMENDOUS_CHARITY_PRODUCT_ID not set";
+  // GIFT_CARD is the only reward type that reaches Tremendous today — all
+  // gift cards route through the campaign so recipients pick at redemption.
+  // No silent fallback: a missing campaign ID fails the reward loudly rather
+  // than issuing something unexpected.
+  const campaignId = tremendous.getCampaignId();
+  if (!campaignId) {
     await supabase
       .from("ref_rewards")
       .update({
         status: "FAILED",
-        failure_reason: missing,
+        failure_reason: "TREMENDOUS_CAMPAIGN_ID not set",
       })
       .eq("id", rewardId);
-    return { ok: false, reason: missing };
+    return { ok: false, reason: "TREMENDOUS_CAMPAIGN_ID not set" };
   }
 
   try {
@@ -115,7 +116,7 @@ export async function fulfillReward(rewardId: string): Promise<{
         name: `${referrer.first_name} ${referrer.last_name}`.trim(),
         email: referrer.email,
       },
-      ...(campaignId ? { campaignId } : { productId: productId! }),
+      campaignId,
     });
 
     // Tremendous-side state drives how far we advance our own status. When

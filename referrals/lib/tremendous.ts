@@ -1,6 +1,9 @@
 /**
  * Tremendous API client (https://tremendous.com/).
- * Used to fulfill gift-card rewards and charity donations in one API.
+ * Used to fulfill gift-card rewards. Charity donations are handled locally
+ * today (Christmas Air picks and pays its own neighborhood charities); the
+ * client still has room for charity routing if TREMENDOUS fulfillment ever
+ * comes back, but nothing currently drives it.
  *
  * Env vars (set in Vercel project):
  *   TREMENDOUS_API_KEY
@@ -10,9 +13,6 @@
  *                                        card options — recipient picks at
  *                                        redemption. Admin manages the
  *                                        catalog in the Tremendous dashboard.)
- *   TREMENDOUS_CHARITY_PRODUCT_ID       (generic charity product; individual
- *                                        charity IDs stored per-charity on
- *                                        ref_charities.tremendous_charity_id)
  *   TREMENDOUS_ENV=production|sandbox   (default production)
  */
 
@@ -54,12 +54,12 @@ export interface TremendousOrderInput {
 }
 
 /**
- * How a reward is routed inside Tremendous:
- *  - GIFT_CARD → campaign (recipient picks any card in the bundle at redeem)
- *  - CHARITY   → specific charity product ID (charity routing is per-charity,
- *                not bundled, since the donation must name a specific nonprofit)
+ * How a reward is routed inside Tremendous. Today only GIFT_CARD is live —
+ * charity donations fulfill manually in Christmas Air admin, not through
+ * Tremendous. Kept as a union type so we can re-introduce charity routing
+ * cleanly if the product direction changes.
  */
-export type TremendousProduct = "GIFT_CARD" | "CHARITY";
+export type TremendousProduct = "GIFT_CARD";
 
 export class TremendousClient {
   private readonly BASE_URL: string;
@@ -90,15 +90,13 @@ export class TremendousClient {
   }
 
   /**
-   * Specific-product IDs. GIFT_CARD intentionally returns null — gift cards
-   * always route via the campaign; there is no fallback product because a
-   * silent fallback (e.g. "just send a Visa instead") would hide a broken
-   * campaign config. CHARITY returns the generic charity product ID.
+   * Specific-product IDs. Only GIFT_CARD is valid today and it intentionally
+   * returns null — gift cards always route via the campaign, not a specific
+   * product. Kept on the client so future charity routing can pull from
+   * ref_charities.tremendous_charity_id via a dedicated method.
    */
   getProductId(product: TremendousProduct): string | null {
-    if (product === "CHARITY") {
-      return process.env.TREMENDOUS_CHARITY_PRODUCT_ID || null;
-    }
+    void product;
     return null;
   }
 
