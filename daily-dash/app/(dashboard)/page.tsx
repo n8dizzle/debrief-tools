@@ -262,6 +262,14 @@ function formatCurrencyCompact(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
+function getPacingLabel(actualPct: number, expectedPct: number): { text: string; color: string } {
+  if (expectedPct <= 0) return { text: '', color: 'var(--text-muted)' };
+  const ratio = actualPct / expectedPct;
+  if (ratio >= 1) return { text: '▲ On track', color: 'var(--christmas-green)' };
+  if (ratio >= 0.9) return { text: '▶ Slightly behind', color: 'var(--christmas-gold)' };
+  return { text: '▼ Behind pace', color: '#EF4444' };
+}
+
 function getStatusColor(actualPct: number, expectedPct?: number): string {
   if (expectedPct !== undefined && expectedPct > 0) {
     const ratio = actualPct / expectedPct;
@@ -317,8 +325,8 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
           <span
             className="text-sm font-semibold px-2 py-0.5 rounded"
             style={{
-              backgroundColor: `${isAheadOfPace ? 'var(--christmas-green)' : '#EF4444'}15`,
-              color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444',
+              backgroundColor: `${statusColor}15`,
+              color: statusColor,
             }}
           >
             {loading ? '...' : `${percentage}%`}
@@ -355,9 +363,9 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
         <div className="flex items-center justify-end gap-2">
           <span
             className="text-xs"
-            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+            style={{ color: getPacingLabel(percentage, expectedPercent).color }}
           >
-            {isAheadOfPace ? '▲ Ahead of pace' : '▼ Behind pace'}
+            {getPacingLabel(percentage, expectedPercent).text}
           </span>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
             Expected: {expectedPercent.toFixed(2)}%
@@ -680,9 +688,9 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
         <div className="flex items-center justify-between mt-2 gap-1">
           <span
             className="text-[10px] whitespace-nowrap"
-            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+            style={{ color: getPacingLabel(percentage, expectedPacing || 0).color }}
           >
-            {isAheadOfPace ? '▲ Ahead' : '▼ Behind'}
+            {getPacingLabel(percentage, expectedPacing || 0).text}
           </span>
           <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
             {expectedPacing}% exp
@@ -771,9 +779,9 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
         <div className="flex items-center justify-between mt-1.5">
           <span
             className="text-[10px]"
-            style={{ color: isAheadOfPace ? 'var(--christmas-green)' : '#EF4444' }}
+            style={{ color: getPacingLabel(percentage || 0, expectedPacing || 0).color }}
           >
-            {isAheadOfPace ? '▲ Ahead' : '▼ Behind'}
+            {getPacingLabel(percentage || 0, expectedPacing || 0).text}
           </span>
         </div>
       )}
