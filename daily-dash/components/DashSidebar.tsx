@@ -228,38 +228,8 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
           </div>
         </div>
 
-        {/* Departments Section */}
-        <div>
-          <div
-            className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Departments
-          </div>
-          <div className="space-y-0.5">
-            {departmentLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-2 py-1.5 rounded-lg transition-colors ${
-                  'indent' in link && link.indent ? 'pl-6 pr-3' : 'px-3'
-                }`}
-                style={{
-                  backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                  color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                }}
-              >
-                <div
-                  className={`rounded-full ${'indent' in link && link.indent ? 'w-1.5 h-1.5' : 'w-2 h-2'}`}
-                  style={{ backgroundColor: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-muted)' }}
-                />
-                <span className={`${'indent' in link && link.indent ? 'text-xs' : 'text-sm'} ${isActive(link.href) ? 'font-medium' : ''}`}>
-                  {link.label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
+        {/* Departments Section - hidden until data is accurate/live */}
+        {/* TODO: Re-enable when department pages have live data */}
       </nav>
 
       {/* Profile Section */}
