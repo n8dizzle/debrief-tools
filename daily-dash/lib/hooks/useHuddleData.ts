@@ -124,6 +124,10 @@ export interface PacingData {
   trades: TradeData;
   // Trend data
   monthlyTrend: MonthlyTrendData[];
+  // Reviews
+  reviewsMtdCount: number;
+  reviewsMtdAvgRating: number;
+  reviewMonthlyGoal: number;
 }
 
 export interface HuddleApiResponse {

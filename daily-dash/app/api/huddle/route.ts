@@ -827,6 +827,34 @@ export async function GET(request: NextRequest) {
     // Recalculate pacing with live MTD data
     const livePacingPercent = expectedMTD > 0 ? Math.round((liveMtdRevenue / expectedMTD) * 100) : 0;
 
+    // --- Review data for huddle cards ---
+    const REVIEW_TARGETS: Record<number, { monthly: number[] }> = {
+      2026: { monthly: [68, 56, 76, 99, 137, 159, 159, 163, 96, 88, 75, 74] },
+      2025: { monthly: [83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 87] },
+    };
+    const reviewMonthlyGoal = REVIEW_TARGETS[year]?.monthly[month - 1] || 0;
+
+    // MTD review count and avg rating
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
+    const monthEndReview = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}T23:59:59`;
+    const [mtdReviewCount, mtdReviewRatings] = await Promise.all([
+      supabase
+        .from('google_reviews')
+        .select('id', { count: 'exact', head: true })
+        .gte('create_time', monthStart)
+        .lte('create_time', monthEndReview),
+      supabase
+        .from('google_reviews')
+        .select('star_rating')
+        .gte('create_time', monthStart)
+        .lte('create_time', monthEndReview),
+    ]);
+    const reviewsMtdCount = mtdReviewCount.count || 0;
+    const reviewsMtdRatings = mtdReviewRatings.data || [];
+    const reviewsMtdAvgRating = reviewsMtdRatings.length > 0
+      ? reviewsMtdRatings.reduce((sum, r) => sum + r.star_rating, 0) / reviewsMtdRatings.length
+      : 0;
+
     // Pacing data object
     const pacingData = {
       todayRevenue: liveTodayRevenue,
@@ -864,6 +892,10 @@ export async function GET(request: NextRequest) {
       trades: tradeData,
       // Monthly trend for chart
       monthlyTrend,
+      // Reviews
+      reviewsMtdCount,
+      reviewsMtdAvgRating: Math.round(reviewsMtdAvgRating * 100) / 100,
+      reviewMonthlyGoal,
     };
 
     // Build trade totals for the selected date from trade_daily_snapshots
