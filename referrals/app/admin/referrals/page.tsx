@@ -3,6 +3,7 @@ import { getServerSupabase } from "@/lib/supabase";
 import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
 import STLinkBadge from "@/components/STLinkBadge";
 import type { Referral, ReferralStatus, Referrer } from "@/lib/supabase";
+import TagInSTButton from "./TagInSTButton";
 
 export const dynamic = "force-dynamic";
 
@@ -101,37 +102,43 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
                   <ReferralStatusBadge status={r.status} />
                 </Td>
                 <Td>
-                  {r.service_titan_booking_id ? (
-                    <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1.5">
+                    {r.service_titan_booking_id ? (
+                      <div className="flex flex-col gap-0.5">
+                        <STLinkBadge
+                          id={r.service_titan_booking_id}
+                          href={stBookingUrl(r.service_titan_booking_id)}
+                        />
+                        <span
+                          className="text-[10px] uppercase tracking-wide opacity-60"
+                        >
+                          booking
+                        </span>
+                      </div>
+                    ) : r.service_titan_lead_id ? (
+                      <div className="flex flex-col gap-0.5">
+                        <STLinkBadge
+                          id={r.service_titan_lead_id}
+                          href={stLeadUrl(r.service_titan_lead_id)}
+                        />
+                        <span
+                          className="text-[10px] uppercase tracking-wide opacity-60"
+                        >
+                          lead
+                        </span>
+                      </div>
+                    ) : (
                       <STLinkBadge
-                        id={r.service_titan_booking_id}
-                        href={stBookingUrl(r.service_titan_booking_id)}
+                        id={null}
+                        href={null}
+                        emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
                       />
-                      <span
-                        className="text-[10px] uppercase tracking-wide opacity-60"
-                      >
-                        booking
-                      </span>
-                    </div>
-                  ) : r.service_titan_lead_id ? (
-                    <div className="flex flex-col gap-1">
-                      <STLinkBadge
-                        id={r.service_titan_lead_id}
-                        href={stLeadUrl(r.service_titan_lead_id)}
-                      />
-                      <span
-                        className="text-[10px] uppercase tracking-wide opacity-60"
-                      >
-                        lead
-                      </span>
-                    </div>
-                  ) : (
-                    <STLinkBadge
-                      id={null}
-                      href={null}
-                      emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
+                    )}
+                    <TagInSTButton
+                      referralId={r.id}
+                      customerId={r.service_titan_customer_id}
                     />
-                  )}
+                  </div>
                 </Td>
                 <Td className="text-right">
                   {r.invoice_total
