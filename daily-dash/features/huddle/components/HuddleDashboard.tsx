@@ -64,12 +64,12 @@ function PaceGauge({
     : ratio <= 1.3 ? 'Behind pace'
     : 'Falling behind';
 
-  const cx = 100, cy = 88, r = 72;
+  const cx = 100, cy = 98, r = 72;
 
   return (
     <div className="flex flex-col items-center flex-1 min-w-0">
       <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
-      <svg width="200" height="130" viewBox="0 0 200 130">
+      <svg width="200" height="140" viewBox="0 0 200 140">
         {/* Green zone: 0x to 1x */}
         <path d={describeArc(cx, cy, r, -90, 0)} fill="none" stroke="var(--christmas-green)" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
         {/* Yellow zone: 1x to 1.3x */}
@@ -103,8 +103,8 @@ function PaceGauge({
           </>
         )}
         {/* Scale labels */}
-        <text x="14" y="114" fontSize="9" fill="var(--text-muted)" textAnchor="middle">easy</text>
-        <text x="186" y="114" fontSize="9" fill="var(--text-muted)" textAnchor="middle">hard</text>
+        <text x="14" y="124" fontSize="9" fill="var(--text-muted)" textAnchor="middle">easy</text>
+        <text x="186" y="124" fontSize="9" fill="var(--text-muted)" textAnchor="middle">hard</text>
       </svg>
       <div className="text-center -mt-2">
         <div className="text-lg font-bold leading-tight" style={{ color: needleColor }}>
