@@ -845,7 +845,7 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
   const data = tradeData[trade];
 
   const hvacTargets = targets as HVACTargets | undefined;
-  const depts = isHvac ? ['install', 'service', 'maintenance', 'sales'] as const : [];
+  const depts = isHvac ? ['sales', 'install', 'service', 'maintenance'] as const : [];
   const deptLabels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance', sales: 'Sales' };
 
   // Get department data for a period
@@ -960,6 +960,7 @@ export default function DashboardPage() {
   });
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [hvacExpanded, setHvacExpanded] = useState(false);
 
   // Use the end date as the reference point for pacing data
   const selectedDate = dateRange.end;
@@ -1160,178 +1161,212 @@ export default function DashboardPage() {
 
       {/* Trade Breakdown Cards */}
       {trades && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Plumbing Card */}
           <div
-            className="p-5 sm:p-6 rounded-xl"
+            className="rounded-xl overflow-hidden"
             style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, var(--bg-secondary) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              boxShadow: '0 4px 24px rgba(139, 92, 246, 0.08)',
             }}
           >
-            {/* Trade Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)' }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Plumbing</h3>
-            </div>
-
-            {/* Plumbing Period Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {([
-                { label: 'Today', revenue: trades.plumbing.today.revenue, sales: (trades.plumbing.today as TradeMetrics).sales || 0, target: plumbingTargets?.daily || 0, pacing: dailyPacing },
-                { label: 'This Week', revenue: trades.plumbing.wtd.revenue, sales: (trades.plumbing.wtd as TradeMetrics).sales || 0, target: plumbingTargets?.weekly || 0, pacing: weeklyPacing },
-                { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
-              ] as const).map((period) => {
-                const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                const color = getStatusColor(pct);
-                return (
-                  <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                      {period.target > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
-                      )}
-                    </div>
-                    <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-                      {loading ? '...' : formatCurrencyCompact(period.revenue)}
-                    </div>
-                    <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
-                      {loading ? '...' : formatCurrencyCompact(period.sales)} sold
-                    </div>
-                    {period.target > 0 && (
-                      <>
-                        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
-                        <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                          <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                          {period.pacing > 0 && !loading && (
-                            <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
-                          )}
-                        </div>
-                      </>
-                    )}
+            <div className="p-5 sm:p-6">
+              {/* Trade Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(139, 92, 246, 0.1) 100%)', border: '1px solid rgba(139, 92, 246, 0.2)' }}
+                >
+                  {/* Wrench icon */}
+                  <svg className="w-5 h-5" fill="none" stroke="#8B5CF6" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75a4.5 4.5 0 01-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 11-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 016.336-4.486l-3.276 3.276a3.004 3.004 0 002.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Plumbing</h3>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    MTD {loading ? '...' : formatCurrencyCompact(trades.plumbing.mtd.revenue)} rev
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* HVAC Card */}
-          <div
-            className="p-5 sm:p-6 rounded-xl"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid rgba(59, 130, 246, 0.25)',
-            }}
-          >
-            {/* Trade Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)' }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+                </div>
               </div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>HVAC</h3>
-            </div>
 
-            {/* HVAC Period Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-              {([
-                { label: 'Today', revenue: trades.hvac.today.revenue, sales: (trades.hvac.today as TradeMetrics).sales || 0, target: hvacTargets?.daily || 0, pacing: dailyPacing },
-                { label: 'This Week', revenue: trades.hvac.wtd.revenue, sales: (trades.hvac.wtd as TradeMetrics).sales || 0, target: hvacTargets?.weekly || 0, pacing: weeklyPacing },
-                { label: 'This Month', revenue: trades.hvac.mtd.revenue, sales: (trades.hvac.mtd as TradeMetrics).sales || 0, target: hvacTargets?.monthly || 0, pacing: monthlyPacing },
-              ] as const).map((period) => {
-                const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
-                const color = getStatusColor(pct);
-                return (
-                  <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                      {period.target > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
-                      )}
-                    </div>
-                    <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-                      {loading ? '...' : formatCurrencyCompact(period.revenue)}
-                    </div>
-                    <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
-                      {loading ? '...' : formatCurrencyCompact(period.sales)} sold
-                    </div>
-                    {period.target > 0 && (
-                      <>
-                        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
-                        <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                          <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                          {period.pacing > 0 && !loading && (
-                            <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* HVAC Department Breakdown */}
-            <div className="pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              <div className="text-xs font-medium uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Department Breakdown</div>
-              <div className="space-y-3">
-                {(['install', 'service', 'maintenance', 'sales'] as const).map((dept) => {
-                  const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance', sales: 'Sales' };
-                  const getDeptData = (period: 'today' | 'wtd' | 'mtd') => {
-                    const pd = trades.hvac[period] as TradeMetrics;
-                    return pd?.departments?.[dept] || { revenue: 0, sales: 0 };
-                  };
-                  const getDeptTarget = (period: 'daily' | 'weekly' | 'monthly') => hvacTargets?.departments?.[dept]?.[period] || 0;
+              {/* Plumbing Period Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {([
+                  { label: 'Today', revenue: trades.plumbing.today.revenue, sales: (trades.plumbing.today as TradeMetrics).sales || 0, target: plumbingTargets?.daily || 0, pacing: dailyPacing },
+                  { label: 'This Week', revenue: trades.plumbing.wtd.revenue, sales: (trades.plumbing.wtd as TradeMetrics).sales || 0, target: plumbingTargets?.weekly || 0, pacing: weeklyPacing },
+                  { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
+                ] as const).map((period) => {
+                  const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
+                  const color = getStatusColor(pct);
                   return (
-                    <div key={dept} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
-                      <div className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</div>
-                      <div className="grid grid-cols-3 gap-3">
-                        {([
-                          { label: 'Today', data: getDeptData('today'), target: getDeptTarget('daily'), pacing: dailyPacing },
-                          { label: 'Week', data: getDeptData('wtd'), target: getDeptTarget('weekly'), pacing: weeklyPacing },
-                          { label: 'Month', data: getDeptData('mtd'), target: getDeptTarget('monthly'), pacing: monthlyPacing },
-                        ] as const).map((period) => {
-                          const pct = period.target > 0 ? Math.round((period.data.revenue / period.target) * 100) : 0;
-                          const color = period.target > 0 ? getStatusColor(pct) : 'var(--text-muted)';
-                          return (
-                            <div key={period.label}>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
-                                {period.target > 0 && (
-                                  <span className="text-xs font-semibold" style={{ color }}>{loading ? '...' : `${pct}%`}</span>
-                                )}
-                              </div>
-                              <div className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                                {loading ? '...' : formatCurrencyCompact(period.data.revenue)}
-                              </div>
-                              <div className="text-xs" style={{ color: 'var(--christmas-gold)' }}>
-                                {loading ? '...' : formatCurrencyCompact(period.data.sales || 0)} sold
-                              </div>
-                              {period.target > 0 && (
-                                <div className="relative h-1 rounded-full mt-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                                  <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                    <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                        {period.target > 0 && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
+                        )}
                       </div>
+                      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                        {loading ? '...' : formatCurrencyCompact(period.revenue)}
+                      </div>
+                      <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
+                        {loading ? '...' : formatCurrencyCompact(period.sales)} sold
+                      </div>
+                      {period.target > 0 && (
+                        <>
+                          <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
+                          <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                            <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                            {period.pacing > 0 && !loading && (
+                              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
+          </div>
+
+          {/* HVAC Card */}
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, var(--bg-secondary) 100%)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              boxShadow: '0 4px 24px rgba(59, 130, 246, 0.08)',
+            }}
+          >
+            {/* Collapsible Header */}
+            <button
+              onClick={() => setHvacExpanded(!hvacExpanded)}
+              className="w-full p-5 sm:p-6 flex items-center justify-between cursor-pointer"
+              style={{ background: 'transparent' }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.1) 100%)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+                >
+                  {/* Snowflake / AC icon */}
+                  <svg className="w-5 h-5" fill="none" stroke="#3B82F6" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m0-18l-3 3m3-3l3 3m-3 15l-3-3m3 3l3-3M3 12h18M3 12l3-3m-3 3l3 3m15-3l-3-3m3 3l-3 3M5.636 5.636l2.121 2.121m8.486 8.486l2.121 2.121M5.636 18.364l2.121-2.121m8.486-8.486l2.121-2.121" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>HVAC</h3>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    MTD {loading ? '...' : formatCurrencyCompact(trades.hvac.mtd.revenue)} rev &middot; {loading ? '...' : formatCurrencyCompact((trades.hvac.mtd as TradeMetrics).sales || 0)} sold
+                  </div>
+                </div>
+              </div>
+              <svg
+                className="w-5 h-5 transition-transform duration-200"
+                style={{ color: 'var(--text-muted)', transform: hvacExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Collapsible Content */}
+            {hvacExpanded && (
+              <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+                {/* HVAC Period Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                  {([
+                    { label: 'Today', revenue: trades.hvac.today.revenue, sales: (trades.hvac.today as TradeMetrics).sales || 0, target: hvacTargets?.daily || 0, pacing: dailyPacing },
+                    { label: 'This Week', revenue: trades.hvac.wtd.revenue, sales: (trades.hvac.wtd as TradeMetrics).sales || 0, target: hvacTargets?.weekly || 0, pacing: weeklyPacing },
+                    { label: 'This Month', revenue: trades.hvac.mtd.revenue, sales: (trades.hvac.mtd as TradeMetrics).sales || 0, target: hvacTargets?.monthly || 0, pacing: monthlyPacing },
+                  ] as const).map((period) => {
+                    const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
+                    const color = getStatusColor(pct);
+                    return (
+                      <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                          {period.target > 0 && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
+                          )}
+                        </div>
+                        <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                          {loading ? '...' : formatCurrencyCompact(period.revenue)}
+                        </div>
+                        <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
+                          {loading ? '...' : formatCurrencyCompact(period.sales)} sold
+                        </div>
+                        {period.target > 0 && (
+                          <>
+                            <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
+                            <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                              <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                              {period.pacing > 0 && !loading && (
+                                <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* HVAC Department Breakdown */}
+                <div className="pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <div className="text-xs font-medium uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Department Breakdown</div>
+                  <div className="space-y-3">
+                    {(['sales', 'install', 'service', 'maintenance'] as const).map((dept) => {
+                      const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance', sales: 'Sales' };
+                      const getDeptData = (period: 'today' | 'wtd' | 'mtd') => {
+                        const pd = trades.hvac[period] as TradeMetrics;
+                        return pd?.departments?.[dept] || { revenue: 0, sales: 0 };
+                      };
+                      const getDeptTarget = (period: 'daily' | 'weekly' | 'monthly') => hvacTargets?.departments?.[dept]?.[period] || 0;
+                      return (
+                        <div key={dept} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                          <div className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</div>
+                          <div className="grid grid-cols-3 gap-3">
+                            {([
+                              { label: 'Today', data: getDeptData('today'), target: getDeptTarget('daily'), pacing: dailyPacing },
+                              { label: 'Week', data: getDeptData('wtd'), target: getDeptTarget('weekly'), pacing: weeklyPacing },
+                              { label: 'Month', data: getDeptData('mtd'), target: getDeptTarget('monthly'), pacing: monthlyPacing },
+                            ] as const).map((period) => {
+                              const pct = period.target > 0 ? Math.round((period.data.revenue / period.target) * 100) : 0;
+                              const color = period.target > 0 ? getStatusColor(pct) : 'var(--text-muted)';
+                              return (
+                                <div key={period.label}>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                                    {period.target > 0 && (
+                                      <span className="text-xs font-semibold" style={{ color }}>{loading ? '...' : `${pct}%`}</span>
+                                    )}
+                                  </div>
+                                  <div className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                                    {loading ? '...' : formatCurrencyCompact(period.data.revenue)}
+                                  </div>
+                                  <div className="text-xs" style={{ color: 'var(--christmas-gold)' }}>
+                                    {loading ? '...' : formatCurrencyCompact(period.data.sales || 0)} sold
+                                  </div>
+                                  {period.target > 0 && (
+                                    <div className="relative h-1 rounded-full mt-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                                      <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
