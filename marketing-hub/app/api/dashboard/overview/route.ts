@@ -188,13 +188,19 @@ export async function GET(request: Request) {
       period: periodLabel,
       revenueGoal: getValue('Revenue Goal'),
 
-      totals: {
-        totalRevenue: getValue('Total Revenue'),
-        completedRevenue: getValue('Completed Revenue'),
-        totalSales: getValue('Total Sales'),
-        avgTicket: getAvgValue('AVG Ticket'),
-        totalJobsRan: getValue('Total Jobs Ran'),
-      },
+      totals: (() => {
+        const totalRev = getValue('Total Revenue');
+        const totalJobs = getValue('Total Jobs Ran');
+        return {
+          totalRevenue: totalRev,
+          completedRevenue: getValue('Completed Revenue'),
+          totalSales: getValue('Total Sales'),
+          avgTicket: period === 'ytd' || period === 'today'
+            ? getValue('AVG Ticket')
+            : (totalJobs > 0 ? Math.round(totalRev / totalJobs) : 0),
+          totalJobsRan: totalJobs,
+        };
+      })(),
 
       memberships: {
         totalMembers: getValue('Total Members'),
@@ -205,23 +211,47 @@ export async function GET(request: Request) {
         activeAtEnd: getValue('Active at End'),
       },
 
-      growth: {
-        totalLeads: getValue('Total Leads'),
-        newNamesInST: getValue('# of New Names in ST'),
-        totalNewCustomers: getValue('Total New Customers'),
-        leadsToCustomerPercent: getAvgValue('% of leads -> customers'),
-        newCustomerRevenue: getValue('New Customer Revenue'),
-        revenuePercentOfTotal: getAvgValue('% of total revenue'),
-        avgRevenuePerNewCustomer: getAvgValue('Avg Revenue Per New Customer'),
-        revenuePerLead: getAvgValue('Revenue Per Lead'),
-      },
+      growth: (() => {
+        const totalLeads = getValue('Total Leads');
+        const newNames = getValue('# of New Names in ST');
+        const newCust = getValue('Total New Customers');
+        const newCustRev = getValue('New Customer Revenue');
+        const totalRev = getValue('Total Revenue');
+        return {
+          totalLeads,
+          newNamesInST: newNames,
+          totalNewCustomers: newCust,
+          leadsToCustomerPercent: period === 'ytd' || period === 'today'
+            ? getValue('% of leads -> customers')
+            : (newNames > 0 ? Math.round((newCust / newNames) * 100) : 0),
+          newCustomerRevenue: newCustRev,
+          revenuePercentOfTotal: period === 'ytd' || period === 'today'
+            ? getValue('% of total revenue')
+            : (totalRev > 0 ? Math.round((newCustRev / totalRev) * 100) : 0),
+          avgRevenuePerNewCustomer: period === 'ytd' || period === 'today'
+            ? getValue('Avg Revenue Per New Customer')
+            : (newCust > 0 ? Math.round(newCustRev / newCust) : 0),
+          revenuePerLead: period === 'ytd' || period === 'today'
+            ? getValue('Revenue Per Lead')
+            : (totalLeads > 0 ? Math.round(totalRev / totalLeads) : 0),
+        };
+      })(),
 
-      reviews: {
-        count: getValue('# of Reviews'),
-        jobsWithReviewPercent: getAvgValue('% of jobs with review'),
-        grossRating: getValue('Gross Rating'),
-        avgRating: getAvgValue('AVG Rating'),
-      },
+      reviews: (() => {
+        const count = getValue('# of Reviews');
+        const grossRating = getValue('Gross Rating');
+        const totalJobs = getValue('Total Jobs Ran');
+        return {
+          count,
+          jobsWithReviewPercent: period === 'ytd' || period === 'today'
+            ? getValue('% of jobs with review')
+            : (totalJobs > 0 ? Math.round((count / totalJobs) * 100) : 0),
+          grossRating,
+          avgRating: period === 'ytd' || period === 'today'
+            ? getValue('AVG Rating')
+            : (count > 0 ? Math.round((grossRating / count) * 100) / 100 : 0),
+        };
+      })(),
 
       calls: {
         totalPhoneCalls: getValue('Total Phone Calls'),
