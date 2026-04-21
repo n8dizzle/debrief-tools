@@ -14,12 +14,12 @@ export function getStatusFromPercentage(
 
   if (higherIsBetter) {
     if (percentToGoal >= 100) return 'met';
-    if (percentToGoal >= 85) return 'close';
+    if (percentToGoal >= 90) return 'close';
     return 'missed';
   } else {
     // For metrics where lower is better (e.g., Abandon Rate, AR)
     if (percentToGoal <= 100) return 'met';
-    if (percentToGoal <= 115) return 'close';
+    if (percentToGoal <= 110) return 'close';
     return 'missed';
   }
 }

@@ -32,32 +32,31 @@ function formatValue(value: number, format: string): string {
 
 function getStatus(percent: number): PacingStatus {
   if (percent >= 100) return 'ahead';
-  if (percent >= 90) return 'on-track';
-  if (percent >= 75) return 'close';
+  if (percent >= 90) return 'close';
   return 'behind';
 }
 
 function StatusBadge({ status }: { status: PacingStatus }) {
   const config: Record<PacingStatus, { label: string; bg: string; text: string }> = {
     ahead: {
-      label: 'Ahead',
-      bg: 'rgba(74, 222, 128, 0.15)',
-      text: '#4ADE80',
+      label: 'On track',
+      bg: 'rgba(93, 138, 102, 0.2)',
+      text: 'var(--christmas-green)',
     },
     'on-track': {
-      label: 'On Track',
-      bg: 'rgba(59, 130, 246, 0.15)',
-      text: '#3B82F6',
+      label: 'Slightly behind',
+      bg: 'rgba(184, 149, 107, 0.2)',
+      text: 'var(--christmas-gold)',
     },
     close: {
-      label: 'Close',
-      bg: 'rgba(184, 149, 107, 0.15)',
+      label: 'Slightly behind',
+      bg: 'rgba(184, 149, 107, 0.2)',
       text: 'var(--christmas-gold)',
     },
     behind: {
-      label: 'Behind',
-      bg: 'rgba(248, 113, 113, 0.15)',
-      text: '#F87171',
+      label: 'Behind pace',
+      bg: 'rgba(239, 68, 68, 0.15)',
+      text: '#EF4444',
     },
   };
 
@@ -86,9 +85,9 @@ export default function PacingCard({
 
   // Determine progress bar color based on status
   const progressColor =
-    status === 'ahead' || status === 'on-track'
+    status === 'ahead'
       ? 'var(--christmas-green)'
-      : status === 'close'
+      : status === 'close' || status === 'on-track'
       ? 'var(--christmas-gold)'
       : '#EF4444';
 

@@ -35,9 +35,10 @@ function PacingCard({
   pacing?: number;
 }) {
   const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
-  const getColor = (p: number) => p >= 100 ? '#4ade80' : p >= 85 ? '#facc15' : '#f87171';
-  const color = getColor(pct);
-  const behindPace = pacing !== undefined && pct < pacing;
+  const getRatio = () => pacing !== undefined && pacing > 0 ? pct / pacing : pct / 100;
+  const ratio = getRatio();
+  const color = ratio >= 1 ? 'var(--christmas-green)' : ratio >= 0.9 ? 'var(--christmas-gold)' : '#EF4444';
+  const pacingLabel = ratio >= 1 ? '▲ On track' : ratio >= 0.9 ? '▶ Slightly behind' : '▼ Behind pace';
 
   return (
     <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
@@ -74,8 +75,8 @@ function PacingCard({
           </div>
           {pacing !== undefined && (
             <div className="flex items-center justify-between mt-1.5">
-              <span className="text-xs font-medium" style={{ color: behindPace ? '#f87171' : '#4ade80' }}>
-                {behindPace ? '\u25BC' : '\u25B2'} {behindPace ? 'Behind' : 'Ahead'}
+              <span className="text-xs font-medium" style={{ color }}>
+                {pacingLabel}
               </span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{pacing}% exp</span>
             </div>
@@ -98,7 +99,7 @@ function ReviewCard({
 }) {
   const percent = monthlyGoal > 0 ? Math.round((reviewCount / monthlyGoal) * 100) : 0;
   const isAhead = percent >= 100;
-  const isClose = percent >= 85;
+  const isClose = percent >= 90;
 
   // Star display
   const fullStars = Math.floor(avgRating);
@@ -118,9 +119,11 @@ function ReviewCard({
         </span>
         {monthlyGoal > 0 && (
           <span
-            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-              isAhead ? 'bg-green-500/20 text-green-400' : isClose ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
-            }`}
+            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: isAhead ? 'rgba(93,138,102,0.2)' : isClose ? 'rgba(184,149,107,0.2)' : 'rgba(239,68,68,0.15)',
+              color: isAhead ? 'var(--christmas-green)' : isClose ? 'var(--christmas-gold)' : '#EF4444',
+            }}
           >
             {percent}%
           </span>
@@ -160,7 +163,7 @@ function ReviewCard({
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${Math.min(percent, 100)}%`,
-              backgroundColor: isAhead ? '#4ade80' : isClose ? '#facc15' : '#f87171',
+              backgroundColor: isAhead ? 'var(--christmas-green)' : isClose ? 'var(--christmas-gold)' : '#EF4444',
             }}
           />
         </div>

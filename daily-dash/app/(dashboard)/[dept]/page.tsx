@@ -79,8 +79,7 @@ const mockDepartmentData: Record<string, {
 
 function getStatusColor(pacing: number): string {
   if (pacing >= 100) return 'var(--christmas-green)';
-  if (pacing >= 90) return '#3B82F6';
-  if (pacing >= 75) return 'var(--christmas-gold)';
+  if (pacing >= 90) return 'var(--christmas-gold)';
   return '#EF4444';
 }
 
