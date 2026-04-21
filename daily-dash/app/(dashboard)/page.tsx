@@ -621,8 +621,8 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
       {/* Revenue / Sales Display */}
       {hasSales ? (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center mb-3 gap-2 sm:gap-0">
-            <div className="flex-1">
+          <div className="flex items-center justify-center mb-3">
+            <div className="flex-1 text-center">
               <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-cream)' }}>
                 {loading ? '...' : formatCurrencyCompact(revenue)}
               </span>
@@ -631,10 +631,10 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
               </span>
             </div>
             <div
-              className="hidden sm:block w-px h-10 mx-3 flex-shrink-0"
+              className="w-px h-10 flex-shrink-0"
               style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }}
             />
-            <div className="flex-1">
+            <div className="flex-1 text-center">
               <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-gold)' }}>
                 {loading ? '...' : formatCurrencyCompact(sales)}
               </span>

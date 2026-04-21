@@ -41,29 +41,30 @@ function PacingCard({
   const pacingLabel = ratio >= 1 ? '▲ On track' : ratio >= 0.9 ? '▶ Slightly behind' : '▼ Behind pace';
 
   return (
-    <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+    <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</span>
         {target > 0 && (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{pct}%</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${color}15`, color }}>{pct}%</span>
         )}
       </div>
-      {/* Revenue | Sales side by side with divider */}
-      <div className="flex items-start gap-4 mb-3">
-        <div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+      {/* Revenue | Sales centered with divider */}
+      <div className="flex items-center justify-center gap-0 mb-3">
+        <div className="flex-1 text-center">
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
             {formatCardCurrency(revenue)}
           </div>
           <div className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: 'var(--text-muted)' }}>Revenue</div>
         </div>
-        <div className="self-stretch w-px my-0.5" style={{ backgroundColor: 'var(--border-subtle)' }} />
-        <div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-gold)' }}>
+        <div className="w-px h-10 flex-shrink-0" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }} />
+        <div className="flex-1 text-center">
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--christmas-gold)' }}>
             {formatCardCurrency(sales)}
           </div>
           <div className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: 'var(--text-muted)' }}>Sales</div>
         </div>
       </div>
+      <div className="h-px w-full mb-2" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} />
       {target > 0 && (
         <>
           <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCardCurrency(target)} target</div>
@@ -73,14 +74,14 @@ function PacingCard({
               <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
             )}
           </div>
-          {pacing !== undefined && (
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-xs font-medium" style={{ color }}>
-                {pacingLabel}
-              </span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{pacing}% exp</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-[10px] whitespace-nowrap" style={{ color }}>
+              {pacingLabel}
+            </span>
+            {pacing !== undefined && (
+              <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{pacing}% exp</span>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -309,6 +310,37 @@ export default function HuddleDashboard({
   // Dynamic label for the first pacing card based on the selected range
   const pacingCardLabel = getRangeLabel(selectedDate, selectedEndDate);
 
+  // Compute daily pacing % (how far through today's business hours)
+  const getDailyPacing = () => {
+    const now = new Date();
+    const dow = now.getDay();
+    if (dow === 0) return 0;
+    const hour = now.getHours() + now.getMinutes() / 60;
+    if (hour < 8) return 0;
+    if (hour >= 18) return 100;
+    const dayWeight = dow === 6 ? 0.5 : 1;
+    return Math.round(((hour - 8) / 10) * 100 * dayWeight);
+  };
+
+  // Compute weekly pacing %
+  const getWeeklyPacing = () => {
+    const now = new Date();
+    const dow = now.getDay();
+    if (dow === 0) return 0;
+    const hour = now.getHours() + now.getMinutes() / 60;
+    let dayProgress = 0;
+    if (hour >= 18) dayProgress = dow === 6 ? 0.5 : 1;
+    else if (hour >= 8) dayProgress = ((hour - 8) / 10) * (dow === 6 ? 0.5 : 1);
+    const daysCompleted = dow === 6 ? 5 : dow - 1;
+    return Math.round(((daysCompleted + dayProgress) / 5.5) * 100);
+  };
+
+  const dailyPacing = getDailyPacing();
+  const weeklyPacing = getWeeklyPacing();
+  const monthlyPacing = pacingData?.businessDaysInMonth
+    ? Math.round(((pacingData?.businessDaysElapsed || 0) / pacingData.businessDaysInMonth) * 100)
+    : undefined;
+
   return (
     <div>
       {/* Controls Bar */}
@@ -454,19 +486,21 @@ export default function HuddleDashboard({
                 revenue={pacingData?.todayRevenue || 0}
                 sales={pacingData?.todaySales || 0}
                 target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.daysInRange || 1) : 0}
+                pacing={dailyPacing}
               />
               <PacingCard
                 label="This Week"
                 revenue={pacingData?.wtdRevenue || 0}
                 sales={pacingData?.wtdSales || 0}
                 target={pacingData?.weeklyTarget || 0}
+                pacing={weeklyPacing}
               />
               <PacingCard
                 label="MTD"
                 revenue={pacingData?.mtdRevenue || 0}
                 sales={pacingData?.mtdSales || 0}
                 target={pacingData?.monthlyTarget || 0}
-                pacing={pacingData?.businessDaysInMonth ? Math.round(((pacingData?.businessDaysElapsed || 0) / pacingData.businessDaysInMonth) * 100) : undefined}
+                pacing={monthlyPacing}
               />
               <ReviewCard
                 reviewCount={pacingData?.reviewsMtdCount || 0}
