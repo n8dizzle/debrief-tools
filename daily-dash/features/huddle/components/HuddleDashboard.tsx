@@ -31,6 +31,8 @@ function PaceGauge({
   noData,
   mtdActual,
   mtdGoal,
+  daysElapsed,
+  daysInMonth,
   tooltip,
 }: {
   label: string;
@@ -41,6 +43,8 @@ function PaceGauge({
   noData?: boolean;
   mtdActual?: number;
   mtdGoal?: number;
+  daysElapsed?: number;
+  daysInMonth?: number;
   tooltip?: string;
 }) {
   const fmt = formatValue || formatCardCurrency;
@@ -56,14 +60,18 @@ function PaceGauge({
   const isAhead = !noData && ratio <= 1 && ratio > 0;
   const needleColor = noData ? 'var(--text-muted)' : isAhead ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
 
-  // Pacing language: always about pace, never "goal hit"
-  const gapPct = target > 0 ? Math.round(((needed - target) / target) * 100) : 0;
+  // Projected finish: extrapolate current MTD rate across full month
+  // projectedPct = what % of the goal we'll hit if we keep this daily rate
+  const projectedPct = (mtdActual !== undefined && mtdGoal && daysElapsed && daysInMonth && daysElapsed > 0)
+    ? Math.round(((mtdActual / daysElapsed) * daysInMonth / mtdGoal) * 100)
+    : null;
+
   const urgencyText = noData ? 'No data yet'
-    : ratio <= 0.5 ? `Pacing ahead (+${Math.abs(gapPct)}%)`
-    : ratio <= 1 ? `On pace (+${Math.abs(gapPct)}%)`
-    : ratio <= 1.15 ? `Slightly behind (+${gapPct}%)`
-    : ratio <= 1.3 ? `Behind pace (+${gapPct}%)`
-    : `Falling behind (+${gapPct}%)`;
+    : projectedPct !== null
+      ? (projectedPct >= 100
+        ? `Pacing to ${projectedPct}% of goal`
+        : `Pacing to ${projectedPct}% of goal`)
+      : (ratio <= 1 ? 'On pace' : 'Behind pace');
 
   const cx = 100, cy = 108, r = 72;
 
@@ -718,46 +726,59 @@ export default function HuddleDashboard({
                 {/* Pace gauges - 4 across */}
                 <div className="relative mb-6 py-5 px-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <PaceGauge
-                      label="Revenue Pace"
-                      needed={dailyRevNeeded}
-                      target={origDailyTarget}
-                    />
-                    <PaceGauge
-                      label="Sales Pace"
-                      needed={dailySalesNeeded}
-                      target={origDailyTarget * SALES_MULTIPLIER}
-                    />
                     {(() => {
+                      const elapsed = pacingData?.businessDaysElapsed || 0;
+                      const total = pacingData?.businessDaysInMonth || 0;
                       const leadsMtd = pacingData?.replacementLeadsMtd || 0;
                       const tglMtd = pacingData?.tglLeadsMtd || 0;
                       const mktMtd = pacingData?.marketingLeadsMtd || 0;
                       const leadsGoal = pacingData?.replacementLeadMonthlyGoal || 0;
                       const leadsRemaining = Math.max(0, leadsGoal - leadsMtd);
                       const leadsPerDayNeeded = bdzLeft > 0 ? leadsRemaining / bdzLeft : 0;
-                      const leadsPerDayTarget = leadsGoal > 0 && (pacingData?.businessDaysInMonth || 0) > 0
-                        ? leadsGoal / pacingData!.businessDaysInMonth : 0;
+                      const leadsPerDayTarget = leadsGoal > 0 && total > 0 ? leadsGoal / total : 0;
                       return (
-                        <PaceGauge
-                          label="Replacement Leads"
-                          needed={leadsPerDayNeeded}
-                          target={leadsPerDayTarget}
-                          suffix="/day"
-                          formatValue={(v) => v.toFixed(1)}
-                          noData={leadsGoal === 0}
-                          mtdActual={leadsMtd}
-                          mtdGoal={leadsGoal}
-                          tooltip={`TGL: ${tglMtd}\nMarketing Lead: ${mktMtd}`}
-                        />
+                        <>
+                          <PaceGauge
+                            label="Revenue Pace"
+                            needed={dailyRevNeeded}
+                            target={origDailyTarget}
+                            mtdActual={mtdRev}
+                            mtdGoal={monthlyRevTarget}
+                            daysElapsed={elapsed}
+                            daysInMonth={total}
+                          />
+                          <PaceGauge
+                            label="Sales Pace"
+                            needed={dailySalesNeeded}
+                            target={origDailyTarget * SALES_MULTIPLIER}
+                            mtdActual={mtdSales}
+                            mtdGoal={monthlySalesTarget}
+                            daysElapsed={elapsed}
+                            daysInMonth={total}
+                          />
+                          <PaceGauge
+                            label="Replacement Leads"
+                            needed={leadsPerDayNeeded}
+                            target={leadsPerDayTarget}
+                            suffix="/day"
+                            formatValue={(v) => v.toFixed(1)}
+                            noData={leadsGoal === 0}
+                            mtdActual={leadsMtd}
+                            mtdGoal={leadsGoal}
+                            daysElapsed={elapsed}
+                            daysInMonth={total}
+                            tooltip={`TGL: ${tglMtd}\nMarketing Lead: ${mktMtd}`}
+                          />
+                          <PaceGauge
+                            label="Avg Ticket"
+                            needed={0}
+                            target={0}
+                            suffix=""
+                            noData
+                          />
+                        </>
                       );
                     })()}
-                    <PaceGauge
-                      label="Avg Ticket"
-                      needed={0}
-                      target={0}
-                      suffix=""
-                      noData
-                    />
                   </div>
                 </div>
 
