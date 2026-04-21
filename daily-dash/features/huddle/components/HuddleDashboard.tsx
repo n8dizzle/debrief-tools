@@ -65,10 +65,10 @@ function PaceGauge({
   // Status: CRUSHING (ahead), ON PACE, BEHIND
   const getStatus = () => {
     if (noData) return { word: '--', textColor: 'var(--text-muted)', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
-    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', textColor: '#fff', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
-    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', textColor: '#fff', bg: 'var(--christmas-green-dark)', arcColor: 'var(--christmas-green)', icon: '→' };
-    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', textColor: '#fff', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
-    return { word: 'BEHIND', textColor: '#fff', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
+    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', textColor: 'var(--christmas-cream)', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
+    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', textColor: 'var(--christmas-cream)', bg: 'var(--christmas-green-dark)', arcColor: 'var(--christmas-green)', icon: '→' };
+    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', textColor: 'var(--bg-primary)', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
+    return { word: 'BEHIND', textColor: 'var(--christmas-cream)', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
   };
   const status = getStatus();
 
@@ -105,20 +105,32 @@ function PaceGauge({
           <path d={describeArc(cx, cy, r, 18, 45)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#5D8A66" strokeWidth="16" strokeLinecap="butt" />
           {/* No active arc fill - zones stay visible, needle shows position */}
-          {/* Goal tick - overlaps the arc, then diagonal to label */}
-          <line x1={cx} y1={cy - r + 10} x2={cx} y2={cy - r - 10} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.9" />
-          <line x1={cx} y1={cy - r - 10} x2={cx + 10} y2={cy - r - 16} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
-          <text x={cx + 14} y={cy - r - 13} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
+          {/* Goal tick at green zone start (45 degrees) - overlaps arc */}
+          {(() => {
+            const goalAngle = 45 * Math.PI / 180;
+            const innerX = cx + (r - 10) * Math.sin(goalAngle);
+            const innerY = cy - (r - 10) * Math.cos(goalAngle);
+            const outerX = cx + (r + 12) * Math.sin(goalAngle);
+            const outerY = cy - (r + 12) * Math.cos(goalAngle);
+            const labelX = cx + (r + 16) * Math.sin(goalAngle);
+            const labelY = cy - (r + 16) * Math.cos(goalAngle);
+            return (
+              <>
+                <line x1={innerX} y1={innerY} x2={outerX} y2={outerY} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.9" />
+                <text x={labelX + 2} y={labelY + 3} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
+              </>
+            );
+          })()}
           {/* Needle */}
           {!noData && (
             <>
               <line
                 x1={cx} y1={cy}
-                x2={cx + (r - 20) * Math.sin(angle * Math.PI / 180)}
-                y2={cy - (r - 20) * Math.cos(angle * Math.PI / 180)}
-                stroke={status.arcColor} strokeWidth="3.5" strokeLinecap="round"
+                x2={cx + (r + 4) * Math.sin(angle * Math.PI / 180)}
+                y2={cy - (r + 4) * Math.cos(angle * Math.PI / 180)}
+                stroke={status.arcColor} strokeWidth="3" strokeLinecap="round"
               />
-              <circle cx={cx} cy={cy} r="6" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
+              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
             </>
           )}
           {/* Zone labels - positioned below arc with spacing */}
