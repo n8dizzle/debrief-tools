@@ -82,11 +82,11 @@ function PaceGauge({
         style={{ backgroundColor: status.bg }}
       >
         <div className="flex items-center gap-2">
-          {status.icon && <span className="text-sm font-black" style={{ color: status.textColor }}>{status.icon}</span>}
-          <span className="text-sm font-black uppercase tracking-wider" style={{ color: status.textColor }}>{status.word}</span>
+          {status.icon && <span className="text-sm font-bold" style={{ color: status.textColor }}>{status.icon}</span>}
+          <span className="text-sm font-bold uppercase tracking-wider" style={{ color: status.textColor }}>{status.word}</span>
         </div>
         {deltaPct !== null && !noData && (
-          <span className="text-sm font-black" style={{ color: status.textColor }}>
+          <span className="text-sm font-bold" style={{ color: status.textColor }}>
             {deltaPct >= 0 ? '+' : ''}{deltaPct}%
           </span>
         )}
@@ -130,7 +130,7 @@ function PaceGauge({
       <div className="flex items-end justify-between px-5 pb-5 pt-1">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Need/day</div>
-          <div className="text-2xl font-black" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
             {noData ? '\u2014' : `${fmt(needed)}`}
           </div>
         </div>
