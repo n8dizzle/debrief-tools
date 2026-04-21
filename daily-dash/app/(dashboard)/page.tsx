@@ -263,18 +263,14 @@ function formatCurrencyCompact(value: number): string {
 }
 
 function getStatusColor(actualPct: number, expectedPct?: number): string {
-  // If we have expected pacing, color based on whether ahead or behind
   if (expectedPct !== undefined && expectedPct > 0) {
     const ratio = actualPct / expectedPct;
     if (ratio >= 1) return 'var(--christmas-green)';
-    if (ratio >= 0.9) return '#3B82F6';
-    if (ratio >= 0.75) return 'var(--christmas-gold)';
+    if (ratio >= 0.9) return 'var(--christmas-gold)';
     return '#EF4444';
   }
-  // Fallback: just use absolute percentage
   if (actualPct >= 100) return 'var(--christmas-green)';
-  if (actualPct >= 90) return '#3B82F6';
-  if (actualPct >= 75) return 'var(--christmas-gold)';
+  if (actualPct >= 90) return 'var(--christmas-gold)';
   return '#EF4444';
 }
 
