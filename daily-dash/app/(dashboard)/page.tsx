@@ -1156,77 +1156,180 @@ export default function DashboardPage() {
       {/* Section Divider - By Trade */}
       <SectionDivider label="By Trade" />
 
-      {/* Combined Trade Scoreboard */}
+      {/* Trade Breakdown Cards */}
       {trades && (
-        <div
-          className="p-4 sm:p-5 rounded-xl mb-4"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid rgba(52, 102, 67, 0.3)',
-          }}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs sm:text-sm" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-              <thead>
-                <tr>
-                  <th className="text-left py-2 pr-2 font-medium" style={{ color: 'var(--text-muted)', width: '120px' }}></th>
-                  <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>
-                    <div>Today</div>
-                    <div className="text-[10px] font-normal opacity-60">rev / target</div>
-                  </th>
-                  <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>
-                    <div>Week</div>
-                    <div className="text-[10px] font-normal opacity-60">rev / target</div>
-                  </th>
-                  <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>
-                    <div>Month</div>
-                    <div className="text-[10px] font-normal opacity-60">rev / target</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* HVAC Header + Totals */}
-                <tr>
-                  <td className="py-1.5 pr-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#3B82F6' }}>HVAC</span>
-                  </td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.today.revenue} sales={(trades.hvac.today as TradeMetrics).sales || 0} target={hvacTargets?.daily || 0} expectedPacing={dailyPacing} loading={loading} /></td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.wtd.revenue} sales={(trades.hvac.wtd as TradeMetrics).sales || 0} target={hvacTargets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} /></td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.hvac.mtd.revenue} sales={(trades.hvac.mtd as TradeMetrics).sales || 0} target={hvacTargets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} /></td>
-                </tr>
+        <div className="space-y-4">
+          {/* HVAC Card */}
+          <div
+            className="p-5 sm:p-6 rounded-xl"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+            }}
+          >
+            {/* Trade Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="#3B82F6" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>HVAC</h3>
+            </div>
 
-                {/* HVAC Department rows */}
+            {/* HVAC Period Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+              {([
+                { label: 'Today', revenue: trades.hvac.today.revenue, sales: (trades.hvac.today as TradeMetrics).sales || 0, target: hvacTargets?.daily || 0, pacing: dailyPacing },
+                { label: 'This Week', revenue: trades.hvac.wtd.revenue, sales: (trades.hvac.wtd as TradeMetrics).sales || 0, target: hvacTargets?.weekly || 0, pacing: weeklyPacing },
+                { label: 'This Month', revenue: trades.hvac.mtd.revenue, sales: (trades.hvac.mtd as TradeMetrics).sales || 0, target: hvacTargets?.monthly || 0, pacing: monthlyPacing },
+              ] as const).map((period) => {
+                const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
+                const color = getStatusColor(pct);
+                return (
+                  <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                      {period.target > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                      {loading ? '...' : formatCurrencyCompact(period.revenue)}
+                    </div>
+                    <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
+                      {loading ? '...' : formatCurrencyCompact(period.sales)} sold
+                    </div>
+                    {period.target > 0 && (
+                      <>
+                        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
+                        <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                          {period.pacing > 0 && !loading && (
+                            <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* HVAC Department Breakdown */}
+            <div className="pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <div className="text-xs font-medium uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Department Breakdown</div>
+              <div className="space-y-3">
                 {(['install', 'service', 'maintenance'] as const).map((dept) => {
-                  const getDept = (period: 'today' | 'wtd' | 'mtd') => {
+                  const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
+                  const getDeptData = (period: 'today' | 'wtd' | 'mtd') => {
                     const pd = trades.hvac[period] as TradeMetrics;
                     return pd?.departments?.[dept] || { revenue: 0, sales: 0 };
                   };
                   const getDeptTarget = (period: 'daily' | 'weekly' | 'monthly') => hvacTargets?.departments?.[dept]?.[period] || 0;
-                  const labels: Record<string, string> = { install: 'Install', service: 'Service', maintenance: 'Maintenance' };
                   return (
-                    <tr key={`hvac-${dept}`}>
-                      <td className="py-1.5 pr-2 pl-4 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{labels[dept]}</td>
-                      <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('today').revenue} sales={getDept('today').sales || 0} target={getDeptTarget('daily')} expectedPacing={dailyPacing} loading={loading} /></td>
-                      <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('wtd').revenue} sales={getDept('wtd').sales || 0} target={getDeptTarget('weekly')} expectedPacing={weeklyPacing} loading={loading} /></td>
-                      <td className="py-1.5 px-2"><RevenueSalesCell revenue={getDept('mtd').revenue} sales={getDept('mtd').sales || 0} target={getDeptTarget('monthly')} expectedPacing={monthlyPacing} loading={loading} /></td>
-                    </tr>
+                    <div key={dept} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                      <div className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {([
+                          { label: 'Today', data: getDeptData('today'), target: getDeptTarget('daily'), pacing: dailyPacing },
+                          { label: 'Week', data: getDeptData('wtd'), target: getDeptTarget('weekly'), pacing: weeklyPacing },
+                          { label: 'Month', data: getDeptData('mtd'), target: getDeptTarget('monthly'), pacing: monthlyPacing },
+                        ] as const).map((period) => {
+                          const pct = period.target > 0 ? Math.round((period.data.revenue / period.target) * 100) : 0;
+                          const color = period.target > 0 ? getStatusColor(pct) : 'var(--text-muted)';
+                          return (
+                            <div key={period.label}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                                {period.target > 0 && (
+                                  <span className="text-xs font-semibold" style={{ color }}>{loading ? '...' : `${pct}%`}</span>
+                                )}
+                              </div>
+                              <div className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                                {loading ? '...' : formatCurrencyCompact(period.data.revenue)}
+                              </div>
+                              <div className="text-xs" style={{ color: 'var(--christmas-gold)' }}>
+                                {loading ? '...' : formatCurrencyCompact(period.data.sales || 0)} sold
+                              </div>
+                              {period.target > 0 && (
+                                <div className="relative h-1 rounded-full mt-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                                  <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
 
-                {/* Divider */}
-                <tr><td colSpan={4} className="py-2"><div className="h-px w-full" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.3 }} /></td></tr>
+          {/* Plumbing Card */}
+          <div
+            className="p-5 sm:p-6 rounded-xl"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+            }}
+          >
+            {/* Trade Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Plumbing</h3>
+            </div>
 
-                {/* Plumbing Section */}
-                <tr>
-                  <td className="py-1.5 pr-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B5CF6' }}>Plumbing</span>
-                  </td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.plumbing.today.revenue} sales={(trades.plumbing.today as TradeMetrics).sales || 0} target={plumbingTargets?.daily || 0} expectedPacing={dailyPacing} loading={loading} /></td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.plumbing.wtd.revenue} sales={(trades.plumbing.wtd as TradeMetrics).sales || 0} target={plumbingTargets?.weekly || 0} expectedPacing={weeklyPacing} loading={loading} /></td>
-                  <td className="py-1.5 px-2"><RevenueSalesCell revenue={trades.plumbing.mtd.revenue} sales={(trades.plumbing.mtd as TradeMetrics).sales || 0} target={plumbingTargets?.monthly || 0} expectedPacing={monthlyPacing} loading={loading} /></td>
-                </tr>
-              </tbody>
-            </table>
+            {/* Plumbing Period Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {([
+                { label: 'Today', revenue: trades.plumbing.today.revenue, sales: (trades.plumbing.today as TradeMetrics).sales || 0, target: plumbingTargets?.daily || 0, pacing: dailyPacing },
+                { label: 'This Week', revenue: trades.plumbing.wtd.revenue, sales: (trades.plumbing.wtd as TradeMetrics).sales || 0, target: plumbingTargets?.weekly || 0, pacing: weeklyPacing },
+                { label: 'This Month', revenue: trades.plumbing.mtd.revenue, sales: (trades.plumbing.mtd as TradeMetrics).sales || 0, target: plumbingTargets?.monthly || 0, pacing: monthlyPacing },
+              ] as const).map((period) => {
+                const pct = period.target > 0 ? Math.round((period.revenue / period.target) * 100) : 0;
+                const color = getStatusColor(pct);
+                return (
+                  <div key={period.label} className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{period.label}</span>
+                      {period.target > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{loading ? '...' : `${pct}%`}</span>
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                      {loading ? '...' : formatCurrencyCompact(period.revenue)}
+                    </div>
+                    <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
+                      {loading ? '...' : formatCurrencyCompact(period.sales)} sold
+                    </div>
+                    {period.target > 0 && (
+                      <>
+                        <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>of {formatCurrencyCompact(period.target)} target</div>
+                        <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                          {period.pacing > 0 && !loading && (
+                            <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(period.pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
