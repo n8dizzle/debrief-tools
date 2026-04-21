@@ -50,14 +50,26 @@ function PaceGauge({
   const isDone = needed <= 0 && !noData;
   const needleColor = noData ? 'var(--text-muted)' : isDone ? 'var(--christmas-green)' : isWay ? '#EF4444' : isOver ? 'var(--christmas-gold)' : 'var(--christmas-green)';
 
-  const statusText = noData ? 'No data yet' : isDone ? 'Goal reached' : ratio <= 1 ? 'On pace' : ratio <= 1.15 ? 'Push slightly' : ratio <= 1.3 ? 'Push harder' : 'Stretch mode';
+  // Copy: show the gap clearly. "Need $11K more/day" or "On pace" or "Ahead by $5K/day"
+  const gap = needed - target;
+  const gapPct = target > 0 ? Math.round(((needed - target) / target) * 100) : 0;
+  const statusText = noData ? 'No data yet'
+    : isDone ? 'Goal hit'
+    : ratio <= 1 ? `Ahead by ${fmt(Math.abs(gap))}${sfx}`
+    : `Need ${fmt(gap)}${sfx} more`;
+  const urgencyText = noData ? ''
+    : isDone ? ''
+    : ratio <= 1 ? 'Keep it up'
+    : ratio <= 1.15 ? 'Slightly behind'
+    : ratio <= 1.3 ? 'Behind pace'
+    : 'Falling behind';
 
   const cx = 100, cy = 88, r = 72;
 
   return (
     <div className="flex flex-col items-center flex-1 min-w-0">
       <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{label}</div>
-      <svg width="200" height="125" viewBox="0 0 200 125">
+      <svg width="200" height="130" viewBox="0 0 200 130">
         {/* Green zone: 0x to 1x */}
         <path d={describeArc(cx, cy, r, -90, 0)} fill="none" stroke="var(--christmas-green)" strokeWidth="12" strokeLinecap="round" opacity="0.2" />
         {/* Yellow zone: 1x to 1.3x */}
@@ -76,7 +88,8 @@ function PaceGauge({
           />
         )}
         {/* Target tick at 1x */}
-        <line x1={cx} y1={cy - r + 6} x2={cx} y2={cy - r - 8} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.5" />
+        <line x1={cx} y1={cy - r + 6} x2={cx} y2={cy - r - 10} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.6" />
+        <text x={cx} y={cy - r - 14} fontSize="9" fill="var(--christmas-cream)" textAnchor="middle" opacity="0.6">goal</text>
         {/* Needle */}
         {!noData && (
           <>
@@ -89,25 +102,23 @@ function PaceGauge({
             <circle cx={cx} cy={cy} r="5" fill={needleColor} />
           </>
         )}
-        {/* Scale labels - positioned outside the arc */}
-        <text x="16" y="108" fontSize="10" fill="var(--text-muted)" textAnchor="middle">0x</text>
-        <text x={cx} y="8" fontSize="10" fill="var(--text-muted)" textAnchor="middle">1x</text>
-        <text x="184" y="108" fontSize="10" fill="var(--text-muted)" textAnchor="middle">2x</text>
+        {/* Scale labels */}
+        <text x="14" y="114" fontSize="9" fill="var(--text-muted)" textAnchor="middle">easy</text>
+        <text x="186" y="114" fontSize="9" fill="var(--text-muted)" textAnchor="middle">hard</text>
       </svg>
       <div className="text-center -mt-2">
-        <div className="text-2xl font-bold" style={{ color: needleColor }}>
-          {noData ? '--' : isDone ? '✓' : `${ratio.toFixed(2)}x`}
+        <div className="text-lg font-bold leading-tight" style={{ color: needleColor }}>
+          {noData ? '--' : isDone ? 'Goal hit' : `${fmt(needed)}${sfx}`}
         </div>
-        <div className="text-xs font-medium mt-0.5" style={{ color: needleColor }}>{statusText}</div>
-        {!noData && (
-          <>
-            <div className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-              {fmt(needed)} {sfx} needed
-            </div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              vs {fmt(target)} {sfx} target
-            </div>
-          </>
+        {!noData && !isDone && (
+          <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            target: {fmt(target)}{sfx}
+          </div>
+        )}
+        {urgencyText && (
+          <div className="text-xs font-semibold mt-1" style={{ color: needleColor }}>
+            {urgencyText}{!isDone && !noData && ratio > 1 ? ` (+${gapPct}%)` : ''}
+          </div>
         )}
       </div>
     </div>
