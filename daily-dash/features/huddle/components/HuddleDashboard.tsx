@@ -20,7 +20,7 @@ function formatCardCurrency(val: number) {
   return `$${val.toFixed(0)}`;
 }
 
-// Pacing card - same layout as dashboard trade cards
+// Pacing card - matches dashboard screenshot exactly
 function PacingCard({
   label,
   revenue,
@@ -37,6 +37,7 @@ function PacingCard({
   const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const getColor = (p: number) => p >= 100 ? '#4ade80' : p >= 85 ? '#facc15' : '#f87171';
   const color = getColor(pct);
+  const behindPace = pacing !== undefined && pct < pacing;
 
   return (
     <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)' }}>
@@ -46,11 +47,21 @@ function PacingCard({
           <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${color}15`, color }}>{pct}%</span>
         )}
       </div>
-      <div className="text-2xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-        {formatCardCurrency(revenue)}
-      </div>
-      <div className="text-sm mb-2" style={{ color: 'var(--christmas-gold)' }}>
-        {formatCardCurrency(sales)} sold
+      {/* Revenue | Sales side by side with divider */}
+      <div className="flex items-start gap-4 mb-3">
+        <div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            {formatCardCurrency(revenue)}
+          </div>
+          <div className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: 'var(--text-muted)' }}>Revenue</div>
+        </div>
+        <div className="self-stretch w-px my-0.5" style={{ backgroundColor: 'var(--border-subtle)' }} />
+        <div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-gold)' }}>
+            {formatCardCurrency(sales)}
+          </div>
+          <div className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: 'var(--text-muted)' }}>Sales</div>
+        </div>
       </div>
       {target > 0 && (
         <>
@@ -61,6 +72,14 @@ function PacingCard({
               <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
             )}
           </div>
+          {pacing !== undefined && (
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-xs font-medium" style={{ color: behindPace ? '#f87171' : '#4ade80' }}>
+                {behindPace ? '\u25BC' : '\u25B2'} {behindPace ? 'Behind' : 'Ahead'}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{pacing}% exp</span>
+            </div>
+          )}
         </>
       )}
     </div>
