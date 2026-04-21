@@ -140,6 +140,7 @@ function PacingCard({
   target,
   pacing,
   completed,
+  badge,
 }: {
   label: string;
   revenue: number;
@@ -147,6 +148,7 @@ function PacingCard({
   target: number;
   pacing?: number;
   completed?: boolean;
+  badge?: string;
 }) {
   const pct = target > 0 ? Math.round((revenue / target) * 100) : 0;
   const getRatio = () => pacing !== undefined && pacing > 0 ? pct / pacing : pct / 100;
@@ -593,16 +595,9 @@ export default function HuddleDashboard({
           {/* Visual Pacing Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                  Revenue Pacing
-                </h2>
-                {pacingData?.businessDaysRemaining !== undefined && (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
-                    {pacingData.businessDaysRemaining} biz days left
-                  </span>
-                )}
-              </div>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                Revenue Pacing
+              </h2>
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {selectedDate === selectedEndDate
                   ? formatDateForDisplay(selectedDate)
@@ -691,7 +686,12 @@ export default function HuddleDashboard({
                 </div>
 
                 {/* Pace gauges */}
-                <div className="flex justify-center gap-12 mb-6 py-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                <div className="relative flex justify-center gap-12 mb-6 py-4 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                  {pacingData?.businessDaysRemaining !== undefined && (
+                    <span className="absolute top-3 right-3 text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
+                      {pacingData.businessDaysRemaining} biz days left
+                    </span>
+                  )}
                   <PaceGauge
                     label="Revenue Pace"
                     needed={dailyRevNeeded}
