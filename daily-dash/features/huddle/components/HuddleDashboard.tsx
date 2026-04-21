@@ -429,9 +429,16 @@ export default function HuddleDashboard({
           {/* Visual Pacing Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                Revenue Pacing
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                  Revenue Pacing
+                </h2>
+                {pacingData?.businessDaysRemaining !== undefined && (
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-gold)', border: '1px solid var(--border-subtle)' }}>
+                    {pacingData.businessDaysRemaining} biz days left
+                  </span>
+                )}
+              </div>
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {selectedDate === selectedEndDate
                   ? formatDateForDisplay(selectedDate)
