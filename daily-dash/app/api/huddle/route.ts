@@ -427,8 +427,10 @@ export async function GET(request: NextRequest) {
       ? Math.round((expectedYtdTarget / annualTargetValue) * 10000) / 100
       : 0;
 
-    // Business days remaining in month
-    const businessDaysRemaining = businessDaysInMonth - daysElapsedInMonth;
+    // Business days remaining in month (always relative to today, not selected date)
+    const todayForRemaining = new Date();
+    const daysElapsedToday = getBusinessDaysElapsedInMonth(todayForRemaining, holidays);
+    const businessDaysRemaining = businessDaysInMonth - daysElapsedToday;
 
     // Fetch trade-level metrics from ServiceTitan
     const stClient = getServiceTitanClient();
