@@ -534,7 +534,7 @@ export default function MarketingDashboard() {
                       borderRadius: '8px',
                       fontSize: 12,
                     }}
-                    labelFormatter={(label: string) => {
+                    labelFormatter={(label: any) => {
                       const parts = String(label).split('-');
                       return `${parts[1]}/${parts[2]}`;
                     }}
