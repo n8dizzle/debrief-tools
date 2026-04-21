@@ -8,22 +8,17 @@ export const dynamic = 'force-dynamic';
 const SPREADSHEET_ID = '1w-c6lgPYAGUwtW7biPQoGApIoZcTFgR0usyAGUtWEcw';
 const SHEET_NAME = 'Daily #s';
 
-function getOAuth2Client() {
-  const clientId = process.env.GOOGLE_BUSINESS_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_BUSINESS_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_BUSINESS_REFRESH_TOKEN;
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Google API credentials not configured');
+function getSheetsAuth() {
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!keyJson) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY not configured');
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    clientId,
-    clientSecret,
-    'https://developers.google.com/oauthplayground'
-  );
-  oauth2Client.setCredentials({ refresh_token: refreshToken });
-  return oauth2Client;
+  const key = JSON.parse(keyJson);
+  return new google.auth.GoogleAuth({
+    credentials: key,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  });
 }
 
 // Parse "$788,937" or "51%" or "4.98" into a number
@@ -120,7 +115,7 @@ export async function GET(request: Request) {
   const period = searchParams.get('period') || 'ytd';
 
   try {
-    const auth = getOAuth2Client();
+    const auth = getSheetsAuth();
     const sheets = google.sheets({ version: 'v4', auth });
 
     // Read the entire Daily #s sheet (all rows, all columns)
