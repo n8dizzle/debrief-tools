@@ -78,6 +78,43 @@ export interface STLeadCreate {
   contactInfo?: STLeadContactInfo;
 }
 
+/**
+ * Bare-minimum booking payload for ST's booking-provider endpoint. Every
+ * field here is actually required — probed against the live API, ST returns
+ * 400 if any are missing. Everything else (time slot, business unit, job
+ * type, address) is optional at submission and gets assigned by dispatch
+ * when they accept the booking into a scheduled appointment.
+ */
+export interface STBookingCreate {
+  /** Customer-facing name (the referred friend). */
+  name: string;
+  /** Marketing source label. Shows in ST reports. */
+  source: string;
+  /** Short headline dispatch sees in the bookings queue. */
+  summary: string;
+  /** Full narrative — phone, address, service type, referrer, notes. */
+  body: string;
+  /** Our dedup key. ST rejects duplicates by externalId, so reusing the
+   *  referral UUID makes resubmissions idempotent. */
+  externalId: string;
+  /** Boolean — default true for referrals (friend of a customer is usually
+   *  a net-new customer). */
+  isFirstTimeClient: boolean;
+  /** Optional recommended additions — dispatch uses these when calling back. */
+  campaignId?: number;
+  priority?: "Low" | "Normal" | "High" | "Urgent";
+  customerType?: "Residential" | "Commercial";
+  address?: {
+    street?: string;
+    unit?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+  email?: string;
+}
+
 interface STPagedResponse<T> {
   data: T[];
   page: number;
@@ -256,6 +293,35 @@ export class ServiceTitanClient {
       );
     } catch (err) {
       console.error("Failed to create lead:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Submit a booking through a pre-registered booking provider.
+   *
+   * The admin registers a "Christmas Air Referrals" booking provider in
+   * ServiceTitan's dashboard (Settings → Integrations → Booking Providers)
+   * and pastes the numeric provider ID into ref_settings.
+   * st_referral_booking_provider_id.
+   *
+   * Bookings land in the Follow Up → Bookings queue (separate from Leads).
+   * Dispatch accepts them, confirms details with the customer, and converts
+   * them into scheduled appointments. Unlike leads, bookings do not require
+   * a follow-up date at submission.
+   */
+  async createBooking(
+    providerId: number,
+    booking: STBookingCreate
+  ): Promise<{ id: number } | null> {
+    try {
+      return await this.request<{ id: number }>(
+        "POST",
+        `crm/v2/tenant/${this.tenantId}/booking-provider/${providerId}/bookings`,
+        { body: booking }
+      );
+    } catch (err) {
+      console.error("Failed to create booking:", err);
       return null;
     }
   }

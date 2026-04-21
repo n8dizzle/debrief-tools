@@ -15,6 +15,8 @@ const PatchSchema = z.object({
 const PER_KEY_VALIDATORS: Record<string, (v: string) => string | null> = {
   st_referral_campaign_id: (v) =>
     /^\d+$/.test(v) ? null : "Must be a numeric ServiceTitan campaign ID",
+  st_referral_booking_provider_id: (v) =>
+    /^\d+$/.test(v) ? null : "Must be a numeric ServiceTitan booking provider ID",
   triple_win_enabled: (v) =>
     v === "true" || v === "false" ? null : "Must be \"true\" or \"false\"",
 };
