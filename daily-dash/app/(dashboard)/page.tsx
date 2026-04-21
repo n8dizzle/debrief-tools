@@ -588,7 +588,7 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
   };
 
   const colors = accentColors[accentColor];
-  const hasSales = sales !== undefined && sales > 0;
+  const hasSales = sales !== undefined;
 
   return (
     <div
@@ -619,22 +619,22 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
         <>
           <div className="flex flex-col sm:flex-row sm:items-center mb-3 gap-2 sm:gap-0">
             <div className="flex-1">
-              <span className="text-base sm:text-lg font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-cream)' }}>
+              <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-cream)' }}>
                 {loading ? '...' : formatCurrencyCompact(revenue)}
               </span>
-              <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Revenue
               </span>
             </div>
             <div
-              className="hidden sm:block w-px h-8 mx-2 flex-shrink-0"
+              className="hidden sm:block w-px h-10 mx-3 flex-shrink-0"
               style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }}
             />
             <div className="flex-1">
-              <span className="text-base sm:text-lg font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-gold)' }}>
+              <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-gold)' }}>
                 {loading ? '...' : formatCurrencyCompact(sales)}
               </span>
-              <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Sales
               </span>
             </div>
