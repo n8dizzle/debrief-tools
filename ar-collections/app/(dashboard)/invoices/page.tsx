@@ -1087,42 +1087,40 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Business Unit Groups (leadership-facing primary filter) */}
-      {filtersExpanded && businessUnitGroups.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Groups:</span>
-          {businessUnitGroups.map((g) => {
-            const isActive = filters.businessUnitGroups.includes(g.id);
-            return (
-              <button
-                key={g.id}
-                onClick={() => setFilters(prev => ({
-                  ...prev,
-                  businessUnitGroups: isActive
-                    ? prev.businessUnitGroups.filter((x) => x !== g.id)
-                    : [...prev.businessUnitGroups, g.id],
-                }))}
-                className="px-3 py-1 rounded-full text-xs font-medium transition-all"
-                style={{
-                  backgroundColor: isActive ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-secondary)',
-                  color: isActive ? 'var(--christmas-green)' : 'var(--text-secondary)',
-                  border: `1px solid ${isActive ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
-                }}
-                title={g.members.length === 0 ? 'No business units assigned yet' : `${g.members.length} business unit${g.members.length === 1 ? '' : 's'}`}
-              >
-                {g.label}
-                <span className="ml-1.5 opacity-70">{g.members.length}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Quick Chip Filters + Column Picker row — hides entirely when filters collapsed */}
       {filtersExpanded && (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Quick filters:</span>
+
+        {/* Business Unit Group Chips (leadership-facing primary filter) */}
+        {businessUnitGroups.map((g) => {
+          const isActive = filters.businessUnitGroups.includes(g.id);
+          return (
+            <button
+              key={g.id}
+              onClick={() => setFilters(prev => ({
+                ...prev,
+                businessUnitGroups: isActive
+                  ? prev.businessUnitGroups.filter((x) => x !== g.id)
+                  : [...prev.businessUnitGroups, g.id],
+              }))}
+              className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+              style={{
+                backgroundColor: isActive ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-secondary)',
+                color: isActive ? 'var(--christmas-green)' : 'var(--text-secondary)',
+                border: `1px solid ${isActive ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+              }}
+              title={g.members.length === 0 ? 'No business units assigned yet' : `${g.members.length} business unit${g.members.length === 1 ? '' : 's'}`}
+            >
+              {g.label}
+              <span className="ml-1.5 opacity-70">{g.members.length}</span>
+            </button>
+          );
+        })}
+        {businessUnitGroups.length > 0 && (
+          <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
+        )}
 
         {/* Customer Type Chips */}
         <button
