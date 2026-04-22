@@ -1114,7 +1114,6 @@ export default function InvoicesPage() {
               title={g.members.length === 0 ? 'No business units assigned yet' : `${g.members.length} business unit${g.members.length === 1 ? '' : 's'}`}
             >
               {g.label}
-              <span className="ml-1.5 opacity-70">{g.members.length}</span>
             </button>
           );
         })}
