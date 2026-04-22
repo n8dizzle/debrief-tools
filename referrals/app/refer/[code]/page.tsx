@@ -2,8 +2,10 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase";
 import { getBooleanSetting } from "@/lib/settings";
+import { getCurrentProgram } from "@/lib/rewards/public-display";
 import type { Charity, Referrer } from "@/lib/supabase";
 import SiteFooter from "@/components/SiteFooter";
+import CampaignBanner from "@/components/CampaignBanner";
 import ReferralForm from "./ReferralForm";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +47,10 @@ async function getReferrerData(code: string): Promise<{
 
 export default async function ReferPage({ params }: PageProps) {
   const { code } = await params;
-  const data = await getReferrerData(code);
+  const [data, program] = await Promise.all([
+    getReferrerData(code),
+    getCurrentProgram(),
+  ]);
   if (!data) notFound();
 
   const { referrer, charity } = data;
@@ -72,6 +77,7 @@ export default async function ReferPage({ params }: PageProps) {
           />
         </div>
       </header>
+      <CampaignBanner label={program?.campaign_label ?? null} />
 
       {/* Hero */}
       <section className="px-4 md:px-6 pt-8 md:pt-16 pb-6">

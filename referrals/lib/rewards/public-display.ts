@@ -1,77 +1,63 @@
 import { getServerSupabase } from "@/lib/supabase";
-import type {
-  InvoiceBracket,
-  RewardTier,
-  ServiceCategory,
-} from "@/lib/supabase";
 
-const CATEGORY_ORDER: ServiceCategory[] = [
-  "SERVICE_CALL",
-  "MAINTENANCE",
-  "REPLACEMENT",
-  "COMMERCIAL",
-];
+export interface CurrentProgram {
+  referrer_amount: number;
+  friend_amount: number;
+  charity_amount: number;
+  campaign_label: string | null;
+}
 
 /**
- * Fetch the active tiers for the default reward config, in display order.
- * Used by public marketing pages (homepage, FAQ) so admin edits go live
- * without a redeploy. Returns [] if no default-active config exists —
- * callers should fall back to static copy so the page still renders.
+ * Fetch the current flat Triple Win program (3 amounts + optional campaign
+ * label). Drives all public-facing copy so admin edits go live without a
+ * redeploy. Returns null only if seed data is missing — callers should
+ * render a safe fallback (seed baseline $50/$50/$50, no banner).
+ *
+ * Reads one tier row (arbitrarily — all 4 are identical under the
+ * enforce_tier_identity trigger from migration 009) plus the config row
+ * for the campaign label.
  */
-export async function getDefaultConfigTiers(): Promise<RewardTier[]> {
-  const supabase = getServerSupabase();
-  const now = new Date().toISOString();
+export async function getCurrentProgram(): Promise<CurrentProgram | null> {
+  try {
+    const supabase = getServerSupabase();
 
-  const { data: config } = await supabase
-    .from("ref_reward_configs")
-    .select("id")
-    .eq("is_default", true)
-    .eq("is_active", true)
-    .lte("effective_from", now)
-    .or(`effective_until.is.null,effective_until.gt.${now}`)
-    .maybeSingle();
+    const { data: config } = await supabase
+      .from("ref_reward_configs")
+      .select("id, campaign_label")
+      .eq("is_default", true)
+      .eq("is_active", true)
+      .maybeSingle();
 
-  if (!config?.id) return [];
+    if (!config?.id) return null;
 
-  const { data: tiers } = await supabase
-    .from("ref_reward_tiers")
-    .select("*")
-    .eq("reward_config_id", config.id)
-    .eq("is_active", true);
+    const { data: tier } = await supabase
+      .from("ref_reward_tiers")
+      .select("flat_reward_amount, referee_discount_amount, charity_match_flat")
+      .eq("reward_config_id", config.id)
+      .limit(1)
+      .maybeSingle();
 
-  if (!tiers) return [];
+    if (!tier) return null;
 
-  return (tiers as RewardTier[]).slice().sort(
-    (a, b) =>
-      CATEGORY_ORDER.indexOf(a.service_category) -
-      CATEGORY_ORDER.indexOf(b.service_category)
-  );
+    return {
+      referrer_amount: Number(tier.flat_reward_amount),
+      friend_amount: Number(tier.referee_discount_amount),
+      charity_amount: Number(tier.charity_match_flat),
+      campaign_label: config.campaign_label,
+    };
+  } catch (err) {
+    // Supabase outage, invalid credentials, etc. → fall through to null so
+    // callers render BASELINE_PROGRAM rather than 500ing.
+    console.error("getCurrentProgram() failed:", err);
+    return null;
+  }
 }
 
-/** Format a tier's referrer reward as a short customer-facing string. */
-export function formatTierReward(tier: RewardTier): string {
-  if (tier.reward_mode === "FLAT") {
-    return `$${Math.round(tier.flat_reward_amount || 0)}`;
-  }
-
-  if (tier.reward_mode === "TIERED_BY_INVOICE") {
-    const brackets = (tier.invoice_tier_json as InvoiceBracket[]) || [];
-    const amounts = brackets
-      .map((b) => Number(b.rewardAmount))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    if (amounts.length === 0) return "";
-    const min = Math.min(...amounts);
-    const max = Math.max(...amounts);
-    const hasOpenTop = brackets.some((b) => b.maxInvoice === null);
-    if (min === max) return hasOpenTop ? `$${min}+` : `$${min}`;
-    return hasOpenTop ? `$${min} – $${max}+` : `$${min} – $${max}`;
-  }
-
-  if (tier.reward_mode === "PERCENTAGE_OF_INVOICE") {
-    const pct = tier.percentage_of_invoice || 0;
-    const cap = tier.percentage_reward_cap;
-    return cap ? `${pct}% up to $${Math.round(cap)}` : `${pct}%`;
-  }
-
-  return "";
-}
+/** Baseline fallback for pages when the config fetch fails. Keeps copy on the
+ *  page rather than showing empty $ strings. */
+export const BASELINE_PROGRAM: CurrentProgram = {
+  referrer_amount: 50,
+  friend_amount: 50,
+  charity_amount: 50,
+  campaign_label: null,
+};

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 import { getBooleanSetting } from "@/lib/settings";
+import {
+  getCurrentProgram,
+  BASELINE_PROGRAM,
+} from "@/lib/rewards/public-display";
 import type { Charity } from "@/lib/supabase";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -18,10 +22,12 @@ async function getActiveCharities(): Promise<Charity[]> {
 }
 
 export default async function TripleWinPage() {
-  const [charities, tripleWinEnabled] = await Promise.all([
+  const [charities, tripleWinEnabled, program] = await Promise.all([
     getActiveCharities(),
     getBooleanSetting("triple_win_enabled", true),
+    getCurrentProgram(),
   ]);
+  const p = program ?? BASELINE_PROGRAM;
 
   return (
     <>
@@ -64,17 +70,17 @@ export default async function TripleWinPage() {
             <WinCard
               n="1"
               title="You win"
-              body="Your full reward — $50 to $500+ — in a Visa gift card, Amazon credit, or account credit. Your choice, no strings."
+              body={`$${p.referrer_amount} for every completed referral — Visa gift card, Amazon credit, or account credit. Your choice, no strings.`}
             />
             <WinCard
               n="2"
               title="They win"
-              body="Your friend gets a real discount on their first service. No coupon codes, no fine print. Just a warm welcome."
+              body={`Your friend gets $${p.friend_amount} off their first service. No coupon codes, no fine print. Just a warm welcome.`}
             />
             <WinCard
               n="3"
               title="Your charity wins"
-              body="We add a matched donation to a cause you care about. It's our way of thanking the communities that trust us."
+              body={`We donate $${p.charity_amount} to a cause you picked — on top of your thank-you, not taken from it.`}
             />
           </div>
         </div>
@@ -137,8 +143,10 @@ export default async function TripleWinPage() {
               referrals.
             </p>
             <p>
-              <strong>The match scales with the job.</strong> Bigger referrals
-              mean bigger donations — up to $100 on commercial jobs.
+              <strong>Every referral is a flat ${p.referrer_amount} /
+              ${p.friend_amount} / ${p.charity_amount}.</strong> Service call,
+              water heater install, furnace replacement — same three-way win
+              every time. Simple.
             </p>
           </div>
         </div>

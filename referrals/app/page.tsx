@@ -2,62 +2,14 @@ import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import {
-  getDefaultConfigTiers,
-  formatTierReward,
+  getCurrentProgram,
+  BASELINE_PROGRAM,
 } from "@/lib/rewards/public-display";
-import type { RewardTier } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-type TierCardData = {
-  label: string;
-  reward: string;
-  refereeBenefit: string;
-  highlight?: boolean;
-};
-
-const FALLBACK_TIERS: TierCardData[] = [
-  {
-    label: "Service Call or Repair",
-    reward: "$50",
-    refereeBenefit: "$50 off their first service",
-  },
-  {
-    label: "Maintenance Membership",
-    reward: "$75",
-    refereeBenefit: "First month free",
-  },
-  {
-    label: "HVAC or Water Heater Replacement",
-    reward: "$250 – $500",
-    refereeBenefit: "$250 off their project",
-    highlight: true,
-  },
-  {
-    label: "Commercial Services",
-    reward: "$500+",
-    refereeBenefit: "Case-by-case benefit",
-  },
-];
-
-function tierToCard(tier: RewardTier): TierCardData | null {
-  const reward = formatTierReward(tier);
-  if (!reward) return null;
-  return {
-    label: tier.service_category_label,
-    reward,
-    refereeBenefit: tier.referee_discount_label,
-    highlight: tier.service_category === "REPLACEMENT",
-  };
-}
-
 export default async function LandingPage() {
-  const dbTiers = await getDefaultConfigTiers();
-  const tierCards: TierCardData[] =
-    dbTiers
-      .map(tierToCard)
-      .filter((c): c is TierCardData => c !== null);
-  const tiers = tierCards.length > 0 ? tierCards : FALLBACK_TIERS;
+  const program = (await getCurrentProgram()) ?? BASELINE_PROGRAM;
 
   return (
     <>
@@ -99,7 +51,7 @@ export default async function LandingPage() {
             <StepCard
               n="1"
               title="Join in two minutes"
-              body="Tell us who you are. We&apos;ll match you to your Christmas Air account and send you your personal referral link."
+              body="Tell us who you are. We'll match you to your Christmas Air account and send you your personal referral link."
             />
             <StepCard
               n="2"
@@ -115,28 +67,36 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Reward tiers */}
+      {/* Triple Win amounts — the three-way equation */}
       <section className="section-cream px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl md:text-5xl text-center mb-4">
             What&apos;s the reward?
           </h2>
           <p className="text-center text-base md:text-lg opacity-80 max-w-2xl mx-auto mb-10 md:mb-12">
-            Bigger jobs, bigger thanks. Your friend saves too.
+            Three wins, every time. Simple.
           </p>
-          <div className="grid gap-4 md:gap-5 md:grid-cols-2">
-            {tiers.map((t) => (
-              <TierCard
-                key={t.label}
-                label={t.label}
-                reward={t.reward}
-                refereeBenefit={t.refereeBenefit}
-                highlight={t.highlight}
-              />
-            ))}
+          <div className="grid gap-4 md:gap-5 md:grid-cols-3">
+            <AmountCard
+              label="You earn"
+              amount={program.referrer_amount}
+              sub="Gift card, Amazon credit, or account credit — your choice."
+            />
+            <AmountCard
+              label="Your friend saves"
+              amount={program.friend_amount}
+              sub="Off their first service with us."
+              highlight
+            />
+            <AmountCard
+              label="We donate"
+              amount={program.charity_amount}
+              sub="To a charity you picked. On us — not taken from your reward."
+            />
           </div>
           <p className="text-center text-sm opacity-60 mt-6">
-            Rewards issued as a Visa gift card, Amazon credit, or account credit — your choice.
+            Every completed referral triggers all three. Amounts subject to
+            change.
           </p>
         </div>
       </section>
@@ -201,15 +161,15 @@ function StepCard({ n, title, body }: { n: string; title: string; body: string }
   );
 }
 
-function TierCard({
+function AmountCard({
   label,
-  reward,
-  refereeBenefit,
+  amount,
+  sub,
   highlight,
 }: {
   label: string;
-  reward: string;
-  refereeBenefit: string;
+  amount: number;
+  sub: string;
   highlight?: boolean;
 }) {
   return (
@@ -225,25 +185,17 @@ function TierCard({
           : {}
       }
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-wide opacity-60 mb-1">
-            {label}
-          </p>
-          <p
-            className="text-3xl"
-            style={{
-              fontFamily: "var(--font-lobster)",
-              color: "var(--ca-dark-green)",
-            }}
-          >
-            {reward}
-          </p>
-        </div>
-      </div>
-      <p className="mt-3 text-sm opacity-80">
-        Plus: <span className="font-semibold">{refereeBenefit}</span>
+      <p className="text-sm uppercase tracking-wide opacity-60 mb-2">{label}</p>
+      <p
+        className="text-5xl mb-3"
+        style={{
+          fontFamily: "var(--font-lobster)",
+          color: "var(--ca-dark-green)",
+        }}
+      >
+        ${amount}
       </p>
+      <p className="text-sm opacity-80">{sub}</p>
     </div>
   );
 }

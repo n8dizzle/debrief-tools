@@ -57,6 +57,11 @@ export default async function SettingsPage() {
     getTripleWinCounts(),
   ]);
 
+  // Hide triple_win_enabled from the settings list. It's pinned to true by
+  // migration 010 and deleted in PR2. No editable UI surface while the
+  // kill-switch code is still being torn out.
+  const visibleSettings = settings.filter((s) => s.key !== "triple_win_enabled");
+
   return (
     <div>
       <h1 className="text-3xl mb-2">Settings</h1>
@@ -65,7 +70,7 @@ export default async function SettingsPage() {
         immediately — no redeploy needed.
       </p>
       <SettingsEditor
-        initial={settings}
+        initial={visibleSettings}
         tripleWinCounts={tripleWinCounts}
       />
     </div>

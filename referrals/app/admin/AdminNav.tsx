@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/rewards", label: "Rewards" },
   { href: "/admin/donations", label: "Donations" },
   { href: "/admin/charities", label: "Charities" },
-  { href: "/admin/config", label: "Reward configs" },
+  { href: "/admin/config", label: "Rewards program" },
   { href: "/admin/settings", label: "Settings" },
   { href: "/admin/tremendous", label: "Tremendous" },
   { href: "/admin/help", label: "Help" },

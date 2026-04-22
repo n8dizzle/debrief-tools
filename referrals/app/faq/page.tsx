@@ -1,7 +1,10 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
-import { getDefaultConfigTiers } from "@/lib/rewards/public-display";
-import type { InvoiceBracket, RewardTier } from "@/lib/supabase";
+import {
+  getCurrentProgram,
+  BASELINE_PROGRAM,
+  type CurrentProgram,
+} from "@/lib/rewards/public-display";
 
 export const dynamic = "force-dynamic";
 
@@ -11,108 +14,78 @@ export const metadata = {
     "Common questions about the Christmas Air Neighbors Helping Neighbors referral program.",
 };
 
-function tierMinReward(tier: RewardTier): number {
-  if (tier.reward_mode === "FLAT") return tier.flat_reward_amount || 0;
-  if (tier.reward_mode === "TIERED_BY_INVOICE") {
-    const amounts = ((tier.invoice_tier_json as InvoiceBracket[]) || [])
-      .map((b) => Number(b.rewardAmount))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    return amounts.length ? Math.min(...amounts) : 0;
-  }
-  return 0;
+function earningsCopy(program: CurrentProgram): string {
+  return `$${program.referrer_amount} per completed referral — gift card, Amazon credit, account credit, or extra charity donation, your pick. No cap on how many you can make in a year.`;
 }
 
-function tierMaxReward(tier: RewardTier): { amount: number; openTop: boolean } {
-  if (tier.reward_mode === "FLAT") {
-    return { amount: tier.flat_reward_amount || 0, openTop: false };
-  }
-  if (tier.reward_mode === "TIERED_BY_INVOICE") {
-    const brackets = (tier.invoice_tier_json as InvoiceBracket[]) || [];
-    const amounts = brackets
-      .map((b) => Number(b.rewardAmount))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    return {
-      amount: amounts.length ? Math.max(...amounts) : 0,
-      openTop: brackets.some((b) => b.maxInvoice === null),
-    };
-  }
-  return { amount: 0, openTop: false };
+function tripleWinCopy(program: CurrentProgram): string {
+  return `Every successful referral also triggers a $${program.charity_amount} donation from Christmas Air to a charity you choose — at no cost to your reward. You still get your full $${program.referrer_amount} thank-you. Your friend also saves $${program.friend_amount} on their first service. Three wins, every time.`;
 }
 
-function earningsRangeCopy(tiers: RewardTier[]): string {
-  if (tiers.length === 0) {
-    return "Anywhere from $50 to $500+. Bigger jobs mean bigger thanks. See the landing page for the full breakdown by service type.";
-  }
-  const low = tierMinReward(tiers[0]);
-  const high = tierMaxReward(tiers[tiers.length - 1]);
-  const suffix = high.openTop ? "+" : "";
-  return `Anywhere from $${Math.round(low)} to $${Math.round(high.amount)}${suffix}. Bigger jobs mean bigger thanks. See the landing page for the full breakdown by service type.`;
-}
-
-function buildFaq(tiers: RewardTier[]): { q: string; a: string }[] {
+function buildFaq(program: CurrentProgram): { q: string; a: string }[] {
   return [
-  {
-    q: "Who can join?",
-    a: "Any current Christmas Air customer. If you've had service with us, you're eligible. We'll match your phone or email to your account when you sign up.",
-  },
-  {
-    q: "How do I share my link?",
-    a: "Your dashboard has tools for SMS, email, copy-and-paste, and a printable QR code. Share it any way that's natural for you — text a neighbor, post on Nextdoor, hand out a QR card.",
-  },
-  {
-    q: "What counts as a successful referral?",
-    a: "When someone you sent us actually books a service that's completed and paid. We don't count clicks or sign-ups — only completed jobs. That's true whether they call, text, or use your link.",
-  },
-  {
-    q: "When do I get my reward?",
-    a: "Within 24 hours of the job being invoiced in our system. We send your reward by email — Visa gift card, Amazon credit, account credit, or charity donation, your pick.",
-  },
-  {
-    q: "How much can I earn?",
-    a: earningsRangeCopy(tiers),
-  },
-  {
-    q: "Is there a limit?",
-    a: "No cap. Refer one neighbor a year or twenty — every successful referral gets thanked. We'll only ever push back if a referral looks fraudulent.",
-  },
-  {
-    q: "What if my friend is already a Christmas Air customer?",
-    a: "We'll let you know. Existing customers don't qualify as new referrals. The program is for bringing in new neighbors, not rewarding existing ones twice.",
-  },
-  {
-    q: "What's Triple Win?",
-    a: "Every successful referral also triggers a donation from Christmas Air to a charity you choose — at no cost to your reward. You still get your full thank-you. The charity match is a bonus we add, not a swap. You pick your charity at sign-up.",
-  },
-  {
-    q: "Can I change my charity?",
-    a: "Any time, from your dashboard. Note: the charity attached to a specific referral is locked in when you submit it. Changing your pick doesn't disturb referrals already in flight.",
-  },
-  {
-    q: "Will my friend feel pressured?",
-    a: "No. They get a clean, no-hard-sell page that explains who you are and what kind of help you recommended us for. They book or they don't. We don't follow up beyond what's needed to do the job.",
-  },
-  {
-    q: "Are there taxes on rewards?",
-    a: "If you earn more than $600 in a calendar year, we're required to send you a 1099. We'll handle the paperwork; you handle the filing with your accountant. Most people stay well under this threshold.",
-  },
-  {
-    q: "Can I leave the program?",
-    a: "Absolutely. Just let us know — call (469) 214-2013 — and we'll deactivate your account. Any referrals already in flight will still pay out.",
-  },
-  {
-    q: "Is my friend's information safe?",
-    a: "Yes. We only share what's needed to book their service: name, phone, address, and what they need. Their info goes straight to ServiceTitan, our scheduling system. We don't sell or share data, and your friend can ask us to delete their record at any time.",
-  },
-  {
-    q: "Where do I see my history?",
-    a: "Your dashboard shows everyone you've referred, what stage they're at, and what you've earned and donated. Sign in any time at refer.christmasair.com/sign-in.",
-  },
+    {
+      q: "Who can join?",
+      a: "Any current Christmas Air customer. If you've had service with us, you're eligible. We'll match your phone or email to your account when you sign up.",
+    },
+    {
+      q: "How do I share my link?",
+      a: "Your dashboard has tools for SMS, email, copy-and-paste, and a printable QR code. Share it any way that's natural for you — text a neighbor, post on Nextdoor, hand out a QR card.",
+    },
+    {
+      q: "What counts as a successful referral?",
+      a: "When someone you sent us actually books a service that's completed and paid. We don't count clicks or sign-ups — only completed jobs. That's true whether they call, text, or use your link.",
+    },
+    {
+      q: "When do I get my reward?",
+      a: "Within 24 hours of the job being invoiced in our system. We send your reward by email — Visa gift card, Amazon credit, account credit, or charity donation, your pick.",
+    },
+    {
+      q: "How much can I earn?",
+      a: earningsCopy(program),
+    },
+    {
+      q: "Is there a limit?",
+      a: "No cap. Refer one neighbor a year or twenty — every successful referral gets thanked. We'll only ever push back if a referral looks fraudulent.",
+    },
+    {
+      q: "What if my friend is already a Christmas Air customer?",
+      a: "We'll let you know. Existing customers don't qualify as new referrals. The program is for bringing in new neighbors, not rewarding existing ones twice.",
+    },
+    {
+      q: "What's Triple Win?",
+      a: tripleWinCopy(program),
+    },
+    {
+      q: "Can I change my charity?",
+      a: "Any time, from your dashboard. Note: the charity attached to a specific referral is locked in when you submit it. Changing your pick doesn't disturb referrals already in flight.",
+    },
+    {
+      q: "Will my friend feel pressured?",
+      a: "No. They get a clean, no-hard-sell page that explains who you are and what kind of help you recommended us for. They book or they don't. We don't follow up beyond what's needed to do the job.",
+    },
+    {
+      q: "Are there taxes on rewards?",
+      a: "If you earn more than $600 in a calendar year, we're required to send you a 1099. We'll handle the paperwork; you handle the filing with your accountant. Most people stay well under this threshold.",
+    },
+    {
+      q: "Can I leave the program?",
+      a: "Absolutely. Just let us know — call (469) 214-2013 — and we'll deactivate your account. Any referrals already in flight will still pay out.",
+    },
+    {
+      q: "Is my friend's information safe?",
+      a: "Yes. We only share what's needed to book their service: name, phone, address, and what they need. Their info goes straight to ServiceTitan, our scheduling system. We don't sell or share data, and your friend can ask us to delete their record at any time.",
+    },
+    {
+      q: "Where do I see my history?",
+      a: "Your dashboard shows everyone you've referred, what stage they're at, and what you've earned and donated. Sign in any time at refer.christmasair.com/sign-in.",
+    },
   ];
 }
 
 export default async function FAQPage() {
-  const tiers = await getDefaultConfigTiers();
-  const FAQ = buildFaq(tiers);
+  const program = (await getCurrentProgram()) ?? BASELINE_PROGRAM;
+  const FAQ = buildFaq(program);
 
   return (
     <>
