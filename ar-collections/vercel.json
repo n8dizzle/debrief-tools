@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm install --workspaces=false --include-workspace-root=false",
   "crons": [
     {
       "path": "/api/cron/sync",
