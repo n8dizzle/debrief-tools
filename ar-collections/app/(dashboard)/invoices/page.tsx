@@ -1118,9 +1118,9 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* Quick Chip Filters */}
+      {/* Quick Chip Filters + Column Picker row — hides entirely when filters collapsed */}
+      {filtersExpanded && (
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {filtersExpanded ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Quick filters:</span>
 
@@ -1238,7 +1238,6 @@ export default function InvoicesPage() {
           </button>
         )}
         </div>
-        ) : <div />}
 
         {/* Column Picker */}
         <div className="relative" ref={columnPickerRef}>
@@ -1304,6 +1303,7 @@ export default function InvoicesPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Advanced Filters */}
       {filtersExpanded && (
