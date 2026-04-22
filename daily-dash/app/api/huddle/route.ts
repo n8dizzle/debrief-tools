@@ -428,8 +428,9 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // Business days remaining in month (always relative to today, not selected date)
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    // Use Central Time for "today" to avoid UTC date shift after 6/7pm CT
+    const nowCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const todayStr = `${nowCT.getFullYear()}-${String(nowCT.getMonth() + 1).padStart(2, '0')}-${String(nowCT.getDate()).padStart(2, '0')}`;
     const todayForRemaining = new Date(todayStr + 'T00:00:00');
     const daysElapsedToday = getBusinessDaysElapsedInMonth(todayForRemaining, holidays);
     const businessDaysRemaining = businessDaysInMonth - daysElapsedToday;
@@ -857,22 +858,68 @@ export async function GET(request: NextRequest) {
 
     // --- Replacement leads from ST Report 173574034 (operations category) ---
     const REPLACEMENT_LEAD_TARGETS: Record<number, { monthly: number[] }> = {
-      2026: { monthly: [50, 48, 70, 82, 105, 123, 119, 120, 78, 74, 61, 62] },
+      2026: { monthly: [80, 60, 89, 120, 173, 203, 200, 206, 113, 99, 80, 80] },
     };
     const replacementLeadMonthlyGoal = REPLACEMENT_LEAD_TARGETS[year]?.monthly[month - 1] || 0;
 
+    // --- Opportunity Job Average (Svc+Mnt+Plb, excludes HVAC Sales) ---
+    const OPP_JOB_AVG_TARGETS: Record<number, { monthly: number[] }> = {
+      2026: { monthly: [290, 334, 379, 400, 576, 514, 528, 574, 433, 459, 390, 397] },
+    };
+    const oppJobAvgTarget = OPP_JOB_AVG_TARGETS[year]?.monthly[month - 1] || 0;
+
+    let oppJobAvgActual = 0;
     let replacementLeadsMtd = 0;
     let tglLeadsMtd = 0;
     let marketingLeadsMtd = 0;
+    let hvacSalesCloseRate = 0;
+    let hvacSalesAvgSale = 0;
     try {
       const firstOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+
+      // Lead count from Jobs API (matches sheet logic)
       const leads = await stClient.getReplacementLeads(firstOfMonthStr, lastOfMonthStr);
       tglLeadsMtd = leads.tgl;
       marketingLeadsMtd = leads.marketingLead;
       replacementLeadsMtd = leads.total;
+
+      // Single operations report call for both opp job avg AND HVAC Sales close rate
+      const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
+      if (reportData.fields && reportData.data) {
+        const fieldMap = new Map<string, number>();
+        reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
+        const buIdx = fieldMap.get('Name') ?? -1;
+        const oppAvgIdx = fieldMap.get('OpportunityJobAverage') ?? -1;
+        const oppIdx = fieldMap.get('Opportunity') ?? -1;
+        const closeRateIdx = fieldMap.get('CloseRate') ?? -1;
+        const avgSaleIdx = fieldMap.get('ClosedAverageSale') ?? fieldMap.get('ConvertedJobAverage') ?? -1;
+
+        let weightedSum = 0;
+        let totalOppJobs = 0;
+
+        for (const row of reportData.data) {
+          const buName = buIdx >= 0 ? String(row[buIdx]) : '';
+
+          // HVAC Sales: extract close rate + avg sale
+          if (buName === 'HVAC - Sales') {
+            if (closeRateIdx >= 0) hvacSalesCloseRate = Number(row[closeRateIdx]) || 0;
+            if (avgSaleIdx >= 0) hvacSalesAvgSale = Number(row[avgSaleIdx]) || 0;
+          }
+
+          // Opp Job Avg: all BUs except HVAC Sales and HVAC Install
+          if (buName !== 'HVAC - Sales' && buName !== 'HVAC - Install') {
+            const oppAvg = oppAvgIdx >= 0 ? Number(row[oppAvgIdx]) || 0 : 0;
+            const oppJobs = oppIdx >= 0 ? Number(row[oppIdx]) || 0 : 0;
+            weightedSum += oppAvg * oppJobs;
+            totalOppJobs += oppJobs;
+          }
+        }
+
+        oppJobAvgActual = totalOppJobs > 0 ? Math.round(weightedSum / totalOppJobs) : 0;
+      }
     } catch (err) {
-      console.error('Error fetching replacement leads:', err);
+      console.error('Error fetching operations report data:', err);
     }
 
     // Pacing data object
@@ -922,6 +969,10 @@ export async function GET(request: NextRequest) {
       tglLeadsMtd,
       marketingLeadsMtd,
       replacementLeadMonthlyGoal,
+      hvacSalesCloseRate: Math.round(hvacSalesCloseRate * 100) / 100,
+      hvacSalesAvgSale: Math.round(hvacSalesAvgSale),
+      oppJobAvgActual,
+      oppJobAvgTarget,
     };
 
     // Build trade totals for the selected date from trade_daily_snapshots

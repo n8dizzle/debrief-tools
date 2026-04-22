@@ -133,6 +133,10 @@ export interface PacingData {
   tglLeadsMtd: number;
   marketingLeadsMtd: number;
   replacementLeadMonthlyGoal: number;
+  hvacSalesCloseRate: number;
+  hvacSalesAvgSale: number;
+  oppJobAvgActual: number;
+  oppJobAvgTarget: number;
 }
 
 export interface HuddleApiResponse {

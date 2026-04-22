@@ -34,6 +34,8 @@ function PaceGauge({
   daysElapsed,
   daysInMonth,
   tooltip,
+  stats,
+  isCurrency,
 }: {
   label: string;
   needed: number;
@@ -46,123 +48,160 @@ function PaceGauge({
   daysElapsed?: number;
   daysInMonth?: number;
   tooltip?: string;
+  stats?: { label: string; value: string }[];
+  isCurrency?: boolean;
 }) {
   const fmt = formatValue || formatCardCurrency;
   const sfx = suffix || '/day';
 
-  const ratio = target > 0 ? needed / target : 0;
-  const clampedRatio = Math.min(Math.max(ratio, 0), 2);
-  const angle = (clampedRatio - 1) * 90;
-
-  // Projected % of goal
+  // Projected % of goal based on current MTD rate
   const projectedPct = (mtdActual !== undefined && mtdGoal && daysElapsed && daysInMonth && daysElapsed > 0)
     ? Math.round(((mtdActual / daysElapsed) * daysInMonth / mtdGoal) * 100)
     : null;
 
-  // Delta from goal (positive = ahead, negative = behind)
-  const deltaPct = projectedPct !== null ? projectedPct - 100 : (noData ? null : -Math.round((ratio - 1) * 100));
+  // Needle angle mapped to zone boundaries:
+  // 0% projected = -90 (far left), 90% = 18 (red/gold boundary), 100% = 45 (gold/green boundary), 130%+ = 90 (far right)
+  const pacingPct = projectedPct !== null ? projectedPct : (noData ? 0 : (target > 0 ? Math.round((1 / (needed / target)) * 100) : 0));
+  const getNeedleAngle = () => {
+    if (noData) return -90;
+    if (pacingPct <= 0) return -90;
+    if (pacingPct <= 90) return -90 + (pacingPct / 90) * 108; // 0% -> -90, 90% -> 18
+    if (pacingPct <= 100) return 18 + ((pacingPct - 90) / 10) * 27; // 90% -> 18, 100% -> 45
+    return Math.min(45 + ((pacingPct - 100) / 30) * 45, 90); // 100% -> 45, 130% -> 90
+  };
+  const needleAngle = getNeedleAngle();
 
-  // Status: CRUSHING (ahead), ON PACE, BEHIND
+  // Status thresholds: <90% = red/behind, 90-99% = gold/slightly behind, 100%+ = green
+  const pacingRatio = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : (target > 0 ? 1 / (needed / target) : 0));
+
   const getStatus = () => {
-    if (noData) return { word: '--', textColor: 'var(--text-muted)', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
-    if (deltaPct !== null && deltaPct >= 10) return { word: 'CRUSHING', textColor: '#fff', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
-    if (deltaPct !== null && deltaPct >= 0) return { word: 'ON PACE', textColor: '#fff', bg: 'var(--christmas-green-dark)', arcColor: 'var(--christmas-green)', icon: '→' };
-    if (deltaPct !== null && deltaPct >= -15) return { word: 'BEHIND', textColor: '#fff', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
-    return { word: 'BEHIND', textColor: '#fff', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
+    if (noData) return { word: '--', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)' };
+    if (pacingRatio >= 1.0) return { word: 'ON TRACK', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)' };
+    if (pacingRatio >= 0.9) return { word: 'SLIGHTLY BEHIND', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)' };
+    return { word: 'BEHIND', bg: '#DC2626', arcColor: '#EF4444' };
   };
   const status = getStatus();
+  const bannerTextColor = 'var(--bg-primary)';
 
   const cx = 110, cy = 95, r = 65;
 
+  // Pacing toward dollar amount
+  const pacingTowardAmount = (projectedPct !== null && mtdGoal) ? Math.round(mtdGoal * projectedPct / 100) : null;
+  const fmtGoal = isCurrency !== false ? formatCardCurrency : ((v: number) => String(Math.round(v)));
+
   return (
-    <div className="flex-1 min-w-0 rounded-xl overflow-hidden relative group" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-      {/* Color banner - solid bg, white text */}
+    <div className="flex-1 min-w-0 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+      {/* Color banner */}
       <div
         className="flex items-center justify-between px-4 py-2.5"
         style={{ backgroundColor: status.bg }}
       >
-        <div className="flex items-center gap-2">
-          {status.icon && <span className="text-sm font-black" style={{ color: status.textColor }}>{status.icon}</span>}
-          <span className="text-sm font-black uppercase tracking-wider" style={{ color: status.textColor }}>{status.word}</span>
-        </div>
-        {deltaPct !== null && !noData && (
-          <span className="text-sm font-black" style={{ color: status.textColor }}>
-            {deltaPct >= 0 ? '+' : ''}{deltaPct}%
-          </span>
+        <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
+        {pacingTowardAmount !== null && !noData && (
+          <div className="text-right leading-tight">
+            <div className="text-sm font-bold" style={{ color: bannerTextColor }}>
+              {fmtGoal(pacingTowardAmount)}
+            </div>
+            <div className="text-[9px]" style={{ color: bannerTextColor, opacity: 0.7 }}>
+              {projectedPct}% of goal
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Label */}
-      <div className="px-4 pt-4 pb-1">
+      {/* Label + Goal */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-1">
         <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
+        {mtdGoal !== undefined && !noData && (
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdGoal)}</span>
+          </div>
+        )}
       </div>
 
       {/* Gauge */}
       <div className="flex justify-center">
-        <svg width="220" height="130" viewBox="0 0 220 130">
-          {/* Zoned arc: 5 segments for smooth gradient feel, full opacity */}
-          <path d={describeArc(cx, cy, r, -90, -45)} fill="none" stroke="#B91C1C" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, -45, -18)} fill="none" stroke="#DC2626" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, -18, 10)} fill="none" stroke="#D97706" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, 10, 45)} fill="none" stroke="#4D7C55" strokeWidth="16" strokeLinecap="butt" />
-          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#22763A" strokeWidth="16" strokeLinecap="butt" />
-          {/* Active arc */}
-          {!noData && (
-            <path
-              d={describeArc(cx, cy, r, -90, Math.min(angle, 90))}
-              fill="none"
-              stroke={status.arcColor}
-              strokeWidth="16"
-              strokeLinecap="round"
-              opacity="0.8"
-            />
-          )}
-          {/* Goal tick - diagonal line from arc outward with label */}
-          <line x1={cx} y1={cy - r + 8} x2={cx + 12} y2={cy - r - 18} stroke="var(--christmas-cream)" strokeWidth="2" opacity="0.9" />
-          <text x={cx + 16} y={cy - r - 20} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
+        <svg width="220" height="145" viewBox="0 0 220 145">
+          <path d={describeArc(cx, cy, r, -90, 18)} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 18, 45)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" />
+          <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#5D8A66" strokeWidth="16" strokeLinecap="butt" />
+          {/* Goal tick */}
+          {(() => {
+            const goalAngle = 45 * Math.PI / 180;
+            const innerX = cx + (r - 10) * Math.sin(goalAngle);
+            const innerY = cy - (r - 10) * Math.cos(goalAngle);
+            const outerX = cx + (r + 12) * Math.sin(goalAngle);
+            const outerY = cy - (r + 12) * Math.cos(goalAngle);
+            const labelX = cx + (r + 16) * Math.sin(goalAngle);
+            const labelY = cy - (r + 16) * Math.cos(goalAngle);
+            return (
+              <>
+                <line x1={innerX} y1={innerY} x2={outerX} y2={outerY} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.9" />
+                <text x={labelX + 2} y={labelY + 3} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
+              </>
+            );
+          })()}
           {/* Needle */}
           {!noData && (
             <>
               <line
                 x1={cx} y1={cy}
-                x2={cx + (r - 20) * Math.sin(angle * Math.PI / 180)}
-                y2={cy - (r - 20) * Math.cos(angle * Math.PI / 180)}
-                stroke={status.arcColor} strokeWidth="3.5" strokeLinecap="round"
+                x2={cx + (r + 4) * Math.sin(needleAngle * Math.PI / 180)}
+                y2={cy - (r + 4) * Math.cos(needleAngle * Math.PI / 180)}
+                stroke="var(--christmas-cream)" strokeWidth="3" strokeLinecap="round"
               />
-              <circle cx={cx} cy={cy} r="6" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
+              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--christmas-cream)" strokeWidth="2.5" />
             </>
           )}
-          {/* Zone labels - positioned below arc with spacing */}
-          <text x="30" y="125" fontSize="8" fill="var(--text-muted)" textAnchor="middle" fontWeight="600" letterSpacing="0.5">SCRAMBLE</text>
-          <text x="190" y="125" fontSize="8" fill="var(--text-muted)" textAnchor="middle" fontWeight="600" letterSpacing="0.5">CRUSHING</text>
         </svg>
       </div>
 
-      {/* Bottom stats - more padding, clear separation */}
-      <div className="flex items-end justify-between px-5 pb-5 pt-1">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Need/day</div>
-          <div className="text-2xl font-black" style={{ color: 'var(--christmas-cream)' }}>
-            {noData ? '\u2014' : `${fmt(needed)}`}
+      {/* Bottom: Actual + Need/day stacked center */}
+      <div className="px-5 pb-4 -mt-2">
+        {/* Actual */}
+        {/* Actual with optional tooltip */}
+        {mtdActual !== undefined && !noData && (
+          <div className="text-center mb-2 relative group/stats">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
+            <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
+            {((stats && stats.length > 0) || tooltip) && (
+              <>
+                <span className="ml-1.5 text-xs cursor-help inline-block px-1" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
+                <div
+                  className="absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-2 px-4 py-3 rounded-lg text-xs hidden group-hover/stats:block"
+                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '180px', maxWidth: '240px' }}
+                >
+                  {stats && stats.length > 0 && stats.map((s) => (
+                    <div key={s.label} className="flex justify-between py-0.5">
+                      <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
+                      <span className="font-bold ml-4" style={{ color: 'var(--christmas-cream)' }}>{s.value}</span>
+                    </div>
+                  ))}
+                  {tooltip && (
+                    <div className={stats && stats.length > 0 ? 'pt-2 mt-2 border-t border-[var(--border-subtle)]' : ''} style={{ color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      {tooltip}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Was</div>
-          <div className="text-base font-semibold" style={{ color: 'var(--text-muted)' }}>
-            {noData ? `\u2014${sfx}` : `${fmt(target)}${sfx}`}
+        )}
+        {/* Need/day + was */}
+        {!noData && (
+          <div className="text-center pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {fmt(needed)}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}> {sfx} needed</span>
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              was {fmt(target)}{sfx}
+            </div>
           </div>
-        </div>
+        )}
+        {noData && (
+          <div className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>\u2014</div>
+        )}
       </div>
-
-      {/* Tooltip on hover */}
-      {tooltip && (
-        <div
-          className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-left whitespace-pre-line max-w-[200px] hidden group-hover:block"
-          style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-        >
-          {tooltip}
-        </div>
-      )}
     </div>
   );
 }
@@ -773,26 +812,56 @@ export default function HuddleDashboard({
                             daysElapsed={elapsed}
                             daysInMonth={total}
                           />
-                          <PaceGauge
-                            label="Replacement Leads"
-                            needed={leadsPerDayNeeded}
-                            target={leadsPerDayTarget}
-                            suffix="/day"
-                            formatValue={(v) => v.toFixed(1)}
-                            noData={leadsGoal === 0}
-                            mtdActual={leadsMtd}
-                            mtdGoal={leadsGoal}
-                            daysElapsed={elapsed}
-                            daysInMonth={total}
-                            tooltip={`TGL: ${tglMtd}\nMarketing Lead: ${mktMtd}`}
-                          />
-                          <PaceGauge
-                            label="Avg Ticket"
-                            needed={0}
-                            target={0}
-                            suffix=""
-                            noData
-                          />
+                          {(() => {
+                            const closeRate = pacingData?.hvacSalesCloseRate || 0;
+                            const avgSale = pacingData?.hvacSalesAvgSale || 0;
+                            const cardStats = [
+                              { label: 'TGL', value: String(tglMtd) },
+                              { label: 'Marketing', value: String(mktMtd) },
+                              { label: 'Close Rate', value: closeRate > 0 ? `${Math.round(closeRate * 100)}%` : '--' },
+                              { label: 'Avg Sale', value: avgSale > 0 ? formatCardCurrency(avgSale) : '--' },
+                            ];
+                            return (
+                              <PaceGauge
+                                label="HVAC Sales Leads"
+                                needed={leadsPerDayNeeded}
+                                target={leadsPerDayTarget}
+                                suffix="/day"
+                                formatValue={(v) => v.toFixed(1)}
+                                isCurrency={false}
+                                noData={leadsGoal === 0}
+                                mtdActual={leadsMtd}
+                                mtdGoal={leadsGoal}
+                                daysElapsed={elapsed}
+                                daysInMonth={total}
+                                stats={cardStats}
+                              />
+                            );
+                          })()}
+                          {(() => {
+                            const oppActual = pacingData?.oppJobAvgActual || 0;
+                            const oppTarget = pacingData?.oppJobAvgTarget || 0;
+                            // Avg ticket: not cumulative, so projected % = actual/target
+                            // Fake needed/target so the gauge needle lands correctly:
+                            // If actual >= target, needed <= target (on track)
+                            // If actual < target, needed > target (behind)
+                            const fakeNeeded = oppActual > 0 ? oppTarget * (oppTarget / oppActual) : oppTarget * 2;
+                            return (
+                              <PaceGauge
+                                label="Opp Job Avg"
+                                needed={fakeNeeded}
+                                target={oppTarget}
+                                suffix=""
+                                formatValue={(v) => formatCardCurrency(v)}
+                                noData={oppTarget === 0}
+                                mtdActual={oppActual}
+                                mtdGoal={oppTarget}
+                                daysElapsed={1}
+                                daysInMonth={1}
+                                tooltip="Average revenue per completed job, adjusted by tech split, excluding no-charge jobs. Covers Service, Maintenance, and Plumbing (excludes HVAC Install and HVAC Sales)."
+                              />
+                            );
+                          })()}
                         </>
                       );
                     })()}
