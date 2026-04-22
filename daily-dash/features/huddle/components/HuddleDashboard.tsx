@@ -100,22 +100,15 @@ function PaceGauge({
       <div className="flex items-start justify-between px-4 pt-4 pb-1">
         <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
         {mtdGoal !== undefined && !noData && (
-          <div className="text-right">
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{mtdGoal >= 1000 ? formatCardCurrency(mtdGoal) : Math.round(mtdGoal)}</span>
-            </div>
-            {mtdActual !== undefined && (
-              <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                Actual: {mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}
-              </div>
-            )}
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{mtdGoal >= 1000 ? formatCardCurrency(mtdGoal) : Math.round(mtdGoal)}</span>
           </div>
         )}
       </div>
 
       {/* Gauge */}
       <div className="flex justify-center">
-        <svg width="220" height="130" viewBox="0 0 220 130">
+        <svg width="220" height="145" viewBox="0 0 220 145">
           {/* 3 zones: Behind 60% (red), Slightly Behind 15% (gold), Ahead 25% (green) */}
           <path d={describeArc(cx, cy, r, -90, 18)} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 18, 45)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" />
@@ -151,9 +144,12 @@ function PaceGauge({
           )}
           {/* Actual value centered under needle */}
           {mtdActual !== undefined && !noData && (
-            <text x={cx} y={cy + 20} fontSize="12" fill="var(--christmas-cream)" textAnchor="middle" fontWeight="700">
-              {mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}
-            </text>
+            <>
+              <text x={cx} y={cy + 22} fontSize="9" fill="var(--text-muted)" textAnchor="middle">Actual</text>
+              <text x={cx} y={cy + 36} fontSize="14" fill="var(--christmas-cream)" textAnchor="middle" fontWeight="700">
+                {mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}
+              </text>
+            </>
           )}
         </svg>
       </div>
