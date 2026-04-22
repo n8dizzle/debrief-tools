@@ -55,13 +55,20 @@ function PaceGauge({
     ? Math.round(((mtdActual / daysElapsed) * daysInMonth / mtdGoal) * 100)
     : null;
 
-  // Needle angle based on projected pacing (not needed/target ratio)
-  // Map: 0% projected = -90 (far left), 100% = 45 (goal mark), 150%+ = 90 (far right)
-  const pacingForNeedle = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : (target > 0 ? 1 / (needed / target) : 0));
-  const needleAngle = noData ? -90 : Math.min(Math.max((pacingForNeedle - 0.5) * 120, -90), 90);
+  // Needle angle mapped to zone boundaries:
+  // 0% projected = -90 (far left), 90% = 18 (red/gold boundary), 100% = 45 (gold/green boundary), 130%+ = 90 (far right)
+  const pacingPct = projectedPct !== null ? projectedPct : (noData ? 0 : (target > 0 ? Math.round((1 / (needed / target)) * 100) : 0));
+  const getNeedleAngle = () => {
+    if (noData) return -90;
+    if (pacingPct <= 0) return -90;
+    if (pacingPct <= 90) return -90 + (pacingPct / 90) * 108; // 0% -> -90, 90% -> 18
+    if (pacingPct <= 100) return 18 + ((pacingPct - 90) / 10) * 27; // 90% -> 18, 100% -> 45
+    return Math.min(45 + ((pacingPct - 100) / 30) * 45, 90); // 100% -> 45, 130% -> 90
+  };
+  const needleAngle = getNeedleAngle();
 
   // Status thresholds: <90% = red/behind, 90-99% = gold/slightly behind, 100%+ = green
-  const pacingRatio = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : pacingForNeedle);
+  const pacingRatio = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : (target > 0 ? 1 / (needed / target) : 0));
 
   const getStatus = () => {
     if (noData) return { word: '--', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)' };
@@ -130,19 +137,24 @@ function PaceGauge({
               </>
             );
           })()}
-          {/* Needle */}
+          {/* Needle - color matches banner status */}
           {!noData && (
             <>
               <line
                 x1={cx} y1={cy}
                 x2={cx + (r + 4) * Math.sin(needleAngle * Math.PI / 180)}
                 y2={cy - (r + 4) * Math.cos(needleAngle * Math.PI / 180)}
-                stroke="var(--christmas-cream)" strokeWidth="3" strokeLinecap="round"
+                stroke={status.arcColor} strokeWidth="3" strokeLinecap="round"
               />
-              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--christmas-cream)" strokeWidth="2.5" />
+              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
             </>
           )}
-          {/* Zone labels removed - banner communicates status */}
+          {/* Actual value centered under needle */}
+          {mtdActual !== undefined && !noData && (
+            <text x={cx} y={cy + 20} fontSize="12" fill="var(--christmas-cream)" textAnchor="middle" fontWeight="700">
+              {mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}
+            </text>
+          )}
         </svg>
       </div>
 
