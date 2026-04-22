@@ -64,10 +64,10 @@ function PaceGauge({
   const pacingRatio = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : pacingForNeedle);
 
   const getStatus = () => {
-    if (noData) return { word: '--', sub: '', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
-    if (pacingRatio >= 1.0) return { word: 'CRUSHING', sub: 'Ahead of goal', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
-    if (pacingRatio >= 0.9) return { word: 'SLIGHTLY BEHIND', sub: 'Slightly behind', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
-    return { word: 'BEHIND', sub: 'Behind pace', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
+    if (noData) return { word: '--', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)' };
+    if (pacingRatio >= 1.0) return { word: 'ON TRACK', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)' };
+    if (pacingRatio >= 0.9) return { word: 'SLIGHTLY BEHIND', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)' };
+    return { word: 'BEHIND', bg: '#DC2626', arcColor: '#EF4444' };
   };
   const status = getStatus();
   const bannerTextColor = 'var(--bg-primary)';
@@ -81,13 +81,10 @@ function PaceGauge({
         className="flex items-center justify-between px-4 py-2.5"
         style={{ backgroundColor: status.bg }}
       >
-        <div className="flex items-center gap-2">
-          {status.icon && <span className="text-sm font-bold" style={{ color: bannerTextColor }}>{status.icon}</span>}
-          <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
-        </div>
+        <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
         {projectedPct !== null && !noData && (
-          <span className="text-[11px]" style={{ color: bannerTextColor, opacity: 0.8 }}>
-            pacing to <span className="font-bold">{projectedPct}%</span> of goal
+          <span className="text-sm font-bold" style={{ color: bannerTextColor }}>
+            {projectedPct}% of goal
           </span>
         )}
       </div>
@@ -145,9 +142,7 @@ function PaceGauge({
               <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--christmas-cream)" strokeWidth="2.5" />
             </>
           )}
-          {/* Zone labels - positioned below arc with spacing */}
-          <text x="30" y="125" fontSize="8" fill="var(--text-muted)" textAnchor="middle" fontWeight="600" letterSpacing="0.5">SCRAMBLE</text>
-          <text x="190" y="125" fontSize="8" fill="var(--text-muted)" textAnchor="middle" fontWeight="600" letterSpacing="0.5">CRUSHING</text>
+          {/* Zone labels removed - banner communicates status */}
         </svg>
       </div>
 
