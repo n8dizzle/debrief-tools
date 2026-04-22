@@ -166,7 +166,7 @@ function PaceGauge({
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                 <div className="col-span-2 text-center mb-1">
                   <span style={{ color: 'var(--text-muted)' }}>Actual: </span>
-                  <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}</span>
+                  <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
                 </div>
                 {stats.map((s) => (
                   <div key={s.label} className="flex justify-between">
@@ -178,7 +178,7 @@ function PaceGauge({
             ) : (
               <div className="text-center">
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
-                <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}</span>
+                <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
               </div>
             )}
           </div>
