@@ -787,19 +787,31 @@ export default function HuddleDashboard({
                             daysElapsed={elapsed}
                             daysInMonth={total}
                           />
-                          <PaceGauge
-                            label="Replacement Leads"
-                            needed={leadsPerDayNeeded}
-                            target={leadsPerDayTarget}
-                            suffix="/day"
-                            formatValue={(v) => v.toFixed(1)}
-                            noData={leadsGoal === 0}
-                            mtdActual={leadsMtd}
-                            mtdGoal={leadsGoal}
-                            daysElapsed={elapsed}
-                            daysInMonth={total}
-                            tooltip={`TGL: ${tglMtd}\nMarketing Lead: ${mktMtd}`}
-                          />
+                          {(() => {
+                            const closeRate = pacingData?.hvacSalesCloseRate || 0;
+                            const avgSale = pacingData?.hvacSalesAvgSale || 0;
+                            const tooltipLines = [
+                              `TGL: ${tglMtd}`,
+                              `Marketing: ${mktMtd}`,
+                              closeRate > 0 ? `Close Rate: ${Math.round(closeRate * 100)}%` : null,
+                              avgSale > 0 ? `Avg Sale: ${formatCardCurrency(avgSale)}` : null,
+                            ].filter(Boolean).join('\n');
+                            return (
+                              <PaceGauge
+                                label="HVAC Sales Leads"
+                                needed={leadsPerDayNeeded}
+                                target={leadsPerDayTarget}
+                                suffix="/day"
+                                formatValue={(v) => v.toFixed(1)}
+                                noData={leadsGoal === 0}
+                                mtdActual={leadsMtd}
+                                mtdGoal={leadsGoal}
+                                daysElapsed={elapsed}
+                                daysInMonth={total}
+                                tooltip={tooltipLines}
+                              />
+                            );
+                          })()}
                           <PaceGauge
                             label="Avg Ticket"
                             needed={0}

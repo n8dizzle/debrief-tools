@@ -190,6 +190,8 @@ export interface HuddlePacingData {
   tglLeadsMtd: number;
   marketingLeadsMtd: number;
   replacementLeadMonthlyGoal: number;
+  hvacSalesCloseRate: number;
+  hvacSalesAvgSale: number;
 }
 
 export interface HuddleDashboardResponse {

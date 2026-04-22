@@ -865,15 +865,38 @@ export async function GET(request: NextRequest) {
     let replacementLeadsMtd = 0;
     let tglLeadsMtd = 0;
     let marketingLeadsMtd = 0;
+    let hvacSalesCloseRate = 0;
+    let hvacSalesAvgSale = 0;
     try {
       const firstOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+
+      // Lead count from Jobs API (matches sheet logic)
       const leads = await stClient.getReplacementLeads(firstOfMonthStr, lastOfMonthStr);
       tglLeadsMtd = leads.tgl;
       marketingLeadsMtd = leads.marketingLead;
       replacementLeadsMtd = leads.total;
+
+      // Close rate + avg sale from operations report (HVAC - Sales row)
+      const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
+      if (reportData.fields && reportData.data) {
+        const fieldMap = new Map<string, number>();
+        reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
+        const buIdx = fieldMap.get('Name') ?? -1;
+        const closeRateIdx = fieldMap.get('CloseRate') ?? -1;
+        const avgSaleIdx = fieldMap.get('ClosedAverageSale') ?? fieldMap.get('ConvertedJobAverage') ?? -1;
+
+        for (const row of reportData.data) {
+          const buName = buIdx >= 0 ? String(row[buIdx]) : '';
+          if (buName === 'HVAC - Sales') {
+            if (closeRateIdx >= 0) hvacSalesCloseRate = Number(row[closeRateIdx]) || 0;
+            if (avgSaleIdx >= 0) hvacSalesAvgSale = Number(row[avgSaleIdx]) || 0;
+            break;
+          }
+        }
+      }
     } catch (err) {
-      console.error('Error fetching replacement leads:', err);
+      console.error('Error fetching HVAC sales leads data:', err);
     }
 
     // Pacing data object
@@ -923,6 +946,8 @@ export async function GET(request: NextRequest) {
       tglLeadsMtd,
       marketingLeadsMtd,
       replacementLeadMonthlyGoal,
+      hvacSalesCloseRate: Math.round(hvacSalesCloseRate * 100) / 100,
+      hvacSalesAvgSale: Math.round(hvacSalesAvgSale),
     };
 
     // Build trade totals for the selected date from trade_daily_snapshots
