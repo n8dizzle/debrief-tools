@@ -631,7 +631,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* AR by Business Unit */}
+        {/* AR by Business Unit Group */}
         <div
           className="p-4 sm:p-5 rounded-xl"
           style={{
@@ -640,55 +640,84 @@ export default function DashboardPage() {
           }}
         >
           <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-            AR by Business Unit
+            AR by Business Unit Group
           </h2>
-          {displayStats.business_unit_totals.length === 0 ? (
-            <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-              No data available
-            </div>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={displayStats.business_unit_totals}
-                    dataKey="total"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
-                    labelLine={true}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(data) => {
-                      if (data && data.name) {
-                        router.push(`/invoices?businessUnit=${encodeURIComponent(data.name)}`);
-                      }
-                    }}
-                  >
-                    {displayStats.business_unit_totals.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => [formatCurrency(value as number ?? 0), 'Balance']}
-                    contentStyle={{
-                      backgroundColor: 'var(--bg-card)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                    }}
-                    labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                    itemStyle={{ color: 'var(--christmas-cream)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          {(() => {
+            // Use most recent groupSnapshots row (today's) joined with groupInfo.
+            if (groupSnapshots.length === 0 || groupInfo.length === 0) {
+              return (
+                <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  {groupInfo.length === 0
+                    ? 'No business unit groups configured. Set them up in Internal Portal → BU Groups.'
+                    : 'No snapshot data yet. Run the backfill or wait for tomorrow’s cron.'}
+                </div>
+              );
+            }
+            let latestDate = '';
+            for (const gs of groupSnapshots) if (gs.snapshot_date > latestDate) latestDate = gs.snapshot_date;
+            const labelById = new Map(groupInfo.map((g) => [g.id, g.label]));
+            const groupPieData = groupSnapshots
+              .filter((gs) => gs.snapshot_date === latestDate)
+              .map((gs) => ({
+                name: labelById.get(gs.group_id) || 'Unknown',
+                total: Number(gs.total_outstanding),
+                group_id: gs.group_id,
+              }))
+              .filter((d) => d.total > 0)
+              .sort((a, b) => b.total - a.total);
+
+            if (groupPieData.length === 0) {
+              return (
+                <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  No AR in any group as of {latestDate}.
+                </div>
+              );
+            }
+
+            return (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={groupPieData}
+                      dataKey="total"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                      labelLine={true}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(data) => {
+                        if (data && data.group_id) {
+                          router.push(`/invoices?buGroups=${encodeURIComponent(String(data.group_id))}`);
+                        }
+                      }}
+                    >
+                      {groupPieData.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [formatCurrency(value as number ?? 0), 'Balance']}
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                      }}
+                      labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: 'var(--christmas-cream)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
