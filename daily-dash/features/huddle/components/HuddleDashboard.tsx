@@ -144,12 +144,10 @@ function PaceGauge({
           )}
           {/* Actual value centered under needle */}
           {mtdActual !== undefined && !noData && (
-            <>
-              <text x={cx} y={cy + 22} fontSize="9" fill="var(--text-muted)" textAnchor="middle">Actual</text>
-              <text x={cx} y={cy + 36} fontSize="14" fill="var(--christmas-cream)" textAnchor="middle" fontWeight="700">
-                {mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}
-              </text>
-            </>
+            <text x={cx} y={cy + 28} fontSize="16" textAnchor="middle">
+              <tspan fill="var(--text-muted)">Actual: </tspan>
+              <tspan fill="var(--christmas-cream)" fontWeight="700">{mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}</tspan>
+            </text>
           )}
         </svg>
       </div>
