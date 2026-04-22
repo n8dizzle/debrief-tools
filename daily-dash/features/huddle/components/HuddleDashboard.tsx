@@ -137,16 +137,16 @@ function PaceGauge({
               </>
             );
           })()}
-          {/* Needle - color matches banner status */}
+          {/* Needle - always cream */}
           {!noData && (
             <>
               <line
                 x1={cx} y1={cy}
                 x2={cx + (r + 4) * Math.sin(needleAngle * Math.PI / 180)}
                 y2={cy - (r + 4) * Math.cos(needleAngle * Math.PI / 180)}
-                stroke={status.arcColor} strokeWidth="3" strokeLinecap="round"
+                stroke="var(--christmas-cream)" strokeWidth="3" strokeLinecap="round"
               />
-              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke={status.arcColor} strokeWidth="2.5" />
+              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--christmas-cream)" strokeWidth="2.5" />
             </>
           )}
           {/* Actual value centered under needle */}
