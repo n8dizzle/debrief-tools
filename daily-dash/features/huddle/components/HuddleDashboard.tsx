@@ -90,7 +90,7 @@ function PaceGauge({
   const fmtGoal = isCurrency !== false ? formatCardCurrency : ((v: number) => String(Math.round(v)));
 
   return (
-    <div className="flex-1 min-w-0 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+    <div className="flex-1 min-w-0 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
       {/* Color banner */}
       <div
         className="flex items-center justify-between px-4 py-2.5"
@@ -168,8 +168,8 @@ function PaceGauge({
               <>
                 <span className="ml-1.5 text-xs cursor-help inline-block px-1" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
                 <div
-                  className="absolute z-10 left-1/2 -translate-x-1/2 top-full mt-1 px-4 py-3 rounded-lg text-xs hidden group-hover/stats:block"
-                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '160px' }}
+                  className="absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-2 px-4 py-3 rounded-lg text-xs hidden group-hover/stats:block"
+                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '180px' }}
                 >
                   {stats.map((s) => (
                     <div key={s.label} className="flex justify-between py-0.5">
