@@ -3,8 +3,6 @@
 import { useState } from "react";
 import type { Setting } from "@/lib/settings";
 
-const BOOLEAN_KEYS = new Set<string>(["triple_win_enabled"]);
-
 export interface TripleWinCounts {
   withCharity: number;
   withoutCharity: number;
@@ -29,20 +27,9 @@ export default function SettingsEditor({
 
   return (
     <div className="grid gap-4 max-w-2xl">
-      {rows.map((s) =>
-        BOOLEAN_KEYS.has(s.key) ? (
-          <BooleanSettingRow
-            key={s.key}
-            setting={s}
-            onChange={updateLocal}
-            impact={
-              s.key === "triple_win_enabled" ? tripleWinCounts : undefined
-            }
-          />
-        ) : (
-          <SettingRow key={s.key} setting={s} onChange={updateLocal} />
-        )
-      )}
+      {rows.map((s) => (
+        <SettingRow key={s.key} setting={s} onChange={updateLocal} />
+      ))}
       {rows.length === 0 && (
         <p className="opacity-60 text-sm">No settings registered yet.</p>
       )}
@@ -136,153 +123,6 @@ function SettingRow({
             : "Save"}
         </button>
       </div>
-
-      {error && (
-        <p
-          className="mt-3 text-sm p-2 rounded"
-          style={{
-            background: "rgba(135,76,59,0.1)",
-            color: "var(--ca-red)",
-          }}
-        >
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function BooleanSettingRow({
-  setting,
-  onChange,
-  impact,
-}: {
-  setting: Setting;
-  onChange: (key: string, value: string) => void;
-  impact?: TripleWinCounts;
-}) {
-  const initialEnabled = (setting.value ?? "").trim().toLowerCase() === "true";
-  const [enabled, setEnabled] = useState(initialEnabled);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle"
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  async function persist(next: boolean) {
-    const prev = enabled;
-    setEnabled(next);
-    setStatus("saving");
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: setting.key, value: next ? "true" : "false" }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setEnabled(prev);
-        setError(data.error || "Save failed");
-        setStatus("error");
-        return;
-      }
-      onChange(setting.key, data.value ?? "");
-      setStatus("saved");
-      setTimeout(() => setStatus("idle"), 1500);
-    } catch {
-      setEnabled(prev);
-      setError("Network error");
-      setStatus("error");
-    }
-  }
-
-  function toggle(next: boolean) {
-    // Confirmation gate when disabling a feature that has downstream impact.
-    // Flipping ON is always safe; only prompt on the destructive direction.
-    if (!next && impact && impact.withCharity > 0) {
-      const ok = window.confirm(
-        `Turning Triple Win off will pause charity matches for ${impact.withCharity} active referrer` +
-          (impact.withCharity === 1 ? "" : "s") +
-          ` who have already picked a charity. In-flight referrals keep their snapshot. You can turn it back on any time.\n\nContinue?`
-      );
-      if (!ok) return;
-    }
-    persist(next);
-  }
-
-  return (
-    <div className="card">
-      <div className="mb-3">
-        <p className="font-semibold">{setting.label}</p>
-        {setting.description && (
-          <p className="text-sm opacity-70 mt-1">{setting.description}</p>
-        )}
-        <p className="text-xs opacity-50 mt-2">
-          Key: <code>{setting.key}</code>
-          {setting.updated_at && (
-            <>
-              {" · "}Updated{" "}
-              {new Date(setting.updated_at).toLocaleString()}
-              {setting.updated_by ? ` by ${setting.updated_by}` : ""}
-            </>
-          )}
-        </p>
-      </div>
-
-      <label
-        className="flex items-start gap-3 p-4 rounded-lg cursor-pointer"
-        style={{
-          border: `2px solid ${
-            enabled ? "var(--ca-green)" : "var(--border-subtle)"
-          }`,
-          background: enabled ? "rgba(97,139,96,0.06)" : "var(--bg-card)",
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => toggle(e.target.checked)}
-          disabled={status === "saving"}
-          className="mt-1"
-        />
-        <div>
-          <p className="font-semibold">
-            {enabled ? "ON" : "OFF"}
-            {status === "saving" && (
-              <span className="ml-2 text-xs opacity-60">saving…</span>
-            )}
-            {status === "saved" && (
-              <span className="ml-2 text-xs" style={{ color: "var(--ca-green)" }}>
-                saved ✓
-              </span>
-            )}
-          </p>
-        </div>
-      </label>
-
-      {impact && (
-        <div className="mt-3 text-sm p-3 rounded" style={{ background: "var(--ca-cream)" }}>
-          <p>
-            <strong>{impact.withCharity}</strong>{" "}
-            active referrer{impact.withCharity === 1 ? "" : "s"} ha
-            {impact.withCharity === 1 ? "s" : "ve"} a charity picked
-            {impact.withoutCharity > 0 && (
-              <>
-                {" · "}
-                <strong>{impact.withoutCharity}</strong> ha
-                {impact.withoutCharity === 1 ? "s" : "ve"} not
-              </>
-            )}
-            .
-          </p>
-          {!enabled && impact.withCharity > 0 && (
-            <p className="mt-1 opacity-80">
-              Charity matches are currently paused for those referrers&apos;
-              new referrals. In-flight referrals keep their submission snapshot.
-            </p>
-          )}
-        </div>
-      )}
 
       {error && (
         <p

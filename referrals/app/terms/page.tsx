@@ -1,5 +1,11 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import {
+  getCurrentProgram,
+  BASELINE_PROGRAM,
+} from "@/lib/rewards/public-display";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Program Terms — Christmas Air Referrals",
@@ -7,7 +13,8 @@ export const metadata = {
     "Terms and conditions for the Christmas Air Neighbors Helping Neighbors referral program.",
 };
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const p = (await getCurrentProgram()) ?? BASELINE_PROGRAM;
   return (
     <>
       <SiteHeader />
@@ -49,12 +56,14 @@ export default function TermsPage() {
 
           <Section title="3. Reward amounts">
             <p>
-              Referrer rewards range from $50 to $500+ depending on the service
-              category, as published on the program landing page. Christmas Air
-              may adjust reward amounts at any time; changes take effect for
+              Each successful referral triggers three amounts: ${p.referrer_amount}
+              to the referrer as a reward, ${p.friend_amount} to the referred
+              friend as a discount on their first service, and ${p.charity_amount}
+              donated to the referrer&rsquo;s selected charity. Christmas Air
+              may adjust these amounts at any time; changes take effect for
               referrals submitted after the change date. Referrals already
-              submitted are paid at the rate that was in effect when they were
-              submitted.
+              submitted are honored at the amounts that were in effect when
+              they were submitted.
             </p>
           </Section>
 
@@ -71,21 +80,18 @@ export default function TermsPage() {
 
           <Section title="5. Triple Win charity match">
             <p>
-              Triple Win is a company-wide policy, not a per-referrer opt-in.
-              When Christmas Air has Triple Win enabled and you have a charity
+              Triple Win is a company-wide policy. When you have a charity
               selected in your account, every successful referral you make
-              also triggers a matched donation to your selected charity, in
-              addition to your full reward — not in place of it. The match
-              amount and cap are determined by the service category and are
-              funded entirely by Christmas Air. Christmas Air selects
-              fulfillment partners (currently Tremendous, with some donations
-              pooled for quarterly direct payment to local charities). Your
-              selected charity is snapshotted at the time each referral is
+              also triggers a ${p.charity_amount} donation to your selected
+              charity, in addition to your full reward — not in place of it.
+              The match is funded entirely by Christmas Air. Christmas Air
+              selects fulfillment partners (currently Tremendous, with some
+              donations pooled for quarterly direct payment to local charities).
+              Your selected charity is snapshotted at the time each referral is
               submitted; later changes to your preference do not affect
-              in-flight referrals. Christmas Air may pause or resume the
-              Triple Win program at any time; during a pause, new referrals
-              will not trigger charity matches, but already-submitted
-              referrals keep their snapshot and are honored.
+              in-flight referrals. Christmas Air may adjust the charity match
+              amount at any time under the same terms as any reward amount
+              change (see Section 3).
             </p>
           </Section>
 

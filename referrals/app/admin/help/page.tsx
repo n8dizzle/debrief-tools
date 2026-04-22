@@ -151,13 +151,13 @@ export default function HelpPage() {
             who="Whoever owns the charity partnerships. Requires can_manage_charities."
           />
           <AdminPageEntry
-            title="Reward configs"
-            what="The tier rulebook &mdash; how much referrers earn per service category (service call, maintenance, replacement, commercial) and how the charity match is calculated. Supports multiple configs for A/B testing. Every save is recorded in the change log."
+            title="Rewards program"
+            what="Single-page editor for the flat Triple Win amounts (referrer / friend / charity) and an optional campaign banner label that drives promo banners on the conversion pages. Every save is recorded in the change log. $0 hard-blocked on all three amounts."
             who="Leadership making pricing decisions. Requires can_manage_config."
           />
           <AdminPageEntry
             title="Settings"
-            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page), triple_win_enabled (global Triple Win on/off toggle). Per-key validators catch bad input before it hits downstream systems."
+            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page). Per-key validators catch bad input before it hits downstream systems."
             who="Admins reconfiguring the program without code changes. Requires can_manage_settings."
           />
           <AdminPageEntry
@@ -465,8 +465,10 @@ export default function HelpPage() {
           </Faq>
           <Faq q="How do I change the reward amounts?">
             <p>
-              <strong>Reward configs</strong> page. Edit the tier you want and
-              save &mdash; every save is recorded in the change log. Requires{" "}
+              <strong>Rewards program</strong> page. Set the referrer / friend /
+              charity dollar amounts and save &mdash; every save is recorded in
+              the change log. Optionally add a campaign label to show a promo
+              banner on the conversion pages. Requires{" "}
               <code>can_manage_config</code> permission.
             </p>
           </Faq>
@@ -540,10 +542,9 @@ export default function HelpPage() {
           </Faq>
           <Faq q="How do I pause Triple Win across the whole program?">
             <p>
-              <strong>Settings</strong> page &rarr; flip{" "}
-              <code>triple_win_enabled</code> to OFF. In-flight referrals keep
-              their submission-time snapshot &mdash; the pause only affects new
-              referrals going forward.
+              You can&apos;t pause the whole program &mdash; Triple Win is the brand.
+              What you <em>can</em> do is adjust the charity amount on the{" "}
+              <strong>Rewards program</strong> page to flex campaigns up or down.
             </p>
           </Faq>
           <Faq q="A customer says they can't log into their dashboard &mdash; what do I tell them?">
