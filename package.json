@@ -6,8 +6,7 @@
     "packages/*",
     "daily-dash",
     "marketing-hub",
-    "internal-portal",
-    "ar-collections"
+    "internal-portal"
   ],
   "scripts": {
     "dev:dash": "npm run dev --workspace=daily-dash",
