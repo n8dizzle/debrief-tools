@@ -34,6 +34,7 @@ function PaceGauge({
   daysElapsed,
   daysInMonth,
   tooltip,
+  stats,
 }: {
   label: string;
   needed: number;
@@ -46,6 +47,7 @@ function PaceGauge({
   daysElapsed?: number;
   daysInMonth?: number;
   tooltip?: string;
+  stats?: { label: string; value: string }[];
 }) {
   const fmt = formatValue || formatCardCurrency;
   const sfx = suffix || '/day';
@@ -153,7 +155,7 @@ function PaceGauge({
       </div>
 
       {/* Bottom stats - more padding, clear separation */}
-      <div className="flex items-end justify-between px-5 pb-5 pt-1">
+      <div className="flex items-end justify-between px-5 pb-3 pt-1">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Need/day</div>
           <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
@@ -167,6 +169,18 @@ function PaceGauge({
           </div>
         </div>
       </div>
+
+      {/* Extra stats row */}
+      {stats && stats.length > 0 && (
+        <div className="flex items-center justify-evenly px-5 pb-4 pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{s.label}</div>
+              <div className="text-sm font-bold mt-0.5" style={{ color: 'var(--christmas-cream)' }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tooltip on hover */}
       {tooltip && (
@@ -790,12 +804,12 @@ export default function HuddleDashboard({
                           {(() => {
                             const closeRate = pacingData?.hvacSalesCloseRate || 0;
                             const avgSale = pacingData?.hvacSalesAvgSale || 0;
-                            const tooltipLines = [
-                              `TGL: ${tglMtd}`,
-                              `Marketing: ${mktMtd}`,
-                              closeRate > 0 ? `Close Rate: ${Math.round(closeRate * 100)}%` : null,
-                              avgSale > 0 ? `Avg Sale: ${formatCardCurrency(avgSale)}` : null,
-                            ].filter(Boolean).join('\n');
+                            const cardStats = [
+                              { label: 'TGL', value: String(tglMtd) },
+                              { label: 'Marketing', value: String(mktMtd) },
+                              ...(closeRate > 0 ? [{ label: 'Close Rate', value: `${Math.round(closeRate * 100)}%` }] : []),
+                              ...(avgSale > 0 ? [{ label: 'Avg Sale', value: formatCardCurrency(avgSale) }] : []),
+                            ];
                             return (
                               <PaceGauge
                                 label="HVAC Sales Leads"
@@ -808,7 +822,7 @@ export default function HuddleDashboard({
                                 mtdGoal={leadsGoal}
                                 daysElapsed={elapsed}
                                 daysInMonth={total}
-                                tooltip={tooltipLines}
+                                stats={cardStats}
                               />
                             );
                           })()}
