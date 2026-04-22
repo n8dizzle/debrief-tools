@@ -159,24 +159,29 @@ function PaceGauge({
       {/* Bottom: Actual + Need/day stacked center */}
       <div className="px-5 pb-4 -mt-2">
         {/* Actual */}
-        {/* Actual with optional tooltip for extra stats */}
+        {/* Actual with optional tooltip */}
         {mtdActual !== undefined && !noData && (
           <div className="text-center mb-2 relative group/stats">
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
             <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
-            {stats && stats.length > 0 && (
+            {((stats && stats.length > 0) || tooltip) && (
               <>
                 <span className="ml-1.5 text-xs cursor-help inline-block px-1" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
                 <div
                   className="absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-2 px-4 py-3 rounded-lg text-xs hidden group-hover/stats:block"
-                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '180px' }}
+                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '180px', maxWidth: '240px' }}
                 >
-                  {stats.map((s) => (
+                  {stats && stats.length > 0 && stats.map((s) => (
                     <div key={s.label} className="flex justify-between py-0.5">
                       <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
                       <span className="font-bold ml-4" style={{ color: 'var(--christmas-cream)' }}>{s.value}</span>
                     </div>
                   ))}
+                  {tooltip && (
+                    <div className={stats && stats.length > 0 ? 'pt-2 mt-2 border-t border-[var(--border-subtle)]' : ''} style={{ color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      {tooltip}
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -853,6 +858,7 @@ export default function HuddleDashboard({
                                 mtdGoal={oppTarget}
                                 daysElapsed={1}
                                 daysInMonth={1}
+                                tooltip="Average revenue per completed job, adjusted by tech split, excluding no-charge jobs. Covers Service, Maintenance, and Plumbing (excludes HVAC Install and HVAC Sales)."
                               />
                             );
                           })()}
