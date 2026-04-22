@@ -2,15 +2,16 @@
 //
 // Historical reconstruction uses ar_invoices.{invoice_date, last_payment_date,
 // invoice_total, balance, business_unit_name} to approximate "balance as of
-// date D". Caveats documented in the feature spec: partial payments before
-// last_payment_date are not precisely reconstructible; today's control_bucket
-// is applied to historical invoices (fine for stable ones, wrong for re-bucketed).
+// date D". Caveats: partial payments before last_payment_date slightly
+// overestimate historical AR; today's control_bucket is applied to historical
+// invoices (fine for stable, imprecise for re-bucketed).
 
 import { getServerSupabase } from '@/lib/supabase';
 
 const DSO_PERIOD_DAYS = 30;
 
 interface SnapshotInvoice {
+  id: string;
   invoice_date: string;
   last_payment_date: string | null;
   invoice_total: number | string | null;
@@ -23,16 +24,14 @@ interface TrackingRow {
   control_bucket: string | null;
 }
 
-type Supabase = ReturnType<typeof getServerSupabase>;
-
 function toNum(v: number | string | null | undefined): number {
   if (v == null) return 0;
   const n = typeof v === 'number' ? v : parseFloat(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.floor((b.getTime() - a.getTime()) / 86400000);
+function daysBetween(a: number, b: number): number {
+  return Math.floor((b - a) / 86400000);
 }
 
 function ymd(d: Date): string {
@@ -59,53 +58,59 @@ export interface SnapshotResult {
   by_group: { group_id: string; total_outstanding: number }[];
 }
 
-/**
- * Compute an AR snapshot for a specific date. If `asOfDate` is today, uses
- * current data. If it's in the past, reconstructs historical state from
- * `ar_invoices` (with the documented caveats).
- */
-export async function computeSnapshot(asOfDate: Date): Promise<SnapshotResult> {
-  const supabase = getServerSupabase();
-  const dateStr = ymd(asOfDate);
+interface PreparedInvoice {
+  id: string;
+  invoiceDateMs: number;
+  lastPaymentDateMs: number | null;
+  balance: number;
+  invoiceTotal: number;
+  businessUnitName: string | null;
+  bucket: string | null; // current control_bucket (applied to all dates — caveat)
+  groupId: string | null; // current group membership (applied to all dates — caveat)
+}
 
-  // Pull all invoices (paginated). Cap at 10k — AR table is ~1k today.
-  const invoices: SnapshotInvoice[] = [];
-  const invoiceIdMap = new Map<string, SnapshotInvoice>();
-  const invoiceIds: string[] = [];
+export interface BulkData {
+  invoices: PreparedInvoice[];
+  groupIds: string[];
+}
+
+/**
+ * Fetch all data needed for snapshot computation. Returns a denormalized
+ * in-memory structure so multiple dates can be computed without DB round trips.
+ */
+export async function fetchBulkData(): Promise<BulkData> {
+  const supabase = getServerSupabase();
+
+  // Invoices (paginated).
+  const rawInvoices: SnapshotInvoice[] = [];
   const pageSize = 1000;
-  for (let offset = 0; offset < 10000; offset += pageSize) {
+  for (let offset = 0; offset < 50000; offset += pageSize) {
     const { data, error } = await supabase
       .from('ar_invoices')
       .select('id, invoice_date, last_payment_date, invoice_total, balance, business_unit_name')
-      .lte('invoice_date', dateStr)
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
-    for (const row of data) {
-      const inv = row as SnapshotInvoice & { id: string };
-      invoices.push(inv);
-      invoiceIdMap.set(inv.id, inv);
-      invoiceIds.push(inv.id);
+    rawInvoices.push(...(data as SnapshotInvoice[]));
+    if (data.length < pageSize) break;
+  }
+
+  // Tracking (paginated).
+  const trackingByInvoice = new Map<string, string | null>();
+  for (let offset = 0; offset < 50000; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('ar_invoice_tracking')
+      .select('invoice_id, control_bucket')
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of (data as TrackingRow[]) || []) {
+      trackingByInvoice.set(row.invoice_id, row.control_bucket);
     }
     if (data.length < pageSize) break;
   }
 
-  // Pull tracking rows to know control_bucket (current state — see caveat).
-  const trackingByInvoice = new Map<string, string | null>();
-  for (let i = 0; i < invoiceIds.length; i += pageSize) {
-    const chunk = invoiceIds.slice(i, i + pageSize);
-    if (chunk.length === 0) break;
-    const { data, error } = await supabase
-      .from('ar_invoice_tracking')
-      .select('invoice_id, control_bucket')
-      .in('invoice_id', chunk);
-    if (error) throw error;
-    for (const row of (data as TrackingRow[]) || []) {
-      trackingByInvoice.set(row.invoice_id, row.control_bucket);
-    }
-  }
-
-  // Pull shared BU groups + members for by-group aggregation.
+  // Active groups + members.
   const [groupsRes, membersRes] = await Promise.all([
     supabase
       .from('shared_business_unit_groups')
@@ -118,12 +123,35 @@ export async function computeSnapshot(asOfDate: Date): Promise<SnapshotResult> {
   if (groupsRes.error) throw groupsRes.error;
   if (membersRes.error) throw membersRes.error;
 
-  const groupOf = new Map<string, string>(); // business_unit_name -> group_id
+  const groupOf = new Map<string, string>();
   for (const m of (membersRes.data as { group_id: string; business_unit_name: string }[]) || []) {
     groupOf.set(m.business_unit_name, m.group_id);
   }
 
-  // Aggregate.
+  const invoices: PreparedInvoice[] = rawInvoices.map((inv) => ({
+    id: inv.id,
+    invoiceDateMs: new Date(`${inv.invoice_date}T12:00:00`).getTime(),
+    lastPaymentDateMs: inv.last_payment_date
+      ? new Date(`${inv.last_payment_date}T12:00:00`).getTime()
+      : null,
+    balance: toNum(inv.balance),
+    invoiceTotal: toNum(inv.invoice_total),
+    businessUnitName: inv.business_unit_name,
+    bucket: trackingByInvoice.get(inv.id) ?? null,
+    groupId: inv.business_unit_name ? (groupOf.get(inv.business_unit_name) ?? null) : null,
+  }));
+
+  const groupIds = ((groupsRes.data as { id: string }[]) || []).map((g) => g.id);
+
+  return { invoices, groupIds };
+}
+
+/** Pure in-memory aggregation for one date. */
+export function computeSnapshotFromData(asOfDate: Date, bulk: BulkData): SnapshotResult {
+  const dateStr = ymd(asOfDate);
+  const asOfMs = new Date(`${dateStr}T12:00:00`).getTime();
+  const periodStartMs = asOfMs - DSO_PERIOD_DAYS * 86400000;
+
   let total = 0;
   let actionable = 0;
   let pending = 0;
@@ -131,61 +159,37 @@ export async function computeSnapshot(asOfDate: Date): Promise<SnapshotResult> {
   let bucket_30 = 0;
   let bucket_60 = 0;
   let bucket_90_plus = 0;
+  let period_revenue = 0;
   const byGroup = new Map<string, number>();
 
-  const asOf = new Date(`${dateStr}T12:00:00`); // noon to avoid TZ edge
+  for (const inv of bulk.invoices) {
+    // Revenue window: any invoice with invoice_date in (D-30, D]
+    if (inv.invoiceDateMs > periodStartMs && inv.invoiceDateMs <= asOfMs) {
+      period_revenue += inv.invoiceTotal;
+    }
 
-  for (const inv of invoices as (SnapshotInvoice & { id: string })[]) {
-    const invDate = new Date(`${inv.invoice_date}T12:00:00`);
-    if (invDate.getTime() > asOf.getTime()) continue;
+    if (inv.invoiceDateMs > asOfMs) continue;
 
-    const lastPayment = inv.last_payment_date
-      ? new Date(`${inv.last_payment_date}T12:00:00`)
-      : null;
+    // Outstanding-on-D heuristic
+    const paidByD =
+      inv.lastPaymentDateMs !== null && inv.lastPaymentDateMs <= asOfMs;
+    if (paidByD && inv.balance === 0) continue;
 
-    // Outstanding-on-D heuristic:
-    //   - Not outstanding if last_payment_date <= D AND balance == 0
-    //   - Otherwise outstanding (approximates partial-payment cases slightly high)
-    const balance = toNum(inv.balance);
-    const paidByD = lastPayment !== null && lastPayment.getTime() <= asOf.getTime();
-    if (paidByD && balance === 0) continue;
-
-    // Amount on D: use invoice_total as the approximation. Overestimates
-    // cases where partial payments happened before D.
-    const amount = toNum(inv.invoice_total);
+    const amount = inv.invoiceTotal;
     if (amount <= 0) continue;
 
     total += amount;
 
-    // Aging bucket
-    const age = daysBetween(invDate, asOf);
+    const age = daysBetween(inv.invoiceDateMs, asOfMs);
     if (age < 30) bucket_current += amount;
     else if (age < 60) bucket_30 += amount;
     else if (age < 90) bucket_60 += amount;
     else bucket_90_plus += amount;
 
-    // Control bucket (uses TODAY's tracking — see caveat)
-    const bucket = trackingByInvoice.get(inv.id);
-    if (bucket === 'ar_collectible') actionable += amount;
-    else if (bucket === 'ar_not_in_our_control') pending += amount;
+    if (inv.bucket === 'ar_collectible') actionable += amount;
+    else if (inv.bucket === 'ar_not_in_our_control') pending += amount;
 
-    // By group
-    if (inv.business_unit_name) {
-      const gid = groupOf.get(inv.business_unit_name);
-      if (gid) byGroup.set(gid, (byGroup.get(gid) || 0) + amount);
-    }
-  }
-
-  // Period revenue = sum of invoice_total for invoices with
-  // invoice_date in (D - period_days, D]
-  const periodStart = new Date(asOf);
-  periodStart.setDate(periodStart.getDate() - DSO_PERIOD_DAYS);
-  let period_revenue = 0;
-  for (const inv of invoices) {
-    const invDate = new Date(`${inv.invoice_date}T12:00:00`);
-    if (invDate.getTime() > periodStart.getTime() && invDate.getTime() <= asOf.getTime()) {
-      period_revenue += toNum(inv.invoice_total);
-    }
+    if (inv.groupId) byGroup.set(inv.groupId, (byGroup.get(inv.groupId) || 0) + amount);
   }
 
   const true_dso_total =
@@ -216,53 +220,106 @@ export async function computeSnapshot(asOfDate: Date): Promise<SnapshotResult> {
   };
 }
 
+export async function computeSnapshot(asOfDate: Date): Promise<SnapshotResult> {
+  const bulk = await fetchBulkData();
+  return computeSnapshotFromData(asOfDate, bulk);
+}
+
+/** Single-date upsert. Keeps previous callers unchanged. */
 export async function upsertSnapshot(
   asOfDate: Date,
   { isBackfill = false }: { isBackfill?: boolean } = {},
 ): Promise<SnapshotResult> {
   const result = await computeSnapshot(asOfDate);
-  const supabase = getServerSupabase();
+  await persistSnapshots([result], { isBackfill });
+  return result;
+}
 
-  const { error: upErr } = await supabase.from('ar_daily_snapshots').upsert(
-    {
-      snapshot_date: result.snapshot_date,
-      total_outstanding: result.total_outstanding,
-      actionable_ar: result.actionable_ar,
-      pending_closures: result.pending_closures,
-      bucket_current: result.bucket_current,
-      bucket_30: result.bucket_30,
-      bucket_60: result.bucket_60,
-      bucket_90_plus: result.bucket_90_plus,
-      period_revenue: result.period_revenue,
-      period_days: result.period_days,
-      true_dso_total: result.true_dso_total,
-      true_dso_actionable: result.true_dso_actionable,
-      true_dso_pending: result.true_dso_pending,
-      is_backfilled: isBackfill,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'snapshot_date' },
-  );
+/** Efficient batch: compute + upsert many dates using one bulk fetch. */
+export async function upsertSnapshotRange(
+  fromDate: Date,
+  toDate: Date,
+): Promise<SnapshotResult[]> {
+  const bulk = await fetchBulkData();
+  const results: SnapshotResult[] = [];
+  const d = new Date(fromDate);
+  d.setHours(12, 0, 0, 0);
+  const end = new Date(toDate);
+  end.setHours(12, 0, 0, 0);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const todayMs = today.getTime();
+  while (d.getTime() <= end.getTime()) {
+    const r = computeSnapshotFromData(d, bulk);
+    results.push(r);
+    d.setDate(d.getDate() + 1);
+  }
+  // Mark as backfill unless the date is today (authoritative daily snapshot).
+  await persistSnapshots(results, {
+    perRowIsBackfill: (r) => new Date(`${r.snapshot_date}T12:00:00`).getTime() !== todayMs,
+  });
+  return results;
+}
+
+async function persistSnapshots(
+  results: SnapshotResult[],
+  opts: { isBackfill?: boolean; perRowIsBackfill?: (r: SnapshotResult) => boolean } = {},
+): Promise<void> {
+  if (results.length === 0) return;
+  const supabase = getServerSupabase();
+  const now = new Date().toISOString();
+
+  const rows = results.map((r) => ({
+    snapshot_date: r.snapshot_date,
+    total_outstanding: r.total_outstanding,
+    actionable_ar: r.actionable_ar,
+    pending_closures: r.pending_closures,
+    bucket_current: r.bucket_current,
+    bucket_30: r.bucket_30,
+    bucket_60: r.bucket_60,
+    bucket_90_plus: r.bucket_90_plus,
+    period_revenue: r.period_revenue,
+    period_days: r.period_days,
+    true_dso_total: r.true_dso_total,
+    true_dso_actionable: r.true_dso_actionable,
+    true_dso_pending: r.true_dso_pending,
+    is_backfilled: opts.perRowIsBackfill ? opts.perRowIsBackfill(r) : (opts.isBackfill ?? false),
+    updated_at: now,
+  }));
+
+  const { error: upErr } = await supabase
+    .from('ar_daily_snapshots')
+    .upsert(rows, { onConflict: 'snapshot_date' });
   if (upErr) throw upErr;
 
-  // Replace per-group snapshot rows for this date.
+  const dates = results.map((r) => r.snapshot_date);
   const { error: delErr } = await supabase
     .from('ar_daily_group_snapshots')
     .delete()
-    .eq('snapshot_date', result.snapshot_date);
+    .in('snapshot_date', dates);
   if (delErr) throw delErr;
 
-  if (result.by_group.length > 0) {
-    const { error: grpErr } = await supabase.from('ar_daily_group_snapshots').insert(
-      result.by_group.map((g) => ({
-        snapshot_date: result.snapshot_date,
+  const groupRows: {
+    snapshot_date: string;
+    group_id: string;
+    total_outstanding: number;
+    is_backfilled: boolean;
+  }[] = [];
+  for (const r of results) {
+    const isBf = opts.perRowIsBackfill ? opts.perRowIsBackfill(r) : (opts.isBackfill ?? false);
+    for (const g of r.by_group) {
+      groupRows.push({
+        snapshot_date: r.snapshot_date,
         group_id: g.group_id,
         total_outstanding: g.total_outstanding,
-        is_backfilled: isBackfill,
-      })),
-    );
+        is_backfilled: isBf,
+      });
+    }
+  }
+  if (groupRows.length > 0) {
+    const { error: grpErr } = await supabase
+      .from('ar_daily_group_snapshots')
+      .insert(groupRows);
     if (grpErr) throw grpErr;
   }
-
-  return result;
 }
