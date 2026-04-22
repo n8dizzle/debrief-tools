@@ -190,18 +190,20 @@ export async function GET(request: NextRequest) {
       ? Math.round((total_outstanding / periodRevenue) * DSO_PERIOD_DAYS)
       : 0;
 
-    // Get job status options for labels
-    const { data: jobStatusOptions } = await supabase
+    // Get job + collection status options for labels
+    const { data: statusOptions } = await supabase
       .from('ar_job_statuses')
-      .select('key, label')
+      .select('key, label, category')
       .eq('is_active', true);
 
     const jobStatusLabelMap = new Map<string, string>();
-    for (const opt of jobStatusOptions || []) {
-      jobStatusLabelMap.set(opt.key, opt.label);
+    const collectionStatusLabelMap = new Map<string, string>();
+    for (const opt of statusOptions || []) {
+      if (opt.category === 'collection') collectionStatusLabelMap.set(opt.key, opt.label);
+      else jobStatusLabelMap.set(opt.key, opt.label);
     }
 
-    // Calculate AR totals by job status
+    // Calculate AR totals by job (work) status
     const jobStatusMap = new Map<string, number>();
     for (const inv of invoices || []) {
       const status = inv.tracking?.job_status || 'none';
@@ -212,6 +214,21 @@ export async function GET(request: NextRequest) {
       .map(([key, total]) => ({
         key,
         label: key === 'none' ? 'No Status' : (jobStatusLabelMap.get(key) || key),
+        total,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    // Calculate AR totals by collection status
+    const collectionStatusMap = new Map<string, number>();
+    for (const inv of invoices || []) {
+      const status = inv.tracking?.collection_status || 'none';
+      const current = collectionStatusMap.get(status) || 0;
+      collectionStatusMap.set(status, current + Number(inv.balance));
+    }
+    const collection_status_totals = Array.from(collectionStatusMap.entries())
+      .map(([key, total]) => ({
+        key,
+        label: key === 'none' ? 'No Status' : (collectionStatusLabelMap.get(key) || key),
         total,
       }))
       .sort((a, b) => b.total - a.total);
@@ -274,6 +291,7 @@ export async function GET(request: NextRequest) {
       inhouse_financing_delinquent,
       business_unit_totals,
       job_status_totals,
+      collection_status_totals,
       top_balances,
       top_oldest,
       top_90_plus,

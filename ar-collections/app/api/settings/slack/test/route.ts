@@ -160,6 +160,7 @@ async function fetchDashboardStats(supabase: ReturnType<typeof getServerSupabase
     inhouse_financing_delinquent: 0,
     business_unit_totals,
     job_status_totals: [],
+    collection_status_totals: [],
     top_balances,
     top_oldest,
     top_90_plus,

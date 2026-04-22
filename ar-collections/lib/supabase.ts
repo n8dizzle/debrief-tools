@@ -489,6 +489,7 @@ export interface ARDashboardStats {
   inhouse_financing_delinquent: number;
   business_unit_totals: { name: string; total: number }[];
   job_status_totals: { key: string; label: string; total: number }[];
+  collection_status_totals: { key: string; label: string; total: number }[];
   top_balances: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   top_oldest: (ARInvoice & { tracking?: ARInvoiceTracking })[];
   top_90_plus: (ARInvoice & { tracking?: ARInvoiceTracking })[];

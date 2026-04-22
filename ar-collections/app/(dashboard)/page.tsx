@@ -83,6 +83,14 @@ export default function DashboardPage() {
     return map;
   }, [jobStatuses]);
 
+  const collectionStatusColorByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of jobStatuses) {
+      if (s.category === 'collection' && s.color) map[s.key] = s.color;
+    }
+    return map;
+  }, [jobStatuses]);
+
   useEffect(() => {
     async function fetchStats() {
       try {
@@ -150,6 +158,7 @@ export default function DashboardPage() {
     inhouse_financing_delinquent: 0,
     business_unit_totals: [],
     job_status_totals: [],
+    collection_status_totals: [],
     top_balances: [],
     top_oldest: [],
     top_90_plus: [],
@@ -403,6 +412,79 @@ export default function DashboardPage() {
                     <Cell
                       key={entry.key}
                       fill={jobStatusColorByKey[entry.key] || '#346643'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* AR by Collection Status */}
+      <div
+        className="p-4 sm:p-5 rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+          AR by Collection Status
+        </h2>
+        {displayStats.collection_status_totals.length === 0 ? (
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+            No data available
+          </div>
+        ) : (
+          <div style={{ height: `${Math.max(240, displayStats.collection_status_totals.slice(0, 8).length * 44 + 40)}px` }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={displayStats.collection_status_totals.slice(0, 8)}
+                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => formatCurrency(value)}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={false}
+                  width={160}
+                  interval={0}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(value as number), 'Balance']}
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                  }}
+                  labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                  itemStyle={{ color: 'var(--christmas-cream)' }}
+                />
+                <Bar
+                  dataKey="total"
+                  radius={[0, 4, 4, 0]}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(data) => {
+                    if (data && data.key && data.key !== 'none') {
+                      router.push(`/invoices?collectionStatus=${encodeURIComponent(String(data.key))}`);
+                    }
+                  }}
+                >
+                  {displayStats.collection_status_totals.slice(0, 8).map((entry) => (
+                    <Cell
+                      key={entry.key}
+                      fill={collectionStatusColorByKey[entry.key] || '#3B82F6'}
                     />
                   ))}
                 </Bar>
