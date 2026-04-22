@@ -86,14 +86,9 @@ function PaceGauge({
           <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
         </div>
         {projectedPct !== null && !noData && (
-          <div className="text-right">
-            <div className="text-sm font-bold" style={{ color: bannerTextColor }}>
-              Pacing to {projectedPct}%
-            </div>
-            <div className="text-[10px]" style={{ color: bannerTextColor, opacity: 0.7 }}>
-              {status.sub}
-            </div>
-          </div>
+          <span className="text-[11px]" style={{ color: bannerTextColor, opacity: 0.8 }}>
+            pacing to <span className="font-bold">{projectedPct}%</span> of goal
+          </span>
         )}
       </div>
 
