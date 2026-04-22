@@ -3,9 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Client-side Supabase client (uses anon key, respects RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 // Server-side Supabase client (uses service role key, bypasses RLS)
 // Only use in API routes, never expose to client
 export function getServerSupabase() {
@@ -456,6 +453,7 @@ export interface ARJobStatusOption {
   is_active: boolean;
   control_bucket: ARControlBucket | null; // Linked control bucket for auto-assignment
   category: 'work' | 'collection';
+  color: string | null; // Hex string like "#4ade80" used to tint invoice rows when enabled
   created_at: string;
   updated_at: string;
 }

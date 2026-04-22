@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ARSidebar from './ARSidebar';
 import { AnalyticsTracker } from './AnalyticsTracker';
 
@@ -8,8 +8,32 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
+const COLLAPSE_STORAGE_KEY = 'ar_sidebar_collapsed';
+
 export default function DashboardShell({ children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+      if (stored === '1') setDesktopCollapsed(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleDesktopCollapsed = () => {
+    setDesktopCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSE_STORAGE_KEY, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -49,10 +73,19 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       </header>
 
       {/* Sidebar */}
-      <ARSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <ARSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        desktopCollapsed={desktopCollapsed}
+        onToggleDesktopCollapsed={toggleDesktopCollapsed}
+      />
 
       {/* Main Content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0">
+      <main
+        className={`transition-[margin] duration-300 ease-in-out pt-16 lg:pt-0 ${
+          desktopCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}
+      >
         <div className="p-4 lg:p-6 xl:p-8">
           {children}
         </div>

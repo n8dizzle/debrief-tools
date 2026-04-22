@@ -15,6 +15,7 @@ interface InvoiceWithTracking extends ARInvoice {
 type FilterState = {
   search: string;
   businessUnits: string[];
+  businessUnitGroups: string[]; // group IDs from shared_business_unit_groups
   owners: string[];
   controlBuckets: string[];
   jobStatuses: string[];
@@ -23,6 +24,15 @@ type FilterState = {
   customerType: string;
   invoiceType: string; // 'membership' | 'service' | '' (all)
 };
+
+interface BusinessUnitGroup {
+  id: string;
+  key: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  members: { business_unit_id: number; business_unit_name: string | null }[];
+}
 
 // Multi-select dropdown component
 function MultiSelectDropdown({
@@ -160,6 +170,8 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
 const STORAGE_KEY = 'ar-invoices-column-order';
 const WIDTH_STORAGE_KEY = 'ar-invoices-column-widths';
 const VISIBILITY_STORAGE_KEY = 'ar-invoices-column-visibility';
+const FILTERS_EXPANDED_KEY = 'ar-invoices-filters-expanded';
+const COLOR_ROWS_KEY = 'ar-invoices-color-rows-by-status';
 
 export default function InvoicesPage() {
   const searchParams = useSearchParams();
@@ -167,6 +179,7 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<InvoiceWithTracking[]>([]);
   const [owners, setOwners] = useState<PortalUser[]>([]);
   const [businessUnits, setBusinessUnits] = useState<string[]>([]);
+  const [businessUnitGroups, setBusinessUnitGroups] = useState<BusinessUnitGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -175,6 +188,7 @@ export default function InvoicesPage() {
   const [filters, setFilters] = useState<FilterState>(() => ({
     search: searchParams.get('search') || '',
     businessUnits: searchParams.get('businessUnits')?.split(',').filter(Boolean) || [],
+    businessUnitGroups: searchParams.get('buGroups')?.split(',').filter(Boolean) || [],
     owners: searchParams.get('owners')?.split(',').filter(Boolean) || [],
     controlBuckets: searchParams.get('controlBuckets')?.split(',').filter(Boolean) || [],
     jobStatuses: searchParams.get('jobStatuses')?.split(',').filter(Boolean) || [],
@@ -196,8 +210,78 @@ export default function InvoicesPage() {
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
   const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [colorRowsByStatus, setColorRowsByStatus] = useState(false);
   const columnPickerRef = useRef<HTMLDivElement>(null);
   const { canUpdateWorkflow, canAssignOwner, canChangeControlBucket } = useARPermissions();
+
+  useEffect(() => {
+    try {
+      const storedFilters = localStorage.getItem(FILTERS_EXPANDED_KEY);
+      if (storedFilters === '0') setFiltersExpanded(false);
+      const storedColor = localStorage.getItem(COLOR_ROWS_KEY);
+      if (storedColor === '1') setColorRowsByStatus(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleColorRowsByStatus = () => {
+    setColorRowsByStatus(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLOR_ROWS_KEY, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  // Map status key → color for quick row lookup
+  const statusColorByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of jobStatuses) {
+      if (s.category === 'work' && s.color) map[s.key] = s.color;
+    }
+    return map;
+  }, [jobStatuses]);
+
+  // Pre-compute allowed BU IDs for currently-selected groups.
+  const allowedBUIdsForSelectedGroups = useMemo(() => {
+    const set = new Set<number>();
+    if (filters.businessUnitGroups.length === 0) return set;
+    const selected = new Set(filters.businessUnitGroups);
+    for (const g of businessUnitGroups) {
+      if (!selected.has(g.id)) continue;
+      for (const m of g.members) set.add(m.business_unit_id);
+    }
+    return set;
+  }, [filters.businessUnitGroups, businessUnitGroups]);
+
+  const toggleFiltersExpanded = () => {
+    setFiltersExpanded(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(FILTERS_EXPANDED_KEY, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const activeFilterCount =
+    (filters.search ? 1 : 0) +
+    (filters.customerType ? 1 : 0) +
+    (filters.agingBucket ? 1 : 0) +
+    (filters.invoiceType ? 1 : 0) +
+    (filters.businessUnits.length > 0 ? 1 : 0) +
+    (filters.businessUnitGroups.length > 0 ? 1 : 0) +
+    (filters.owners.length > 0 ? 1 : 0) +
+    (filters.controlBuckets.length > 0 ? 1 : 0) +
+    (filters.jobStatuses.length > 0 ? 1 : 0) +
+    (filters.collectionStatuses.length > 0 ? 1 : 0);
 
   // Sync filters to URL
   useEffect(() => {
@@ -205,6 +289,7 @@ export default function InvoicesPage() {
 
     if (filters.search) params.set('search', filters.search);
     if (filters.businessUnits.length > 0) params.set('businessUnits', filters.businessUnits.join(','));
+    if (filters.businessUnitGroups.length > 0) params.set('buGroups', filters.businessUnitGroups.join(','));
     if (filters.owners.length > 0) params.set('owners', filters.owners.join(','));
     if (filters.controlBuckets.length > 0) params.set('controlBuckets', filters.controlBuckets.join(','));
     if (filters.jobStatuses.length > 0) params.set('jobStatuses', filters.jobStatuses.join(','));
@@ -314,7 +399,20 @@ export default function InvoicesPage() {
     fetchOwners();
     fetchJobStatuses();
     fetchLastSync();
+    fetchBusinessUnitGroups();
   }, []);
+
+  async function fetchBusinessUnitGroups() {
+    try {
+      const response = await fetch('/api/business-unit-groups', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setBusinessUnitGroups(data.groups || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch business unit groups:', err);
+    }
+  }
 
   async function fetchLastSync() {
     try {
@@ -524,6 +622,9 @@ export default function InvoicesPage() {
       }
     }
     if (filters.businessUnits.length > 0 && !filters.businessUnits.includes(inv.business_unit_name || '')) return false;
+    if (filters.businessUnitGroups.length > 0) {
+      if (inv.business_unit_id == null || !allowedBUIdsForSelectedGroups.has(inv.business_unit_id)) return false;
+    }
     if (filters.owners.length > 0 && !filters.owners.includes(inv.tracking?.owner_id || '')) return false;
     if (filters.controlBuckets.length > 0 && !filters.controlBuckets.includes(inv.tracking?.control_bucket || '')) return false;
     if (filters.jobStatuses.length > 0 && !filters.jobStatuses.includes(inv.tracking?.job_status || '')) return false;
@@ -920,6 +1021,49 @@ export default function InvoicesPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={toggleColorRowsByStatus}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              backgroundColor: colorRowsByStatus ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-secondary)',
+              color: colorRowsByStatus ? 'var(--christmas-green)' : 'var(--text-secondary)',
+              border: `1px solid ${colorRowsByStatus ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+            }}
+            title={colorRowsByStatus ? 'Turn off row coloring' : 'Color rows by Work Status'}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+            <span>Color by Status</span>
+          </button>
+          <button
+            onClick={toggleFiltersExpanded}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)',
+            }}
+            title={filtersExpanded ? 'Hide filters' : 'Show filters'}
+          >
+            <svg
+              className={`w-3.5 h-3.5 transition-transform ${filtersExpanded ? '' : 'rotate-180'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+            <span>{filtersExpanded ? 'Hide filters' : 'Show filters'}</span>
+            {!filtersExpanded && activeFilterCount > 0 && (
+              <span
+                className="ml-1 px-1.5 rounded-full text-[10px] font-semibold"
+                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
           <label className="flex items-center gap-2 cursor-pointer">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Exclude In-House Financing
@@ -943,8 +1087,40 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      {/* Business Unit Groups (leadership-facing primary filter) */}
+      {filtersExpanded && businessUnitGroups.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Groups:</span>
+          {businessUnitGroups.map((g) => {
+            const isActive = filters.businessUnitGroups.includes(g.id);
+            return (
+              <button
+                key={g.id}
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  businessUnitGroups: isActive
+                    ? prev.businessUnitGroups.filter((x) => x !== g.id)
+                    : [...prev.businessUnitGroups, g.id],
+                }))}
+                className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: isActive ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-secondary)',
+                  color: isActive ? 'var(--christmas-green)' : 'var(--text-secondary)',
+                  border: `1px solid ${isActive ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
+                }}
+                title={g.members.length === 0 ? 'No business units assigned yet' : `${g.members.length} business unit${g.members.length === 1 ? '' : 's'}`}
+              >
+                {g.label}
+                <span className="ml-1.5 opacity-70">{g.members.length}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Quick Chip Filters */}
       <div className="flex flex-wrap items-center justify-between gap-2">
+        {filtersExpanded ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Quick filters:</span>
 
@@ -1036,44 +1212,13 @@ export default function InvoicesPage() {
           Pending Closures
         </button>
 
-        <span className="mx-2" style={{ color: 'var(--border-subtle)' }}>|</span>
-
-        {/* Membership Invoice Chips */}
-        <button
-          onClick={() => setFilters(prev => ({
-            ...prev,
-            invoiceType: prev.invoiceType === 'membership' ? '' : 'membership'
-          }))}
-          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
-          style={{
-            backgroundColor: filters.invoiceType === 'membership' ? 'rgba(147, 51, 234, 0.2)' : 'var(--bg-secondary)',
-            color: filters.invoiceType === 'membership' ? '#a78bfa' : 'var(--text-secondary)',
-            border: filters.invoiceType === 'membership' ? '1px solid #a78bfa' : '1px solid var(--border-subtle)',
-          }}
-        >
-          Membership Invoice
-        </button>
-        <button
-          onClick={() => setFilters(prev => ({
-            ...prev,
-            invoiceType: prev.invoiceType === 'service' ? '' : 'service'
-          }))}
-          className="px-3 py-1 rounded-full text-xs font-medium transition-all"
-          style={{
-            backgroundColor: filters.invoiceType === 'service' ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-secondary)',
-            color: filters.invoiceType === 'service' ? '#60a5fa' : 'var(--text-secondary)',
-            border: filters.invoiceType === 'service' ? '1px solid #60a5fa' : '1px solid var(--border-subtle)',
-          }}
-        >
-          Non-Membership Invoice
-        </button>
-
         {/* Clear All Filters */}
-        {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0 || filters.collectionStatuses.length > 0) && (
+        {(filters.customerType || filters.agingBucket || filters.invoiceType || filters.businessUnits.length > 0 || filters.businessUnitGroups.length > 0 || filters.owners.length > 0 || filters.controlBuckets.length > 0 || filters.jobStatuses.length > 0 || filters.collectionStatuses.length > 0) && (
           <button
             onClick={() => setFilters({
               search: filters.search,
               businessUnits: [],
+              businessUnitGroups: [],
               owners: [],
               controlBuckets: [],
               jobStatuses: [],
@@ -1093,6 +1238,7 @@ export default function InvoicesPage() {
           </button>
         )}
         </div>
+        ) : <div />}
 
         {/* Column Picker */}
         <div className="relative" ref={columnPickerRef}>
@@ -1160,6 +1306,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* Advanced Filters */}
+      {filtersExpanded && (
       <div className="card">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div>
@@ -1224,6 +1371,7 @@ export default function InvoicesPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Invoice Table */}
       <div className="card p-0 overflow-hidden">
@@ -1277,10 +1425,21 @@ export default function InvoicesPage() {
                   </td>
                 </tr>
               ) : (
-                sortedInvoices.map((invoice) => (
+                sortedInvoices.map((invoice) => {
+                  const rowColor = colorRowsByStatus
+                    ? statusColorByKey[invoice.tracking?.job_status || '']
+                    : undefined;
+                  const rowStyle: React.CSSProperties | undefined = rowColor
+                    ? {
+                        backgroundColor: `${rowColor}14`, // ~8% alpha
+                        boxShadow: `inset 4px 0 0 ${rowColor}`,
+                      }
+                    : undefined;
+                  return (
                   <tr
                     key={invoice.id}
                     className={invoice.tracking?.closed ? 'row-closed' : ''}
+                    style={rowStyle}
                   >
                     {columns.filter(col => isColumnVisible(col.id)).map((column) => (
                       <td
@@ -1295,7 +1454,8 @@ export default function InvoicesPage() {
                       </td>
                     ))}
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

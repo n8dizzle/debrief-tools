@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency, getAgingBucketLabel } from '@/lib/ar-utils';
-import { ARDashboardStats } from '@/lib/supabase';
+import { ARDashboardStats, ARJobStatusOption } from '@/lib/supabase';
 import Link from 'next/link';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
 
@@ -14,6 +14,29 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [excludeFinancing, setExcludeFinancing] = useState(true);
   const [topListView, setTopListView] = useState<'balances' | 'oldest' | '90plus' | 'recent'>('balances');
+  const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/settings/job-statuses', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setJobStatuses(data.statuses || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch job statuses:', err);
+      }
+    })();
+  }, []);
+
+  const jobStatusColorByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of jobStatuses) {
+      if (s.category === 'work' && s.color) map[s.key] = s.color;
+    }
+    return map;
+  }, [jobStatuses]);
 
   useEffect(() => {
     async function fetchStats() {
@@ -271,6 +294,78 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* AR by Job Status */}
+      <div
+        className="p-4 sm:p-5 rounded-xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+          AR by Job Status
+        </h2>
+        {displayStats.job_status_totals.length === 0 ? (
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+            No data available
+          </div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={displayStats.job_status_totals.slice(0, 8)}
+                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              >
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => formatCurrency(value)}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  tickLine={false}
+                  width={95}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(value as number), 'Balance']}
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                  }}
+                  labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                  itemStyle={{ color: 'var(--christmas-cream)' }}
+                />
+                <Bar
+                  dataKey="total"
+                  radius={[0, 4, 4, 0]}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(data) => {
+                    if (data && data.key && data.key !== 'none') {
+                      router.push(`/invoices?jobStatus=${encodeURIComponent(String(data.key))}`);
+                    }
+                  }}
+                >
+                  {displayStats.job_status_totals.slice(0, 8).map((entry) => (
+                    <Cell
+                      key={entry.key}
+                      fill={jobStatusColorByKey[entry.key] || '#346643'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
       {/* Residential vs Commercial */}
       <div
         className="p-4 sm:p-5 rounded-xl"
@@ -448,72 +543,6 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* AR by Job Status */}
-      <div
-        className="p-4 sm:p-5 rounded-xl"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-          AR by Job Status
-        </h2>
-        {displayStats.job_status_totals.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-            No data available
-          </div>
-        ) : (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={displayStats.job_status_totals.slice(0, 8)}
-                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-              >
-                <XAxis
-                  type="number"
-                  tickFormatter={(value) => formatCurrency(value)}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                  axisLine={{ stroke: 'var(--border-subtle)' }}
-                  tickLine={{ stroke: 'var(--border-subtle)' }}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                  axisLine={{ stroke: 'var(--border-subtle)' }}
-                  tickLine={false}
-                  width={95}
-                />
-                <Tooltip
-                  formatter={(value) => [formatCurrency(value as number), 'Balance']}
-                  contentStyle={{
-                    backgroundColor: 'var(--bg-card)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                  }}
-                  labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                  itemStyle={{ color: 'var(--christmas-cream)' }}
-                />
-                <Bar
-                  dataKey="total"
-                  fill="#346643"
-                  radius={[0, 4, 4, 0]}
-                  style={{ cursor: 'pointer' }}
-                  onClick={(data) => {
-                    if (data && data.key && data.key !== 'none') {
-                      router.push(`/invoices?jobStatus=${encodeURIComponent(String(data.key))}`);
-                    }
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
       </div>
 
       {/* In-House Financing Summary */}
