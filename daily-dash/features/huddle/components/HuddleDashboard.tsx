@@ -83,18 +83,27 @@ function PaceGauge({
 
   const cx = 110, cy = 95, r = 65;
 
+  // Pacing toward dollar amount
+  const pacingTowardAmount = (projectedPct !== null && mtdGoal) ? Math.round(mtdGoal * projectedPct / 100) : null;
+  const fmtGoal = (v: number) => v >= 1000 ? formatCardCurrency(v) : String(Math.round(v));
+
   return (
-    <div className="flex-1 min-w-0 rounded-xl overflow-hidden relative group" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+    <div className="flex-1 min-w-0 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
       {/* Color banner */}
       <div
         className="flex items-center justify-between px-4 py-2.5"
         style={{ backgroundColor: status.bg }}
       >
         <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
-        {projectedPct !== null && !noData && (
-          <span className="text-sm font-bold" style={{ color: bannerTextColor }}>
-            {projectedPct}% of goal
-          </span>
+        {pacingTowardAmount !== null && !noData && (
+          <div className="text-right leading-tight">
+            <div className="text-sm font-bold" style={{ color: bannerTextColor }}>
+              {fmtGoal(pacingTowardAmount)}
+            </div>
+            <div className="text-[9px]" style={{ color: bannerTextColor, opacity: 0.7 }}>
+              {projectedPct}% of goal
+            </div>
+          </div>
         )}
       </div>
 
@@ -103,7 +112,7 @@ function PaceGauge({
         <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
         {mtdGoal !== undefined && !noData && (
           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{mtdGoal >= 1000 ? formatCardCurrency(mtdGoal) : Math.round(mtdGoal)}</span>
+            Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdGoal)}</span>
           </div>
         )}
       </div>
@@ -111,12 +120,10 @@ function PaceGauge({
       {/* Gauge */}
       <div className="flex justify-center">
         <svg width="220" height="145" viewBox="0 0 220 145">
-          {/* 3 zones: Behind 60% (red), Slightly Behind 15% (gold), Ahead 25% (green) */}
           <path d={describeArc(cx, cy, r, -90, 18)} fill="none" stroke="#EF4444" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 18, 45)} fill="none" stroke="#B8956B" strokeWidth="16" strokeLinecap="butt" />
           <path d={describeArc(cx, cy, r, 45, 90)} fill="none" stroke="#5D8A66" strokeWidth="16" strokeLinecap="butt" />
-          {/* No active arc fill - zones stay visible, needle shows position */}
-          {/* Goal tick at green zone start (45 degrees) - overlaps arc */}
+          {/* Goal tick */}
           {(() => {
             const goalAngle = 45 * Math.PI / 180;
             const innerX = cx + (r - 10) * Math.sin(goalAngle);
@@ -132,7 +139,7 @@ function PaceGauge({
               </>
             );
           })()}
-          {/* Needle - always cream */}
+          {/* Needle */}
           {!noData && (
             <>
               <line
@@ -144,53 +151,44 @@ function PaceGauge({
               <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--christmas-cream)" strokeWidth="2.5" />
             </>
           )}
-          {/* Actual value centered under needle */}
-          {mtdActual !== undefined && !noData && (
-            <text x={cx} y={cy + 28} fontSize="16" textAnchor="middle">
-              <tspan fill="var(--text-muted)">Actual: </tspan>
-              <tspan fill="var(--christmas-cream)" fontWeight="700">{mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}</tspan>
-            </text>
-          )}
         </svg>
       </div>
 
-      {/* Bottom stats - more padding, clear separation */}
-      <div className="flex items-end justify-between px-5 pb-3 pt-1">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Need/day</div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-            {noData ? '\u2014' : `${fmt(needed)}`}
+      {/* Bottom: Actual + Need/day stacked center */}
+      <div className="px-5 pb-4 -mt-2">
+        {/* Actual */}
+        {mtdActual !== undefined && !noData && (
+          <div className="text-center mb-2">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
+            <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}</span>
           </div>
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Was</div>
-          <div className="text-base font-semibold" style={{ color: 'var(--text-muted)' }}>
-            {noData ? `\u2014${sfx}` : `${fmt(target)}${sfx}`}
+        )}
+        {/* Extra stats (close rate, avg sale for HVAC Sales Leads) */}
+        {stats && stats.length > 0 && (
+          <div className="text-center mb-2 space-y-0.5">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.label}: </span>
+                <span className="text-xs font-bold" style={{ color: 'var(--christmas-cream)' }}>{s.value}</span>
+              </div>
+            ))}
           </div>
-        </div>
-      </div>
-
-      {/* Extra stats row */}
-      {stats && stats.length > 0 && (
-        <div className="flex items-center justify-evenly px-5 pb-4 pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          {stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{s.label}</div>
-              <div className="text-sm font-bold mt-0.5" style={{ color: 'var(--christmas-cream)' }}>{s.value}</div>
+        )}
+        {/* Need/day + was */}
+        {!noData && (
+          <div className="text-center pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              {fmt(needed)}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}> {sfx} needed</span>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tooltip on hover */}
-      {tooltip && (
-        <div
-          className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg text-xs text-left whitespace-pre-line max-w-[200px] hidden group-hover:block"
-          style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-        >
-          {tooltip}
-        </div>
-      )}
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              was {fmt(target)}{sfx}
+            </div>
+          </div>
+        )}
+        {noData && (
+          <div className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>\u2014</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -805,8 +803,6 @@ export default function HuddleDashboard({
                             const closeRate = pacingData?.hvacSalesCloseRate || 0;
                             const avgSale = pacingData?.hvacSalesAvgSale || 0;
                             const cardStats = [
-                              { label: 'TGL', value: String(tglMtd) },
-                              { label: 'Marketing', value: String(mktMtd) },
                               ...(closeRate > 0 ? [{ label: 'Close Rate', value: `${Math.round(closeRate * 100)}%` }] : []),
                               ...(avgSale > 0 ? [{ label: 'Avg Sale', value: formatCardCurrency(avgSale) }] : []),
                             ];
