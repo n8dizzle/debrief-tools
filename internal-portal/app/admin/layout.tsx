@@ -14,6 +14,7 @@ const navItems = [
   { name: "App Access", href: "/admin/access", icon: "shield", ownerOnly: true },
   { name: "Idea Board", href: "/suggestions", icon: "lightbulb" },
   { name: "Departments", href: "/admin/departments", icon: "building", ownerOnly: true },
+  { name: "BU Groups", href: "/admin/business-unit-groups", icon: "layers", ownerOnly: true },
   { name: "Tools", href: "/admin/tools", icon: "tools", ownerOnly: true },
   { name: "Stats", href: "/admin/stats", icon: "chart" },
   { name: "App Analytics", href: "/admin/analytics", icon: "analytics" },
@@ -66,6 +67,11 @@ function NavIcon({ name }: { name: string }) {
     analytics: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+    layers: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14-7H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM9 7h6m-6 4h6m-6 4h4" />
       </svg>
     ),
   };

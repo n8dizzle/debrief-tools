@@ -286,7 +286,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean; control_bucket?: string | null }) {
+  async function updateJobStatus(id: string, updates: { label?: string; is_active?: boolean; control_bucket?: string | null; color?: string | null }) {
     try {
       const response = await fetch('/api/settings/job-statuses', {
         method: 'PATCH',
@@ -921,6 +921,32 @@ export default function SettingsPage() {
                             <option value="ar_collectible">→ Actionable AR</option>
                             <option value="ar_not_in_our_control">→ Pending Closures</option>
                           </select>
+
+                          {/* Row color */}
+                          <div className="flex items-center gap-1" title="Row color (when row coloring is enabled on Invoices)">
+                            <input
+                              type="color"
+                              value={status.color || '#4ade80'}
+                              onChange={(e) => updateJobStatus(status.id, { color: e.target.value })}
+                              className="w-7 h-7 p-0 border rounded cursor-pointer"
+                              style={{
+                                backgroundColor: status.color ? 'transparent' : 'var(--bg-tertiary)',
+                                borderColor: 'var(--border-subtle)',
+                              }}
+                              aria-label={`Row color for ${status.label}`}
+                            />
+                            {status.color && (
+                              <button
+                                onClick={() => updateJobStatus(status.id, { color: null })}
+                                className="p-1 rounded hover:bg-white/10"
+                                title="Clear color"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
 
                           <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
                             <button

@@ -456,6 +456,7 @@ export interface ARJobStatusOption {
   is_active: boolean;
   control_bucket: ARControlBucket | null; // Linked control bucket for auto-assignment
   category: 'work' | 'collection';
+  color: string | null; // Hex string like "#4ade80" used to tint invoice rows when enabled
   created_at: string;
   updated_at: string;
 }

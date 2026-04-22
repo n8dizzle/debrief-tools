@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useARPermissions } from '@/hooks/useARPermissions';
@@ -86,9 +85,16 @@ function NavIcon({ type }: { type: string }) {
 interface ARSidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  desktopCollapsed?: boolean;
+  onToggleDesktopCollapsed?: () => void;
 }
 
-export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
+export default function ARSidebar({
+  isOpen = true,
+  onClose,
+  desktopCollapsed = false,
+  onToggleDesktopCollapsed,
+}: ARSidebarProps) {
   const pathname = usePathname();
   const permissions = useARPermissions();
 
@@ -104,11 +110,15 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
   );
 
   const handleLinkClick = () => {
-    // Close sidebar on mobile when a link is clicked
     if (onClose) {
       onClose();
     }
   };
+
+  // Label/section-header hiding only applies on desktop when collapsed.
+  // Mobile always shows full labels because the mobile sidebar is w-64 overlay.
+  const lgHideWhenCollapsed = desktopCollapsed ? 'lg:hidden' : '';
+  const lgJustifyWhenCollapsed = desktopCollapsed ? 'lg:justify-center lg:px-0' : '';
 
   return (
     <>
@@ -124,24 +134,28 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
       <aside
         className={`
           fixed left-0 top-0 h-screen w-64 flex flex-col z-50
-          transform transition-transform duration-300 ease-in-out
+          transform transition-all duration-300 ease-in-out
           lg:translate-x-0
+          ${desktopCollapsed ? 'lg:w-16' : 'lg:w-64'}
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
         style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)' }}
       >
         {/* Logo Section */}
-        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div
+          className={`p-4 border-b flex items-center justify-between ${desktopCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
+          style={{ borderColor: 'var(--border-subtle)' }}
+        >
           <Link href="/" className="flex items-center gap-3" onClick={handleLinkClick}>
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
               style={{ backgroundColor: 'var(--christmas-green)' }}
             >
               <svg className="w-6 h-6" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <div>
+            <div className={lgHideWhenCollapsed}>
               <div className="font-bold text-lg" style={{ color: 'var(--christmas-cream)' }}>
                 Christmas Air
               </div>
@@ -157,6 +171,7 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
               onClick={onClose}
               className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
               style={{ color: 'var(--text-secondary)' }}
+              aria-label="Close menu"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -165,12 +180,32 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
           )}
         </div>
 
+        {/* Desktop collapse toggle */}
+        {onToggleDesktopCollapsed && (
+          <button
+            onClick={onToggleDesktopCollapsed}
+            className="hidden lg:flex items-center justify-center py-2 border-b hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
+            aria-label={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${desktopCollapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">
           {/* Collections Section */}
           <div className="mb-6">
             <div
-              className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
+              className={`text-xs font-semibold uppercase tracking-wider mb-2 px-3 ${lgHideWhenCollapsed}`}
               style={{ color: 'var(--text-muted)' }}
             >
               Collections
@@ -181,14 +216,15 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
                   key={link.href}
                   href={link.href}
                   onClick={handleLinkClick}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                  title={desktopCollapsed ? link.label : undefined}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${lgJustifyWhenCollapsed}`}
                   style={{
                     backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
                     color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
                   }}
                 >
                   <NavIcon type={link.icon} />
-                  <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
+                  <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''} ${lgHideWhenCollapsed}`}>
                     {link.label}
                   </span>
                 </Link>
@@ -200,7 +236,7 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
           {filteredManagementLinks.length > 0 && (
             <div>
               <div
-                className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
+                className={`text-xs font-semibold uppercase tracking-wider mb-2 px-3 ${lgHideWhenCollapsed}`}
                 style={{ color: 'var(--text-muted)' }}
               >
                 Management
@@ -211,14 +247,15 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
                     key={link.href}
                     href={link.href}
                     onClick={handleLinkClick}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                    title={desktopCollapsed ? link.label : undefined}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${lgJustifyWhenCollapsed}`}
                     style={{
                       backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
                       color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
                     }}
                   >
                     <NavIcon type={link.icon} />
-                    <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
+                    <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''} ${lgHideWhenCollapsed}`}>
                       {link.label}
                     </span>
                   </Link>
@@ -232,11 +269,12 @@ export default function ARSidebar({ isOpen = true, onClose }: ARSidebarProps) {
         <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <a
             href="https://portal.christmasair.com"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+            title={desktopCollapsed ? 'Back to Portal' : undefined}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${lgJustifyWhenCollapsed}`}
             style={{ color: 'var(--text-secondary)' }}
           >
             <NavIcon type="arrow" />
-            <span className="text-sm">Back to Portal</span>
+            <span className={`text-sm ${lgHideWhenCollapsed}`}>Back to Portal</span>
           </a>
         </div>
       </aside>

@@ -152,6 +152,17 @@ export async function PATCH(request: NextRequest) {
     if (label !== undefined) updates.label = label;
     if (is_active !== undefined) updates.is_active = is_active;
     if (body.control_bucket !== undefined) updates.control_bucket = body.control_bucket;
+    if (body.color !== undefined) {
+      // Accept hex colors like #RGB or #RRGGBB, or null/empty to clear
+      const raw = body.color;
+      if (raw === null || raw === '') {
+        updates.color = null;
+      } else if (typeof raw === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(raw)) {
+        updates.color = raw.toLowerCase();
+      } else {
+        return NextResponse.json({ error: 'Invalid color — expected hex like #4ade80' }, { status: 400 });
+      }
+    }
 
     const { data, error } = await supabase
       .from('ar_job_statuses')
