@@ -884,7 +884,7 @@ export async function GET(request: NextRequest) {
         let totalOppJobs = 0;
         for (const row of reportData.data) {
           const buName = buIdx >= 0 ? String(row[buIdx]) : '';
-          if (buName === 'HVAC - Sales' || buName === 'Plumbing - Sales' || buName === 'HVAC - Install') continue;
+          if (buName === 'HVAC - Sales' || buName === 'HVAC - Install') continue;
           const oppAvg = oppAvgIdx >= 0 ? Number(row[oppAvgIdx]) || 0 : 0;
           const oppJobs = oppIdx >= 0 ? Number(row[oppIdx]) || 0 : 0;
           weightedSum += oppAvg * oppJobs;
