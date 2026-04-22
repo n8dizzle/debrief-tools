@@ -428,8 +428,9 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // Business days remaining in month (always relative to today, not selected date)
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    // Use Central Time for "today" to avoid UTC date shift after 6/7pm CT
+    const nowCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const todayStr = `${nowCT.getFullYear()}-${String(nowCT.getMonth() + 1).padStart(2, '0')}-${String(nowCT.getDate()).padStart(2, '0')}`;
     const todayForRemaining = new Date(todayStr + 'T00:00:00');
     const daysElapsedToday = getBusinessDaysElapsedInMonth(todayForRemaining, holidays);
     const businessDaysRemaining = businessDaysInMonth - daysElapsedToday;
