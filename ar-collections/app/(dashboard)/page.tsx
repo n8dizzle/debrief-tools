@@ -355,12 +355,12 @@ export default function DashboardPage() {
             No data available
           </div>
         ) : (
-          <div className="h-64">
+          <div style={{ height: `${Math.max(240, displayStats.job_status_totals.slice(0, 8).length * 44 + 40)}px` }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 layout="vertical"
                 data={displayStats.job_status_totals.slice(0, 8)}
-                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
               >
                 <XAxis
                   type="number"
@@ -375,7 +375,8 @@ export default function DashboardPage() {
                   tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   tickLine={false}
-                  width={95}
+                  width={160}
+                  interval={0}
                 />
                 <Tooltip
                   formatter={(value) => [formatCurrency(value as number), 'Balance']}
