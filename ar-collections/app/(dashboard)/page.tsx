@@ -525,62 +525,55 @@ export default function DashboardPage() {
           Residential vs Commercial
         </h2>
         {(() => {
-          const total = displayStats.residential_total + displayStats.commercial_total;
-          const residentialPct = total > 0 ? (displayStats.residential_total / total) * 100 : 0;
-          const commercialPct = total > 0 ? (displayStats.commercial_total / total) * 100 : 0;
+          const rvcSlices = [
+            { filterValue: 'residential', name: 'Residential', value: displayStats.residential_total, color: COLORS.residential },
+            { filterValue: 'commercial', name: 'Commercial', value: displayStats.commercial_total, color: COLORS.commercial },
+          ].filter((s) => s.value > 0);
+
+          if (rvcSlices.length === 0) {
+            return (
+              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                No data available
+              </div>
+            );
+          }
 
           return (
-            <div className="space-y-3">
-              {/* Stacked Bar */}
-              <div className="h-12 rounded-lg overflow-hidden flex" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                {residentialPct > 0 && (
-                  <div
-                    className="h-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
-                    style={{ width: `${residentialPct}%`, backgroundColor: COLORS.residential }}
-                    onClick={() => router.push('/invoices?customerType=residential')}
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={rvcSlices}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                    labelLine={true}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(data) => {
+                      const filterValue = (data as { filterValue?: string } | undefined)?.filterValue;
+                      if (filterValue) router.push(`/invoices?customerType=${encodeURIComponent(filterValue)}`);
+                    }}
                   >
-                    {residentialPct >= 15 && (
-                      <span className="text-white text-sm font-medium px-2 truncate">
-                        {formatCurrency(displayStats.residential_total)} ({residentialPct.toFixed(0)}%)
-                      </span>
-                    )}
-                  </div>
-                )}
-                {commercialPct > 0 && (
-                  <div
-                    className="h-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
-                    style={{ width: `${commercialPct}%`, backgroundColor: COLORS.commercial }}
-                    onClick={() => router.push('/invoices?customerType=commercial')}
-                  >
-                    {commercialPct >= 15 && (
-                      <span className="text-white text-sm font-medium px-2 truncate">
-                        {formatCurrency(displayStats.commercial_total)} ({commercialPct.toFixed(0)}%)
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-              {/* Legend */}
-              <div className="flex justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.residential }} />
-                  <span style={{ color: 'var(--text-secondary)' }}>Residential</span>
-                  {residentialPct < 15 && (
-                    <span style={{ color: 'var(--text-muted)' }}>
-                      {formatCurrency(displayStats.residential_total)} ({residentialPct.toFixed(0)}%)
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {commercialPct < 15 && (
-                    <span style={{ color: 'var(--text-muted)' }}>
-                      {formatCurrency(displayStats.commercial_total)} ({commercialPct.toFixed(0)}%)
-                    </span>
-                  )}
-                  <span style={{ color: 'var(--text-secondary)' }}>Commercial</span>
-                  <div className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.commercial }} />
-                </div>
-              </div>
+                    {rvcSlices.map((s, i) => (
+                      <Cell key={`cell-${i}`} fill={s.color} style={{ cursor: 'pointer' }} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => [formatCurrency((value as number) ?? 0), 'Balance']}
+                    contentStyle={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                    }}
+                    labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                    itemStyle={{ color: 'var(--christmas-cream)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           );
         })()}
@@ -599,36 +592,61 @@ export default function DashboardPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
             Aging Breakdown
           </h2>
-          <div className="space-y-4">
-            {[
-              { key: 'current' as const, filterValue: 'current', label: 'Current (0-30 days)', value: displayStats.aging_buckets.current, color: COLORS.aging.current },
-              { key: 'bucket_30' as const, filterValue: '30', label: '31-60 days', value: displayStats.aging_buckets.bucket_30, color: COLORS.aging.days30 },
-              { key: 'bucket_60' as const, filterValue: '60', label: '61-90 days', value: displayStats.aging_buckets.bucket_60, color: COLORS.aging.days60 },
-              { key: 'bucket_90_plus' as const, filterValue: '90+', label: '90+ days', value: displayStats.aging_buckets.bucket_90_plus, color: COLORS.aging.days90 },
-            ].map((bucket) => {
-              const percent = displayStats.total_outstanding > 0
-                ? (bucket.value / displayStats.total_outstanding) * 100
-                : 0;
+          {(() => {
+            const agingSlices = [
+              { filterValue: 'current', name: 'Current (0-30)', value: displayStats.aging_buckets.current, color: COLORS.aging.current },
+              { filterValue: '30', name: '31-60 days', value: displayStats.aging_buckets.bucket_30, color: COLORS.aging.days30 },
+              { filterValue: '60', name: '61-90 days', value: displayStats.aging_buckets.bucket_60, color: COLORS.aging.days60 },
+              { filterValue: '90+', name: '90+ days', value: displayStats.aging_buckets.bucket_90_plus, color: COLORS.aging.days90 },
+            ].filter((s) => s.value > 0);
+
+            if (agingSlices.length === 0) {
               return (
-                <div
-                  key={bucket.key}
-                  className="cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => router.push(`/invoices?agingBucket=${encodeURIComponent(bucket.filterValue)}`)}
-                >
-                  <div className="flex justify-between text-sm mb-1">
-                    <span style={{ color: 'var(--text-secondary)' }}>{bucket.label}</span>
-                    <span style={{ color: bucket.color }}>{formatCurrency(bucket.value)}</span>
-                  </div>
-                  <div className="h-2 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                    <div
-                      className="h-2 rounded-full transition-all"
-                      style={{ width: `${percent}%`, backgroundColor: bucket.color }}
-                    />
-                  </div>
+                <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  No data available
                 </div>
               );
-            })}
-          </div>
+            }
+
+            return (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={agingSlices}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                      labelLine={true}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(data) => {
+                        const filterValue = (data as { filterValue?: string } | undefined)?.filterValue;
+                        if (filterValue) router.push(`/invoices?agingBucket=${encodeURIComponent(filterValue)}`);
+                      }}
+                    >
+                      {agingSlices.map((s, i) => (
+                        <Cell key={`cell-${i}`} fill={s.color} style={{ cursor: 'pointer' }} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [formatCurrency((value as number) ?? 0), 'Balance']}
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                      }}
+                      labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: 'var(--christmas-cream)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            );
+          })()}
         </div>
 
         {/* AR by Business Unit Group */}
