@@ -64,10 +64,10 @@ function PaceGauge({
   const pacingRatio = projectedPct !== null ? projectedPct / 100 : (noData ? 0 : pacingForNeedle);
 
   const getStatus = () => {
-    if (noData) return { word: '--', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
-    if (pacingRatio >= 1.0) return { word: 'CRUSHING', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
-    if (pacingRatio >= 0.9) return { word: 'BEHIND', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
-    return { word: 'BEHIND', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
+    if (noData) return { word: '--', sub: '', bg: 'var(--bg-secondary)', arcColor: 'var(--text-muted)', icon: '' };
+    if (pacingRatio >= 1.0) return { word: 'CRUSHING', sub: 'Ahead of goal', bg: 'var(--christmas-green)', arcColor: 'var(--christmas-green)', icon: '↑' };
+    if (pacingRatio >= 0.9) return { word: 'SLIGHTLY BEHIND', sub: 'Slightly behind', bg: 'var(--christmas-gold)', arcColor: 'var(--christmas-gold)', icon: '!' };
+    return { word: 'BEHIND', sub: 'Behind pace', bg: '#DC2626', arcColor: '#EF4444', icon: '!' };
   };
   const status = getStatus();
   const bannerTextColor = 'var(--bg-primary)';
@@ -86,9 +86,14 @@ function PaceGauge({
           <span className="text-sm font-bold uppercase tracking-wider" style={{ color: bannerTextColor }}>{status.word}</span>
         </div>
         {projectedPct !== null && !noData && (
-          <span className="text-sm font-bold" style={{ color: bannerTextColor }}>
-            Pacing to {projectedPct}%
-          </span>
+          <div className="text-right">
+            <div className="text-sm font-bold" style={{ color: bannerTextColor }}>
+              Pacing to {projectedPct}%
+            </div>
+            <div className="text-[10px]" style={{ color: bannerTextColor, opacity: 0.7 }}>
+              {status.sub}
+            </div>
+          </div>
         )}
       </div>
 
