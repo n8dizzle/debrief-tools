@@ -869,33 +869,6 @@ export async function GET(request: NextRequest) {
     const oppJobAvgTarget = OPP_JOB_AVG_TARGETS[year]?.monthly[month - 1] || 0;
 
     let oppJobAvgActual = 0;
-    try {
-      const firstOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
-      const lastOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
-      const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
-      if (reportData.fields && reportData.data) {
-        const fieldMap = new Map<string, number>();
-        reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
-        const buIdx = fieldMap.get('Name') ?? -1;
-        const oppAvgIdx = fieldMap.get('OpportunityJobAverage') ?? -1;
-        const oppIdx = fieldMap.get('Opportunity') ?? -1;
-
-        let weightedSum = 0;
-        let totalOppJobs = 0;
-        for (const row of reportData.data) {
-          const buName = buIdx >= 0 ? String(row[buIdx]) : '';
-          if (buName === 'HVAC - Sales' || buName === 'HVAC - Install') continue;
-          const oppAvg = oppAvgIdx >= 0 ? Number(row[oppAvgIdx]) || 0 : 0;
-          const oppJobs = oppIdx >= 0 ? Number(row[oppIdx]) || 0 : 0;
-          weightedSum += oppAvg * oppJobs;
-          totalOppJobs += oppJobs;
-        }
-        oppJobAvgActual = totalOppJobs > 0 ? Math.round(weightedSum / totalOppJobs) : 0;
-      }
-    } catch (err) {
-      console.error('Error fetching opp job avg:', err);
-    }
-
     let replacementLeadsMtd = 0;
     let tglLeadsMtd = 0;
     let marketingLeadsMtd = 0;
@@ -911,26 +884,42 @@ export async function GET(request: NextRequest) {
       marketingLeadsMtd = leads.marketingLead;
       replacementLeadsMtd = leads.total;
 
-      // Close rate + avg sale from operations report (HVAC - Sales row)
+      // Single operations report call for both opp job avg AND HVAC Sales close rate
       const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
       if (reportData.fields && reportData.data) {
         const fieldMap = new Map<string, number>();
         reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
         const buIdx = fieldMap.get('Name') ?? -1;
+        const oppAvgIdx = fieldMap.get('OpportunityJobAverage') ?? -1;
+        const oppIdx = fieldMap.get('Opportunity') ?? -1;
         const closeRateIdx = fieldMap.get('CloseRate') ?? -1;
         const avgSaleIdx = fieldMap.get('ClosedAverageSale') ?? fieldMap.get('ConvertedJobAverage') ?? -1;
 
+        let weightedSum = 0;
+        let totalOppJobs = 0;
+
         for (const row of reportData.data) {
           const buName = buIdx >= 0 ? String(row[buIdx]) : '';
+
+          // HVAC Sales: extract close rate + avg sale
           if (buName === 'HVAC - Sales') {
             if (closeRateIdx >= 0) hvacSalesCloseRate = Number(row[closeRateIdx]) || 0;
             if (avgSaleIdx >= 0) hvacSalesAvgSale = Number(row[avgSaleIdx]) || 0;
-            break;
+          }
+
+          // Opp Job Avg: all BUs except HVAC Sales and HVAC Install
+          if (buName !== 'HVAC - Sales' && buName !== 'HVAC - Install') {
+            const oppAvg = oppAvgIdx >= 0 ? Number(row[oppAvgIdx]) || 0 : 0;
+            const oppJobs = oppIdx >= 0 ? Number(row[oppIdx]) || 0 : 0;
+            weightedSum += oppAvg * oppJobs;
+            totalOppJobs += oppJobs;
           }
         }
+
+        oppJobAvgActual = totalOppJobs > 0 ? Math.round(weightedSum / totalOppJobs) : 0;
       }
     } catch (err) {
-      console.error('Error fetching HVAC sales leads data:', err);
+      console.error('Error fetching operations report data:', err);
     }
 
     // Pacing data object

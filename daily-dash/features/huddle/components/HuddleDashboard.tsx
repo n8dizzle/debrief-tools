@@ -35,6 +35,7 @@ function PaceGauge({
   daysInMonth,
   tooltip,
   stats,
+  isCurrency,
 }: {
   label: string;
   needed: number;
@@ -48,6 +49,7 @@ function PaceGauge({
   daysInMonth?: number;
   tooltip?: string;
   stats?: { label: string; value: string }[];
+  isCurrency?: boolean;
 }) {
   const fmt = formatValue || formatCardCurrency;
   const sfx = suffix || '/day';
@@ -85,8 +87,7 @@ function PaceGauge({
 
   // Pacing toward dollar amount
   const pacingTowardAmount = (projectedPct !== null && mtdGoal) ? Math.round(mtdGoal * projectedPct / 100) : null;
-  // For goal/actual display: use currency formatter if no custom format, otherwise show integer
-  const fmtGoal = formatValue ? ((v: number) => String(Math.round(v))) : formatCardCurrency;
+  const fmtGoal = isCurrency !== false ? formatCardCurrency : ((v: number) => String(Math.round(v)));
 
   return (
     <div className="flex-1 min-w-0 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
@@ -804,8 +805,10 @@ export default function HuddleDashboard({
                             const closeRate = pacingData?.hvacSalesCloseRate || 0;
                             const avgSale = pacingData?.hvacSalesAvgSale || 0;
                             const cardStats = [
-                              ...(closeRate > 0 ? [{ label: 'Close Rate', value: `${Math.round(closeRate * 100)}%` }] : []),
-                              ...(avgSale > 0 ? [{ label: 'Avg Sale', value: formatCardCurrency(avgSale) }] : []),
+                              { label: 'TGL', value: String(tglMtd) },
+                              { label: 'Marketing', value: String(mktMtd) },
+                              { label: 'Close Rate', value: closeRate > 0 ? `${Math.round(closeRate * 100)}%` : '--' },
+                              { label: 'Avg Sale', value: avgSale > 0 ? formatCardCurrency(avgSale) : '--' },
                             ];
                             return (
                               <PaceGauge
@@ -814,6 +817,7 @@ export default function HuddleDashboard({
                                 target={leadsPerDayTarget}
                                 suffix="/day"
                                 formatValue={(v) => v.toFixed(1)}
+                                isCurrency={false}
                                 noData={leadsGoal === 0}
                                 mtdActual={leadsMtd}
                                 mtdGoal={leadsGoal}
