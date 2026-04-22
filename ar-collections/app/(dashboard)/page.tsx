@@ -514,74 +514,76 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Residential vs Commercial */}
-      <div
-        className="p-4 sm:p-5 rounded-xl"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-          Residential vs Commercial
-        </h2>
-        {(() => {
-          const rvcSlices = [
-            { filterValue: 'residential', name: 'Residential', value: displayStats.residential_total, color: COLORS.residential },
-            { filterValue: 'commercial', name: 'Commercial', value: displayStats.commercial_total, color: COLORS.commercial },
-          ].filter((s) => s.value > 0);
+      {/* Residential vs Commercial + Aging Breakdown + AR by BU Group
+          — mobile-first 1-up; 3-up from md breakpoint on. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Residential vs Commercial */}
+        <div
+          className="p-4 sm:p-5 rounded-xl"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+            Residential vs Commercial
+          </h2>
+          {(() => {
+            const rvcSlices = [
+              { filterValue: 'residential', name: 'Residential', value: displayStats.residential_total, color: COLORS.residential },
+              { filterValue: 'commercial', name: 'Commercial', value: displayStats.commercial_total, color: COLORS.commercial },
+            ].filter((s) => s.value > 0);
 
-          if (rvcSlices.length === 0) {
+            if (rvcSlices.length === 0) {
+              return (
+                <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  No data available
+                </div>
+              );
+            }
+
             return (
-              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                No data available
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={rvcSlices}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={70}
+                      label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                      labelLine={true}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(data) => {
+                        const filterValue = (data as { filterValue?: string } | undefined)?.filterValue;
+                        if (filterValue) router.push(`/invoices?customerType=${encodeURIComponent(filterValue)}`);
+                      }}
+                    >
+                      {rvcSlices.map((s, i) => (
+                        <Cell key={`cell-${i}`} fill={s.color} style={{ cursor: 'pointer' }} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [formatCurrency((value as number) ?? 0), 'Balance']}
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                      }}
+                      labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: 'var(--christmas-cream)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             );
-          }
+          })()}
+        </div>
 
-          return (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={rvcSlices}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
-                    labelLine={true}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(data) => {
-                      const filterValue = (data as { filterValue?: string } | undefined)?.filterValue;
-                      if (filterValue) router.push(`/invoices?customerType=${encodeURIComponent(filterValue)}`);
-                    }}
-                  >
-                    {rvcSlices.map((s, i) => (
-                      <Cell key={`cell-${i}`} fill={s.color} style={{ cursor: 'pointer' }} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => [formatCurrency((value as number) ?? 0), 'Balance']}
-                    contentStyle={{
-                      backgroundColor: 'var(--bg-card)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                    }}
-                    labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                    itemStyle={{ color: 'var(--christmas-cream)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          );
-        })()}
-      </div>
 
-      {/* Aging Buckets & Business Unit */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Aging Buckets */}
         <div
           className="p-4 sm:p-5 rounded-xl"
@@ -619,7 +621,7 @@ export default function DashboardPage() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}
+                      outerRadius={70}
                       label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
                       labelLine={true}
                       style={{ cursor: 'pointer' }}
@@ -703,7 +705,7 @@ export default function DashboardPage() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}
+                      outerRadius={70}
                       label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
                       labelLine={true}
                       style={{ cursor: 'pointer' }}
