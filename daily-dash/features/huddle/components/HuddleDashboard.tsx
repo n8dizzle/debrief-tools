@@ -159,27 +159,26 @@ function PaceGauge({
       {/* Bottom: Actual + Need/day stacked center */}
       <div className="px-5 pb-4 -mt-2">
         {/* Actual */}
-        {/* Actual + extra stats in a compact layout */}
+        {/* Actual with optional tooltip for extra stats */}
         {mtdActual !== undefined && !noData && (
-          <div className="mb-2">
-            {stats && stats.length > 0 ? (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                <div className="col-span-2 text-center mb-1">
-                  <span style={{ color: 'var(--text-muted)' }}>Actual: </span>
-                  <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
+          <div className="text-center mb-2 relative group/stats">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
+            <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
+            {stats && stats.length > 0 && (
+              <>
+                <span className="ml-1.5 text-xs cursor-help inline-block px-1" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
+                <div
+                  className="absolute z-10 left-1/2 -translate-x-1/2 top-full mt-1 px-4 py-3 rounded-lg text-xs hidden group-hover/stats:block"
+                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', minWidth: '160px' }}
+                >
+                  {stats.map((s) => (
+                    <div key={s.label} className="flex justify-between py-0.5">
+                      <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
+                      <span className="font-bold ml-4" style={{ color: 'var(--christmas-cream)' }}>{s.value}</span>
+                    </div>
+                  ))}
                 </div>
-                {stats.map((s) => (
-                  <div key={s.label} className="flex justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
-                    <span className="font-bold" style={{ color: 'var(--christmas-cream)' }}>{s.value}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center">
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
-                <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
-              </div>
+              </>
             )}
           </div>
         )}
