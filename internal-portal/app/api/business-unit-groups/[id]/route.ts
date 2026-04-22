@@ -21,7 +21,7 @@ async function requireOwner() {
 }
 
 // PATCH /api/business-unit-groups/[id]
-// Body may include: label, is_active, sort_order, members (array of BU IDs or {id,name} objects)
+// Body may include: label, is_active, sort_order, members (array of BU names)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
@@ -36,7 +36,7 @@ export async function PATCH(
       label?: string;
       is_active?: boolean;
       sort_order?: number;
-      members?: Array<{ business_unit_id: number; business_unit_name?: string | null } | number>;
+      members?: Array<{ business_unit_name: string } | string>;
     };
 
     const supabase = getServerSupabase();
@@ -55,45 +55,42 @@ export async function PATCH(
     }
 
     if (members !== undefined) {
-      // Replace membership set for this group. Because business_unit_id is PK in the
-      // members table (1 BU → 1 group), upsert here will move a BU from any other
-      // group into this one.
-      // First, remove any current members of this group that aren't in the new set.
-      // Runtime type-check: JSON body is untrusted, coerce IDs to integers and drop NaN.
-      const normalized = members
+      // Replace membership set for this group. business_unit_name is PK in the
+      // members table (1 BU -> 1 group); upsert moves a BU between groups.
+      // Runtime type-check: JSON body is untrusted, filter non-strings.
+      const names = members
         .map((m) => {
-          const rawId = typeof m === "number" ? m : m?.business_unit_id;
-          const id = Number(rawId);
-          if (!Number.isInteger(id)) return null;
-          const name =
-            typeof m === "number" ? null : (m?.business_unit_name ?? null);
-          return { business_unit_id: id, business_unit_name: name };
+          const raw = typeof m === "string" ? m : m?.business_unit_name;
+          return typeof raw === "string" && raw.trim() ? raw.trim() : null;
         })
-        .filter((m): m is { business_unit_id: number; business_unit_name: string | null } => m !== null);
-      const newIds = normalized.map((m) => m.business_unit_id);
+        .filter((n): n is string => n !== null);
 
-      if (newIds.length === 0) {
+      if (names.length === 0) {
         const { error: delErr } = await supabase
           .from("shared_business_unit_group_members")
           .delete()
           .eq("group_id", id);
         if (delErr) throw delErr;
       } else {
+        // Delete any current members of this group not in the new set.
+        // PostgREST "in" filter: quote each name, escape embedded double-quotes.
+        const quotedList = names
+          .map((n) => `"${n.replace(/"/g, '""')}"`)
+          .join(",");
         const { error: delErr } = await supabase
           .from("shared_business_unit_group_members")
           .delete()
           .eq("group_id", id)
-          .not("business_unit_id", "in", `(${newIds.join(",")})`);
+          .not("business_unit_name", "in", `(${quotedList})`);
         if (delErr) throw delErr;
 
-        const rows = normalized.map((m) => ({
-          business_unit_id: m.business_unit_id,
-          business_unit_name: m.business_unit_name,
+        const rows = names.map((business_unit_name) => ({
+          business_unit_name,
           group_id: id,
         }));
         const { error: upErr } = await supabase
           .from("shared_business_unit_group_members")
-          .upsert(rows, { onConflict: "business_unit_id" });
+          .upsert(rows, { onConflict: "business_unit_name" });
         if (upErr) throw upErr;
       }
     }
@@ -107,7 +104,7 @@ export async function PATCH(
 
     const { data: memberRows, error: memErr } = await supabase
       .from("shared_business_unit_group_members")
-      .select("business_unit_id, business_unit_name")
+      .select("business_unit_name")
       .eq("group_id", id);
     if (memErr) throw memErr;
 

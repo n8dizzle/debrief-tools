@@ -24,7 +24,7 @@ export async function GET() {
         .order('label', { ascending: true }),
       supabase
         .from('shared_business_unit_group_members')
-        .select('business_unit_id, business_unit_name, group_id'),
+        .select('business_unit_name, group_id'),
     ]);
 
     if (groupsRes.error) throw groupsRes.error;
@@ -33,10 +33,9 @@ export async function GET() {
     const groups = groupsRes.data || [];
     const members = membersRes.data || [];
 
-    const byGroup: Record<string, { business_unit_id: number; business_unit_name: string | null }[]> = {};
-    for (const m of members as Array<{ business_unit_id: number; business_unit_name: string | null; group_id: string }>) {
+    const byGroup: Record<string, { business_unit_name: string }[]> = {};
+    for (const m of members as Array<{ business_unit_name: string; group_id: string }>) {
       (byGroup[m.group_id] ||= []).push({
-        business_unit_id: m.business_unit_id,
         business_unit_name: m.business_unit_name,
       });
     }

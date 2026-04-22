@@ -14,8 +14,7 @@ interface GroupRow {
 }
 
 interface MemberRow {
-  business_unit_id: number;
-  business_unit_name: string | null;
+  business_unit_name: string;
   group_id: string;
 }
 
@@ -37,7 +36,7 @@ export async function GET() {
         .order("label", { ascending: true }),
       supabase
         .from("shared_business_unit_group_members")
-        .select("business_unit_id, business_unit_name, group_id"),
+        .select("business_unit_name, group_id"),
     ]);
 
     if (groupsRes.error) throw groupsRes.error;
@@ -54,7 +53,6 @@ export async function GET() {
     const result = groups.map((g) => ({
       ...g,
       members: (byGroup[g.id] || []).map((m) => ({
-        business_unit_id: m.business_unit_id,
         business_unit_name: m.business_unit_name,
       })),
     }));

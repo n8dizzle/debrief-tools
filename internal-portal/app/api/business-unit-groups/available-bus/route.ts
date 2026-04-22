@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { getServerSupabase, getPortalUser } from "@/lib/supabase";
 
 // GET /api/business-unit-groups/available-bus
-// Returns the distinct ServiceTitan business units seen across AR invoices.
+// Returns the distinct ServiceTitan business-unit *names* seen across AR invoices.
+// Keyed on name because ar_invoices.business_unit_id is not populated by sync.
 // Admin-only — the raw list is only needed for the mapping UI.
 export async function GET() {
   try {
@@ -20,40 +21,30 @@ export async function GET() {
 
     const supabase = getServerSupabase();
 
-    // Pull distinct BUs from ar_invoices (most comprehensive source today).
-    // Paginate to avoid the default 1000-row cap.
-    const all: { business_unit_id: number; business_unit_name: string | null }[] = [];
-    const seen = new Set<number>();
+    const names = new Set<string>();
     const pageSize = 1000;
     let offset = 0;
     for (let i = 0; i < 50; i++) {
       const { data, error } = await supabase
         .from("ar_invoices")
-        .select("business_unit_id, business_unit_name")
-        .not("business_unit_id", "is", null)
+        .select("business_unit_name")
+        .not("business_unit_name", "is", null)
         .range(offset, offset + pageSize - 1);
       if (error) throw error;
       if (!data || data.length === 0) break;
       for (const row of data) {
-        const id = row.business_unit_id as number | null;
-        if (id == null || seen.has(id)) continue;
-        seen.add(id);
-        all.push({
-          business_unit_id: id,
-          business_unit_name: (row.business_unit_name as string | null) ?? null,
-        });
+        const name = row.business_unit_name as string | null;
+        if (name) names.add(name);
       }
       if (data.length < pageSize) break;
       offset += pageSize;
     }
 
-    all.sort((a, b) => {
-      const an = a.business_unit_name || "";
-      const bn = b.business_unit_name || "";
-      return an.localeCompare(bn);
-    });
+    const businessUnits = Array.from(names)
+      .sort((a, b) => a.localeCompare(b))
+      .map((business_unit_name) => ({ business_unit_name }));
 
-    return NextResponse.json({ businessUnits: all });
+    return NextResponse.json({ businessUnits });
   } catch (error) {
     console.error("Error fetching available business units:", error);
     return NextResponse.json(

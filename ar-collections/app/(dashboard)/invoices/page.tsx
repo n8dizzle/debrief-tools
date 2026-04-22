@@ -31,7 +31,7 @@ interface BusinessUnitGroup {
   label: string;
   sort_order: number;
   is_active: boolean;
-  members: { business_unit_id: number; business_unit_name: string | null }[];
+  members: { business_unit_name: string }[];
 }
 
 // Multi-select dropdown component
@@ -247,14 +247,14 @@ export default function InvoicesPage() {
     return map;
   }, [jobStatuses]);
 
-  // Pre-compute allowed BU IDs for currently-selected groups.
-  const allowedBUIdsForSelectedGroups = useMemo(() => {
-    const set = new Set<number>();
+  // Pre-compute allowed BU names for currently-selected groups.
+  const allowedBUNamesForSelectedGroups = useMemo(() => {
+    const set = new Set<string>();
     if (filters.businessUnitGroups.length === 0) return set;
     const selected = new Set(filters.businessUnitGroups);
     for (const g of businessUnitGroups) {
       if (!selected.has(g.id)) continue;
-      for (const m of g.members) set.add(m.business_unit_id);
+      for (const m of g.members) set.add(m.business_unit_name);
     }
     return set;
   }, [filters.businessUnitGroups, businessUnitGroups]);
@@ -623,7 +623,7 @@ export default function InvoicesPage() {
     }
     if (filters.businessUnits.length > 0 && !filters.businessUnits.includes(inv.business_unit_name || '')) return false;
     if (filters.businessUnitGroups.length > 0) {
-      if (inv.business_unit_id == null || !allowedBUIdsForSelectedGroups.has(inv.business_unit_id)) return false;
+      if (!inv.business_unit_name || !allowedBUNamesForSelectedGroups.has(inv.business_unit_name)) return false;
     }
     if (filters.owners.length > 0 && !filters.owners.includes(inv.tracking?.owner_id || '')) return false;
     if (filters.controlBuckets.length > 0 && !filters.controlBuckets.includes(inv.tracking?.control_bucket || '')) return false;

@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 
 interface BU {
-  business_unit_id: number;
-  business_unit_name: string | null;
+  business_unit_name: string;
 }
 
 interface Group {
@@ -138,7 +137,6 @@ export default function BusinessUnitGroupsPage() {
     [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
     setGroups(reordered);
 
-    // Persist sort_order for both affected groups.
     for (let i = 0; i < reordered.length; i++) {
       const g = reordered[i];
       const newOrder = i + 1;
@@ -153,31 +151,32 @@ export default function BusinessUnitGroupsPage() {
     }
   }
 
-  function removeBU(group: Group, buId: number) {
-    const nextMembers = group.members.filter((m) => m.business_unit_id !== buId);
+  function removeBU(group: Group, name: string) {
+    const nextMembers = group.members.filter((m) => m.business_unit_name !== name);
     updateGroup(group.id, { members: nextMembers });
   }
 
-  function addBU(group: Group, buId: number) {
-    const bu = availableBUs.find((b) => b.business_unit_id === buId);
+  function addBU(group: Group, name: string) {
+    const bu = availableBUs.find((b) => b.business_unit_name === name);
     if (!bu) return;
-    // 1 BU → 1 group is enforced by the DB (business_unit_id is PK in the members
-    // table). Upserting via the API will move it out of any other group.
-    const nextMembers = [...group.members.filter((m) => m.business_unit_id !== buId), bu];
+    const nextMembers = [
+      ...group.members.filter((m) => m.business_unit_name !== name),
+      bu,
+    ];
     updateGroup(group.id, { members: nextMembers });
     setAddingToGroupId(null);
     setBuPickerSelection("");
   }
 
-  const assignedBUIds = useMemo(() => {
-    const s = new Set<number>();
-    for (const g of groups) for (const m of g.members) s.add(m.business_unit_id);
+  const assignedNames = useMemo(() => {
+    const s = new Set<string>();
+    for (const g of groups) for (const m of g.members) s.add(m.business_unit_name);
     return s;
   }, [groups]);
 
   const unassignedBUs = useMemo(
-    () => availableBUs.filter((b) => !assignedBUIds.has(b.business_unit_id)),
-    [availableBUs, assignedBUIds],
+    () => availableBUs.filter((b) => !assignedNames.has(b.business_unit_name)),
+    [availableBUs, assignedNames],
   );
 
   if (permsLoading) {
@@ -198,7 +197,6 @@ export default function BusinessUnitGroupsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
           Business Unit Groups
@@ -234,7 +232,6 @@ export default function BusinessUnitGroupsPage() {
         </div>
       ) : (
         <>
-          {/* Groups */}
           <div className="space-y-3">
             {groups.length === 0 ? (
               <div className="card">
@@ -245,7 +242,6 @@ export default function BusinessUnitGroupsPage() {
             ) : (
               groups.map((group, index) => (
                 <div key={group.id} className="card">
-                  {/* Row 1: label + actions */}
                   <div className="flex items-center gap-3 mb-3">
                     <div className="flex flex-col">
                       <button
@@ -344,7 +340,6 @@ export default function BusinessUnitGroupsPage() {
                     )}
                   </div>
 
-                  {/* Members chips */}
                   <div className="flex flex-wrap gap-2 mb-3">
                     {group.members.length === 0 ? (
                       <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>
@@ -354,11 +349,11 @@ export default function BusinessUnitGroupsPage() {
                       group.members
                         .slice()
                         .sort((a, b) =>
-                          (a.business_unit_name || "").localeCompare(b.business_unit_name || ""),
+                          a.business_unit_name.localeCompare(b.business_unit_name),
                         )
                         .map((m) => (
                           <span
-                            key={m.business_unit_id}
+                            key={m.business_unit_name}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs"
                             style={{
                               backgroundColor: "var(--bg-secondary)",
@@ -366,9 +361,9 @@ export default function BusinessUnitGroupsPage() {
                               border: "1px solid var(--border-subtle)",
                             }}
                           >
-                            {m.business_unit_name || `BU #${m.business_unit_id}`}
+                            {m.business_unit_name}
                             <button
-                              onClick={() => removeBU(group, m.business_unit_id)}
+                              onClick={() => removeBU(group, m.business_unit_name)}
                               className="hover:text-red-400"
                               title="Remove from group"
                               aria-label="Remove"
@@ -382,7 +377,6 @@ export default function BusinessUnitGroupsPage() {
                     )}
                   </div>
 
-                  {/* Add BU */}
                   {addingToGroupId === group.id ? (
                     <div className="flex gap-2">
                       <select
@@ -401,11 +395,11 @@ export default function BusinessUnitGroupsPage() {
                           const otherGroup = groups.find(
                             (g) =>
                               g.id !== group.id &&
-                              g.members.some((m) => m.business_unit_id === b.business_unit_id),
+                              g.members.some((m) => m.business_unit_name === b.business_unit_name),
                           );
                           return (
-                            <option key={b.business_unit_id} value={b.business_unit_id}>
-                              {b.business_unit_name || `BU #${b.business_unit_id}`}
+                            <option key={b.business_unit_name} value={b.business_unit_name}>
+                              {b.business_unit_name}
                               {otherGroup ? ` (currently in ${otherGroup.label})` : ""}
                             </option>
                           );
@@ -413,8 +407,7 @@ export default function BusinessUnitGroupsPage() {
                       </select>
                       <button
                         onClick={() => {
-                          const id = Number(buPickerSelection);
-                          if (id) addBU(group, id);
+                          if (buPickerSelection) addBU(group, buPickerSelection);
                         }}
                         disabled={!buPickerSelection}
                         className="btn btn-primary"
@@ -445,7 +438,6 @@ export default function BusinessUnitGroupsPage() {
             )}
           </div>
 
-          {/* Add new group */}
           <div className="card">
             <h3 className="font-semibold mb-3" style={{ color: "var(--christmas-cream)" }}>
               Add New Group
@@ -476,7 +468,6 @@ export default function BusinessUnitGroupsPage() {
             </div>
           </div>
 
-          {/* Unassigned BUs */}
           <div className="card">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold" style={{ color: "var(--christmas-cream)" }}>
@@ -494,7 +485,7 @@ export default function BusinessUnitGroupsPage() {
               <div className="flex flex-wrap gap-2">
                 {unassignedBUs.map((b) => (
                   <span
-                    key={b.business_unit_id}
+                    key={b.business_unit_name}
                     className="px-2.5 py-1 rounded-full text-xs"
                     style={{
                       backgroundColor: "var(--bg-secondary)",
@@ -502,7 +493,7 @@ export default function BusinessUnitGroupsPage() {
                       border: "1px dashed var(--border-subtle)",
                     }}
                   >
-                    {b.business_unit_name || `BU #${b.business_unit_id}`}
+                    {b.business_unit_name}
                   </span>
                 ))}
               </div>
