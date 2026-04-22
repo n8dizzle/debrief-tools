@@ -92,9 +92,21 @@ function PaceGauge({
         )}
       </div>
 
-      {/* Label */}
-      <div className="px-4 pt-4 pb-1">
+      {/* Label + Goal */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-1">
         <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
+        {mtdGoal !== undefined && !noData && (
+          <div className="text-right">
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{mtdGoal >= 1000 ? formatCardCurrency(mtdGoal) : Math.round(mtdGoal)}</span>
+            </div>
+            {mtdActual !== undefined && (
+              <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                Actual: {mtdActual >= 1000 ? formatCardCurrency(mtdActual) : Math.round(mtdActual)}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Gauge */}
