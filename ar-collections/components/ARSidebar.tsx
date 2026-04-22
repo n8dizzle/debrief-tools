@@ -184,7 +184,7 @@ export default function ARSidebar({
         {onToggleDesktopCollapsed && (
           <button
             onClick={onToggleDesktopCollapsed}
-            className="hidden lg:flex items-center justify-center py-2 border-b hover:bg-white/5 transition-colors"
+            className="hidden lg:flex items-center justify-end pr-3 py-2 border-b hover:bg-white/5 transition-colors"
             style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
             aria-label={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
