@@ -862,6 +862,41 @@ export async function GET(request: NextRequest) {
     };
     const replacementLeadMonthlyGoal = REPLACEMENT_LEAD_TARGETS[year]?.monthly[month - 1] || 0;
 
+    // --- Opportunity Job Average (Svc+Mnt+Plb, excludes HVAC Sales) ---
+    const OPP_JOB_AVG_TARGETS: Record<number, { monthly: number[] }> = {
+      2026: { monthly: [290, 334, 379, 400, 576, 514, 528, 574, 433, 459, 390, 397] },
+    };
+    const oppJobAvgTarget = OPP_JOB_AVG_TARGETS[year]?.monthly[month - 1] || 0;
+
+    let oppJobAvgActual = 0;
+    try {
+      const firstOfMonthStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastOfMonthStr = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+      const reportData = await stClient.getOperationsReport(173574034, firstOfMonthStr, lastOfMonthStr);
+      if (reportData.fields && reportData.data) {
+        const fieldMap = new Map<string, number>();
+        reportData.fields.forEach((f: { name: string }, i: number) => fieldMap.set(f.name, i));
+        const buIdx = fieldMap.get('Name') ?? -1;
+        const completedIdx = fieldMap.get('CompletedJobs') ?? -1;
+        const revIdx = fieldMap.get('CompletedRevenue') ?? -1;
+
+        let totalJobs = 0;
+        let totalRev = 0;
+        for (const row of reportData.data) {
+          const buName = buIdx >= 0 ? String(row[buIdx]) : '';
+          // Exclude HVAC Sales and Plumbing Sales (no completed revenue)
+          if (buName === 'HVAC - Sales' || buName === 'Plumbing - Sales' || buName === 'HVAC - Install') continue;
+          const jobs = completedIdx >= 0 ? Number(row[completedIdx]) || 0 : 0;
+          const rev = revIdx >= 0 ? Number(row[revIdx]) || 0 : 0;
+          totalJobs += jobs;
+          totalRev += rev;
+        }
+        oppJobAvgActual = totalJobs > 0 ? Math.round(totalRev / totalJobs) : 0;
+      }
+    } catch (err) {
+      console.error('Error fetching opp job avg:', err);
+    }
+
     let replacementLeadsMtd = 0;
     let tglLeadsMtd = 0;
     let marketingLeadsMtd = 0;
@@ -948,6 +983,8 @@ export async function GET(request: NextRequest) {
       replacementLeadMonthlyGoal,
       hvacSalesCloseRate: Math.round(hvacSalesCloseRate * 100) / 100,
       hvacSalesAvgSale: Math.round(hvacSalesAvgSale),
+      oppJobAvgActual,
+      oppJobAvgTarget,
     };
 
     // Build trade totals for the selected date from trade_daily_snapshots

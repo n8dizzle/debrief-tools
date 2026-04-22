@@ -135,6 +135,8 @@ export interface PacingData {
   replacementLeadMonthlyGoal: number;
   hvacSalesCloseRate: number;
   hvacSalesAvgSale: number;
+  oppJobAvgActual: number;
+  oppJobAvgTarget: number;
 }
 
 export interface HuddleApiResponse {

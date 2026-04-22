@@ -192,6 +192,8 @@ export interface HuddlePacingData {
   replacementLeadMonthlyGoal: number;
   hvacSalesCloseRate: number;
   hvacSalesAvgSale: number;
+  oppJobAvgActual: number;
+  oppJobAvgTarget: number;
 }
 
 export interface HuddleDashboardResponse {

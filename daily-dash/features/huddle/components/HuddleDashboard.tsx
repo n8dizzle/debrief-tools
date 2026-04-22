@@ -826,13 +826,29 @@ export default function HuddleDashboard({
                               />
                             );
                           })()}
-                          <PaceGauge
-                            label="Avg Ticket"
-                            needed={0}
-                            target={0}
-                            suffix=""
-                            noData
-                          />
+                          {(() => {
+                            const oppActual = pacingData?.oppJobAvgActual || 0;
+                            const oppTarget = pacingData?.oppJobAvgTarget || 0;
+                            // Avg ticket: not cumulative, so projected % = actual/target
+                            // Fake needed/target so the gauge needle lands correctly:
+                            // If actual >= target, needed <= target (on track)
+                            // If actual < target, needed > target (behind)
+                            const fakeNeeded = oppActual > 0 ? oppTarget * (oppTarget / oppActual) : oppTarget * 2;
+                            return (
+                              <PaceGauge
+                                label="Opp Job Avg"
+                                needed={fakeNeeded}
+                                target={oppTarget}
+                                suffix=""
+                                formatValue={(v) => formatCardCurrency(v)}
+                                noData={oppTarget === 0}
+                                mtdActual={oppActual}
+                                mtdGoal={oppTarget}
+                                daysElapsed={1}
+                                daysInMonth={1}
+                              />
+                            );
+                          })()}
                         </>
                       );
                     })()}
