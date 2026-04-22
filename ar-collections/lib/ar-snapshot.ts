@@ -1,10 +1,22 @@
 // Compute and persist daily AR snapshots.
 //
-// Historical reconstruction uses ar_invoices.{invoice_date, last_payment_date,
-// invoice_total, balance, business_unit_name} to approximate "balance as of
-// date D". Caveats: partial payments before last_payment_date slightly
-// overestimate historical AR; today's control_bucket is applied to historical
-// invoices (fine for stable, imprecise for re-bucketed).
+// Historical reconstruction rules (data reality as of Apr 2026):
+//   - ar_invoices.last_payment_date is universally null in this deployment.
+//   - ar_invoices.status is 'open' or 'paid'.
+//   - ar_payments has records for only some paid invoices (~10%).
+//
+// Reconstruction strategy:
+//   - status='open' invoice: assumed outstanding since invoice_date with
+//     amount = today's balance. (Lower bound: if pre-D partial payments
+//     happened we'd underestimate, but we can't see them.)
+//   - status='paid' with ar_payments record: use max(payment_date) as
+//     close date. Outstanding on D if payment_date > D, amount = invoice_total.
+//   - status='paid' with NO ar_payments record: unknown close date.
+//     SKIP entirely from the historical series. The alternative (assume
+//     perpetually outstanding) inflated the chart by ~$2M.
+//
+// Control bucket and group mapping still use today's state — documented
+// caveats remain.
 
 import { getServerSupabase } from '@/lib/supabase';
 
@@ -17,11 +29,17 @@ interface SnapshotInvoice {
   invoice_total: number | string | null;
   balance: number | string | null;
   business_unit_name: string | null;
+  status: string | null;
 }
 
 interface TrackingRow {
   invoice_id: string;
   control_bucket: string | null;
+}
+
+interface PaymentRow {
+  invoice_id: string;
+  payment_date: string;
 }
 
 function toNum(v: number | string | null | undefined): number {
@@ -61,12 +79,15 @@ export interface SnapshotResult {
 interface PreparedInvoice {
   id: string;
   invoiceDateMs: number;
-  lastPaymentDateMs: number | null;
+  // Latest payment_date from ar_payments (or ar_invoices.last_payment_date if
+  // populated). Null means we have no timing info.
+  closedAtMs: number | null;
   balance: number;
   invoiceTotal: number;
   businessUnitName: string | null;
-  bucket: string | null; // current control_bucket (applied to all dates — caveat)
-  groupId: string | null; // current group membership (applied to all dates — caveat)
+  status: string | null; // 'open' | 'paid' | other
+  bucket: string | null;
+  groupId: string | null;
 }
 
 export interface BulkData {
@@ -87,11 +108,29 @@ export async function fetchBulkData(): Promise<BulkData> {
   for (let offset = 0; offset < 50000; offset += pageSize) {
     const { data, error } = await supabase
       .from('ar_invoices')
-      .select('id, invoice_date, last_payment_date, invoice_total, balance, business_unit_name')
+      .select('id, invoice_date, last_payment_date, invoice_total, balance, business_unit_name, status')
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
     rawInvoices.push(...(data as SnapshotInvoice[]));
+    if (data.length < pageSize) break;
+  }
+
+  // Payments — collect latest payment_date per invoice.
+  const latestPaymentByInvoice = new Map<string, number>(); // invoice_id -> ms
+  for (let offset = 0; offset < 100000; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('ar_payments')
+      .select('invoice_id, payment_date')
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of (data as PaymentRow[]) || []) {
+      if (!row.invoice_id || !row.payment_date) continue;
+      const ms = new Date(`${row.payment_date}T12:00:00`).getTime();
+      const prior = latestPaymentByInvoice.get(row.invoice_id);
+      if (prior === undefined || ms > prior) latestPaymentByInvoice.set(row.invoice_id, ms);
+    }
     if (data.length < pageSize) break;
   }
 
@@ -128,18 +167,28 @@ export async function fetchBulkData(): Promise<BulkData> {
     groupOf.set(m.business_unit_name, m.group_id);
   }
 
-  const invoices: PreparedInvoice[] = rawInvoices.map((inv) => ({
-    id: inv.id,
-    invoiceDateMs: new Date(`${inv.invoice_date}T12:00:00`).getTime(),
-    lastPaymentDateMs: inv.last_payment_date
+  const invoices: PreparedInvoice[] = rawInvoices.map((inv) => {
+    // Prefer the latest payment from ar_payments; fall back to
+    // ar_invoices.last_payment_date if populated.
+    const paymentMs = latestPaymentByInvoice.get(inv.id);
+    const legacyMs = inv.last_payment_date
       ? new Date(`${inv.last_payment_date}T12:00:00`).getTime()
-      : null,
-    balance: toNum(inv.balance),
-    invoiceTotal: toNum(inv.invoice_total),
-    businessUnitName: inv.business_unit_name,
-    bucket: trackingByInvoice.get(inv.id) ?? null,
-    groupId: inv.business_unit_name ? (groupOf.get(inv.business_unit_name) ?? null) : null,
-  }));
+      : undefined;
+    let closedAtMs: number | null = null;
+    if (paymentMs !== undefined) closedAtMs = paymentMs;
+    else if (legacyMs !== undefined) closedAtMs = legacyMs;
+    return {
+      id: inv.id,
+      invoiceDateMs: new Date(`${inv.invoice_date}T12:00:00`).getTime(),
+      closedAtMs,
+      balance: toNum(inv.balance),
+      invoiceTotal: toNum(inv.invoice_total),
+      businessUnitName: inv.business_unit_name,
+      status: inv.status,
+      bucket: trackingByInvoice.get(inv.id) ?? null,
+      groupId: inv.business_unit_name ? (groupOf.get(inv.business_unit_name) ?? null) : null,
+    };
+  });
 
   const groupIds = ((groupsRes.data as { id: string }[]) || []).map((g) => g.id);
 
@@ -163,19 +212,33 @@ export function computeSnapshotFromData(asOfDate: Date, bulk: BulkData): Snapsho
   const byGroup = new Map<string, number>();
 
   for (const inv of bulk.invoices) {
-    // Revenue window: any invoice with invoice_date in (D-30, D]
+    // Revenue window: invoice_date in (D-30, D]. Independent of payment state.
     if (inv.invoiceDateMs > periodStartMs && inv.invoiceDateMs <= asOfMs) {
       period_revenue += inv.invoiceTotal;
     }
 
     if (inv.invoiceDateMs > asOfMs) continue;
 
-    // Outstanding-on-D heuristic
-    const paidByD =
-      inv.lastPaymentDateMs !== null && inv.lastPaymentDateMs <= asOfMs;
-    if (paidByD && inv.balance === 0) continue;
+    // Outstanding-on-D decision + amount:
+    //   - status='open'  -> outstanding at D; amount = balance today
+    //     (lower bound; actual historical balance may be higher if there were
+    //      pre-D partial payments we can't see)
+    //   - status='paid' with closedAtMs set:
+    //       outstanding at D iff closedAtMs > asOfMs; amount = invoice_total
+    //   - status='paid' with closedAtMs null: SKIP (unknowable close date)
+    let amount = 0;
+    if (inv.status === 'open') {
+      amount = inv.balance;
+    } else if (inv.status === 'paid') {
+      if (inv.closedAtMs === null) {
+        continue; // no payment record, skip
+      }
+      if (inv.closedAtMs <= asOfMs) continue; // closed by D
+      amount = inv.invoiceTotal;
+    } else {
+      continue; // unknown status
+    }
 
-    const amount = inv.invoiceTotal;
     if (amount <= 0) continue;
 
     total += amount;
