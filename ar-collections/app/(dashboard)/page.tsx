@@ -5,7 +5,36 @@ import { useRouter } from 'next/navigation';
 import { formatCurrency, getAgingBucketLabel } from '@/lib/ar-utils';
 import { ARDashboardStats, ARJobStatusOption } from '@/lib/supabase';
 import Link from 'next/link';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis,
+  LineChart, Line, AreaChart, Area, Legend, CartesianGrid,
+} from 'recharts';
+
+interface DailySnapshot {
+  snapshot_date: string;
+  total_outstanding: number | string;
+  actionable_ar: number | string;
+  pending_closures: number | string;
+  bucket_current: number | string;
+  bucket_30: number | string;
+  bucket_60: number | string;
+  bucket_90_plus: number | string;
+  true_dso_total: number | string;
+  true_dso_actionable: number | string;
+  true_dso_pending: number | string;
+}
+
+interface GroupSnapshot {
+  snapshot_date: string;
+  group_id: string;
+  total_outstanding: number | string;
+}
+
+interface GroupInfo {
+  id: string;
+  label: string;
+  sort_order: number;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -15,6 +44,9 @@ export default function DashboardPage() {
   const [excludeFinancing, setExcludeFinancing] = useState(true);
   const [topListView, setTopListView] = useState<'balances' | 'oldest' | '90plus' | 'recent'>('balances');
   const [jobStatuses, setJobStatuses] = useState<ARJobStatusOption[]>([]);
+  const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
+  const [groupSnapshots, setGroupSnapshots] = useState<GroupSnapshot[]>([]);
+  const [groupInfo, setGroupInfo] = useState<GroupInfo[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -26,6 +58,19 @@ export default function DashboardPage() {
         }
       } catch (err) {
         console.error('Failed to fetch job statuses:', err);
+      }
+    })();
+    (async () => {
+      try {
+        const res = await fetch('/api/dashboard/snapshots?days=90', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setSnapshots(data.snapshots || []);
+          setGroupSnapshots(data.groupSnapshots || []);
+          setGroupInfo(data.groups || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch snapshots:', err);
       }
     })();
   }, []);
@@ -365,6 +410,108 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Trend Charts (90 days) */}
+      {snapshots.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            Trends — Last 90 Days
+          </h2>
+
+          {/* Chart 1: AR $ Outstanding (Total / Actionable / Pending Closures) */}
+          <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>AR Outstanding</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={snapshots.map((s) => ({ date: s.snapshot_date, total: Number(s.total_outstanding), actionable: Number(s.actionable_ar), pending: Number(s.pending_closures) }))} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
+                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="monotone" dataKey="total" name="Total" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="actionable" name="Actionable" stroke="#4ade80" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="pending" name="Pending Closures" stroke="#fb923c" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 2: Aging Buckets (stacked area) */}
+          <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>Aging Buckets</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={snapshots.map((s) => ({ date: s.snapshot_date, current: Number(s.bucket_current), d30: Number(s.bucket_30), d60: Number(s.bucket_60), d90: Number(s.bucket_90_plus) }))} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
+                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Area type="monotone" dataKey="current" name="Current" stackId="a" stroke="#4ade80" fill="#4ade80" fillOpacity={0.5} />
+                  <Area type="monotone" dataKey="d30" name="31-60" stackId="a" stroke="#fcd34d" fill="#fcd34d" fillOpacity={0.5} />
+                  <Area type="monotone" dataKey="d60" name="61-90" stackId="a" stroke="#fb923c" fill="#fb923c" fillOpacity={0.5} />
+                  <Area type="monotone" dataKey="d90" name="90+" stackId="a" stroke="#f87171" fill="#f87171" fillOpacity={0.5} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 3: True DSO */}
+          <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>True DSO (days)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={snapshots.map((s) => ({ date: s.snapshot_date, total: Number(s.true_dso_total), actionable: Number(s.true_dso_actionable), pending: Number(s.true_dso_pending) }))} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
+                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `${v}d`} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => `${Number(v) || 0} days`} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="monotone" dataKey="total" name="Total" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="actionable" name="Actionable" stroke="#4ade80" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="pending" name="Pending Closures" stroke="#fb923c" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 4: By BU Group */}
+          {groupInfo.length > 0 && (() => {
+            const groupLabel = new Map(groupInfo.map((g) => [g.id, g.label]));
+            const byDate = new Map<string, Record<string, number>>();
+            for (const s of snapshots) byDate.set(s.snapshot_date, { date: s.snapshot_date } as unknown as Record<string, number>);
+            for (const gs of groupSnapshots) {
+              const row = byDate.get(gs.snapshot_date) as Record<string, unknown> | undefined;
+              if (!row) continue;
+              const label = groupLabel.get(gs.group_id);
+              if (!label) continue;
+              row[label] = Number(gs.total_outstanding);
+            }
+            const chartData = Array.from(byDate.values());
+            const palette = ['#4ade80', '#60a5fa', '#a78bfa', '#fb923c', '#f87171', '#fcd34d', '#14b8a6', '#8b5cf6'];
+            return (
+              <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>AR by Business Unit Group</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                      <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
+                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      {groupInfo.map((g, i) => (
+                        <Line key={g.id} type="monotone" dataKey={g.label} stroke={palette[i % palette.length]} strokeWidth={2} dot={false} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Residential vs Commercial */}
       <div
