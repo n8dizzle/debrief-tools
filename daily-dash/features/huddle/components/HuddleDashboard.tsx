@@ -85,7 +85,8 @@ function PaceGauge({
 
   // Pacing toward dollar amount
   const pacingTowardAmount = (projectedPct !== null && mtdGoal) ? Math.round(mtdGoal * projectedPct / 100) : null;
-  const fmtGoal = (v: number) => v >= 1000 ? formatCardCurrency(v) : String(Math.round(v));
+  // For goal/actual display: use currency formatter if no custom format, otherwise show integer
+  const fmtGoal = formatValue ? ((v: number) => String(Math.round(v))) : formatCardCurrency;
 
   return (
     <div className="flex-1 min-w-0 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
