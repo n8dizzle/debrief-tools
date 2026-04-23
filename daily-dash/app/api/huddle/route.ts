@@ -100,6 +100,10 @@ function getBusinessDaysElapsedInMonth(date: Date, holidays: string[]): number {
   return count;
 }
 
+// Simple server-side cache (survives across requests while function is warm, ~15 min on Vercel)
+const responseCache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
 // GET /api/huddle - Get today's dashboard data
 export async function GET(request: NextRequest) {
   try {
@@ -115,6 +119,13 @@ export async function GET(request: NextRequest) {
     const date = dateParam || getTodayDateString();
     const endDate = endDateParam || date;
     const isRange = endDate !== date;
+
+    // Check server-side cache
+    const cacheKey = `huddle-${date}-${endDate}`;
+    const cached = responseCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return NextResponse.json(cached.data);
+    }
 
     // BATCH 1: Core huddle data - run in parallel
     // For ranges, fetch all snapshots/notes in the range (will aggregate below)
@@ -1045,7 +1056,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Add debug version to verify deployment
-    return NextResponse.json({
+    const responsePayload = {
       ...response,
       _debug: {
         version: 'v5-live-trade-totals',
@@ -1055,8 +1066,14 @@ export async function GET(request: NextRequest) {
         nonZeroMonths: monthlyTrend.filter(m => m.totalRevenue > 0).length,
         liveTodayRevenue,
         liveMtdRevenue,
+        cached: false,
       },
-    });
+    };
+
+    // Cache the response for 2 minutes
+    responseCache.set(cacheKey, { data: responsePayload, timestamp: Date.now() });
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error('Error fetching huddle data:', error);
     return NextResponse.json({ error: 'Failed to fetch huddle data' }, { status: 500 });
