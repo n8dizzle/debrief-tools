@@ -118,17 +118,19 @@ export default function ReferralForm({
             style={{ background: "var(--ca-cream)" }}
           >
             <p className="font-semibold text-sm uppercase tracking-wide opacity-70 mb-1">
-              Your referral benefit
+              Your thank-you
             </p>
             <p>{result.refereeDiscountLabel}</p>
             <p className="text-sm opacity-70 mt-1">
-              No code needed — it&apos;s already on your account.
+              We&apos;ll email it to you after your service is complete and
+              paid. You pick the brand at redemption — Amazon, Target, Visa,
+              and many more.
             </p>
           </div>
 
           {result.tripleWinCharityName && (
             <p className="mt-4 text-sm opacity-80">
-              When your service is complete, we&apos;ll also donate to{" "}
+              At the same time, we&apos;ll donate to{" "}
               <strong>{result.tripleWinCharityName}</strong> in{" "}
               {referrerFirstName}&apos;s honor.
             </p>
