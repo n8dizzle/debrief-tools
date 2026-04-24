@@ -45,8 +45,13 @@ function stApi() {
   return {
     async get(path, params = {}) {
       const token = await getToken();
-      const { data } = await axios.get(`${env.st.baseUrl}/${env.st.appKey}/v2/${env.st.tenantId}${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      // path format: "/{module}/v2/{endpoint}"  →  "/{module}/v2/tenant/{tenantId}/{endpoint}"
+      const url = path.replace(/^\/([^/]+)\/v2\//, `/$1/v2/tenant/${env.st.tenantId}/`);
+      const { data } = await axios.get(`${env.st.baseUrl}${url}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'ST-App-Key': env.st.appKey,
+        },
         params: { pageSize: 500, ...params },
       });
       return data;
@@ -88,14 +93,35 @@ async function syncPricebook() {
 
     for (const item of items) {
       try {
+        // Infer department from ST business unit name (plumbing vs hvac). Fallback 'general'.
+        const buName = (item.businessUnit?.name || '').toLowerCase();
+        const department = buName.includes('plumb') ? 'plumbing'
+                         : buName.includes('hvac') || buName.includes('ac') ? 'hvac'
+                         : 'plumbing';
+
         await query(
-          `UPDATE materials
-              SET name             = COALESCE($1, name),
-                  unit_cost        = COALESCE($2, unit_cost),
-                  unit_of_measure  = COALESCE($3, unit_of_measure),
-                  updated_at       = NOW()
-            WHERE st_pricebook_id  = $4`,
-          [item.name, item.price, item.unitOfMeasure, String(item.id)],
+          `INSERT INTO materials (st_pricebook_id, sku, name, description, unit_cost, unit_of_measure, category, department, is_active, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+           ON CONFLICT (st_pricebook_id) DO UPDATE SET
+             name            = COALESCE(EXCLUDED.name, materials.name),
+             description     = COALESCE(EXCLUDED.description, materials.description),
+             unit_cost       = COALESCE(EXCLUDED.unit_cost, materials.unit_cost),
+             unit_of_measure = COALESCE(EXCLUDED.unit_of_measure, materials.unit_of_measure),
+             category        = COALESCE(EXCLUDED.category, materials.category),
+             department      = COALESCE(EXCLUDED.department, materials.department),
+             is_active       = EXCLUDED.is_active,
+             updated_at      = NOW()`,
+          [
+            String(item.id),
+            item.code || String(item.id),
+            item.displayName || item.description || 'Untitled',
+            item.description || null,
+            item.cost ?? null,  // ST pricebook "cost" = our unit cost (not "price", which is customer-facing)
+            item.unitOfMeasure || null,
+            item.categories?.[0]?.name || null,
+            department,
+            item.active !== false,
+          ],
         );
         synced++;
       } catch (e) {
@@ -119,7 +145,7 @@ async function syncEquipment() {
 
   try {
     const api = stApi();
-    const items = await api.getAll('/equipment/v2/equipment');
+    const items = await api.getAll('/equipmentsystems/v2/installed-equipment');
 
     for (const item of items) {
       try {
@@ -146,17 +172,17 @@ async function syncEquipment() {
           [
             String(item.id),
             item.customerId ? String(item.customerId) : null,
-            item.installedOnJobId ? String(item.installedOnJobId) : null,
-            item.name,
+            null,  // ST installed-equipment doesn't include job_id; leave null
+            item.name || 'Unnamed Equipment',
             item.manufacturer || null,
             item.model || null,
             item.serialNumber || null,
             item.installedOn ? 'installed' : 'in_stock',
             item.installedOn || null,
-            item.warrantyStart || null,
-            item.warrantyEnd || null,
-            item.lastServiceDate || null,
-            item.lastServiceJobId ? String(item.lastServiceJobId) : null,
+            item.manufacturerWarrantyStart || null,
+            item.manufacturerWarrantyEnd || null,
+            null,  // last_service_date — not in installed-equipment response
+            null,  // last_service_job — not in installed-equipment response
             JSON.stringify(item),
           ],
         );
@@ -182,26 +208,28 @@ async function syncTechnicians() {
 
   try {
     const api = stApi();
-    const techs = await api.getAll('/dispatch/v2/technicians');
+    const techs = await api.getAll('/settings/v2/technicians');
 
     for (const tech of techs) {
       try {
-        // Upsert by st_technician_id; don't overwrite manually-managed fields
+        // ST returns full `name` — split into first/last (required NOT NULL in users table)
+        const parts = (tech.name || '').trim().split(/\s+/);
+        const first_name = parts[0] || 'Unknown';
+        const last_name = parts.slice(1).join(' ') || '(ST)';
+        // Email is NOT NULL and UNIQUE in users — fall back to synthetic if ST has none
+        const email = (tech.email || `st-tech-${tech.id}@christmasair.local`).toLowerCase();
+
         await query(
-          `UPDATE users
-              SET first_name = COALESCE($1, first_name),
-                  last_name  = COALESCE($2, last_name),
-                  phone      = COALESCE($3, phone),
-                  is_active  = $4,
-                  updated_at = NOW()
-            WHERE st_technician_id = $5`,
-          [
-            tech.firstName || null,
-            tech.lastName || null,
-            tech.phone || null,
-            tech.active !== false,
-            String(tech.id),
-          ],
+          `INSERT INTO users (st_technician_id, email, first_name, last_name, phone, role, is_active, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, 'technician', $6, NOW(), NOW())
+           ON CONFLICT (st_technician_id) DO UPDATE SET
+             email      = EXCLUDED.email,
+             first_name = EXCLUDED.first_name,
+             last_name  = EXCLUDED.last_name,
+             phone      = COALESCE(EXCLUDED.phone, users.phone),
+             is_active  = EXCLUDED.is_active,
+             updated_at = NOW()`,
+          [String(tech.id), email, first_name, last_name, tech.phoneNumber || null, tech.active !== false],
         );
         synced++;
       } catch (e) {
@@ -221,38 +249,11 @@ async function syncTechnicians() {
 // ── Vehicles → trucks ─────────────────────────────────────────────────────────
 
 async function syncVehicles() {
-  let synced = 0, failed = 0;
-
-  try {
-    const api = stApi();
-    const vehicles = await api.getAll('/dispatch/v2/vehicles');
-
-    for (const v of vehicles) {
-      try {
-        await query(
-          `UPDATE trucks
-              SET make          = COALESCE($1, make),
-                  model         = COALESCE($2, model),
-                  year          = COALESCE($3, year),
-                  license_plate = COALESCE($4, license_plate),
-                  vin           = COALESCE($5, vin),
-                  updated_at    = NOW()
-            WHERE st_vehicle_id = $6`,
-          [v.make || null, v.model || null, v.year || null, v.licensePlate || null, v.vin || null, String(v.id)],
-        );
-        synced++;
-      } catch (e) {
-        console.warn(`Vehicle ${v.id} failed:`, e.message);
-        failed++;
-      }
-    }
-
-    await writeSyncLog('trucks', failed > 0 ? 'partial' : 'success', synced, failed, null);
-    return { synced, failed };
-  } catch (err) {
-    await writeSyncLog('trucks', 'failed', synced, failed, err.message);
-    throw err;
-  }
+  // ServiceTitan does not expose a public vehicles/fleet endpoint for this tenant.
+  // Trucks are managed manually in the trucks table. This sync is a graceful no-op.
+  const note = 'ST does not expose a public vehicles endpoint; trucks are managed manually.';
+  await writeSyncLog('trucks', 'skipped', 0, 0, note);
+  return { synced: 0, failed: 0, skipped: true, reason: note };
 }
 
 /**
