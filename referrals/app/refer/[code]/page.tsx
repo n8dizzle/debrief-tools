@@ -120,8 +120,8 @@ export default async function ReferPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Triple Win banner — only if active */}
-      {charity && (
+      {/* Triple Win banner — shows gift-card-for-friend + charity donation */}
+      {program && (
         <section className="px-4 md:px-6 py-6 md:py-8">
           <div
             className="max-w-3xl mx-auto p-5 md:p-6 rounded-2xl"
@@ -134,13 +134,20 @@ export default async function ReferPage({ params }: PageProps) {
               The Triple Win
             </p>
             <p className="text-base md:text-lg">
-              When you hire us, we make a donation to{" "}
-              <strong>{charity.name}</strong> in {referrer.first_name}&apos;s
-              honor &mdash; on top of their thank-you, not instead of it.
+              When you hire us, you get a <strong>${program.friend_amount} gift card</strong>{" "}
+              (your pick of brand), {referrer.first_name} gets a{" "}
+              <strong>${program.referrer_amount} gift card</strong> too
+              {charity ? (
+                <>
+                  , <em>and</em> we donate <strong>${program.charity_amount}</strong> to{" "}
+                  <strong>{charity.name}</strong> in {referrer.first_name}&apos;s honor
+                </>
+              ) : null}
+              . On us — not taken from anyone&apos;s thank-you.
             </p>
             <p className="text-sm opacity-80 mt-2">
-              You save. {referrer.first_name}{" "}gets thanked. A cause they care
-              about gets help.
+              You win. {referrer.first_name}&nbsp;wins.
+              {charity ? <> A cause they care about wins too.</> : null}
             </p>
           </div>
         </section>

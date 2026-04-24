@@ -56,25 +56,24 @@ export default async function TermsPage() {
 
           <Section title="3. Reward amounts">
             <p>
-              Each successful referral triggers three amounts: ${p.referrer_amount}
-              to the referrer as a reward, ${p.friend_amount} to the referred
-              friend as a discount on their first service, and ${p.charity_amount}
-              donated to the referrer&rsquo;s selected charity. Christmas Air
-              may adjust these amounts at any time; changes take effect for
-              referrals submitted after the change date. Referrals already
-              submitted are honored at the amounts that were in effect when
-              they were submitted.
+              Each successful referral triggers three amounts: a ${p.referrer_amount}
+              gift card to the referrer, a ${p.friend_amount} gift card to the
+              referred friend, and ${p.charity_amount} donated to the
+              referrer&rsquo;s selected charity. Christmas Air may adjust these
+              amounts at any time; changes take effect for referrals submitted
+              after the change date. Referrals already submitted are honored at
+              the amounts that were in effect when they were submitted.
             </p>
           </Section>
 
           <Section title="4. Reward delivery">
             <p>
-              Rewards are issued via email through Tremendous as Visa or Amazon
-              gift cards, applied as account credit on your Christmas Air
-              account, or donated to a charity at your direction. Rewards are
-              typically delivered within 24 hours of the referred job being
-              invoiced. Delivery delays caused by third-party processors do not
-              constitute failure to pay.
+              Gift cards are issued by email through Tremendous. At redemption,
+              recipients pick from a catalog of brands (Amazon, Target, Visa,
+              and many more). Referrers may alternatively direct their reward to
+              charity. Rewards are typically delivered within 24 hours of the
+              referred job being invoiced. Delivery delays caused by third-party
+              processors do not constitute failure to pay.
             </p>
           </Section>
 

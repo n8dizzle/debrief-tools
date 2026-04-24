@@ -33,11 +33,12 @@ export default function HelpPage() {
         <ol className="list-decimal pl-6 space-y-1">
           <li>
             <strong>The friend</strong> gets their HVAC or plumbing fixed and
-            receives the discount attached to their referral.
+            receives a gift card as a thank-you, their pick of brand at
+            redemption (Amazon, Target, Visa, and more via Tremendous).
           </li>
           <li>
-            <strong>The referrer</strong> gets a gift card (Visa, Amazon) or
-            account credit, their choice.
+            <strong>The referrer</strong> gets a gift card of their choice too,
+            or can route it all to their charity instead.
           </li>
           <li>
             <strong>A charity</strong> the referrer picked gets a matched
@@ -523,7 +524,7 @@ export default function HelpPage() {
               by phone number as a fallback), re-derive the actual service
               category from the invoice, calculate the reward from the
               tier table, and issue it via Tremendous (gift cards) or queue
-              it for manual payout (charity, account credit). See{" "}
+              it for manual payout (charity donations). See{" "}
               <a href="#invoice-flow">
                 <strong>Section 7</strong>
               </a>{" "}

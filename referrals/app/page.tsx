@@ -80,12 +80,12 @@ export default async function LandingPage() {
             <AmountCard
               label="You earn"
               amount={program.referrer_amount}
-              sub="Gift card, Amazon credit, or account credit — your choice."
+              sub="Gift card of your choice — Amazon, Target, Visa, and more."
             />
             <AmountCard
-              label="Your friend saves"
+              label="Your friend gets"
               amount={program.friend_amount}
-              sub="Off their first service with us."
+              sub="Gift card of their choice too — our thank-you for coming in on your word."
               highlight
             />
             <AmountCard

@@ -284,11 +284,23 @@ function RewardStep({
   submitting: boolean;
   submitLabel: string;
 }) {
+  // Tremendous routes all gift-card selections through the same catalog at
+  // redemption — the recipient picks their brand (Amazon, Target, Visa, etc.)
+  // when the gift card email arrives. So the UI only exposes two choices:
+  // gift card or all-to-charity. VISA_GIFT_CARD is the storage default for
+  // "gift card" selections; legacy AMAZON_GIFT_CARD / ACCOUNT_CREDIT values
+  // remain in the DB enum for historical data but aren't selectable here.
   const options: { value: RewardPref; label: string; desc: string }[] = [
-    { value: "VISA_GIFT_CARD", label: "Visa gift card", desc: "Use it anywhere." },
-    { value: "AMAZON_GIFT_CARD", label: "Amazon credit", desc: "Delivered instantly." },
-    { value: "ACCOUNT_CREDIT", label: "Account credit", desc: "Applied to your next service." },
-    { value: "CHARITY_DONATION", label: "All to charity", desc: "Skip the reward, send it to your cause." },
+    {
+      value: "VISA_GIFT_CARD",
+      label: "Gift card",
+      desc: "Your pick from Amazon, Target, Visa, and dozens more at redemption.",
+    },
+    {
+      value: "CHARITY_DONATION",
+      label: "All to charity",
+      desc: "Skip the gift card, send it to your cause instead.",
+    },
   ];
 
   return (
