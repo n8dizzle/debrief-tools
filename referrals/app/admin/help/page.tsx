@@ -41,48 +41,58 @@ export default function HelpPage() {
             or can route it all to their charity instead.
           </li>
           <li>
-            <strong>A charity</strong> the referrer picked gets a matched
-            donation from Christmas Air (on top of the reward, not in place of
-            it).
+            <strong>A charity</strong> the referrer picked gets a flat donation
+            from Christmas Air on top of the gift cards, not taken from them.
           </li>
         </ol>
         <Callout>
-          Triple Win is company-wide, not per-customer. The admin can pause or
-          resume it globally from the Settings page.
+          Triple Win is the brand &mdash; it&apos;s always on. The three-way
+          equation (referrer + friend + charity) can&apos;t be broken. You can
+          adjust the dollar amounts on the <strong>Rewards program</strong>{" "}
+          page, but the structure is fixed: three $50 wins by default. No per-
+          customer opt-in, no global off switch.
         </Callout>
       </Section>
 
       <Section id="referrer-flow" title="2. The referrer experience, step by step">
         <ol className="list-decimal pl-6 space-y-3">
           <li>
-            <strong>Sign up</strong> at <code>/enroll</code> &mdash; name, email,
-            phone, reward preference, and a charity pick (when Triple Win is on
-            globally).
+            <strong>Sign up</strong> at <code>/enroll</code> &mdash; name,
+            email, phone, then pick a reward preference (gift card or all-to-
+            charity) and a charity. Three steps, two minutes.
           </li>
           <li>
-            <strong>Get a referral code</strong> like <code>SARAH-4K2M</code> and
-            a shareable link: <code>refer.christmasair.com/refer/SARAH-4K2M</code>.
+            <strong>Get logged into the dashboard instantly.</strong> The
+            &ldquo;You&apos;re in&rdquo; screen has a <strong>Go to your dashboard</strong>{" "}
+            button that works immediately &mdash; no email round-trip
+            required. A magic-link email also ships for future sign-ins on
+            other devices.
           </li>
           <li>
-            <strong>Share the link</strong> with friends &mdash; text, email,
-            social, even read it over the phone.
+            <strong>Share the referral code</strong> &mdash; something like{" "}
+            <code>SARAH-4K2M</code>, plus a shareable link at{" "}
+            <code>refer.christmasair.com/refer/SARAH-4K2M</code>.
           </li>
           <li>
             <strong>Friend clicks the link</strong> and lands on a quote form
-            that&apos;s already tagged with the referrer&apos;s code.
+            already tagged with the referrer&apos;s code.
           </li>
           <li>
-            <strong>Friend submits the quote</strong> &mdash; a ServiceTitan lead
-            is created, tagged with our referral campaign ID.
+            <strong>Friend submits the quote</strong> &mdash; we push it into
+            ServiceTitan as a booking (or lead, depending on Settings). A CSR
+            reaches out to confirm and schedule. <em>No commitment yet&nbsp;&mdash;
+            submitting the quote is a request for information.</em>
           </li>
           <li>
             <strong>Referrer tracks progress</strong> on their dashboard &mdash;
             each referral shows a stage (submitted, booked, completed, paid).
           </li>
           <li>
-            <strong>Reward is issued</strong> once the invoice is paid in
-            ServiceTitan. Gift cards go out via Tremendous; the charity donation
-            is recorded at the same time.
+            <strong>Gift cards ship once the invoice is paid</strong> in
+            ServiceTitan &mdash; not when the job is booked or invoiced, but
+            when payment actually posts. Both referrer and friend get their
+            gift card delivered by email (Tremendous catalog, brand picked at
+            redemption). The charity donation is recorded at the same moment.
           </li>
         </ol>
       </Section>
@@ -158,7 +168,7 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Settings"
-            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page). Per-key validators catch bad input before it hits downstream systems."
+            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page). Per-key validators catch bad input before it hits downstream systems. Note: the legacy triple_win_enabled kill switch is pinned on and hidden from this page — the 'is Triple Win live?' question is now 'are the program amounts > $0?', edited on the Rewards program page."
             who="Admins reconfiguring the program without code changes. Requires can_manage_settings."
           />
           <AdminPageEntry
@@ -205,11 +215,11 @@ export default function HelpPage() {
               />
               <PermRow
                 name="can_manage_config"
-                description="Edit reward tier amounts, charity match formulas, and A/B test configs."
+                description="Edit the Rewards program on /admin/config: the three amounts (referrer / friend / charity) and the optional campaign banner label. $0 is blocked at both the UI and the database."
               />
               <PermRow
                 name="can_manage_settings"
-                description="Edit runtime settings like the ServiceTitan campaign ID and the global Triple Win toggle. Also gates the Triple Win announcement email button."
+                description="Edit runtime settings like the ServiceTitan campaign ID and booking provider ID. Also gates the Triple Win announcement email button (legacy, used once to email existing referrers when Triple Win became a company-wide policy)."
               />
               <PermRow
                 name="can_approve_rewards"
@@ -369,37 +379,46 @@ export default function HelpPage() {
         <h3 className="text-lg font-semibold mt-4 pt-2" style={{ color: "var(--ca-dark-green)" }}>
           How the reward is calculated
         </h3>
+        <p className="text-sm opacity-80">
+          Under the current flat program, calculation is trivial: the referrer
+          and friend each get the configured gift card amount, and the charity
+          gets the configured donation amount. No percentages, no invoice
+          tiers. The numbers come from the active program on{" "}
+          <strong>/admin/config</strong>.
+        </p>
         <ol className="list-decimal pl-6 space-y-1">
           <li>
-            Re-classify the service category from the actual job + invoice
-            (not from what the friend chose on the form). So a &ldquo;Not
-            sure yet&rdquo; click-through that turns into a $12K install
-            correctly grades as Replacement, not Service Call.
+            Look up the active Rewards program (one row, one set of amounts).
           </li>
           <li>
-            Look up the tier for that category in the referrer&apos;s
-            assigned reward config.
+            Set referrer reward = <code>referrer_amount</code> and friend
+            reward = <code>friend_amount</code>. Both ship as Tremendous gift
+            cards unless the referrer picked <em>All to charity</em> at
+            enrollment (in which case their gift card routes to manual payout
+            instead).
           </li>
           <li>
-            Run <code>calculateReward(invoiceTotal, tier)</code> — flat,
-            tiered, or percentage formula per the tier&apos;s config.
+            If Triple Win was active at submission AND the referrer has a
+            charity selected, also record a donation at{" "}
+            <code>charity_amount</code>.
           </li>
           <li>
-            If Triple Win was activated at submission AND the referrer has
-            a charity picked, also run{" "}
-            <code>calculateCharityMatch(rewardAmount, tier)</code>.
+            Insert <code>ref_rewards</code> and <code>ref_charity_donations</code>{" "}
+            rows. Under the flat config both auto-approve (no{" "}
+            <code>requires_admin_approval</code> flag set).
           </li>
           <li>
-            Insert <code>ref_rewards</code> (auto-approved for most tiers,
-            PENDING if the tier requires admin approval &mdash;
-            <code>requires_admin_approval</code> flag) and optionally{" "}
-            <code>ref_charity_donations</code>.
-          </li>
-          <li>
-            If auto-approved, kick off Tremendous fulfillment (or charity
-            payout, which is manual today).
+            Kick off Tremendous fulfillment for the gift cards. Charity
+            donations queue up in <code>/admin/donations</code> for manual
+            payout via quarterly check or wire.
           </li>
         </ol>
+        <p className="text-sm opacity-70 mt-3">
+          Legacy reward-calc machinery (service-category tiers, percentage-of-
+          invoice rewards, invoice-bracket tables, charity-match percentages)
+          still lives in the schema for historical data. It&apos;s not
+          exposed in the admin UI and no new referrals use it.
+        </p>
 
         <h3 className="text-lg font-semibold mt-4 pt-2" style={{ color: "var(--ca-dark-green)" }}>
           Most common failure mode
@@ -521,14 +540,45 @@ export default function HelpPage() {
               trace that customer back to one of our referrals (three ways
               &mdash; by stored ST customer ID, by the{" "}
               <code>Referral_Code</code> custom field on the ST customer, or
-              by phone number as a fallback), re-derive the actual service
-              category from the invoice, calculate the reward from the
-              tier table, and issue it via Tremendous (gift cards) or queue
-              it for manual payout (charity donations). See{" "}
+              by phone number as a fallback), look up the active Rewards
+              program, and issue the flat gift-card amounts via Tremendous
+              plus a charity donation row in <code>/admin/donations</code>.
+              See{" "}
               <a href="#invoice-flow">
                 <strong>Section 7</strong>
               </a>{" "}
               for the full flow and the most common failure modes.
+            </p>
+          </Faq>
+          <Faq q="When exactly does the friend get their gift card?">
+            <p>
+              After the invoice is <strong>paid</strong> &mdash; not when the
+              job is booked, started, or even invoiced. The webhook we act
+              on is ServiceTitan&apos;s invoice-paid event. Once that fires,
+              gift cards ship to both the friend and the referrer within 24
+              hours via Tremendous (recipient picks the brand &mdash; Amazon,
+              Target, Visa, etc. &mdash; at redemption). If a customer asks
+              &ldquo;where&apos;s my gift card?&rdquo; the first thing to
+              check is whether payment has actually posted in ServiceTitan.
+            </p>
+          </Faq>
+          <Faq q="A friend just filled out the referral form — is their reward locked in?">
+            <p>
+              The referral is <strong>tracked</strong> as soon as they submit
+              the form, but nothing pays out until they actually book a
+              service, get the work done, and pay the invoice. The form is a
+              request for a quote, not a booking. A CSR reaches out to
+              confirm the details and schedule.
+            </p>
+          </Faq>
+          <Faq q="What happens if a referrer picked 'All to charity' at enrollment?">
+            <p>
+              Their gift card doesn&apos;t ship via Tremendous. Instead the
+              reward is logged as type <code>CHARITY_DONATION</code> and
+              routes to manual payout via{" "}
+              <code>/admin/donations</code>. The friend still gets their gift
+              card, and the charity still gets the standard Triple Win
+              donation on top.
             </p>
           </Faq>
           <Faq q="How do I check whether a referral created a lead in ServiceTitan?">
@@ -607,8 +657,9 @@ export default function HelpPage() {
       </Section>
 
       <footer className="pt-8 border-t text-sm opacity-60" style={{ borderColor: "var(--border-subtle)" }}>
-        Last updated April 2026. When the program changes materially, update
-        this page at <code>app/admin/help/page.tsx</code>.
+        Last updated April 24, 2026 &mdash; after the flat-program simplification,
+        gift-card copy sweep, and enroll auto-login. When the program changes
+        materially, update this page at <code>app/admin/help/page.tsx</code>.
       </footer>
     </div>
   );
