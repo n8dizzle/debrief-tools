@@ -19,13 +19,13 @@ export async function sendReferralSubmittedToReferrer(opts: Opts): Promise<void>
     <h1 style="margin:0 0 16px;color:#415440;font-family:Georgia,serif;font-style:italic;font-size:32px;line-height:1.15;">
       Your referral is in.
     </h1>
-    <p>Good news, ${escapeHtml(opts.referrerFirstName)} — <strong>${escapeHtml(opts.friendFirstName)}</strong> just booked through your link. Our team will reach out to them shortly.</p>
+    <p>Good news, ${escapeHtml(opts.referrerFirstName)} — <strong>${escapeHtml(opts.friendFirstName)}</strong> just requested a quote through your link. Our team will reach out to confirm the details and get them on the schedule.</p>
 
     <p style="margin:24px 0;padding:16px;background:rgba(97,139,96,0.08);border-left:3px solid #618B60;border-radius:4px;">
-      When the job is complete and invoiced, your reward will be calculated automatically. We&apos;ll send another email the moment it&apos;s on the way.
+      Once ${escapeHtml(opts.friendFirstName)}&apos;s service is complete and paid, your gift card ships to your inbox. We&apos;ll send another email the moment it&apos;s on the way.
       ${
         opts.tripleWinCharityName
-          ? `<br><br><strong>Triple Win:</strong> we&apos;ll also send a matched donation to <strong>${escapeHtml(opts.tripleWinCharityName)}</strong>.`
+          ? `<br><br><strong>Triple Win:</strong> at the same time, we&apos;ll donate to <strong>${escapeHtml(opts.tripleWinCharityName)}</strong> in your honor.`
           : ""
       }
     </p>
@@ -45,9 +45,9 @@ export async function sendReferralSubmittedToReferrer(opts: Opts): Promise<void>
   await getResend().emails.send({
     from: getFromAddress(),
     to: opts.to,
-    subject: `Thanks! ${opts.friendFirstName} just booked through your link`,
+    subject: `Thanks! ${opts.friendFirstName} just requested a quote through your link`,
     html: renderEmailLayout({
-      preheader: `${opts.friendFirstName} just booked through your referral link. Reward on the way when the job is complete.`,
+      preheader: `${opts.friendFirstName} just requested a quote through your referral link. Gift card ships after their service is complete and paid.`,
       bodyHtml,
     }),
   });

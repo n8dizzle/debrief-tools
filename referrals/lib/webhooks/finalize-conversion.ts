@@ -16,9 +16,12 @@ import type {
   ServiceCategory,
 } from "@/lib/supabase";
 
+// Gift-card redemption happens through the Tremendous catalog — the recipient
+// picks their brand when the email arrives. The enum values stay brand-specific
+// for legacy rows, but the customer-facing label is catalog-agnostic.
 const REWARD_TYPE_LABEL: Record<RewardType, string> = {
-  VISA_GIFT_CARD: "Visa gift card",
-  AMAZON_GIFT_CARD: "Amazon credit",
+  VISA_GIFT_CARD: "gift card",
+  AMAZON_GIFT_CARD: "gift card",
   ACCOUNT_CREDIT: "account credit",
   CHARITY_DONATION: "charity donation",
 };
