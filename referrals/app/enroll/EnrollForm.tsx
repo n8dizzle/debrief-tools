@@ -499,12 +499,17 @@ function DoneScreen({
           {result.referralLink}
         </div>
 
-        <button className="btn btn-primary" onClick={copy}>
-          {copied ? "Copied!" : "Copy link"}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+          <button className="btn btn-primary" onClick={copy}>
+            {copied ? "Copied!" : "Copy link"}
+          </button>
+          <a href="/dashboard" className="btn btn-secondary">
+            Go to your dashboard →
+          </a>
+        </div>
 
         <p className="mt-6 text-sm opacity-60">
-          Check your email for a one-click link to your dashboard.
+          We also sent a sign-in link to your email for next time.
         </p>
       </div>
     </div>

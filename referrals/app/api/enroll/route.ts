@@ -5,7 +5,7 @@ import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
 import { getBooleanSetting } from "@/lib/settings";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
-import { issueMagicLinkToken } from "@/lib/customer-auth";
+import { issueMagicLinkToken, issueSessionCookie } from "@/lib/customer-auth";
 import { sendMagicLinkEmail } from "@/lib/email/magic-link";
 import type { Charity, Referrer } from "@/lib/supabase";
 
@@ -188,6 +188,11 @@ export async function POST(req: NextRequest) {
   }
 
   const referrer = inserted as Referrer;
+
+  // Log the new referrer in immediately so the enroll "Done" screen can
+  // link straight to the dashboard without a round-trip through email. The
+  // magic link still ships for future visits from a different device.
+  await issueSessionCookie(referrer.id);
 
   // Fire-and-forget emails: welcome + magic link for first dashboard visit
   const dashboardToken = await issueMagicLinkToken(referrer.id);
