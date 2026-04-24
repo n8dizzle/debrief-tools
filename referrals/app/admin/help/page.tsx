@@ -656,10 +656,291 @@ export default function HelpPage() {
         </div>
       </Section>
 
+      <Section id="csr-training" title="11. CSR training &mdash; handling calls about the program">
+        <p className="opacity-80">
+          This section is for CSRs and dispatchers answering the phone. Every
+          call about the program falls into one of the patterns below. For
+          each: what to do, what NOT to say, when to escalate.
+        </p>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          The 30-second pitch (when a customer asks how the program works)
+        </h3>
+        <div
+          className="p-4 rounded-lg text-sm"
+          style={{ background: "rgba(97,139,96,0.08)", borderLeft: "3px solid #618B60" }}
+        >
+          <em>&ldquo;It&apos;s our Neighbors Helping Neighbors program. You sign
+          up, we give you a link to share. When someone you refer has their
+          service completed and paid, you get a $50 gift card, they get a $50
+          gift card, and we donate $50 to a charity you picked. Three $50 wins,
+          every time. Sign up at refer.christmasair.com.&rdquo;</em>
+        </div>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Call pattern 1: &ldquo;Am I enrolled in the referral program?&rdquo;
+        </h3>
+        <ol className="list-decimal pl-6 space-y-1 text-sm">
+          <li>
+            Open the <strong>Referrers</strong> page. Search by email or name.
+          </li>
+          <li>
+            Enrolled: tell them their referral code and the share link. Offer
+            to email it (customer can log in at{" "}
+            <code>refer.christmasair.com/sign-in</code> for a fresh copy).
+          </li>
+          <li>
+            Not enrolled: point them at <code>refer.christmasair.com/enroll</code>.
+            Takes two minutes. Do not enroll them yourself &mdash; let them own
+            their contact info and charity pick.
+          </li>
+        </ol>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Call pattern 2: &ldquo;Where is my gift card?&rdquo;
+        </h3>
+        <ol className="list-decimal pl-6 space-y-1 text-sm">
+          <li>
+            Look up the referrer on the <strong>Referrers</strong> page.
+          </li>
+          <li>
+            Find the referral on the <strong>Referrals</strong> page. Check the
+            stage:
+            <ul className="list-disc pl-6 mt-1">
+              <li>
+                <strong>Submitted / Booked / Completed</strong> &mdash; not yet paid.
+                Tell them: &ldquo;Gift cards ship once the invoice is paid. We&apos;ll
+                email them both as soon as payment posts.&rdquo;
+              </li>
+              <li>
+                <strong>Reward Issued</strong> &mdash; sent. Check the{" "}
+                <strong>Rewards</strong> page for the Tremendous order ID and
+                status. If FAILED, read the failure reason. Common: wrong
+                email, expired Tremendous campaign.
+              </li>
+            </ul>
+          </li>
+          <li>
+            If all signals look good but the customer insists they haven&apos;t
+            received it: have them check spam for{" "}
+            <strong>howdy@christmasair.com</strong> and Tremendous. Gift cards
+            are sent by email, so a spam filter is usually the culprit.
+          </li>
+          <li>
+            Do NOT promise a specific day for the gift card &mdash; delivery is
+            within 24 hours of invoice payment, but Tremendous occasionally
+            holds an order for manual review (arrives later the same day).
+          </li>
+        </ol>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Call pattern 3: Booking a referred friend (CRITICAL)
+        </h3>
+        <Callout>
+          When you book someone who mentions they were referred:
+          <ol className="list-decimal pl-5 mt-2 space-y-1">
+            <li>
+              Ask for the <strong>referrer&apos;s name</strong> or their{" "}
+              <strong>referral code</strong> (looks like{" "}
+              <code>SARAH-4K2M</code>).
+            </li>
+            <li>
+              If you have the code: open the customer record in ServiceTitan.
+              Find the <strong>Referral_Code</strong> custom field on the
+              customer. Paste the code in. Save.
+            </li>
+            <li>
+              That&apos;s the entire durable fix for the #1 failure mode in
+              this program. One field, one click. Without it, the webhook
+              might fail to match the invoice back to the referrer and the
+              reward never fires.
+            </li>
+          </ol>
+          If they don&apos;t remember the referrer&apos;s code, ask for the
+          name instead. Search the referrer by name on{" "}
+          <code>/admin/referrers</code>, grab their code, and set the field.
+        </Callout>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Call pattern 4: &ldquo;Can I change my charity?&rdquo;
+        </h3>
+        <p className="text-sm">
+          Yes &mdash; from their dashboard at{" "}
+          <code>refer.christmasair.com/dashboard/charity</code>. Note: the
+          charity attached to a <em>specific referral</em> is locked in when
+          that referral is submitted. Changing the pick affects future
+          referrals only &mdash; in-flight ones keep their original charity.
+          Tell the customer this plainly; if their concern is a specific
+          in-flight referral, it&apos;s too late, but the next one can go to
+          the new charity.
+        </p>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Call pattern 5: &ldquo;Can&apos;t log into my dashboard&rdquo;
+        </h3>
+        <p className="text-sm">
+          Send them to <code>refer.christmasair.com/sign-in</code>. They enter
+          their email, we email a fresh magic link. No passwords. If they say
+          the email never arrives, check their email is on the{" "}
+          <strong>Referrers</strong> page (might be a typo or different inbox
+          than they&apos;re checking). Ask them to check spam first.
+        </p>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Call pattern 6: Customer is upset / disputing a reward
+        </h3>
+        <ol className="list-decimal pl-6 space-y-1 text-sm">
+          <li>
+            Empathize first, debug second. Gift cards are a thank-you, not a
+            contractual right &mdash; but customer perception matters.
+          </li>
+          <li>
+            Pull up the referral on <strong>/admin/referrals</strong>. Read
+            the state aloud to yourself before talking numbers.
+          </li>
+          <li>
+            If the system shows the reward was issued: offer to re-send the
+            Tremendous email. Go to <strong>/admin/rewards</strong> &rarr;
+            find the reward &rarr; click the Tremendous order ID to look up
+            order state.
+          </li>
+          <li>
+            If the system shows no reward: check whether the referral reached
+            the paid stage. If it did but no reward exists, this is a match
+            failure (Section 7&apos;s &ldquo;Most common failure mode&rdquo;) &mdash;
+            escalate to a manager.
+          </li>
+          <li>
+            Never commit Christmas Air to paying a gift card the system
+            didn&apos;t already issue. Escalate.
+          </li>
+        </ol>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          When to escalate
+        </h3>
+        <ul className="list-disc pl-6 space-y-1 text-sm">
+          <li>Customer claims they&apos;re owed a reward the system doesn&apos;t show</li>
+          <li>Tremendous order shows FAILED with a reason you can&apos;t resolve</li>
+          <li>Fraud concern (same phone / address / card across many enrollments)</li>
+          <li>Anything involving a refund, partial payment, or reversed invoice</li>
+        </ul>
+      </Section>
+
+      <Section id="field-training" title="12. Field training &mdash; for technicians on-site">
+        <p className="opacity-80">
+          This section is for techs in the field. You don&apos;t need to
+          memorize it &mdash; you need to know the program exists, how to
+          mention it without being pushy, and when NOT to promise anything.
+        </p>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Why you should care
+        </h3>
+        <p className="text-sm">
+          Referrals from happy customers are the best leads we get. They close
+          faster, pay on time, and leave better reviews. Every time a customer
+          enrolls because of something you said, you&apos;re making your own
+          route easier &mdash; better-vetted customers, fewer
+          call-backs, more good days.
+        </p>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          When to bring it up
+        </h3>
+        <ul className="list-disc pl-6 space-y-1 text-sm">
+          <li>
+            <strong>At the end of a great service call.</strong> Customer is
+            happy, work is done, you&apos;re packing up. Not during the job,
+            not during payment, not if they&apos;re frustrated.
+          </li>
+          <li>
+            <strong>After you&apos;ve fixed something competitors couldn&apos;t.</strong>{" "}
+            That&apos;s the story they want to tell their neighbors.
+          </li>
+          <li>
+            <strong>Never when the customer has already complained</strong>{" "}
+            about price, timing, or anything else. Read the room.
+          </li>
+        </ul>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          What to say (pick one, say it once)
+        </h3>
+        <div className="space-y-3 text-sm">
+          <div
+            className="p-3 rounded-lg"
+            style={{ background: "rgba(97,139,96,0.08)", borderLeft: "3px solid #618B60" }}
+          >
+            <em>&ldquo;If you&apos;ve got neighbors who might need us, we&apos;ve got a
+            referral thing where you both get a $50 gift card and we donate to
+            a charity you pick. Nothing pushy &mdash; just sign up at
+            refer.christmasair.com. Takes two minutes.&rdquo;</em>
+          </div>
+          <div
+            className="p-3 rounded-lg"
+            style={{ background: "rgba(97,139,96,0.08)", borderLeft: "3px solid #618B60" }}
+          >
+            <em>&ldquo;Hey, real quick &mdash; if you ever want to send a neighbor our
+            way, we thank you with a $50 gift card and your friend gets one
+            too. It&apos;s at refer.christmasair.com. No pressure.&rdquo;</em>
+          </div>
+        </div>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          What NOT to say
+        </h3>
+        <ul className="list-disc pl-6 space-y-1 text-sm">
+          <li>
+            <strong>&ldquo;I&apos;ll make sure you get your gift card.&rdquo;</strong>{" "}
+            You can&apos;t make sure &mdash; the system does it, and it only
+            happens once the invoice is paid. Setting a specific expectation
+            you can&apos;t control puts you on the hook for someone
+            else&apos;s process.
+          </li>
+          <li>
+            <strong>&ldquo;Just refer 10 people and you&apos;ll get $500.&rdquo;</strong>{" "}
+            Don&apos;t turn it into a sales pitch. The program works when it
+            feels like a genuine neighborly thing. Quoting bulk numbers
+            cheapens it.
+          </li>
+          <li>
+            <strong>&ldquo;I think it&apos;s like $100 or something.&rdquo;</strong>{" "}
+            If you&apos;re not sure of the number, say &ldquo;a gift card&rdquo; and
+            point them at the website. Wrong numbers are worse than no numbers.
+          </li>
+        </ul>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          If the customer says they were referred
+        </h3>
+        <Callout>
+          Do <strong>one thing</strong>: ask who referred them. If they know
+          a name or have a referral code, text or radio dispatch with:{" "}
+          <em>&ldquo;customer mentioned they were referred by X &mdash;
+          please set the Referral_Code on their ServiceTitan record.&rdquo;</em>{" "}
+          That&apos;s it. You don&apos;t have to do the ST work yourself.
+          One line to dispatch = the referrer gets their $50 instead of the
+          reward silently failing.
+        </Callout>
+
+        <h3 className="text-lg font-semibold mt-6 pt-2" style={{ color: "var(--ca-dark-green)" }}>
+          Handing off a business-card moment
+        </h3>
+        <p className="text-sm">
+          If a customer gets excited about the program in the moment, don&apos;t
+          try to walk them through enrollment on your phone. Give them the
+          URL &mdash; <code>refer.christmasair.com</code> &mdash; and move on.
+          They&apos;ll sign up that night or they won&apos;t. Your job is the
+          mention, not the conversion.
+        </p>
+      </Section>
+
       <footer className="pt-8 border-t text-sm opacity-60" style={{ borderColor: "var(--border-subtle)" }}>
         Last updated April 24, 2026 &mdash; after the flat-program simplification,
-        gift-card copy sweep, and enroll auto-login. When the program changes
-        materially, update this page at <code>app/admin/help/page.tsx</code>.
+        gift-card copy sweep, enroll auto-login, and CSR + Field training
+        sections. When the program changes materially, update this page at{" "}
+        <code>app/admin/help/page.tsx</code>.
       </footer>
     </div>
   );
