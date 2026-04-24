@@ -1,6 +1,5 @@
 import { getResend, getFromAddress } from "./resend";
 import { renderEmailLayout, escapeHtml } from "./layout";
-import { getBooleanSetting } from "@/lib/settings";
 import type { Referrer, Charity } from "@/lib/supabase";
 
 interface WelcomeEmailOpts {
@@ -16,8 +15,7 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOpts): Promise<void> {
   }
 
   const { referrer, charity, dashboardUrl } = opts;
-  const globalTripleWin = await getBooleanSetting("triple_win_enabled", true);
-  const tripleWin = globalTripleWin && !!charity;
+  const tripleWin = !!charity;
 
   const bodyHtml = `
     <h1 style="margin:0 0 16px;color:#415440;font-family:Georgia,serif;font-style:italic;font-size:32px;line-height:1.15;">
@@ -34,8 +32,8 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOpts): Promise<void> {
              <strong>${escapeHtml(charity!.name)}</strong>. You still get your full gift card — the donation is on us.
            </p>`
         : `<p style="margin:16px 0;color:#415440;opacity:0.9;">
-             When Triple Win is on, every successful referral also triggers a donation to a charity you pick —
-             at no cost to your gift card. Manage your charity any time from your dashboard.
+             Pick a charity any time from your dashboard and every future referral will also send a
+             donation in your honor — at no cost to your gift card.
            </p>`
     }
     <p style="text-align:center;margin:32px 0;">

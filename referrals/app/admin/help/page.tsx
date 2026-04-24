@@ -168,7 +168,7 @@ export default function HelpPage() {
           />
           <AdminPageEntry
             title="Settings"
-            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page). Per-key validators catch bad input before it hits downstream systems. Note: the legacy triple_win_enabled kill switch is pinned on and hidden from this page — the 'is Triple Win live?' question is now 'are the program amounts > $0?', edited on the Rewards program page."
+            what="Runtime configuration that used to require redeploys. Current keys: st_referral_campaign_id (campaign referred leads attribute to), st_referral_booking_provider_id (the provider ID we submit bookings through — takes precedence over campaign when set), st_customer_referral_code_field_id (numeric type ID of the Referral_Code custom field on ST customers; enables the Tag in ST button on the Referrals page). Per-key validators catch bad input before it hits downstream systems. Note: there is no global Triple Win on/off switch anymore — Triple Win is the brand, always on. The 'is Triple Win live?' question is now 'are the program amounts > $0?', edited on the Rewards program page."
             who="Admins reconfiguring the program without code changes. Requires can_manage_settings."
           />
           <AdminPageEntry

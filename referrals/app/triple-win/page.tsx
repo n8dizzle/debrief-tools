@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
-import { getBooleanSetting } from "@/lib/settings";
 import {
   getCurrentProgram,
   BASELINE_PROGRAM,
@@ -22,9 +21,8 @@ async function getActiveCharities(): Promise<Charity[]> {
 }
 
 export default async function TripleWinPage() {
-  const [charities, tripleWinEnabled, program] = await Promise.all([
+  const [charities, program] = await Promise.all([
     getActiveCharities(),
-    getBooleanSetting("triple_win_enabled", true),
     getCurrentProgram(),
   ]);
   const p = program ?? BASELINE_PROGRAM;
@@ -32,23 +30,6 @@ export default async function TripleWinPage() {
   return (
     <>
       <SiteHeader />
-
-      {!tripleWinEnabled && (
-        <section className="px-4 md:px-6 pt-6 md:pt-8">
-          <div
-            className="max-w-3xl mx-auto p-4 rounded-lg text-center"
-            style={{
-              background: "rgba(166,153,78,0.15)",
-              border: "1px solid rgba(166,153,78,0.4)",
-            }}
-          >
-            <p className="text-sm">
-              <strong>Triple Win is paused right now.</strong> Your referrals
-              still earn you a reward. We&apos;ll resume charity matching soon.
-            </p>
-          </div>
-        </section>
-      )}
 
       <section className="px-4 md:px-6 pt-12 md:pt-24 pb-8 md:pb-12">
         <div className="max-w-4xl mx-auto text-center">

@@ -1,6 +1,5 @@
 import { getCurrentReferrer } from "@/lib/customer-auth";
 import { getServerSupabase } from "@/lib/supabase";
-import { getBooleanSetting } from "@/lib/settings";
 import { getCurrentProgram } from "@/lib/rewards/public-display";
 import type { Charity, Referral } from "@/lib/supabase";
 import CampaignBanner from "@/components/CampaignBanner";
@@ -64,13 +63,12 @@ export default async function DashboardPage() {
   const referrer = await getCurrentReferrer();
   if (!referrer) return null; // layout redirects
 
-  const [{ charity, referralCounts, recentReferrals }, globalTripleWin, program] =
+  const [{ charity, referralCounts, recentReferrals }, program] =
     await Promise.all([
       getDashboardData(referrer.id, referrer.selected_charity_id),
-      getBooleanSetting("triple_win_enabled", true),
       getCurrentProgram(),
     ]);
-  const tripleWinActive = globalTripleWin && !!referrer.selected_charity_id;
+  const tripleWinActive = !!referrer.selected_charity_id;
 
   return (
     <div className="max-w-5xl mx-auto">
