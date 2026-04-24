@@ -108,8 +108,8 @@ export default async function LandingPage() {
             Every referral is a Triple Win.
           </h2>
           <p className="text-base md:text-xl opacity-90 max-w-2xl mx-auto mb-6 md:mb-8">
-            You keep your full reward. Your friend gets their discount. And we
-            donate to a charity you pick — at no cost to you.
+            You get your gift card. Your friend gets theirs. And we donate to a
+            charity you picked — all three, every time, at no cost to you.
           </p>
           <Link
             href="/triple-win"
