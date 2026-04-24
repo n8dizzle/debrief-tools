@@ -32,13 +32,9 @@ const initialState: FormState = {
 
 interface EnrollFormProps {
   charities: Charity[];
-  tripleWinEnabled: boolean;
 }
 
-export default function EnrollForm({
-  charities,
-  tripleWinEnabled,
-}: EnrollFormProps) {
+export default function EnrollForm({ charities }: EnrollFormProps) {
   const [step, setStep] = useState<Step>("contact");
   const [form, setForm] = useState<FormState>(initialState);
   const [submitting, setSubmitting] = useState(false);
@@ -46,7 +42,6 @@ export default function EnrollForm({
   const [result, setResult] = useState<{
     referralCode: string;
     referralLink: string;
-    tripleWinEnabled: boolean;
     alreadyEnrolled?: boolean;
   } | null>(null);
 
@@ -80,7 +75,7 @@ export default function EnrollForm({
       setResult(data);
       setStep("done");
       trackEvent("enrollment_completed", {
-        triple_win: tripleWinEnabled && !!form.selectedCharityId,
+        triple_win: !!form.selectedCharityId,
         already_enrolled: !!data.alreadyEnrolled,
         reward_preference: form.rewardPreference,
       });
@@ -95,14 +90,14 @@ export default function EnrollForm({
     return (
       <DoneScreen
         result={result}
-        tripleWinEnabled={tripleWinEnabled && !!form.selectedCharityId}
+        tripleWinActive={!!form.selectedCharityId}
       />
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <ProgressIndicator step={step} tripleWinEnabled={tripleWinEnabled} />
+      <ProgressIndicator step={step} />
 
       {step === "contact" && (
         <ContactStep
@@ -125,15 +120,9 @@ export default function EnrollForm({
           form={form}
           update={update}
           onBack={() => setStep("contact")}
-          onNext={() => {
-            if (tripleWinEnabled) {
-              setStep("charity");
-            } else {
-              submit();
-            }
-          }}
+          onNext={() => setStep("charity")}
           submitting={submitting}
-          submitLabel={tripleWinEnabled ? "Continue →" : "Finish enrollment"}
+          submitLabel="Continue →"
         />
       )}
 
@@ -152,19 +141,11 @@ export default function EnrollForm({
   );
 }
 
-function ProgressIndicator({
-  step,
-  tripleWinEnabled,
-}: {
-  step: Step;
-  tripleWinEnabled: boolean;
-}) {
+function ProgressIndicator({ step }: { step: Step }) {
   const steps: { id: Step; label: string }[] = [
     { id: "contact", label: "About you" },
     { id: "reward", label: "Reward format" },
-    ...(tripleWinEnabled
-      ? ([{ id: "charity", label: "Your charity" }] as const)
-      : []),
+    { id: "charity", label: "Your charity" },
   ];
   const activeIdx = steps.findIndex((s) => s.id === step);
 
@@ -453,15 +434,14 @@ function CharityStep({
 
 function DoneScreen({
   result,
-  tripleWinEnabled,
+  tripleWinActive,
 }: {
   result: {
     referralCode: string;
     referralLink: string;
-    tripleWinEnabled: boolean;
     alreadyEnrolled?: boolean;
   };
-  tripleWinEnabled: boolean;
+  tripleWinActive: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -485,7 +465,7 @@ function DoneScreen({
           <>
             <h2 className="text-3xl mb-2">You&apos;re in.</h2>
             <p className="opacity-80 mb-6">
-              {tripleWinEnabled
+              {tripleWinActive
                 ? "Triple Win is on — your referrals now support your charity. We sent a welcome email to your inbox."
                 : "We sent a welcome email to your inbox."}
             </p>

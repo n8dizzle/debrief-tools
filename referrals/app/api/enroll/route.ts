@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getServerSupabase } from "@/lib/supabase";
 import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
-import { getBooleanSetting } from "@/lib/settings";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { issueMagicLinkToken, issueSessionCookie } from "@/lib/customer-auth";
 import { sendMagicLinkEmail } from "@/lib/email/magic-link";
@@ -78,14 +77,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Triple Win is admin-controlled globally (ref_settings.triple_win_enabled).
-  // If global is ON and the enrollment form submitted a charity, validate it.
-  // If global is OFF, ignore any incoming charity — we won't honor it until
-  // the admin flips the switch back on.
-  const globalTripleWin = await getBooleanSetting("triple_win_enabled", true);
+  // Triple Win is the brand — always on. Enrollment must submit a valid
+  // charity (unless the referrer chose All-to-charity as their reward
+  // preference, in which case the charity field is still required; it picks
+  // where the donation lands).
   let charity: Charity | null = null;
-  const effectiveCharityId =
-    globalTripleWin && data.selectedCharityId ? data.selectedCharityId : null;
+  const effectiveCharityId = data.selectedCharityId || null;
 
   if (effectiveCharityId) {
     const { data: c } = await supabase
@@ -103,7 +100,7 @@ export async function POST(req: NextRequest) {
     charity = c as Charity;
   }
 
-  if (globalTripleWin && !effectiveCharityId) {
+  if (!effectiveCharityId) {
     return NextResponse.json(
       { error: "Please pick a charity before finishing enrollment." },
       { status: 400 }
@@ -145,10 +142,6 @@ export async function POST(req: NextRequest) {
         referral_link: referralLink,
         reward_preference: data.rewardPreference,
         assigned_reward_config_id: assignedRewardConfigId,
-        // triple_win_enabled column is legacy (now admin-controlled globally).
-        // We keep writing true/false in case anything still reads it; real gate
-        // is ref_settings.triple_win_enabled + snapshot at referral submission.
-        triple_win_enabled: !!effectiveCharityId,
         selected_charity_id: effectiveCharityId,
       })
       .select("*")
@@ -211,6 +204,5 @@ export async function POST(req: NextRequest) {
     success: true,
     referralCode: referrer.referral_code,
     referralLink: referrer.referral_link,
-    tripleWinEnabled: globalTripleWin && !!referrer.selected_charity_id,
   });
 }

@@ -169,7 +169,6 @@ export interface Referrer {
   referral_link: string;
   reward_preference: RewardType;
   assigned_reward_config_id: string | null;
-  triple_win_enabled: boolean;
   selected_charity_id: string | null;
   total_earned: number;
   total_donated_on_their_behalf: number;

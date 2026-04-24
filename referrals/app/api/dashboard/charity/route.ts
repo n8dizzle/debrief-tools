@@ -45,14 +45,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // triple_win_enabled column is legacy (admin-controlled globally now) but
-  // we keep it aligned with whether the referrer has picked a charity so any
-  // lingering reader sees a consistent value.
   await supabase
     .from("ref_referrers")
     .update({
       selected_charity_id: parsed.data.selectedCharityId,
-      triple_win_enabled: !!parsed.data.selectedCharityId,
     })
     .eq("id", referrer.id);
 

@@ -1,6 +1,6 @@
 import { getServerSupabase } from "@/lib/supabase";
 import { getServiceTitanClient } from "@/lib/servicetitan";
-import { getBooleanSetting, getSetting } from "@/lib/settings";
+import { getSetting } from "@/lib/settings";
 import { classifyExpectedCategory, type ServiceType, SERVICE_TYPE_LABELS } from "./classify";
 import { serializeTierSnapshot } from "./snapshot";
 import { normalizePhone } from "./phone";
@@ -254,22 +254,21 @@ export async function submitReferral(
     );
   }
 
-  // 5. Triple Win snapshot. Gate is: global setting ON AND referrer has a
-  //    charity picked AND that charity is still active. An inactive charity
-  //    at submission time skips TW entirely so the reward never tries to
-  //    fulfill against a deactivated charity row. The referrer's selected
-  //    charity stays set — they can re-pick from the dashboard — but this
-  //    specific referral won't trigger a match.
-  const globalTripleWin = await getBooleanSetting("triple_win_enabled", true);
+  // 5. Triple Win snapshot. Triple Win is the brand — always on. The only
+  //    gate left is whether the referrer's selected charity is still active.
+  //    Inactive charity at submission time skips TW entirely so the reward
+  //    never tries to fulfill against a deactivated charity row. The
+  //    referrer's selected charity stays set — they can re-pick from the
+  //    dashboard — but this specific referral won't trigger a match.
   let charityStillActive = false;
-  if (globalTripleWin && referrer.selected_charity_id) {
+  if (referrer.selected_charity_id) {
     const { data: charityRow } = await supabase
       .from("ref_charities")
       .select("is_active")
       .eq("id", referrer.selected_charity_id)
       .maybeSingle();
     charityStillActive = !!charityRow?.is_active;
-    if (referrer.selected_charity_id && !charityStillActive) {
+    if (!charityStillActive) {
       console.warn(
         `Referrer ${referrer.id} has selected_charity_id pointing to ` +
           `inactive/missing charity ${referrer.selected_charity_id} — ` +
@@ -277,7 +276,7 @@ export async function submitReferral(
       );
     }
   }
-  const willActivateTripleWin = globalTripleWin && charityStillActive;
+  const willActivateTripleWin = charityStillActive;
 
   // 6. Insert the referral
   const { data: inserted, error: insertErr } = await supabase

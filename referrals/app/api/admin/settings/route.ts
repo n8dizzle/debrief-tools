@@ -21,19 +21,12 @@ const PER_KEY_VALIDATORS: Record<string, (v: string) => string | null> = {
     /^\d+$/.test(v) ? null : "Must be a numeric ServiceTitan custom field type ID",
 };
 
-// Keys hidden from the admin UI and blocked at the API layer. Defense in
-// depth with the UI filter in app/admin/settings/page.tsx. PR2 deletes the
-// row + the kill-switch code; until then this keeps the pin from being
-// flipped by anyone crafting a direct API call.
-const DENYLISTED_KEYS = new Set(["triple_win_enabled"]);
-
 export async function GET() {
   const admin = await requireReferralsAdmin("can_manage_settings");
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const settings = await getAllSettings();
-  const visible = settings.filter((s) => !DENYLISTED_KEYS.has(s.key));
-  return NextResponse.json({ settings: visible });
+  return NextResponse.json({ settings });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -52,13 +45,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(
       { error: "Invalid input", details: parsed.error.issues },
       { status: 400 }
-    );
-  }
-
-  if (DENYLISTED_KEYS.has(parsed.data.key)) {
-    return NextResponse.json(
-      { error: "Unknown setting key" },
-      { status: 404 }
     );
   }
 
