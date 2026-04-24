@@ -29,13 +29,13 @@ export async function sendTripleWinAnnouncementEmail(
     <p>Hi ${escapeHtml(referrer.first_name)},</p>
     <p>
       A quick update on the Neighbors Helping Neighbors program: <strong>Triple Win is now
-      automatic</strong>. Every successful referral triggers a matched donation from
-      Christmas Air to a charity you pick — at no cost to your reward.
+      automatic</strong>. Every successful referral triggers a donation from
+      Christmas Air to a charity you pick — at no cost to your gift card.
     </p>
     <p>
       You haven&apos;t picked a charity yet. Take 30 seconds to choose one, and your
       next referral will also send a donation to the cause you care about.
-      Your full reward stays yours. The match is on us.
+      Your full gift card stays yours. The donation is on us.
     </p>
     <p style="text-align:center;margin:32px 0;">
       <a href="${escapeHtml(dashboardUrl)}"

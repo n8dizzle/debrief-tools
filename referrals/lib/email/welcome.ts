@@ -31,11 +31,11 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOpts): Promise<void> {
       tripleWin
         ? `<p style="margin:24px 0;padding:16px;background:rgba(97,139,96,0.1);border-left:3px solid #618B60;border-radius:4px;">
              <strong>Triple Win is on.</strong> Every successful referral also sends a donation to
-             <strong>${escapeHtml(charity!.name)}</strong>. You keep your full reward — we match it.
+             <strong>${escapeHtml(charity!.name)}</strong>. You still get your full gift card — the donation is on us.
            </p>`
         : `<p style="margin:16px 0;color:#415440;opacity:0.9;">
              When Triple Win is on, every successful referral also triggers a donation to a charity you pick —
-             at no cost to your reward. Manage your charity any time from your dashboard.
+             at no cost to your gift card. Manage your charity any time from your dashboard.
            </p>`
     }
     <p style="text-align:center;margin:32px 0;">
