@@ -15,11 +15,11 @@ export const metadata = {
 };
 
 function earningsCopy(program: CurrentProgram): string {
-  return `$${program.referrer_amount} per completed referral — gift card, Amazon credit, account credit, or extra charity donation, your pick. No cap on how many you can make in a year.`;
+  return `$${program.referrer_amount} gift card per completed referral — pick from Amazon, Target, Visa, and more. Or send it straight to your charity. No cap on how many you can make in a year.`;
 }
 
 function tripleWinCopy(program: CurrentProgram): string {
-  return `Every successful referral also triggers a $${program.charity_amount} donation from Christmas Air to a charity you choose — at no cost to your reward. You still get your full $${program.referrer_amount} thank-you. Your friend also saves $${program.friend_amount} on their first service. Three wins, every time.`;
+  return `Every successful referral is three $${program.referrer_amount} wins: you get a $${program.referrer_amount} gift card (your choice of brand), your friend gets a $${program.friend_amount} gift card too, and we donate $${program.charity_amount} to a charity you choose. Three wins, every time, funded entirely by Christmas Air.`;
 }
 
 function buildFaq(program: CurrentProgram): { q: string; a: string }[] {
@@ -38,7 +38,7 @@ function buildFaq(program: CurrentProgram): { q: string; a: string }[] {
     },
     {
       q: "When do I get my reward?",
-      a: "Within 24 hours of the job being invoiced in our system. We send your reward by email — Visa gift card, Amazon credit, account credit, or charity donation, your pick.",
+      a: "Within 24 hours of the job being invoiced in our system. We send your gift card by email — pick your brand at redemption (Amazon, Target, Visa, and dozens more). Or send the whole reward to charity instead.",
     },
     {
       q: "How much can I earn?",

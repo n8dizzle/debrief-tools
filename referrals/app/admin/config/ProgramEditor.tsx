@@ -124,13 +124,13 @@ export default function ProgramEditor({
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
           <AmountField
             label="Referrer"
-            sublabel="Gift card to the referrer"
+            sublabel="Gift card to the referrer (their pick of brand at redemption)"
             value={referrer}
             onChange={setReferrer}
           />
           <AmountField
             label="Friend"
-            sublabel="Discount on their first service"
+            sublabel="Gift card to the referred friend (their pick too)"
             value={friend}
             onChange={setFriend}
           />
@@ -294,15 +294,15 @@ function LivePreview({
         )}
         <PreviewRow
           where="Homepage + /triple-win hero"
-          text={`You get $${referrer}. They save $${friend}. $${charity} goes to charity.`}
+          text={`You get a $${referrer} gift card. Your friend gets a $${friend} gift card too. We donate $${charity} to a charity you picked.`}
         />
         <PreviewRow
           where="/faq earnings line"
-          text={`$${referrer} referrer reward, $${friend} friend discount, $${charity} charity donation.`}
+          text={`$${referrer} gift card per completed referral (Amazon, Target, Visa, etc.). Friend gets a $${friend} gift card too. $${charity} donation on top.`}
         />
         <PreviewRow
           where="/terms"
-          text={`Rewards are $${referrer} to the referrer, $${friend} to the friend, and $${charity} to charity per completed referral. Amounts subject to change.`}
+          text={`$${referrer} gift card to the referrer, $${friend} gift card to the friend, and $${charity} donation to charity per completed referral. Amounts subject to change.`}
         />
       </div>
     </section>

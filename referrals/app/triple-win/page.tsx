@@ -70,17 +70,17 @@ export default async function TripleWinPage() {
             <WinCard
               n="1"
               title="You win"
-              body={`$${p.referrer_amount} for every completed referral — Visa gift card, Amazon credit, or account credit. Your choice, no strings.`}
+              body={`$${p.referrer_amount} gift card for every completed referral. Pick from Amazon, Target, Visa, and more — your choice, delivered by email.`}
             />
             <WinCard
               n="2"
               title="They win"
-              body={`Your friend gets $${p.friend_amount} off their first service. No coupon codes, no fine print. Just a warm welcome.`}
+              body={`Your friend gets a $${p.friend_amount} gift card too, their pick. A warm welcome, no coupon codes, no fine print.`}
             />
             <WinCard
               n="3"
               title="Your charity wins"
-              body={`We donate $${p.charity_amount} to a cause you picked — on top of your thank-you, not taken from it.`}
+              body={`We donate $${p.charity_amount} to a cause you picked — on top of the gift cards, not taken from them.`}
             />
           </div>
         </div>
