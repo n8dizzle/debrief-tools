@@ -93,6 +93,7 @@ interface PerformanceTotals {
 
 interface DailyData {
   daily: LSADailyDataPoint[];
+  monthly?: { month: string; total: number; hvac: number; plumbing: number; charged: number }[];
   totals: { total: number; hvac: number; plumbing: number; charged: number };
   avgPerDay: { total: number; hvac: number; plumbing: number; charged: number };
 }
@@ -709,6 +710,7 @@ export default function LSAPage() {
       {/* Daily Chart */}
       <LSADailyChart
         data={dailyData?.daily || []}
+        monthly={dailyData?.monthly}
         totals={dailyData?.totals || { total: 0, hvac: 0, plumbing: 0, charged: 0 }}
         avgPerDay={dailyData?.avgPerDay || { total: 0, hvac: 0, plumbing: 0, charged: 0 }}
         isLoading={dailyLoading}

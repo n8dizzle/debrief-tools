@@ -32,8 +32,17 @@ export interface LSADailyDataPoint {
   byLocation?: LSALocationBreakdown[];
 }
 
+interface LSAMonthlyDataPoint {
+  month: string;
+  total: number;
+  hvac: number;
+  plumbing: number;
+  charged: number;
+}
+
 interface LSADailyChartProps {
   data: LSADailyDataPoint[];
+  monthly?: LSAMonthlyDataPoint[];
   totals: { total: number; hvac: number; plumbing: number; charged: number };
   avgPerDay: { total: number; hvac: number; plumbing: number; charged: number };
   isLoading?: boolean;
@@ -106,6 +115,7 @@ function aggregateToMonthly(data: LSADailyDataPoint[]): LSADailyDataPoint[] {
 
 export function LSADailyChart({
   data,
+  monthly,
   totals,
   avgPerDay,
   isLoading = false,
@@ -117,8 +127,21 @@ export function LSADailyChart({
   const useMonthlyView = data.length > 210;
 
   const processedData = useMemo(() => {
+    // Use pre-aggregated monthly summary if available (avoids 1000 row cap from daily data)
+    if (useMonthlyView && monthly && monthly.length > 0) {
+      return monthly.map(m => ({
+        date: m.month + '-01',
+        total: m.total,
+        hvac: m.hvac,
+        plumbing: m.plumbing,
+        other: 0,
+        charged: m.charged,
+        nonCharged: m.total - m.charged,
+        byLocation: [] as LSALocationBreakdown[],
+      }));
+    }
     return useMonthlyView ? aggregateToMonthly(data) : data;
-  }, [data, useMonthlyView]);
+  }, [data, monthly, useMonthlyView]);
 
   const chartData = useMemo(() => {
     return processedData.map(d => ({
