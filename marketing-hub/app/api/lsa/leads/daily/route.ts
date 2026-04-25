@@ -181,12 +181,16 @@ export async function GET(request: NextRequest) {
     const endMonth = endDate.getMonth() + 1;
 
     // Fetch current range + prior year for YoY comparison
-    const { data: monthlySummary } = await supabase
+    console.log(`[LSA Daily] Monthly summary query: startYear=${startYear}, startMonth=${startMonth}, endYear=${endYear}, endMonth=${endMonth}`);
+    const { data: monthlySummary, error: monthlyError } = await supabase
       .from('lsa_monthly_summary')
       .select('year, month, trade, total_leads, charged_leads, non_charged_leads')
       .gte('year', startYear - 1)
       .order('year')
       .order('month');
+
+    if (monthlyError) console.error('[LSA Daily] Monthly summary error:', monthlyError.message);
+    console.log(`[LSA Daily] Monthly summary rows: ${monthlySummary?.length || 0}`);
 
     // Build lookup by year-month
     const allMonthlyMap = new Map<string, { total: number; hvac: number; plumbing: number; charged: number }>();
@@ -219,6 +223,8 @@ export async function GET(request: NextRequest) {
         return { month: key, ...data, yoyTotal, yoyPct };
       })
       .sort((a, b) => a.month.localeCompare(b.month));
+
+    console.log(`[LSA Daily] Monthly array: ${monthly.length} months, sample:`, monthly.slice(-2));
 
     return NextResponse.json({
       daily,
