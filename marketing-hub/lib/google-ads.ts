@@ -234,6 +234,7 @@ class GoogleAdsClient {
 
   /**
    * Get LSA leads for a date range from all accessible accounts
+   * Uses server-side date filter in the query to avoid pagination caps
    */
   async getLSALeads(
     startDate: string,
@@ -266,6 +267,8 @@ class GoogleAdsClient {
             local_services_lead.credit_details.credit_state,
             local_services_lead.lead_feedback_submitted
           FROM local_services_lead
+          WHERE local_services_lead.creation_date_time >= '${startDate}'
+            AND local_services_lead.creation_date_time <= '${endDate}'
           ORDER BY local_services_lead.creation_date_time DESC
         `;
 
@@ -277,14 +280,7 @@ class GoogleAdsClient {
       }
     }
 
-    // Filter by date client-side
-    const startDateTime = new Date(startDate + 'T00:00:00');
-    const endDateTime = new Date(endDate + 'T23:59:59');
-
-    const filteredLeads = allLeads.filter(lead => {
-      const leadDate = new Date(lead.creationDateTime);
-      return leadDate >= startDateTime && leadDate <= endDateTime;
-    });
+    const filteredLeads = allLeads;
 
     filteredLeads.sort((a, b) =>
       new Date(b.creationDateTime).getTime() - new Date(a.creationDateTime).getTime()
