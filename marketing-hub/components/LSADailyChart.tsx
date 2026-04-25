@@ -38,6 +38,8 @@ interface LSAMonthlyDataPoint {
   hvac: number;
   plumbing: number;
   charged: number;
+  yoyTotal?: number | null;
+  yoyPct?: number | null;
 }
 
 interface LSADailyChartProps {
@@ -138,6 +140,8 @@ export function LSADailyChart({
         charged: m.charged,
         nonCharged: m.total - m.charged,
         byLocation: [] as LSALocationBreakdown[],
+        yoyTotal: m.yoyTotal,
+        yoyPct: m.yoyPct,
       }));
     }
     return useMonthlyView ? aggregateToMonthly(data) : data;
@@ -356,6 +360,14 @@ export function LSADailyChart({
                         <span className="text-xs" style={{ color: '#8a9a8a' }}>Charged</span>
                         <span className="text-xs font-medium" style={{ color: '#6B9DB8' }}>{item.charged}</span>
                       </div>
+                      {useMonthlyView && item.yoyTotal !== undefined && item.yoyTotal !== null && (
+                        <div className="flex justify-between items-center pt-1 border-t" style={{ borderColor: '#3a453a' }}>
+                          <span className="text-xs" style={{ color: '#8a9a8a' }}>vs Last Year</span>
+                          <span className="text-xs font-medium" style={{ color: item.yoyPct !== null && item.yoyPct !== undefined && item.yoyPct >= 0 ? '#5d8a66' : '#EF4444' }}>
+                            {item.yoyTotal} ({item.yoyPct !== null && item.yoyPct !== undefined ? (item.yoyPct >= 0 ? '+' : '') + item.yoyPct + '%' : '--'})
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {locations.length > 0 && (

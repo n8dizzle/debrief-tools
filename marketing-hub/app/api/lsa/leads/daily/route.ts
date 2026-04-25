@@ -180,28 +180,44 @@ export async function GET(request: NextRequest) {
     const endYear = endDate.getFullYear();
     const endMonth = endDate.getMonth() + 1;
 
+    // Fetch current range + prior year for YoY comparison
     const { data: monthlySummary } = await supabase
       .from('lsa_monthly_summary')
       .select('year, month, trade, total_leads, charged_leads, non_charged_leads')
-      .or(`year.gt.${startYear},and(year.eq.${startYear},month.gte.${startMonth})`)
-      .or(`year.lt.${endYear},and(year.eq.${endYear},month.lte.${endMonth})`)
+      .gte('year', startYear - 1)
       .order('year')
       .order('month');
 
-    // Build monthly array grouped by year-month
-    const monthlyMap = new Map<string, { total: number; hvac: number; plumbing: number; charged: number }>();
+    // Build lookup by year-month
+    const allMonthlyMap = new Map<string, { total: number; hvac: number; plumbing: number; charged: number }>();
     for (const row of monthlySummary || []) {
       const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-      const existing = monthlyMap.get(key) || { total: 0, hvac: 0, plumbing: 0, charged: 0 };
+      const existing = allMonthlyMap.get(key) || { total: 0, hvac: 0, plumbing: 0, charged: 0 };
       existing.total += row.total_leads;
       existing.charged += row.charged_leads;
       if (row.trade === 'HVAC') existing.hvac += row.total_leads;
       else if (row.trade === 'Plumbing') existing.plumbing += row.total_leads;
-      monthlyMap.set(key, existing);
+      allMonthlyMap.set(key, existing);
     }
 
-    const monthly = Array.from(monthlyMap.entries())
-      .map(([key, data]) => ({ month: key, ...data }))
+    // Build monthly array with YoY
+    const monthly = Array.from(allMonthlyMap.entries())
+      .filter(([key]) => {
+        const [y, m] = key.split('-').map(Number);
+        if (y < startYear || (y === startYear && m < startMonth)) return false;
+        if (y > endYear || (y === endYear && m > endMonth)) return false;
+        return true;
+      })
+      .map(([key, data]) => {
+        const [y, m] = key.split('-').map(Number);
+        const priorKey = `${y - 1}-${String(m).padStart(2, '0')}`;
+        const priorData = allMonthlyMap.get(priorKey);
+        const yoyTotal = priorData ? priorData.total : null;
+        const yoyPct = priorData && priorData.total > 0
+          ? Math.round(((data.total - priorData.total) / priorData.total) * 100)
+          : null;
+        return { month: key, ...data, yoyTotal, yoyPct };
+      })
       .sort((a, b) => a.month.localeCompare(b.month));
 
     return NextResponse.json({
