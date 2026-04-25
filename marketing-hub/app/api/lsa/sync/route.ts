@@ -70,10 +70,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[LSA Sync] Starting sync - fetching ALL leads (no date filter)`);
+    // Get the most recent lead date from DB to only fetch new leads
+    const { data: lastLeadRow } = await supabase
+      .from('lsa_leads')
+      .select('lead_created_at')
+      .order('lead_created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-    // Get ALL leads from Google Ads (sync stores everything, filter on display)
-    const leads = await client.getAllLSALeads();
+    // Fetch leads since last sync (with 1-day overlap for updates to existing leads)
+    let sinceDate: string | undefined;
+    if (lastLeadRow?.lead_created_at) {
+      const lastDate = new Date(lastLeadRow.lead_created_at);
+      lastDate.setDate(lastDate.getDate() - 1); // 1 day overlap for status updates
+      sinceDate = lastDate.toISOString().split('T')[0];
+    }
+
+    console.log(`[LSA Sync] Starting sync - fetching leads${sinceDate ? ` since ${sinceDate}` : ' (ALL - first sync)'}`);
+
+    const leads = await client.getAllLSALeads(sinceDate);
     console.log(`[LSA Sync] Fetched ${leads.length} leads from Google Ads API`);
 
     // Get daily performance data (per-day-per-account for caching)

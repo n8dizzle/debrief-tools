@@ -175,15 +175,20 @@ class GoogleAdsClient {
   }
 
   /**
-   * Get ALL LSA leads from all accessible accounts (no date filter)
-   * Use this for syncing to database
+   * Get LSA leads from all accessible accounts, optionally filtered by date.
+   * When sinceDate is provided, only fetches leads created after that date.
+   * This prevents re-fetching old leads that are already in the database.
    */
-  async getAllLSALeads(): Promise<LSALead[]> {
+  async getAllLSALeads(sinceDate?: string): Promise<LSALead[]> {
     const customerIds = await this.getAccessibleCustomers();
     const allLeads: LSALead[] = [];
     const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
 
-    console.log(`[LSA] Querying ${customerIds.length} customer accounts for ALL leads`);
+    const dateFilter = sinceDate
+      ? `WHERE local_services_lead.creation_date_time >= '${sinceDate}'`
+      : '';
+
+    console.log(`[LSA] Querying ${customerIds.length} customer accounts${sinceDate ? ` since ${sinceDate}` : ' (ALL leads)'}`);
 
     for (const cid of customerIds) {
       try {
@@ -203,6 +208,7 @@ class GoogleAdsClient {
             local_services_lead.credit_details.credit_state,
             local_services_lead.lead_feedback_submitted
           FROM local_services_lead
+          ${dateFilter}
           ORDER BY local_services_lead.creation_date_time DESC
         `;
 
