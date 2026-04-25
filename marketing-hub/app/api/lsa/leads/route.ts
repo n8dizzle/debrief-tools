@@ -77,13 +77,31 @@ export async function GET(request: NextRequest) {
   try {
     // Try to read from Supabase cache first
     if (source === 'cache') {
-      const { data: cachedLeads, error: cacheError } = await supabase
-        .from('lsa_leads')
-        .select('*')
-        .gte('lead_created_at', startDateStr)
-        .lte('lead_created_at', endDateStr)
-        .order('lead_created_at', { ascending: false })
-        .limit(10000);
+      // Supabase PostgREST caps at 1000 rows per request.
+      // Paginate to get all leads for the date range.
+      const cachedLeads: any[] = [];
+      let cacheError: any = null;
+      let page = 0;
+      const PAGE_SIZE = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        const { data, error } = await supabase
+          .from('lsa_leads')
+          .select('*')
+          .gte('lead_created_at', startDateStr)
+          .lte('lead_created_at', endDateStr)
+          .order('lead_created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) { cacheError = error; break; }
+        if (data) cachedLeads.push(...data);
+        hasMore = data?.length === PAGE_SIZE;
+        page++;
+        if (page > 20) break; // safety limit: 20k max
+      }
 
       if (!cacheError && cachedLeads && cachedLeads.length > 0) {
         console.log(`[LSA] Returning ${cachedLeads.length} leads from Supabase cache`);
