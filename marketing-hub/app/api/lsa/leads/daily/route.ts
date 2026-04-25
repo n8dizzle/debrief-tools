@@ -42,15 +42,28 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(start + 'T00:00:00');
     const endDate = new Date(end + 'T23:59:59');
 
-    const { data: leads, error } = await supabase
-      .from('lsa_leads')
-      .select('lead_created_at, trade, lead_charged, customer_id')
-      .gte('lead_created_at', startDate.toISOString())
-      .lte('lead_created_at', endDate.toISOString())
-      .order('lead_created_at', { ascending: true });
+    // Paginate past PostgREST 1000 row cap
+    const leads: any[] = [];
+    let page = 0;
+    const PAGE_SIZE = 1000;
+    let hasMore = true;
 
-    if (error) {
-      throw error;
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from('lsa_leads')
+        .select('lead_created_at, trade, lead_charged, customer_id')
+        .gte('lead_created_at', startDate.toISOString())
+        .lte('lead_created_at', endDate.toISOString())
+        .order('lead_created_at', { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+      if (data) leads.push(...data);
+      hasMore = data?.length === PAGE_SIZE;
+      page++;
+      if (page > 20) break;
     }
 
     // Get account names
