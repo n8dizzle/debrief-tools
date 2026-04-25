@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (!cacheError && cachedLeads && cachedLeads.length > 0) {
-        console.log(`[LSA] Returning ${cachedLeads.length} leads from Supabase cache`);
+        console.log(`[LSA] Returning ${cachedLeads.length} leads from Supabase cache (paginated)`);
 
         // Get account names
         const { data: accounts } = await supabase

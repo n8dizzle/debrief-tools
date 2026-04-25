@@ -214,6 +214,44 @@ export async function POST(request: NextRequest) {
 
     console.log(`[LSA Sync] Leads: ${leadsSynced} synced, ${leadErrors} errors`);
 
+    // Refresh monthly summary for affected months
+    // Get distinct months from the synced leads
+    const affectedMonths = new Set<string>();
+    for (const lead of leadRows) {
+      if (lead.lead_created_at) {
+        const d = new Date(lead.lead_created_at);
+        affectedMonths.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
+      }
+    }
+
+    for (const ym of affectedMonths) {
+      const [y, m] = ym.split('-').map(Number);
+      const monthStart = `${y}-${String(m).padStart(2, '0')}-01T00:00:00`;
+      const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}T23:59:59`;
+
+      // Count by trade for this month
+      for (const trade of ['HVAC', 'Plumbing', 'Other']) {
+        const { count: total } = await supabase.from('lsa_leads').select('*', { count: 'exact', head: true }).gte('lead_created_at', monthStart).lte('lead_created_at', monthEnd).eq('trade', trade);
+        if (!total) continue;
+        const { count: charged } = await supabase.from('lsa_leads').select('*', { count: 'exact', head: true }).gte('lead_created_at', monthStart).lte('lead_created_at', monthEnd).eq('trade', trade).eq('lead_charged', true);
+        const { count: phone } = await supabase.from('lsa_leads').select('*', { count: 'exact', head: true }).gte('lead_created_at', monthStart).lte('lead_created_at', monthEnd).eq('trade', trade).eq('lead_type', 'PHONE_CALL');
+        const { count: message } = await supabase.from('lsa_leads').select('*', { count: 'exact', head: true }).gte('lead_created_at', monthStart).lte('lead_created_at', monthEnd).eq('trade', trade).eq('lead_type', 'MESSAGE');
+        const { count: booking } = await supabase.from('lsa_leads').select('*', { count: 'exact', head: true }).gte('lead_created_at', monthStart).lte('lead_created_at', monthEnd).eq('trade', trade).eq('lead_type', 'BOOKING');
+
+        await supabase.from('lsa_monthly_summary').upsert({
+          year: y, month: m, trade,
+          total_leads: total || 0,
+          charged_leads: charged || 0,
+          non_charged_leads: (total || 0) - (charged || 0),
+          phone_leads: phone || 0,
+          message_leads: message || 0,
+          booking_leads: booking || 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'year,month,trade' });
+      }
+    }
+    console.log(`[LSA Sync] Monthly summary refreshed for ${affectedMonths.size} months`);
+
     return NextResponse.json({
       success: true,
       summary: {
