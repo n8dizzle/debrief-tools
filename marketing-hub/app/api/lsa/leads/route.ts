@@ -82,7 +82,8 @@ export async function GET(request: NextRequest) {
         .select('*')
         .gte('lead_created_at', startDateStr)
         .lte('lead_created_at', endDateStr)
-        .order('lead_created_at', { ascending: false });
+        .order('lead_created_at', { ascending: false })
+        .limit(10000);
 
       if (!cacheError && cachedLeads && cachedLeads.length > 0) {
         console.log(`[LSA] Returning ${cachedLeads.length} leads from Supabase cache`);
