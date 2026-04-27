@@ -129,6 +129,7 @@ export function LSADailyChart({
   const useMonthlyView = data.length > 210;
 
   const processedData = useMemo(() => {
+    console.log('[LSAChart] useMonthlyView:', useMonthlyView, 'monthly:', monthly?.length, 'data:', data.length, 'sample:', monthly?.[0]);
     // Use pre-aggregated monthly summary if available (avoids 1000 row cap from daily data)
     if (useMonthlyView && monthly && monthly.length > 0) {
       return monthly.map(m => ({
