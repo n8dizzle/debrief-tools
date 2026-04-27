@@ -48,14 +48,14 @@ Login at http://localhost:3011/login.
 - **Phase 4 ✅** — Office portal pages built: list + detail for Trucks,
   Warehouses, Tools, Equipment, IT Assets, Vendors, Purchase Orders, Restock
   Batches, Users; plus an admin Settings page with sectioned forms and an
-  inline ServiceTitan "Sync now" button. Shared `components/ui.tsx`
-  (PageHeader, Card, Table, StatusBadge, ...) and `lib/format.ts` keep the
-  pages consistent. Mostly read-only — write actions wired only for
-  Settings; tool checkout/checkin, batch approve, PO send/receive etc. are
-  Phase 4b once the scanner UI lands.
-- **Phase 4b** — Mobile scanner UI (techs scanning materials/tools onto
-  trucks). Different UX (mobile-first, dark, barcode flows) so scoped as
-  its own session.
+  inline ServiceTitan "Sync now" button.
+- **Phase 4b ✅** — Mobile scanner under `/scan/*` with its own mobile-first
+  layout. Workflows: Consume material on job, Tool check-out/in, Stock
+  transfer, Bin scan. Reusable `BarcodeInput` autofocuses on mount and
+  works with USB/Bluetooth scanners and manual typing. Office-side write
+  actions also wired: tool checkout/checkin/send-for-service, restock batch
+  lock/approve/pick/complete, PO send + receive form. `app/page.tsx`
+  redirects technicians to `/scan` and everyone else to `/dashboard`.
 - **Phase 5** — Replace `node-cron` jobs with Vercel cron + Route Handlers
   (`/api/admin/jobs/batch-lock`, `/api/admin/jobs/po-run`, `/api/st/sync/*`
   are already Route Handlers — just need cron entries in `vercel.json`).

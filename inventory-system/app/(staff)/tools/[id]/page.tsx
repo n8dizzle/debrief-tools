@@ -1,8 +1,11 @@
 import { notFound } from 'next/navigation';
 import { AppError } from '@/lib/errors';
 import { getTool } from '@/lib/services/tools';
+import { listUsers } from '@/lib/services/users';
+import { listTrucks } from '@/lib/services/trucks';
 import { PageHeader, Card, DataRow, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { titleCase, formatDateTime, formatDate, formatMoney } from '@/lib/format';
+import ToolActions from './ToolActions';
 
 export default async function ToolDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,6 +20,11 @@ export default async function ToolDetailPage({ params }: { params: Promise<{ id:
 
   const tool = detail.tool as Record<string, unknown>;
 
+  const [techs, trucks] = await Promise.all([
+    listUsers({ role: 'technician', isActive: true }).catch(() => []),
+    listTrucks({}).catch(() => []),
+  ]);
+
   return (
     <div className="px-8 py-6">
       <PageHeader
@@ -25,6 +33,15 @@ export default async function ToolDetailPage({ params }: { params: Promise<{ id:
         back={{ href: '/tools', label: 'Back to tools' }}
         actions={<StatusBadge status={tool.status as string} />}
       />
+
+      <div className="mb-6">
+        <ToolActions
+          toolId={id}
+          status={tool.status as string}
+          technicians={techs.map((t) => ({ id: t.id, name: `${t.first_name} ${t.last_name}` }))}
+          trucks={trucks.map((t) => ({ id: t.id, truck_number: t.truck_number }))}
+        />
+      </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card title="Details">

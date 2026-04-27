@@ -3,6 +3,7 @@ import { AppError } from '@/lib/errors';
 import { getPurchaseOrder } from '@/lib/services/purchase-orders';
 import { PageHeader, Card, DataRow, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { formatMoney, formatDateTime, titleCase } from '@/lib/format';
+import POActions from './POActions';
 
 export default async function PurchaseOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,6 +27,23 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
         back={{ href: '/purchase-orders', label: 'Back to POs' }}
         actions={<StatusBadge status={po.status as string} />}
       />
+
+      <div className="mb-6">
+        <POActions
+          poId={id}
+          status={po.status as string}
+          lines={lines.map((l) => {
+            const r = l as Record<string, unknown>;
+            return {
+              id: r.id as string,
+              sku: (r.sku as string) ?? null,
+              material_name: r.material_name as string,
+              quantity_ordered: Number(r.quantity_ordered ?? 0),
+              quantity_received: Number(r.quantity_received ?? 0),
+            };
+          })}
+        />
+      </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card title="Header">

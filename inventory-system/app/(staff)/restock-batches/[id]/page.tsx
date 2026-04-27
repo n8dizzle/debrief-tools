@@ -3,6 +3,7 @@ import { AppError } from '@/lib/errors';
 import { getBatch } from '@/lib/services/restock-batches';
 import { PageHeader, Card, DataRow, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { formatDateTime, formatMoney, titleCase } from '@/lib/format';
+import BatchActions from './BatchActions';
 
 export default async function RestockBatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,6 +27,10 @@ export default async function RestockBatchDetailPage({ params }: { params: Promi
         back={{ href: '/restock-batches', label: 'Back to batches' }}
         actions={<StatusBadge status={b.status as string} />}
       />
+
+      <div className="mb-6">
+        <BatchActions batchId={id} status={b.status as string} />
+      </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card title="Workflow">

@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   Building2,
+  Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import LogoutButton from './LogoutButton';
@@ -30,6 +31,7 @@ const NAV: Array<{ href: string; label: string; Icon: LucideIcon }> = [
   { href: '/it-assets', label: 'IT Assets', Icon: Cpu },
   { href: '/users', label: 'Users', Icon: Users },
   { href: '/settings', label: 'Settings', Icon: Settings },
+  { href: '/scan', label: 'Scanner (mobile)', Icon: Smartphone },
 ];
 
 export default function Sidebar({ user }: { user: Session['user'] }) {
