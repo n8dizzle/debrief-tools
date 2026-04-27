@@ -697,7 +697,7 @@ export default function HuddleDashboard({
                 label={pacingCardLabel}
                 revenue={pacingData?.todayRevenue || 0}
                 sales={pacingData?.todaySales || 0}
-                target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.daysInRange || 1) : 0}
+                target={pacingData?.dailyTarget ? pacingData.dailyTarget * (data?.businessDaysInRange || data?.daysInRange || 1) : 0}
                 pacing={dailyPacing}
                 completed={selectedEndDate < today}
               />

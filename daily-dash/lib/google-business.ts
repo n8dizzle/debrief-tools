@@ -211,12 +211,20 @@ export class GoogleBusinessClient {
   async getAllReviews(
     accountId: string,
     locationId: string
-  ): Promise<GoogleReview[]> {
+  ): Promise<{ reviews: GoogleReview[]; totalReviewCount: number; averageRating: number }> {
     const allReviews: GoogleReview[] = [];
     let pageToken: string | undefined;
+    let totalReviewCount = 0;
+    let averageRating = 0;
 
     do {
       const response = await this.getReviews(accountId, locationId, 50, pageToken);
+
+      // Capture metadata from the first page response
+      if (allReviews.length === 0) {
+        totalReviewCount = response.totalReviewCount || 0;
+        averageRating = response.averageRating || 0;
+      }
 
       if (response.reviews) {
         allReviews.push(...response.reviews);
@@ -225,7 +233,7 @@ export class GoogleBusinessClient {
       pageToken = response.nextPageToken;
     } while (pageToken);
 
-    return allReviews;
+    return { reviews: allReviews, totalReviewCount, averageRating };
   }
 
   /**

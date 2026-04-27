@@ -174,10 +174,7 @@ export async function GET(request: NextRequest) {
     locationYearBatch1,
     locationYearBatch2,
     locationMonthResult,
-    locationAllTimeBatch1,
-    locationAllTimeBatch2,
-    locationAllTimeBatch3,
-    locationAllTimeBatch4,
+    locationAllTimeRpcResult,
   ] = await Promise.all([
     // Current year goal
     supabase
@@ -340,29 +337,8 @@ export async function GET(request: NextRequest) {
       .lte('create_time', now.toISOString())
       .range(0, 999),
 
-    // Location ALL TIME counts - first batch (0-999)
-    supabase
-      .from('google_reviews')
-      .select('location_id')
-      .range(0, 999),
-
-    // Location ALL TIME counts - second batch (1000-1999)
-    supabase
-      .from('google_reviews')
-      .select('location_id')
-      .range(1000, 1999),
-
-    // Location ALL TIME counts - third batch (2000-2999)
-    supabase
-      .from('google_reviews')
-      .select('location_id')
-      .range(2000, 2999),
-
-    // Location ALL TIME counts - fourth batch (3000-3999)
-    supabase
-      .from('google_reviews')
-      .select('location_id')
-      .range(3000, 3999),
+    // Location ALL TIME counts - single RPC call (no row limit)
+    supabase.rpc('get_review_counts_by_location'),
   ]);
 
   const yearGoal = goalResult.data?.target_count || 1250;
@@ -485,11 +461,9 @@ export async function GET(request: NextRequest) {
     locationMonthCounts[r.location_id] = (locationMonthCounts[r.location_id] || 0) + 1;
   });
 
-  // Combine all 4 batches of all-time counts
-  [locationAllTimeBatch1, locationAllTimeBatch2, locationAllTimeBatch3, locationAllTimeBatch4].forEach(batch => {
-    batch.data?.forEach(r => {
-      locationAllTimeCounts[r.location_id] = (locationAllTimeCounts[r.location_id] || 0) + 1;
-    });
+  // All-time counts from RPC (no row limit)
+  locationAllTimeRpcResult.data?.forEach((r: { location_id: string; review_count: number }) => {
+    locationAllTimeCounts[r.location_id] = Number(r.review_count) || 0;
   });
 
   // Build location stats
@@ -508,7 +482,7 @@ export async function GET(request: NextRequest) {
       id: location.id,
       name: location.name,
       short_name: location.short_name,
-      total_reviews: locationAllTimeCounts[location.id] || 0,
+      total_reviews: location.total_reviews || locationAllTimeCounts[location.id] || 0,
       average_rating: location.average_rating || 0,
       reviews_this_year: locationYearCounts[location.id] || 0,
       reviews_this_month: locationMonthCounts[location.id] || 0,

@@ -183,6 +183,24 @@ export async function GET(request: NextRequest) {
       ? Math.round((new Date(endDate + 'T12:00:00').getTime() - new Date(date + 'T12:00:00').getTime()) / 86400000) + 1
       : 1;
 
+    // Count business days in the range (Mon-Fri=1, Sat=0.5, Sun=0)
+    let businessDaysInRange = 1;
+    if (isRange) {
+      businessDaysInRange = 0;
+      const cursor = new Date(date + 'T12:00:00');
+      const end = new Date(endDate + 'T12:00:00');
+      while (cursor <= end) {
+        const dow = cursor.getDay();
+        if (dow >= 1 && dow <= 5) businessDaysInRange += 1;
+        else if (dow === 6) businessDaysInRange += 0.5;
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      if (businessDaysInRange === 0) businessDaysInRange = 0.5; // At minimum, show something
+    } else {
+      const dow = new Date(date + 'T12:00:00').getDay();
+      businessDaysInRange = dow === 0 ? 0 : dow === 6 ? 0.5 : 1;
+    }
+
     // Map KPI format by id
     const kpiFormatMap = new Map<string, string>();
     kpis?.forEach((k) => kpiFormatMap.set(k.id, k.format || 'number'));
@@ -217,12 +235,12 @@ export async function GET(request: NextRequest) {
     }
 
 
-    // Build target lookup (most recent for each KPI). Scale by days in range for sum-type KPIs.
+    // Build target lookup (most recent for each KPI). Scale by business days in range for sum-type KPIs.
     const targetMap = new Map<string, number>();
     targets?.forEach((t) => {
       if (!targetMap.has(t.kpi_id)) {
         const format = kpiFormatMap.get(t.kpi_id) || 'number';
-        const scale = isRange && format !== 'percent' && format !== 'time' ? daysInRange : 1;
+        const scale = isRange && format !== 'percent' && format !== 'time' ? businessDaysInRange : 1;
         targetMap.set(t.kpi_id, t.target_value * scale);
       }
     });
@@ -256,7 +274,7 @@ export async function GET(request: NextRequest) {
       const id = kpiSlugToId.get(slug);
       if (!id || !daily || targetMap.has(id)) continue;
       const format = kpiFormatMap.get(id) || 'currency';
-      const scale = isRange && format !== 'percent' && format !== 'time' ? daysInRange : 1;
+      const scale = isRange && format !== 'percent' && format !== 'time' ? businessDaysInRange : 1;
       targetMap.set(id, daily * scale);
     }
 
@@ -651,12 +669,12 @@ export async function GET(request: NextRequest) {
 
     let allSnapsData: TradeSnapshot[] | null = null;
     try {
-      // Single query: all snapshots from start of year to today (includes today's cached data)
+      // Single query: all snapshots from start of year through endDate (includes full range for weekend/multi-day)
       const { data: allSnaps } = await supabase
         .from('trade_daily_snapshots')
         .select('snapshot_date, trade, department, revenue, completed_revenue, non_job_revenue, adj_revenue, sales')
         .gte('snapshot_date', yearStartDate)
-        .lte('snapshot_date', date)
+        .lte('snapshot_date', endDate)
         .order('snapshot_date');
 
       if (allSnaps && allSnaps.length > 0) {
@@ -674,34 +692,35 @@ export async function GET(request: NextRequest) {
           };
         };
 
-        // Today
-        const todayData = sumRange(date, date);
+        // Selected range (single day or multi-day like weekend Fri-Sun)
+        const rangeEnd = endDate; // Use endDate so weekend includes Sat+Sun
+        const todayData = sumRange(date, rangeEnd);
         tradeData.hvac.today = todayData.hvac;
         tradeData.plumbing.today = todayData.plumbing;
 
-        // WTD (Monday to date)
-        if (mondayStr <= date) {
-          const wtd = sumRange(mondayStr, date);
+        // WTD (Monday through end of selected range)
+        if (mondayStr <= rangeEnd) {
+          const wtd = sumRange(mondayStr, rangeEnd);
           tradeData.hvac.wtd = wtd.hvac;
           tradeData.plumbing.wtd = wtd.plumbing;
         }
 
-        // MTD (1st of month to date)
-        if (firstOfMonth <= date) {
-          const mtd = sumRange(firstOfMonth, date);
+        // MTD (1st of month through end of selected range)
+        if (firstOfMonth <= rangeEnd) {
+          const mtd = sumRange(firstOfMonth, rangeEnd);
           tradeData.hvac.mtd = mtd.hvac;
           tradeData.plumbing.mtd = mtd.plumbing;
         }
 
-        // QTD (quarter start to date)
-        if (quarterStartDate <= date) {
-          const qtd = sumRange(quarterStartDate, date);
+        // QTD (quarter start through end of selected range)
+        if (quarterStartDate <= rangeEnd) {
+          const qtd = sumRange(quarterStartDate, rangeEnd);
           tradeData.hvac.qtd = qtd.hvac;
           tradeData.plumbing.qtd = qtd.plumbing;
         }
 
-        // YTD (Jan 1 to date)
-        const ytd = sumRange(yearStartDate, date);
+        // YTD (Jan 1 through end of selected range)
+        const ytd = sumRange(yearStartDate, rangeEnd);
         tradeData.hvac.ytd = ytd.hvac;
         tradeData.plumbing.ytd = ytd.plumbing;
       }
@@ -1049,6 +1068,7 @@ export async function GET(request: NextRequest) {
       date,
       endDate,
       daysInRange,
+      businessDaysInRange,
       departments: departmentsWithKPIs,
       last_updated: new Date().toISOString(),
       pacing: pacingData,

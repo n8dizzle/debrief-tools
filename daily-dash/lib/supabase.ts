@@ -197,6 +197,7 @@ export interface HuddleDashboardResponse {
   date: string;
   endDate?: string;
   daysInRange?: number;
+  businessDaysInRange?: number;
   departments: HuddleDepartmentWithKPIs[];
   last_updated: string;
   pacing?: HuddlePacingData;

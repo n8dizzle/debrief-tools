@@ -96,10 +96,21 @@ export async function POST(request: NextRequest) {
     // Sync reviews for each location
     for (const location of locations) {
       try {
-        const reviews = await googleClient.getAllReviews(
+        const { reviews, totalReviewCount, averageRating } = await googleClient.getAllReviews(
           location.google_account_id,
           location.google_location_id
         );
+
+        // Update location with Google's authoritative totals
+        if (totalReviewCount > 0) {
+          await supabase
+            .from('google_locations')
+            .update({
+              total_reviews: totalReviewCount,
+              average_rating: averageRating,
+            })
+            .eq('id', location.id);
+        }
 
         // Process and upsert reviews
         for (const review of reviews) {
