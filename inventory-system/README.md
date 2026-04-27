@@ -40,7 +40,11 @@ Login at http://localhost:3011/login.
 - **Phase 2 ✅** — All Express routes ported to Next.js Route Handlers; legacy
   `_legacy/api/` removed. The Next.js app talks to Postgres directly through
   `lib/services/*` shared by both server pages and route handlers.
-- **Phase 3** — Replace custom JWT with NextAuth (house style)
+- **Phase 3 ✅** — Custom JWT replaced with NextAuth. Two providers: Google
+  (production, restricted to `christmasair.com`) and Credentials (dev fallback
+  using existing email+password). Sessions enriched from local `users` table
+  in the `jwt`/`session` callbacks. `getAuthedUser(req)` signature preserved
+  so route handlers didn't need touching.
 - **Phase 4** — Port remaining pages (trucks, tools, equipment, scanner, etc.)
 - **Phase 5** — Replace `node-cron` jobs with Vercel cron + Route Handlers
   (`/api/admin/jobs/batch-lock`, `/api/admin/jobs/po-run`, `/api/st/sync/*`

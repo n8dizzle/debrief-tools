@@ -1,31 +1,31 @@
 import 'server-only';
-import { type NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './auth';
 import { query } from './db';
-import { verifyAccessToken } from './jwt';
 import { AppError } from './errors';
 import type { User } from '@/types';
 
 /**
- * Verify the Authorization Bearer token, look the user up, return them.
- * Throws AppError(401) if missing/invalid.
+ * Resolve the authed user for the current request via the NextAuth session
+ * cookie. Re-fetches the row from the `users` table so route handlers see
+ * the latest role/department/etc.
+ *
+ * The optional `_req` parameter is unused (NextAuth reads cookies directly
+ * from the request context) — kept for backward compatibility with the
+ * Phase-2 callsites that pass `req`.
  */
-export async function getAuthedUser(req: NextRequest): Promise<User> {
-  const header = req.headers.get('authorization') || req.headers.get('Authorization');
-  if (!header || !header.toLowerCase().startsWith('bearer ')) {
-    throw new AppError('No token provided', 401);
-  }
-
-  const token = header.slice(7).trim();
-  const payload = verifyAccessToken(token);
+export async function getAuthedUser(_req?: unknown): Promise<User> {
+  void _req;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new AppError('Not authenticated', 401);
 
   const { rows } = await query<User>(
     `SELECT id, first_name, last_name, email, role, department,
             home_warehouse_id, assigned_truck_id, phone, is_active
        FROM users
       WHERE id = $1 AND is_active = TRUE`,
-    [payload.sub],
+    [session.user.id],
   );
-
   if (!rows[0]) throw new AppError('User not found or inactive', 401);
   return rows[0];
 }

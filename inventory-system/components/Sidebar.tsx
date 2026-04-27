@@ -11,11 +11,10 @@ import {
   Cpu,
   Settings,
   Users,
-  LogOut,
   type LucideIcon,
 } from 'lucide-react';
-import type { User } from '@/types';
-import { logoutAction } from '@/app/(staff)/actions';
+import LogoutButton from './LogoutButton';
+import type { Session } from 'next-auth';
 
 const NAV: Array<{ href: string; label: string; Icon: LucideIcon }> = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -31,7 +30,11 @@ const NAV: Array<{ href: string; label: string; Icon: LucideIcon }> = [
   { href: '/settings', label: 'Settings', Icon: Settings },
 ];
 
-export default function Sidebar({ user }: { user: User }) {
+export default function Sidebar({ user }: { user: Session['user'] }) {
+  const fullName =
+    user.firstName || user.lastName
+      ? `${user.firstName} ${user.lastName}`.trim()
+      : user.name ?? user.email ?? 'User';
   return (
     <aside className="w-60 shrink-0 border-r border-border-subtle bg-bg-secondary flex flex-col">
       <div className="px-5 py-5 border-b border-border-subtle">
@@ -54,21 +57,11 @@ export default function Sidebar({ user }: { user: User }) {
 
       <div className="border-t border-border-subtle p-3 space-y-2">
         <div className="text-xs px-2">
-          <div className="text-text-primary truncate">
-            {user.first_name} {user.last_name}
-          </div>
+          <div className="text-text-primary truncate">{fullName}</div>
           <div className="text-text-muted truncate">{user.email}</div>
           <div className="text-christmas-green-light mt-1 capitalize">{user.role.replace('_', ' ')}</div>
         </div>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-text-secondary hover:text-text-primary hover:bg-bg-card-hover transition"
-          >
-            <LogOut size={14} />
-            <span>Sign out</span>
-          </button>
-        </form>
+        <LogoutButton />
       </div>
     </aside>
   );

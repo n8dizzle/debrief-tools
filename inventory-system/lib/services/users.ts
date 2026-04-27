@@ -57,7 +57,10 @@ export interface CreateUserInput {
   first_name: string;
   last_name: string;
   email: string;
-  password: string;
+  /** Optional. With NextAuth (Google SSO) most users won't have a password.
+   *  Provide one only for accounts that should also be able to use the
+   *  Credentials fallback provider during local dev. */
+  password?: string | null;
   role: UserRole;
   department?: string | null;
   phone?: string | null;
@@ -67,10 +70,10 @@ export interface CreateUserInput {
 }
 
 export async function createUser(b: CreateUserInput): Promise<User> {
-  if (!b.email || !b.password || !b.first_name || !b.last_name || !b.role) {
-    throw new AppError('first_name, last_name, email, password, role are required', 400);
+  if (!b.email || !b.first_name || !b.last_name || !b.role) {
+    throw new AppError('first_name, last_name, email, role are required', 400);
   }
-  const hash = await bcrypt.hash(b.password, SALT_ROUNDS);
+  const hash = b.password ? await bcrypt.hash(b.password, SALT_ROUNDS) : null;
   const { rows } = await query<User>(
     `INSERT INTO users
        (first_name, last_name, email, password_hash, role, department,
