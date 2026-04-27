@@ -11,6 +11,7 @@ import {
   Cpu,
   Settings,
   Users,
+  Building2,
   type LucideIcon,
 } from 'lucide-react';
 import LogoutButton from './LogoutButton';
@@ -25,6 +26,7 @@ const NAV: Array<{ href: string; label: string; Icon: LucideIcon }> = [
   { href: '/warehouses', label: 'Warehouses', Icon: Warehouse },
   { href: '/restock-batches', label: 'Restock', Icon: ClipboardList },
   { href: '/purchase-orders', label: 'POs', Icon: Receipt },
+  { href: '/vendors', label: 'Vendors', Icon: Building2 },
   { href: '/it-assets', label: 'IT Assets', Icon: Cpu },
   { href: '/users', label: 'Users', Icon: Users },
   { href: '/settings', label: 'Settings', Icon: Settings },

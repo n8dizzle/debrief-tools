@@ -45,7 +45,17 @@ Login at http://localhost:3011/login.
   using existing email+password). Sessions enriched from local `users` table
   in the `jwt`/`session` callbacks. `getAuthedUser(req)` signature preserved
   so route handlers didn't need touching.
-- **Phase 4** — Port remaining pages (trucks, tools, equipment, scanner, etc.)
+- **Phase 4 ✅** — Office portal pages built: list + detail for Trucks,
+  Warehouses, Tools, Equipment, IT Assets, Vendors, Purchase Orders, Restock
+  Batches, Users; plus an admin Settings page with sectioned forms and an
+  inline ServiceTitan "Sync now" button. Shared `components/ui.tsx`
+  (PageHeader, Card, Table, StatusBadge, ...) and `lib/format.ts` keep the
+  pages consistent. Mostly read-only — write actions wired only for
+  Settings; tool checkout/checkin, batch approve, PO send/receive etc. are
+  Phase 4b once the scanner UI lands.
+- **Phase 4b** — Mobile scanner UI (techs scanning materials/tools onto
+  trucks). Different UX (mobile-first, dark, barcode flows) so scoped as
+  its own session.
 - **Phase 5** — Replace `node-cron` jobs with Vercel cron + Route Handlers
   (`/api/admin/jobs/batch-lock`, `/api/admin/jobs/po-run`, `/api/st/sync/*`
   are already Route Handlers — just need cron entries in `vercel.json`).
