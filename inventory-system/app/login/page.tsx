@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { login } from '@/lib/api';
+import { login } from '@/lib/services/auth';
 import { setSession, getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,11 @@ export default async function LoginPage({
   if (session) redirect('/dashboard');
   const params = await searchParams;
   const errMsg =
-    params.err === 'invalid' ? 'Invalid email or password.' : params.err === 'missing' ? 'Email and password are required.' : null;
+    params.err === 'invalid'
+      ? 'Invalid email or password.'
+      : params.err === 'missing'
+      ? 'Email and password are required.'
+      : null;
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4">

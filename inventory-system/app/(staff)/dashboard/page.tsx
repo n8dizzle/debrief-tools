@@ -1,40 +1,21 @@
-import { api } from '@/lib/api';
-import type { Material, Truck, Warehouse } from '@/types';
+import { listMaterials } from '@/lib/services/materials';
+import { listTrucks } from '@/lib/services/trucks';
+import { listWarehouses } from '@/lib/services/warehouses';
+import { getDashboardStats, type DashboardStats } from '@/lib/services/admin-stats';
 
-interface DashboardStats {
-  materials_total?: number;
-  materials_low_stock?: number;
-  trucks_active?: number;
-  warehouses_total?: number;
-  open_pos?: number;
-  pending_restock_batches?: number;
-}
-
-async function loadStats(): Promise<{
-  stats: DashboardStats;
-  materialsCount: number;
-  trucksCount: number;
-  warehousesCount: number;
-} > {
-  // Try the dedicated stats endpoint; fall back to counting list responses if it fails.
-  let stats: DashboardStats = {};
-  try {
-    stats = await api<DashboardStats>('/admin/stats/dashboard');
-  } catch {
-    /* ignore — endpoint may not return for non-admins */
-  }
-
-  const [materials, trucks, warehouses] = await Promise.all([
-    api<{ materials?: Material[]; total?: number }>('/materials?limit=1').catch(() => ({})),
-    api<{ trucks?: Truck[]; total?: number }>('/trucks').catch(() => ({})),
-    api<{ warehouses?: Warehouse[]; total?: number }>('/warehouses').catch(() => ({})),
+async function loadDashboard() {
+  const [materials, trucks, warehouses, stats] = await Promise.all([
+    listMaterials({}),
+    listTrucks({}),
+    listWarehouses(),
+    getDashboardStats().catch<null>(() => null),
   ]);
 
   return {
+    materialsCount: materials.length,
+    trucksCount: trucks.length,
+    warehousesCount: warehouses.length,
     stats,
-    materialsCount: materials.total ?? materials.materials?.length ?? 0,
-    trucksCount: trucks.total ?? trucks.trucks?.length ?? 0,
-    warehousesCount: warehouses.total ?? warehouses.warehouses?.length ?? 0,
   };
 }
 
@@ -48,8 +29,14 @@ function StatCard({ label, value, sublabel }: { label: string; value: string | n
   );
 }
 
+function sumCount(rows: Array<{ count: string }> | undefined) {
+  return rows?.reduce((s, r) => s + parseInt(r.count, 10), 0) ?? 0;
+}
+
 export default async function DashboardPage() {
-  const { stats, materialsCount, trucksCount, warehousesCount } = await loadStats();
+  const { materialsCount, trucksCount, warehousesCount, stats } = await loadDashboard();
+  const openPOs = sumCount(stats?.purchase_orders);
+  const openRestocks = sumCount(stats?.restock_batches);
 
   return (
     <div className="px-8 py-6">
@@ -63,15 +50,23 @@ export default async function DashboardPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Materials"
-          value={stats.materials_total ?? materialsCount}
-          sublabel={stats.materials_low_stock ? `${stats.materials_low_stock} low` : 'In catalog'}
+          value={materialsCount.toLocaleString()}
+          sublabel={
+            stats && stats.materials_below_reorder > 0
+              ? `${stats.materials_below_reorder} below reorder`
+              : 'In catalog'
+          }
         />
-        <StatCard label="Active trucks" value={stats.trucks_active ?? trucksCount} sublabel="Field fleet" />
-        <StatCard label="Warehouses" value={stats.warehouses_total ?? warehousesCount} sublabel="Lewisville &amp; Argyle" />
+        <StatCard label="Active trucks" value={trucksCount} sublabel="Field fleet" />
+        <StatCard
+          label="Warehouses"
+          value={warehousesCount}
+          sublabel="Lewisville &amp; Argyle"
+        />
         <StatCard
           label="Open POs"
-          value={stats.open_pos ?? 0}
-          sublabel={stats.pending_restock_batches ? `${stats.pending_restock_batches} restock batches` : undefined}
+          value={openPOs}
+          sublabel={openRestocks > 0 ? `${openRestocks} open restock batches` : undefined}
         />
       </section>
 
@@ -97,11 +92,21 @@ export default async function DashboardPage() {
           </ul>
         </div>
         <div className="bg-bg-card border border-border-subtle rounded-lg p-5">
-          <h2 className="text-sm font-medium text-text-primary">ServiceTitan</h2>
-          <p className="mt-2 text-sm text-text-secondary">
-            Pricebook, technicians, and installed-equipment syncs run every 4 hours. Trucks are
-            managed manually (ST does not expose a fleet endpoint).
-          </p>
+          <h2 className="text-sm font-medium text-text-primary">Recent ServiceTitan syncs</h2>
+          {stats?.last_st_syncs?.length ? (
+            <ul className="mt-3 space-y-2 text-sm">
+              {stats.last_st_syncs.map((s, i) => (
+                <li key={i} className="flex items-center justify-between gap-4">
+                  <span className="text-text-secondary capitalize">{s.sync_type}</span>
+                  <span className="text-text-muted tabular-nums">
+                    {s.records_synced.toLocaleString()} records · {s.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-text-muted">No syncs recorded yet.</p>
+          )}
         </div>
       </section>
     </div>

@@ -1,13 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ApiError, api } from '@/lib/api';
+import { AppError } from '@/lib/errors';
+import { getMaterial } from '@/lib/services/materials';
 import type { Material } from '@/types';
-
-interface MaterialDetailResponse {
-  material?: Material;
-  warehouse_stock?: Array<{ warehouse_id: string; warehouse_name?: string; qty_on_hand: number | string }>;
-  truck_stock?: Array<{ truck_id: string; truck_number?: string; qty_on_hand: number | string }>;
-}
 
 function fmtCurrency(v: Material['unit_cost']) {
   if (v === null || v === undefined) return '—';
@@ -25,20 +20,19 @@ function fmtQty(v: number | string | null | undefined) {
 export default async function MaterialDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  let detail: MaterialDetailResponse;
+  let detail;
   try {
-    detail = await api<MaterialDetailResponse>(`/materials/${id}`);
+    detail = await getMaterial(id);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) notFound();
+    if (e instanceof AppError && e.statusCode === 404) notFound();
     throw e;
   }
 
   const m = detail.material;
-  if (!m) notFound();
 
   const totalOnHand =
-    (detail.warehouse_stock ?? []).reduce((sum, s) => sum + (Number(s.qty_on_hand) || 0), 0) +
-    (detail.truck_stock ?? []).reduce((sum, s) => sum + (Number(s.qty_on_hand) || 0), 0);
+    detail.warehouse_stock.reduce((sum, s) => sum + (Number(s.quantity_on_hand) || 0), 0) +
+    detail.truck_stock.reduce((sum, s) => sum + (Number(s.quantity_on_hand) || 0), 0);
 
   return (
     <div className="px-8 py-6">
@@ -93,23 +87,23 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
 
         <div className="bg-bg-card border border-border-subtle rounded-lg p-5">
           <h2 className="text-sm font-medium text-text-primary mb-3">Stock by location</h2>
-          {(detail.warehouse_stock?.length ?? 0) + (detail.truck_stock?.length ?? 0) === 0 ? (
+          {detail.warehouse_stock.length + detail.truck_stock.length === 0 ? (
             <p className="text-sm text-text-muted">Not currently stocked anywhere.</p>
           ) : (
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border-subtle">
-                {detail.warehouse_stock?.map((s) => (
+                {detail.warehouse_stock.map((s) => (
                   <tr key={`w-${s.warehouse_id}`}>
                     <td className="py-2 text-text-secondary">Warehouse</td>
-                    <td className="py-2">{s.warehouse_name || s.warehouse_id}</td>
-                    <td className="py-2 text-right tabular-nums">{fmtQty(s.qty_on_hand)}</td>
+                    <td className="py-2">{s.warehouse_name}</td>
+                    <td className="py-2 text-right tabular-nums">{fmtQty(s.quantity_on_hand)}</td>
                   </tr>
                 ))}
-                {detail.truck_stock?.map((s) => (
+                {detail.truck_stock.map((s) => (
                   <tr key={`t-${s.truck_id}`}>
                     <td className="py-2 text-text-secondary">Truck</td>
-                    <td className="py-2">{s.truck_number || s.truck_id}</td>
-                    <td className="py-2 text-right tabular-nums">{fmtQty(s.qty_on_hand)}</td>
+                    <td className="py-2">{s.truck_number}</td>
+                    <td className="py-2 text-right tabular-nums">{fmtQty(s.quantity_on_hand)}</td>
                   </tr>
                 ))}
               </tbody>

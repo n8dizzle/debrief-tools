@@ -1,21 +1,14 @@
 import Link from 'next/link';
-import { api } from '@/lib/api';
-import type { Material } from '@/types';
+import { listMaterials, type MaterialListRow } from '@/lib/services/materials';
 
-interface MaterialsResponse {
-  materials?: Material[];
-  total?: number;
-  page?: number;
-}
-
-const PAGE_SIZE = 50;
-
-function formatMoney(v: Material['unit_cost']): string {
+function formatMoney(v: MaterialListRow['unit_cost']): string {
   if (v === null || v === undefined) return '—';
   const n = typeof v === 'string' ? parseFloat(v) : v;
   if (!Number.isFinite(n)) return '—';
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
+
+const PAGE_SIZE = 100;
 
 export default async function MaterialsPage({
   searchParams,
@@ -27,22 +20,14 @@ export default async function MaterialsPage({
   const department = sp.department || '';
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const params = new URLSearchParams();
-  if (q) params.set('search', q);
-  if (department) params.set('department', department);
-  params.set('limit', String(PAGE_SIZE));
-  params.set('page', String(page));
-
-  let data: MaterialsResponse = {};
-  let error: string | null = null;
-  try {
-    data = await api<MaterialsResponse>(`/materials?${params.toString()}`);
-  } catch (e) {
-    error = (e as Error).message;
-  }
-  const items = data.materials ?? [];
-  const total = data.total ?? items.length;
-  const hasMore = items.length === PAGE_SIZE;
+  const all = await listMaterials({
+    search: q || null,
+    department: department || null,
+  });
+  const total = all.length;
+  const start = (page - 1) * PAGE_SIZE;
+  const items = all.slice(start, start + PAGE_SIZE);
+  const hasMore = start + PAGE_SIZE < total;
 
   return (
     <div className="px-8 py-6">
@@ -82,12 +67,6 @@ export default async function MaterialsPage({
           Search
         </button>
       </form>
-
-      {error && (
-        <div className="text-sm text-red-300 bg-red-900/20 border border-red-900/40 rounded px-3 py-2 mb-4">
-          {error}
-        </div>
-      )}
 
       <div className="bg-bg-card border border-border-subtle rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -129,7 +108,7 @@ export default async function MaterialsPage({
 
       <nav className="flex items-center justify-between mt-4 text-sm text-text-secondary">
         <span>
-          Page {page} · showing up to {PAGE_SIZE} per page
+          Page {page} · showing {items.length} of {total.toLocaleString()}
         </span>
         <div className="flex gap-2">
           {page > 1 && (
