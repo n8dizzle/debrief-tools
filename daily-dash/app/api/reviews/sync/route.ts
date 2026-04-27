@@ -10,6 +10,8 @@ import {
   TeamMember,
 } from '@/lib/google-business';
 
+export const maxDuration = 120; // 2 minutes - syncs 4000+ reviews across 8 locations
+
 /**
  * POST /api/reviews/sync
  * Sync reviews from Google Business Profile API
