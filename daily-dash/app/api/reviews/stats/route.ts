@@ -482,7 +482,7 @@ export async function GET(request: NextRequest) {
       id: location.id,
       name: location.name,
       short_name: location.short_name,
-      total_reviews: location.total_reviews || locationAllTimeCounts[location.id] || 0,
+      total_reviews: locationAllTimeCounts[location.id] || location.total_reviews || 0,
       average_rating: location.average_rating || 0,
       reviews_this_year: locationYearCounts[location.id] || 0,
       reviews_this_month: locationMonthCounts[location.id] || 0,
