@@ -12,11 +12,12 @@ import {
   Settings,
   Users,
   LogOut,
+  type LucideIcon,
 } from 'lucide-react';
 import type { User } from '@/types';
 import { logoutAction } from '@/app/(staff)/actions';
 
-const NAV: Array<{ href: string; label: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = [
+const NAV: Array<{ href: string; label: string; Icon: LucideIcon }> = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/materials', label: 'Materials', Icon: Package },
   { href: '/tools', label: 'Tools', Icon: Wrench },

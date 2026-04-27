@@ -1,14 +1,14 @@
 import 'server-only';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 
-const SECRET = process.env.JWT_SECRET;
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
-const EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '15m') as SignOptions['expiresIn'];
-const REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
-
-if (!SECRET || !REFRESH_SECRET) {
+if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
   throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be set');
 }
+
+const SECRET: string = process.env.JWT_SECRET;
+const REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET;
+const EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '15m') as SignOptions['expiresIn'];
+const REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
 
 export interface JwtPayload {
   sub: string; // user id

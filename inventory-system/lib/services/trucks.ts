@@ -1,5 +1,6 @@
 import 'server-only';
 import { query } from '../db';
+import { AppError } from '../errors';
 import type { Truck } from '@/types';
 
 export interface TruckListRow extends Truck {
@@ -34,4 +35,87 @@ export async function listTrucks(filter: { department?: string | null; warehouse
     params,
   );
   return rows;
+}
+
+export interface TruckDetail extends Truck {
+  warehouse_name: string;
+  assigned_users: Array<{ id: string; name: string; role: string }> | null;
+}
+
+export async function getTruck(id: string): Promise<TruckDetail> {
+  const { rows } = await query<TruckDetail>(
+    `SELECT t.*,
+            w.name AS warehouse_name,
+            json_agg(
+              json_build_object('id', u.id, 'name', u.first_name || ' ' || u.last_name, 'role', u.role)
+            ) FILTER (WHERE u.id IS NOT NULL) AS assigned_users
+       FROM trucks t
+       JOIN warehouses w ON w.id = t.home_warehouse_id
+       LEFT JOIN users u ON u.assigned_truck_id = t.id AND u.is_active = TRUE
+      WHERE t.id = $1
+      GROUP BY t.id, w.name`,
+    [id],
+  );
+  if (!rows[0]) throw new AppError('Truck not found', 404);
+  return rows[0];
+}
+
+export async function getTruckStock(id: string) {
+  const { rows } = await query(
+    `SELECT ts.*, m.name, m.sku, m.barcode, m.unit_of_measure, m.category, m.reorder_point
+       FROM truck_stock ts
+       JOIN materials m ON m.id = ts.material_id
+      WHERE ts.truck_id = $1
+      ORDER BY m.category, m.name`,
+    [id],
+  );
+  return rows;
+}
+
+export interface TruckInput {
+  truck_number?: string;
+  department?: string;
+  home_warehouse_id?: string;
+  st_vehicle_id?: string | null;
+  make?: string | null;
+  model?: string | null;
+  year?: number | null;
+  license_plate?: string | null;
+  vin?: string | null;
+  status?: string | null;
+}
+
+export async function createTruck(b: TruckInput): Promise<Truck> {
+  if (!b.truck_number || !b.department || !b.home_warehouse_id) {
+    throw new AppError('truck_number, department, and home_warehouse_id are required', 400);
+  }
+  const { rows } = await query<Truck>(
+    `INSERT INTO trucks (truck_number, department, home_warehouse_id, st_vehicle_id, make, model, year, license_plate, vin)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING *`,
+    [b.truck_number, b.department, b.home_warehouse_id, b.st_vehicle_id ?? null,
+     b.make ?? null, b.model ?? null, b.year ?? null, b.license_plate ?? null, b.vin ?? null],
+  );
+  return rows[0];
+}
+
+export async function updateTruck(id: string, b: TruckInput): Promise<Truck> {
+  const { rows } = await query<Truck>(
+    `UPDATE trucks
+        SET truck_number  = COALESCE($1, truck_number),
+            st_vehicle_id = COALESCE($2, st_vehicle_id),
+            make          = COALESCE($3, make),
+            model         = COALESCE($4, model),
+            year          = COALESCE($5, year),
+            license_plate = COALESCE($6, license_plate),
+            vin           = COALESCE($7, vin),
+            status        = COALESCE($8, status),
+            updated_at    = NOW()
+      WHERE id = $9
+      RETURNING *`,
+    [b.truck_number ?? null, b.st_vehicle_id ?? null, b.make ?? null, b.model ?? null,
+     b.year ?? null, b.license_plate ?? null, b.vin ?? null, b.status ?? null, id],
+  );
+  if (!rows[0]) throw new AppError('Truck not found', 404);
+  return rows[0];
 }
