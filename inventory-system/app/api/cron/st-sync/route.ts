@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkCronSecret } from '@/lib/cron-guard';
-import { syncPricebook, syncEquipment, syncTechnicians } from '@/lib/services/st';
+import { syncPricebook, syncEquipment, syncTechnicians, syncInventoryTransfers } from '@/lib/services/st';
 import { syncInventoryTemplates } from '@/lib/services/inventory-templates';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     ['equipment', syncEquipment],
     ['technicians', syncTechnicians],
     ['inventory_templates', syncInventoryTemplates],
+    ['inventory_transfers', syncInventoryTransfers],
   ] as const) {
     const t0 = Date.now();
     try {

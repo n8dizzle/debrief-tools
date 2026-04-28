@@ -290,3 +290,206 @@ export async function syncVehicles(): Promise<{ synced: number; failed: number; 
   await writeSyncLog('trucks', 'skipped', 0, 0, reason);
   return { synced: 0, failed: 0, skipped: true, reason };
 }
+
+interface StTransferItem {
+  id: number;
+  skuId?: number;
+  name?: string;
+  code?: string;
+  description?: string;
+  quantity?: number;
+  quantityPicked?: number;
+  cost?: number;
+  totalCost?: number;
+  active?: boolean;
+  createdOn?: string;
+  modifiedOn?: string;
+}
+
+interface StTransfer {
+  id: number;
+  transferType?: string;
+  status?: string;
+  number?: string;
+  referenceNumber?: string | null;
+  fromLocationId?: number;
+  toLocationId?: number;
+  createdById?: number;
+  pickedById?: number;
+  receivedById?: number;
+  memo?: string | null;
+  date?: string;
+  pickedDate?: string | null;
+  receivedDate?: string | null;
+  createdOn?: string;
+  modifiedOn?: string;
+  batchId?: number | null;
+  jobId?: number | null;
+  invoiceId?: number | null;
+  dateCanceled?: string | null;
+  dateRequired?: string | null;
+  active?: boolean;
+  items?: StTransferItem[];
+}
+
+/** Sync ST inventory transfers (with embedded line items) into local cache tables.
+ *  Fetches all pages then upserts headers + items atomically.  */
+export async function syncInventoryTransfers(): Promise<{ synced: number; failed: number }> {
+  let synced = 0;
+  let failed = 0;
+  try {
+    // Ensure tables exist (same pattern as app_settings)
+    await query(`
+      CREATE TABLE IF NOT EXISTS st_inventory_transfers (
+        id               BIGINT      PRIMARY KEY,
+        transfer_type    TEXT,
+        status           TEXT,
+        number           TEXT,
+        reference_number TEXT,
+        from_location_id BIGINT,
+        to_location_id   BIGINT,
+        created_by_id    BIGINT,
+        picked_by_id     BIGINT,
+        received_by_id   BIGINT,
+        memo             TEXT,
+        job_id           BIGINT,
+        invoice_id       BIGINT,
+        batch_id         BIGINT,
+        active           BOOLEAN     NOT NULL DEFAULT TRUE,
+        transfer_date    TIMESTAMPTZ,
+        picked_date      TIMESTAMPTZ,
+        received_date    TIMESTAMPTZ,
+        date_required    TIMESTAMPTZ,
+        date_canceled    TIMESTAMPTZ,
+        st_created_on    TIMESTAMPTZ,
+        st_modified_on   TIMESTAMPTZ,
+        synced_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await query(`
+      CREATE TABLE IF NOT EXISTS st_inventory_transfer_items (
+        id               BIGINT      PRIMARY KEY,
+        transfer_id      BIGINT      NOT NULL REFERENCES st_inventory_transfers(id) ON DELETE CASCADE,
+        sku_id           BIGINT,
+        name             TEXT,
+        code             TEXT,
+        description      TEXT,
+        quantity         NUMERIC,
+        quantity_picked  NUMERIC,
+        cost             NUMERIC,
+        total_cost       NUMERIC,
+        active           BOOLEAN     NOT NULL DEFAULT TRUE,
+        st_created_on    TIMESTAMPTZ,
+        st_modified_on   TIMESTAMPTZ
+      )
+    `);
+
+    const transfers = await stGetAll<StTransfer>('/inventory/v2/transfers');
+
+    for (const xfer of transfers) {
+      try {
+        await query(
+          `INSERT INTO st_inventory_transfers
+             (id, transfer_type, status, number, reference_number,
+              from_location_id, to_location_id, created_by_id, picked_by_id, received_by_id,
+              memo, job_id, invoice_id, batch_id, active,
+              transfer_date, picked_date, received_date, date_required, date_canceled,
+              st_created_on, st_modified_on, synced_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW())
+           ON CONFLICT (id) DO UPDATE SET
+             transfer_type    = EXCLUDED.transfer_type,
+             status           = EXCLUDED.status,
+             number           = EXCLUDED.number,
+             reference_number = EXCLUDED.reference_number,
+             from_location_id = EXCLUDED.from_location_id,
+             to_location_id   = EXCLUDED.to_location_id,
+             picked_by_id     = EXCLUDED.picked_by_id,
+             received_by_id   = EXCLUDED.received_by_id,
+             memo             = EXCLUDED.memo,
+             job_id           = EXCLUDED.job_id,
+             invoice_id       = EXCLUDED.invoice_id,
+             batch_id         = EXCLUDED.batch_id,
+             active           = EXCLUDED.active,
+             transfer_date    = EXCLUDED.transfer_date,
+             picked_date      = EXCLUDED.picked_date,
+             received_date    = EXCLUDED.received_date,
+             date_required    = EXCLUDED.date_required,
+             date_canceled    = EXCLUDED.date_canceled,
+             st_modified_on   = EXCLUDED.st_modified_on,
+             synced_at        = NOW()`,
+          [
+            xfer.id,
+            xfer.transferType ?? null,
+            xfer.status ?? null,
+            xfer.number ?? null,
+            xfer.referenceNumber ?? null,
+            xfer.fromLocationId ?? null,
+            xfer.toLocationId ?? null,
+            xfer.createdById ?? null,
+            xfer.pickedById ?? null,
+            xfer.receivedById ?? null,
+            xfer.memo ?? null,
+            xfer.jobId ?? null,
+            xfer.invoiceId ?? null,
+            xfer.batchId ?? null,
+            xfer.active !== false,
+            xfer.date ?? null,
+            xfer.pickedDate ?? null,
+            xfer.receivedDate ?? null,
+            xfer.dateRequired ?? null,
+            xfer.dateCanceled ?? null,
+            xfer.createdOn ?? null,
+            xfer.modifiedOn ?? null,
+          ],
+        );
+
+        // Upsert line items
+        for (const item of xfer.items ?? []) {
+          await query(
+            `INSERT INTO st_inventory_transfer_items
+               (id, transfer_id, sku_id, name, code, description, quantity, quantity_picked,
+                cost, total_cost, active, st_created_on, st_modified_on)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+             ON CONFLICT (id) DO UPDATE SET
+               sku_id          = EXCLUDED.sku_id,
+               name            = EXCLUDED.name,
+               code            = EXCLUDED.code,
+               description     = EXCLUDED.description,
+               quantity        = EXCLUDED.quantity,
+               quantity_picked = EXCLUDED.quantity_picked,
+               cost            = EXCLUDED.cost,
+               total_cost      = EXCLUDED.total_cost,
+               active          = EXCLUDED.active,
+               st_modified_on  = EXCLUDED.st_modified_on`,
+            [
+              item.id,
+              xfer.id,
+              item.skuId ?? null,
+              item.name ?? null,
+              item.code ?? null,
+              item.description ?? null,
+              item.quantity ?? null,
+              item.quantityPicked ?? null,
+              item.cost ?? null,
+              item.totalCost ?? null,
+              item.active !== false,
+              item.createdOn ?? null,
+              item.modifiedOn ?? null,
+            ],
+          );
+        }
+
+        synced++;
+      } catch (e) {
+        console.warn(`Transfer ${xfer.id} failed:`, (e as Error).message);
+        failed++;
+      }
+    }
+
+    await writeSyncLog('inventory_transfers', failed > 0 ? 'partial' : 'success', synced, failed, null);
+    return { synced, failed };
+  } catch (err) {
+    await writeSyncLog('inventory_transfers', 'failed', synced, failed, (err as Error).message);
+    throw err;
+  }
+}

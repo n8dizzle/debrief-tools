@@ -12,7 +12,7 @@ const ALLOWED = new Set(['admin', 'warehouse_manager']);
 const CRON_SCHEDULES: Array<{ path: string; label: string; description: string; schedule: string; jobType: string }> = [
   { path: '/api/cron/batch-lock', label: 'Batch lock', description: 'Daily — lock collecting restock batches', schedule: '0 11 * * *', jobType: 'batch_lock' },
   { path: '/api/cron/weekly-po',  label: 'Weekly PO run', description: 'Mon — draft POs for low stock',     schedule: '0 12 * * 1', jobType: 'weekly_po' },
-  { path: '/api/cron/st-sync',    label: 'ServiceTitan sync', description: 'Every 4h — pricebook + equipment + technicians', schedule: '0 */4 * * *', jobType: 'st_sync' },
+  { path: '/api/cron/st-sync',    label: 'ServiceTitan sync', description: 'Every 4h — pricebook + equipment + technicians + transfers', schedule: '0 */4 * * *', jobType: 'st_sync' },
 ];
 
 async function recentJobLog(limit = 5) {

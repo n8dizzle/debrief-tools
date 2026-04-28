@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { patchSettings } from '@/lib/services/settings';
-import { syncPricebook, syncEquipment, syncTechnicians } from '@/lib/services/st';
+import { syncPricebook, syncEquipment, syncTechnicians, syncInventoryTransfers } from '@/lib/services/st';
 import { syncInventoryTemplates } from '@/lib/services/inventory-templates';
 import { redirect } from 'next/navigation';
 
@@ -61,6 +61,7 @@ export async function triggerStSyncAction() {
     syncEquipment().catch((e: Error) => console.error('[settings] equipment sync:', e.message)),
     syncTechnicians().catch((e: Error) => console.error('[settings] technicians sync:', e.message)),
     syncInventoryTemplates().catch((e: Error) => console.error('[settings] templates sync:', e.message)),
+    syncInventoryTransfers().catch((e: Error) => console.error('[settings] transfers sync:', e.message)),
   ]);
   revalidatePath('/settings');
   revalidatePath('/dashboard');
