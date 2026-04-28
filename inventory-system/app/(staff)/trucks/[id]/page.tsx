@@ -1,8 +1,11 @@
 import { notFound } from 'next/navigation';
 import { AppError } from '@/lib/errors';
 import { getTruck, getTruckStock } from '@/lib/services/trucks';
+import { listUsers } from '@/lib/services/users';
 import { PageHeader, Card, DataRow, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { titleCase, formatNumber } from '@/lib/format';
+import TruckHeaderActions from './TruckHeaderActions';
+import TechAssignmentCard from './TechAssignmentCard';
 
 export default async function TruckDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,9 +18,22 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
     throw e;
   }
 
-  const stock = await getTruckStock(id);
+  const [stock, allTechs] = await Promise.all([
+    getTruckStock(id),
+    listUsers({ role: 'technician', isActive: true }).catch(() => []),
+  ]);
+
   const totalLines = stock.length;
-  const totalQty = stock.reduce((s, r) => s + Number((r as { quantity_on_hand: number | string }).quantity_on_hand || 0), 0);
+  const totalQty = stock.reduce(
+    (s, r) => s + Number((r as { quantity_on_hand: number | string }).quantity_on_hand || 0),
+    0,
+  );
+
+  const assigned = (truck.assigned_users ?? []).map((u) => ({ id: u.id, name: u.name, role: u.role }));
+  const assignedIds = new Set(assigned.map((u) => u.id));
+  const candidates = allTechs
+    .filter((t) => !assignedIds.has(t.id))
+    .map((t) => ({ id: t.id, name: `${t.first_name} ${t.last_name}`.trim(), email: t.email }));
 
   return (
     <div className="px-8 py-6">
@@ -25,7 +41,12 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
         title={truck.truck_number}
         description={`${titleCase(truck.department)} · ${truck.warehouse_name}`}
         back={{ href: '/trucks', label: 'Back to trucks' }}
-        actions={<StatusBadge status={truck.status} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <StatusBadge status={truck.status} />
+            <TruckHeaderActions truckId={id} status={truck.status} />
+          </div>
+        }
       />
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -42,23 +63,12 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
           </dl>
         </Card>
 
-        <Card title="Assignment">
-          <dl className="text-sm">
-            <DataRow label="Department" value={titleCase(truck.department)} />
-            <DataRow label="Home" value={truck.warehouse_name} />
-            <DataRow
-              label="Tech(s)"
-              value={
-                truck.assigned_users?.length
-                  ? truck.assigned_users.map((u) => u.name).join(', ')
-                  : 'Unassigned'
-              }
-            />
-          </dl>
-        </Card>
+        <TechAssignmentCard truckId={id} assigned={assigned} candidates={candidates} />
 
         <Card title="Stock summary">
           <dl className="text-sm">
+            <DataRow label="Department" value={titleCase(truck.department)} />
+            <DataRow label="Home" value={truck.warehouse_name} />
             <DataRow label="Line items" value={formatNumber(totalLines)} />
             <DataRow label="Total qty" value={formatNumber(totalQty)} />
           </dl>

@@ -1,7 +1,12 @@
 import Link from 'next/link';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { listUsers } from '@/lib/services/users';
 import { PageHeader, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { titleCase } from '@/lib/format';
+import SyncTechniciansButton from './SyncTechniciansButton';
+
+const SYNC_ROLES = new Set(['admin', 'warehouse_manager']);
 
 export default async function UsersPage({
   searchParams,
@@ -10,16 +15,24 @@ export default async function UsersPage({
 }) {
   const sp = await searchParams;
   const ia = sp.is_active;
-  const rows = await listUsers({
-    role: sp.role || null,
-    department: sp.department || null,
-    isActive: ia === undefined || ia === '' ? null : ia === 'true',
-    warehouseId: null,
-  });
+  const [session, rows] = await Promise.all([
+    getServerSession(authOptions),
+    listUsers({
+      role: sp.role || null,
+      department: sp.department || null,
+      isActive: ia === undefined || ia === '' ? null : ia === 'true',
+      warehouseId: null,
+    }),
+  ]);
+  const fromST = rows.filter((u) => u.st_technician_id).length;
 
   return (
     <div className="px-8 py-6">
-      <PageHeader title="Users" description={`${rows.length} user${rows.length === 1 ? '' : 's'}`} />
+      <PageHeader
+        title="Users"
+        description={`${rows.length} user${rows.length === 1 ? '' : 's'}${fromST ? ` · ${fromST} from ServiceTitan` : ''}`}
+        actions={session?.user?.role && SYNC_ROLES.has(session.user.role) ? <SyncTechniciansButton /> : null}
+      />
 
       <form className="flex gap-3 mb-5" action="/users">
         <select

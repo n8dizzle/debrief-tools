@@ -17,6 +17,14 @@ export default async function TrucksPage({
       <PageHeader
         title="Trucks"
         description={`${rows.length} truck${rows.length === 1 ? '' : 's'}${department ? ` · ${department}` : ''}`}
+        actions={
+          <Link
+            href="/trucks/new"
+            className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm font-medium rounded px-3 py-2 transition"
+          >
+            + New truck
+          </Link>
+        }
       />
 
       <form className="flex gap-3 mb-5" action="/trucks">
