@@ -59,7 +59,22 @@ export async function loadSettings(): Promise<AppSettings> {
   }
 }
 
+/** Idempotent: creates the table if it doesn't already exist. Lets dev DBs
+ *  that haven't run the migration still write settings. */
+async function ensureAppSettingsTable() {
+  await query(
+    `CREATE TABLE IF NOT EXISTS app_settings (
+       section     TEXT        NOT NULL,
+       key         TEXT        NOT NULL,
+       value       TEXT,
+       updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+       PRIMARY KEY (section, key)
+     )`,
+  );
+}
+
 export async function patchSettings(section: string, data: Record<string, unknown>): Promise<AppSettings> {
+  await ensureAppSettingsTable();
   for (const [key, value] of Object.entries(data)) {
     await query(
       `INSERT INTO app_settings (section, key, value)
