@@ -13,6 +13,7 @@ import {
   Users,
   Building2,
   Smartphone,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import LogoutButton from './LogoutButton';
@@ -25,6 +26,7 @@ const NAV: Array<{ href: string; label: string; Icon: LucideIcon }> = [
   { href: '/equipment', label: 'Equipment', Icon: HardHat },
   { href: '/trucks', label: 'Trucks', Icon: Truck },
   { href: '/warehouses', label: 'Warehouses', Icon: Warehouse },
+  { href: '/templates', label: 'Templates', Icon: Layers },
   { href: '/restock-batches', label: 'Restock', Icon: ClipboardList },
   { href: '/purchase-orders', label: 'POs', Icon: Receipt },
   { href: '/vendors', label: 'Vendors', Icon: Building2 },

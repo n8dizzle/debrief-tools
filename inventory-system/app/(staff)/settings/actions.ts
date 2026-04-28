@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { patchSettings } from '@/lib/services/settings';
 import { syncPricebook, syncEquipment, syncTechnicians } from '@/lib/services/st';
+import { syncInventoryTemplates } from '@/lib/services/inventory-templates';
 import { redirect } from 'next/navigation';
 
 const ALLOWED_ROLES = new Set(['admin', 'warehouse_manager']);
@@ -59,6 +60,7 @@ export async function triggerStSyncAction() {
     syncPricebook().catch((e: Error) => console.error('[settings] pricebook sync:', e.message)),
     syncEquipment().catch((e: Error) => console.error('[settings] equipment sync:', e.message)),
     syncTechnicians().catch((e: Error) => console.error('[settings] technicians sync:', e.message)),
+    syncInventoryTemplates().catch((e: Error) => console.error('[settings] templates sync:', e.message)),
   ]);
   revalidatePath('/settings');
   revalidatePath('/dashboard');

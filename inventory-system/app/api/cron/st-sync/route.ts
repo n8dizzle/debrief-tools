@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkCronSecret } from '@/lib/cron-guard';
 import { syncPricebook, syncEquipment, syncTechnicians } from '@/lib/services/st';
+import { syncInventoryTemplates } from '@/lib/services/inventory-templates';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-/** Every 4 hours — pull pricebook, equipment, and technicians from ServiceTitan. */
+/** Every 4 hours — pull pricebook, equipment, technicians, and inventory
+ *  templates from ServiceTitan. Each sub-job is best-effort; one failing
+ *  doesn't block the others. */
 export async function GET(req: NextRequest) {
   const denied = checkCronSecret(req);
   if (denied) return denied;
@@ -18,12 +21,12 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Run sequentially so we don't fight for connections; report per-job results.
   const result: Record<string, unknown> = {};
   for (const [name, fn] of [
     ['pricebook', syncPricebook],
     ['equipment', syncEquipment],
     ['technicians', syncTechnicians],
+    ['inventory_templates', syncInventoryTemplates],
   ] as const) {
     const t0 = Date.now();
     try {
