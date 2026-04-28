@@ -2,10 +2,32 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { loadSettings } from '@/lib/services/settings';
+import { query } from '@/lib/db';
 import { PageHeader, Card } from '@/components/ui';
+import { formatDateTime, titleCase } from '@/lib/format';
 import { saveSettingsAction, triggerStSyncAction } from './actions';
 
 const ALLOWED = new Set(['admin', 'warehouse_manager']);
+
+const CRON_SCHEDULES: Array<{ path: string; label: string; description: string; schedule: string; jobType: string }> = [
+  { path: '/api/cron/batch-lock', label: 'Batch lock', description: 'Daily — lock collecting restock batches', schedule: '0 11 * * *', jobType: 'batch_lock' },
+  { path: '/api/cron/weekly-po',  label: 'Weekly PO run', description: 'Mon — draft POs for low stock',     schedule: '0 12 * * 1', jobType: 'weekly_po' },
+  { path: '/api/cron/st-sync',    label: 'ServiceTitan sync', description: 'Every 4h — pricebook + equipment + technicians', schedule: '0 */4 * * *', jobType: 'st_sync' },
+];
+
+async function recentJobLog(limit = 5) {
+  try {
+    const { rows } = await query<{ job_type: string; status: string; ran_at: string; duration_ms: number }>(
+      `SELECT job_type, status, ran_at, duration_ms
+         FROM scheduled_job_log
+        ORDER BY ran_at DESC LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -13,11 +35,47 @@ export default async function SettingsPage() {
     redirect('/dashboard');
   }
 
-  const settings = await loadSettings();
+  const [settings, jobLog] = await Promise.all([loadSettings(), recentJobLog()]);
+  const lastByType = new Map<string, { ran_at: string; status: string; duration_ms: number }>();
+  for (const r of jobLog) if (!lastByType.has(r.job_type)) lastByType.set(r.job_type, r);
 
   return (
     <div className="px-8 py-6">
       <PageHeader title="Settings" description="System configuration · admin only" />
+
+      <Card title="Scheduled jobs (Vercel Cron)" className="mb-4">
+        <p className="text-xs text-text-muted mb-3">
+          These run on Vercel automatically once <code>CRON_SECRET</code> is set in the project's
+          environment variables. Schedules are in UTC — adjust in <code>vercel.json</code>.
+        </p>
+        <table className="w-full text-sm">
+          <thead className="text-xs uppercase tracking-wide text-text-muted">
+            <tr className="border-b border-border-subtle">
+              <th className="text-left py-2">Job</th>
+              <th className="text-left py-2">Schedule</th>
+              <th className="text-left py-2">Last run</th>
+              <th className="text-left py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {CRON_SCHEDULES.map((c) => {
+              const last = lastByType.get(c.jobType);
+              return (
+                <tr key={c.path} className="border-b border-border-subtle">
+                  <td className="py-2">
+                    <div className="text-text-primary">{c.label}</div>
+                    <div className="text-xs text-text-muted">{c.description}</div>
+                    <div className="text-xs font-mono text-text-muted">{c.path}</div>
+                  </td>
+                  <td className="py-2 font-mono text-xs">{c.schedule}</td>
+                  <td className="py-2 text-text-secondary">{last ? formatDateTime(last.ran_at) : '— never —'}</td>
+                  <td className="py-2 text-text-secondary">{last ? titleCase(last.status) : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Company">

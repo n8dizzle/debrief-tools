@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/batch-lock",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-po",
+      "schedule": "0 12 * * 1"
+    },
+    {
+      "path": "/api/cron/st-sync",
+      "schedule": "0 */4 * * *"
+    }
+  ]
+}

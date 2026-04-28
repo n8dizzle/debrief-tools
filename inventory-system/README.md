@@ -56,6 +56,22 @@ Login at http://localhost:3011/login.
   actions also wired: tool checkout/checkin/send-for-service, restock batch
   lock/approve/pick/complete, PO send + receive form. `app/page.tsx`
   redirects technicians to `/scan` and everyone else to `/dashboard`.
-- **Phase 5** — Replace `node-cron` jobs with Vercel cron + Route Handlers
-  (`/api/admin/jobs/batch-lock`, `/api/admin/jobs/po-run`, `/api/st/sync/*`
-  are already Route Handlers — just need cron entries in `vercel.json`).
+- **Phase 5 ✅** — Vercel Cron wired up.
+  - `vercel.json` schedules three cron jobs (UTC times):
+    - `0 11 * * *`  → `/api/cron/batch-lock` (≈6 AM Central)
+    - `0 12 * * 1`  → `/api/cron/weekly-po`  (Mon ≈7 AM Central)
+    - `0 */4 * * *` → `/api/cron/st-sync`    (every 4h; pricebook +
+                                              equipment + technicians)
+  - Each cron handler verifies `Authorization: Bearer ${CRON_SECRET}`
+    via `lib/cron-guard.ts`. Vercel sets that header automatically.
+  - The same business logic lives in `lib/services/admin-jobs.ts` and
+    `lib/services/st.ts` — admin-triggered (`/api/admin/jobs/*`) and
+    cron-triggered (`/api/cron/*`) endpoints share it.
+  - Settings page lists the schedules and most recent run of each job
+    from `scheduled_job_log`.
+
+  **Deployment notes**
+  - Set `CRON_SECRET` in the Vercel project env (any random string).
+  - Vercel Hobby plan caps at 2 daily-only cron jobs; upgrade to Pro
+    to use the 4-hour ST sync, or comment that entry out and trigger
+    ST manually from the Settings page.
