@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Loader2 } from 'lucide-react';
 import { sendPOAction, receivePOAction } from './actions';
+import { updatePOStatusAction } from '../actions';
 
 type Line = {
   id: string;
@@ -26,12 +27,19 @@ export default function POActions({
 
   const canSend = ['draft', 'pending_review'].includes(status);
   const canReceive = ['sent', 'partially_received'].includes(status);
+  const canCancel = !['received', 'cancelled'].includes(status);
 
-  if (!canSend && !canReceive) return null;
+  if (!canSend && !canReceive && !canCancel) return null;
 
   function send() {
     startTransition(async () => {
       try { await sendPOAction(poId); } catch { /* ignore — server action surfaces */ }
+    });
+  }
+
+  function changeStatus(newStatus: string) {
+    startTransition(async () => {
+      try { await updatePOStatusAction(poId, newStatus); } catch { /* ignore */ }
     });
   }
 
@@ -67,6 +75,20 @@ export default function POActions({
             className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm rounded px-3 py-2 transition"
           >
             Receive shipment
+          </button>
+        )}
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Cancel this purchase order? This cannot be undone.')) {
+                changeStatus('cancelled');
+              }
+            }}
+            disabled={pending}
+            className="border border-red-500 text-red-400 hover:bg-red-500 hover:text-white disabled:opacity-50 text-sm rounded px-3 py-2 transition flex items-center gap-2"
+          >
+            {pending && <Loader2 size={14} className="animate-spin" />} Cancel PO
           </button>
         )}
       </div>

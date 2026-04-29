@@ -82,6 +82,66 @@ export async function getEquipmentByStId(stId: string): Promise<EquipmentRow> {
   return rows[0];
 }
 
+export interface EquipmentInput {
+  name?: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  status?: string | null;
+  department?: string | null;
+  warehouse_id?: string | null;
+  truck_id?: string | null;
+  location_notes?: string | null;
+  installed_at?: string | null;
+  warranty_start?: string | null;
+  warranty_expiry?: string | null;
+  notes?: string | null;
+  st_equipment_id?: string | null;
+  st_customer_id?: string | null;
+  is_active?: boolean | null;
+}
+
+export async function createEquipment(b: EquipmentInput): Promise<EquipmentRow> {
+  if (!b.name) throw new AppError('name is required', 400);
+  const { rows } = await query<EquipmentRow>(
+    `INSERT INTO equipment
+       (name, manufacturer, model, serial_number, status, department,
+        warehouse_id, location_notes, warranty_start, warranty_expiry, notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     RETURNING *`,
+    [b.name, b.manufacturer ?? null, b.model ?? null, b.serial_number ?? null,
+     b.status ?? 'in_stock', b.department ?? null, b.warehouse_id ?? null,
+     b.location_notes ?? null, b.warranty_start ?? null, b.warranty_expiry ?? null, b.notes ?? null],
+  );
+  return rows[0];
+}
+
+export async function updateEquipment(id: string, b: EquipmentInput): Promise<EquipmentRow> {
+  const { rows } = await query<EquipmentRow>(
+    `UPDATE equipment
+        SET name            = COALESCE($1, name),
+            manufacturer    = COALESCE($2, manufacturer),
+            model           = COALESCE($3, model),
+            serial_number   = COALESCE($4, serial_number),
+            status          = COALESCE($5, status),
+            department      = COALESCE($6, department),
+            warehouse_id    = COALESCE($7, warehouse_id),
+            location_notes  = COALESCE($8, location_notes),
+            warranty_start  = COALESCE($9, warranty_start),
+            warranty_expiry = COALESCE($10, warranty_expiry),
+            notes           = COALESCE($11, notes),
+            updated_at      = NOW()
+      WHERE id = $12
+      RETURNING *`,
+    [b.name ?? null, b.manufacturer ?? null, b.model ?? null, b.serial_number ?? null,
+     b.status ?? null, b.department ?? null, b.warehouse_id ?? null,
+     b.location_notes ?? null, b.warranty_start ?? null, b.warranty_expiry ?? null,
+     b.notes ?? null, id],
+  );
+  if (!rows[0]) throw new AppError('Equipment not found', 404);
+  return rows[0];
+}
+
 export async function updateEquipmentLocation(
   id: string,
   warehouseId: string | null,

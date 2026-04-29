@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { AppError } from '@/lib/errors';
 import { getTruck } from '@/lib/services/trucks';
 import { listWarehouses } from '@/lib/services/warehouses';
+import { listInventoryTemplates } from '@/lib/services/inventory-templates';
 import { PageHeader, Card } from '@/components/ui';
 import TruckForm from '@/components/TruckForm';
 import { updateTruckAction } from '../../actions';
@@ -24,7 +25,17 @@ export default async function EditTruckPage({ params }: { params: Promise<{ id: 
     if (e instanceof AppError && e.statusCode === 404) notFound();
     throw e;
   }
-  const warehouses = await listWarehouses();
+
+  const [warehouses, templates] = await Promise.all([
+    listWarehouses(),
+    listInventoryTemplates().catch(() => []),
+  ]);
+
+  const activeTemplates = templates
+    .filter((t) => t.is_active)
+    .map((t) => ({ id: t.id, name: t.name }));
+
+  const truckAny = truck as unknown as Record<string, unknown>;
 
   // Bind the truck id into the action for the form
   async function action(formData: FormData) {
@@ -43,15 +54,17 @@ export default async function EditTruckPage({ params }: { params: Promise<{ id: 
         <TruckForm
           action={action}
           warehouses={warehouses.map((w) => ({ id: w.id, name: w.name }))}
+          templates={activeTemplates}
           defaults={{
             truck_number: truck.truck_number,
             department: truck.department,
             home_warehouse_id: truck.home_warehouse_id,
+            template_id: (truckAny.template_id as string | null) ?? null,
             make: truck.make,
             model: truck.model,
             year: truck.year,
             license_plate: truck.license_plate,
-            vin: (truck as unknown as { vin: string | null }).vin,
+            vin: (truckAny.vin as string | null) ?? null,
             status: truck.status,
           }}
           submitLabel="Save changes"

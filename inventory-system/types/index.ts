@@ -52,6 +52,8 @@ export interface Material {
   reorder_quantity?: number | null;
   max_stock?: number | null;
   barcode?: string | null;
+  primary_supply_house_id?: string | null;
+  secondary_supply_house_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }

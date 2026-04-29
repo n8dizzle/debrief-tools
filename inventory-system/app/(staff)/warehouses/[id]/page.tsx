@@ -5,6 +5,8 @@ import { getWarehouse } from '@/lib/services/warehouses';
 import { getWarehouseStock } from '@/lib/services/material-movements';
 import { PageHeader, Card, DataRow, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { titleCase, formatNumber, formatMoney } from '@/lib/format';
+import MinMaxForm from '@/components/MinMaxForm';
+import { updateWarehouseStockMinMax } from '../actions';
 
 export default async function WarehouseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +33,17 @@ export default async function WarehouseDetailPage({ params }: { params: Promise<
         title={wh.name}
         description={titleCase((w.department as string) ?? '')}
         back={{ href: '/warehouses', label: 'Back to warehouses' }}
-        actions={<StatusBadge status={wh.status} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/warehouses/${id}/count`}
+              className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm font-medium rounded px-4 py-2 transition"
+            >
+              Start count
+            </Link>
+            <StatusBadge status={wh.status} />
+          </div>
+        }
       />
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -82,19 +94,21 @@ export default async function WarehouseDetailPage({ params }: { params: Promise<
               <Th>Location</Th>
               <Th align="right">On hand</Th>
               <Th align="right">Reorder</Th>
+              <Th>Min / Max</Th>
               <Th align="right">Stock value</Th>
             </tr>
           </THead>
           <TBody>
             {stock.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <EmptyState message="No stock recorded at this warehouse yet." />
                 </td>
               </tr>
             )}
             {stock.map((row, i) => {
               const r = row as Record<string, unknown>;
+              const stockId = r.id as string;
               return (
                 <tr key={`${r.material_id as string}-${i}`} className="hover:bg-bg-card-hover transition">
                   <Td mono muted>{r.sku as string}</Td>
@@ -103,6 +117,13 @@ export default async function WarehouseDetailPage({ params }: { params: Promise<
                   <Td muted>{(r.location_label as string) ?? '—'}</Td>
                   <Td align="right">{formatNumber(r.quantity_on_hand as number | string)}</Td>
                   <Td align="right" muted>{formatNumber(r.reorder_point as number | string)}</Td>
+                  <Td>
+                    <MinMaxForm
+                      action={updateWarehouseStockMinMax.bind(null, id, stockId)}
+                      minQty={Number(r.min_quantity ?? 0)}
+                      maxQty={r.max_quantity != null ? Number(r.max_quantity) : null}
+                    />
+                  </Td>
                   <Td align="right">{formatMoney(r.stock_value as number | string)}</Td>
                 </tr>
               );

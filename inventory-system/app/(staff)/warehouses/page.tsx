@@ -10,6 +10,14 @@ export default async function WarehousesPage() {
       <PageHeader
         title="Warehouses"
         description={`${rows.length} warehouse${rows.length === 1 ? '' : 's'}`}
+        actions={
+          <Link
+            href="/warehouses/new"
+            className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm rounded px-4 py-2 transition flex items-center gap-2"
+          >
+            + New warehouse
+          </Link>
+        }
       />
 
       <Table>

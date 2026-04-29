@@ -2,10 +2,14 @@ import { notFound } from 'next/navigation';
 import { AppError } from '@/lib/errors';
 import { getTruck, getTruckStock } from '@/lib/services/trucks';
 import { listUsers } from '@/lib/services/users';
+import { query } from '@/lib/db';
 import { PageHeader, Card, DataRow, Table, THead, TBody, Th, Td, EmptyState, StatusBadge } from '@/components/ui';
 import { titleCase, formatNumber } from '@/lib/format';
 import TruckHeaderActions from './TruckHeaderActions';
 import TechAssignmentCard from './TechAssignmentCard';
+import ApplyTemplateButton from './ApplyTemplateButton';
+import MinMaxForm from '@/components/MinMaxForm';
+import { updateTruckStockMinMax } from '../actions';
 
 export default async function TruckDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,6 +20,19 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
   } catch (e) {
     if (e instanceof AppError && e.statusCode === 404) notFound();
     throw e;
+  }
+
+  const truckAny = truck as unknown as Record<string, unknown>;
+  const templateId = truckAny.template_id as string | null;
+
+  // Resolve template name if assigned
+  let templateName: string | null = null;
+  if (templateId) {
+    const { rows: tplRows } = await query<{ name: string }>(
+      `SELECT name FROM inventory_templates WHERE id = $1`,
+      [templateId],
+    );
+    templateName = tplRows[0]?.name ?? null;
   }
 
   const [stock, allTechs] = await Promise.all([
@@ -71,7 +88,13 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
             <DataRow label="Home" value={truck.warehouse_name} />
             <DataRow label="Line items" value={formatNumber(totalLines)} />
             <DataRow label="Total qty" value={formatNumber(totalQty)} />
+            <DataRow label="Template" value={templateName ?? '—'} />
           </dl>
+          {templateId && (
+            <div className="mt-4">
+              <ApplyTemplateButton truckId={id} />
+            </div>
+          )}
         </Card>
       </section>
 
@@ -86,18 +109,20 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
               <Th align="right">Qty on hand</Th>
               <Th>UoM</Th>
               <Th align="right">Reorder pt.</Th>
+              <Th>Min / Max</Th>
             </tr>
           </THead>
           <TBody>
             {stock.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState message="This truck has no recorded stock yet." />
                 </td>
               </tr>
             )}
             {stock.map((s, i) => {
               const r = s as Record<string, unknown>;
+              const stockId = r.id as string;
               return (
                 <tr key={`${r.material_id}-${i}`} className="hover:bg-bg-card-hover transition">
                   <Td mono muted>{r.sku as string}</Td>
@@ -106,6 +131,13 @@ export default async function TruckDetailPage({ params }: { params: Promise<{ id
                   <Td align="right">{formatNumber(r.quantity_on_hand as number | string)}</Td>
                   <Td muted>{(r.unit_of_measure as string) ?? '—'}</Td>
                   <Td align="right" muted>{formatNumber(r.reorder_point as number | string)}</Td>
+                  <Td>
+                    <MinMaxForm
+                      action={updateTruckStockMinMax.bind(null, stockId)}
+                      minQty={Number(r.min_quantity ?? 0)}
+                      maxQty={r.max_quantity != null ? Number(r.max_quantity) : null}
+                    />
+                  </Td>
                 </tr>
               );
             })}

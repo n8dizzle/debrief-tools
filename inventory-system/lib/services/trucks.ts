@@ -77,6 +77,7 @@ export interface TruckInput {
   department?: string;
   home_warehouse_id?: string;
   st_vehicle_id?: string | null;
+  template_id?: string | null;
   make?: string | null;
   model?: string | null;
   year?: number | null;
@@ -100,22 +101,62 @@ export async function createTruck(b: TruckInput): Promise<Truck> {
 }
 
 export async function updateTruck(id: string, b: TruckInput): Promise<Truck> {
+  // Build SET clauses dynamically so we can handle template_id = NULL explicitly
+  const setClauses: string[] = [
+    `truck_number  = COALESCE($1, truck_number)`,
+    `st_vehicle_id = COALESCE($2, st_vehicle_id)`,
+    `make          = COALESCE($3, make)`,
+    `model         = COALESCE($4, model)`,
+    `year          = COALESCE($5, year)`,
+    `license_plate = COALESCE($6, license_plate)`,
+    `vin           = COALESCE($7, vin)`,
+    `status        = COALESCE($8, status)`,
+    `updated_at    = NOW()`,
+  ];
+  const params: unknown[] = [
+    b.truck_number ?? null, b.st_vehicle_id ?? null, b.make ?? null, b.model ?? null,
+    b.year ?? null, b.license_plate ?? null, b.vin ?? null, b.status ?? null,
+  ];
+
+  if ('template_id' in b) {
+    params.push(b.template_id ?? null);
+    setClauses.splice(setClauses.length - 1, 0, `template_id = $${params.length}`);
+  }
+
+  params.push(id);
+  const idParam = `$${params.length}`;
+
   const { rows } = await query<Truck>(
-    `UPDATE trucks
-        SET truck_number  = COALESCE($1, truck_number),
-            st_vehicle_id = COALESCE($2, st_vehicle_id),
-            make          = COALESCE($3, make),
-            model         = COALESCE($4, model),
-            year          = COALESCE($5, year),
-            license_plate = COALESCE($6, license_plate),
-            vin           = COALESCE($7, vin),
-            status        = COALESCE($8, status),
-            updated_at    = NOW()
-      WHERE id = $9
-      RETURNING *`,
-    [b.truck_number ?? null, b.st_vehicle_id ?? null, b.make ?? null, b.model ?? null,
-     b.year ?? null, b.license_plate ?? null, b.vin ?? null, b.status ?? null, id],
+    `UPDATE trucks SET ${setClauses.join(', ')} WHERE id = ${idParam} RETURNING *`,
+    params,
   );
   if (!rows[0]) throw new AppError('Truck not found', 404);
   return rows[0];
+}
+
+export async function applyTemplateToTruck(truckId: string, templateId: string): Promise<{ applied: number }> {
+  const { rows: items } = await query<{ material_id: string | null; target_quantity: string | number }>(
+    `SELECT material_id, target_quantity
+       FROM inventory_template_items
+      WHERE template_id = $1 AND material_id IS NOT NULL`,
+    [templateId],
+  );
+
+  if (items.length === 0) return { applied: 0 };
+
+  let applied = 0;
+  for (const item of items) {
+    if (!item.material_id) continue;
+    const minQty = Number(item.target_quantity);
+    await query(
+      `INSERT INTO truck_stock (material_id, truck_id, quantity_on_hand, min_quantity)
+       VALUES ($1, $2, 0, $3)
+       ON CONFLICT (material_id, truck_id)
+       DO UPDATE SET min_quantity = $3`,
+      [item.material_id, truckId, minQty],
+    );
+    applied++;
+  }
+
+  return { applied };
 }

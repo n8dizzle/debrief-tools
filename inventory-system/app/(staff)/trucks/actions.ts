@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { createTruck, updateTruck, type TruckInput } from '@/lib/services/trucks';
+import { createTruck, updateTruck, applyTemplateToTruck, type TruckInput } from '@/lib/services/trucks';
 import { updateUser } from '@/lib/services/users';
 
 const ALLOWED = new Set(['admin', 'warehouse_manager']);
@@ -18,10 +18,12 @@ async function requireRole() {
 
 function readTruckForm(formData: FormData): TruckInput {
   const yearRaw = formData.get('year');
+  const templateRaw = ((formData.get('template_id') as string) || '').trim();
   return {
     truck_number: ((formData.get('truck_number') as string) || '').trim() || undefined,
     department: ((formData.get('department') as string) || '').trim() || undefined,
     home_warehouse_id: ((formData.get('home_warehouse_id') as string) || '').trim() || undefined,
+    template_id: templateRaw || null,
     make: ((formData.get('make') as string) || '').trim() || null,
     model: ((formData.get('model') as string) || '').trim() || null,
     year: yearRaw ? Number(yearRaw) || null : null,
@@ -74,4 +76,29 @@ export async function unassignTechAction(truckId: string, userId: string) {
   await updateUser(userId, { assigned_truck_id: null });
   revalidatePath(`/trucks/${truckId}`);
   revalidatePath('/users');
+}
+
+export async function applyTruckTemplateAction(truckId: string) {
+  await requireRole();
+  // Load truck to get template_id
+  const { getTruck } = await import('@/lib/services/trucks');
+  const truck = await getTruck(truckId);
+  const templateId = (truck as unknown as { template_id: string | null }).template_id;
+  if (!templateId) return;
+  await applyTemplateToTruck(truckId, templateId);
+  revalidatePath(`/trucks/${truckId}`);
+}
+
+export async function updateTruckStockMinMax(stockId: string, formData: FormData) {
+  await requireRole();
+  const min = Number(formData.get('min') ?? 0);
+  const maxRaw = formData.get('max');
+  const max = maxRaw && String(maxRaw).trim() !== '' ? Number(maxRaw) : null;
+  const { query } = await import('@/lib/db');
+  await query(
+    `UPDATE truck_stock SET min_quantity = $1, max_quantity = $2 WHERE id = $3`,
+    [min, max, stockId],
+  );
+  // Revalidate all truck detail pages (we don't know which truck without a join)
+  revalidatePath('/trucks', 'layout');
 }

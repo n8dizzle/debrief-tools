@@ -13,7 +13,18 @@ export default async function PurchaseOrdersPage({
 
   return (
     <div className="px-8 py-6">
-      <PageHeader title="Purchase Orders" description={`${rows.length} PO${rows.length === 1 ? '' : 's'}`} />
+      <PageHeader
+        title="Purchase Orders"
+        description={`${rows.length} PO${rows.length === 1 ? '' : 's'}`}
+        actions={
+          <Link
+            href="/purchase-orders/new"
+            className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm font-medium rounded px-4 py-2 transition"
+          >
+            + New PO
+          </Link>
+        }
+      />
 
       <form className="flex gap-3 mb-5" action="/purchase-orders">
         <select

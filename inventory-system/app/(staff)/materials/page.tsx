@@ -40,6 +40,12 @@ export default async function MaterialsPage({
             {department ? ` · ${department}` : ''}
           </p>
         </div>
+        <Link
+          href="/materials/new"
+          className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm rounded px-4 py-2 transition flex items-center gap-2 shrink-0"
+        >
+          + New material
+        </Link>
       </header>
 
       <form className="flex gap-3 mb-5" action="/materials">

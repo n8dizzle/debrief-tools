@@ -2,6 +2,7 @@ interface TruckFormFields {
   truck_number?: string | null;
   department?: string | null;
   home_warehouse_id?: string | null;
+  template_id?: string | null;
   make?: string | null;
   model?: string | null;
   year?: number | null;
@@ -14,11 +15,13 @@ export default function TruckForm({
   action,
   defaults,
   warehouses,
+  templates = [],
   submitLabel,
 }: {
   action: (formData: FormData) => Promise<void>;
   defaults?: TruckFormFields;
   warehouses: Array<{ id: string; name: string }>;
+  templates?: Array<{ id: string; name: string }>;
   submitLabel: string;
 }) {
   return (
@@ -50,6 +53,22 @@ export default function TruckForm({
         defaultValue={defaults?.home_warehouse_id ?? warehouses[0]?.id ?? ''}
         options={warehouses.map((w) => [w.id, w.name])}
       />
+
+      <label className="block">
+        <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">
+          Inventory template
+        </span>
+        <select
+          name="template_id"
+          defaultValue={defaults?.template_id ?? ''}
+          className="w-full bg-bg-secondary border border-border-default rounded px-3 py-2 outline-none focus:border-christmas-green"
+        >
+          <option value="">No template</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+      </label>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Make" name="make" defaultValue={defaults?.make ?? ''} />

@@ -22,7 +22,18 @@ export default async function EquipmentPage({
 
   return (
     <div className="px-8 py-6">
-      <PageHeader title="Equipment" description={`${rows.length} item${rows.length === 1 ? '' : 's'} on this page`} />
+      <PageHeader
+        title="Equipment"
+        description={`${rows.length} item${rows.length === 1 ? '' : 's'} on this page`}
+        actions={
+          <Link
+            href="/equipment/new"
+            className="bg-christmas-green hover:bg-christmas-green-light text-white text-sm rounded px-4 py-2 transition flex items-center gap-2"
+          >
+            + New equipment
+          </Link>
+        }
+      />
 
       <form className="flex gap-3 mb-5" action="/equipment">
         <input
