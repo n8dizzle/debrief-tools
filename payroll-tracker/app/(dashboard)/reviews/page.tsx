@@ -385,18 +385,21 @@ export default function ReviewsPage() {
                           </td>
                           <td>
                             <div className="flex gap-1 flex-wrap">
-                              {entry.flags.map(flag => (
-                                <span
-                                  key={flag}
-                                  className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                  style={{
-                                    backgroundColor: flag === 'Missing Clock' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                                    color: flag === 'Missing Clock' ? 'var(--status-error, #ef4444)' : 'var(--status-warning)',
-                                  }}
-                                >
-                                  {flag}
-                                </span>
-                              ))}
+                              {entry.flags.map(flag => {
+                                const isRed = flag === 'Missing Clock' || flag === 'Overlapping';
+                                return (
+                                  <span
+                                    key={flag}
+                                    className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                    style={{
+                                      backgroundColor: isRed ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                                      color: isRed ? 'var(--status-error, #ef4444)' : 'var(--status-warning)',
+                                    }}
+                                  >
+                                    {flag}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </td>
                         </tr>
