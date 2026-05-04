@@ -47,32 +47,29 @@ export default function SiteHeader() {
           aria-label="Christmas Air Conditioning & Plumbing — home"
         >
           <Image
-            src="/logo.png"
+            src="/logo-badge.png"
             alt="Christmas Air Conditioning & Plumbing"
             width={300}
             height={200}
             priority
-            className="h-14 md:h-16 flex-shrink-0"
+            className="h-28 md:h-32 flex-shrink-0"
             style={{ width: "auto" }}
           />
-          <span className="text-xs opacity-70 hidden lg:inline">
-            Neighbors Helping Neighbors
-          </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-4 text-sm">
-          <Link href="/triple-win" style={{ color: "var(--ca-dark-green)" }}>
+        <nav className="hidden md:flex items-center gap-4 text-base">
+          <Link href="/triple-win" className="font-bold" style={{ color: "var(--ca-dark-green)" }}>
             Triple Win
           </Link>
-          <Link href="/faq" style={{ color: "var(--ca-dark-green)" }}>
+          <Link href="/faq" className="font-bold" style={{ color: "var(--ca-dark-green)" }}>
             FAQ
           </Link>
-          <Link href="/sign-in" style={{ color: "var(--ca-dark-green)" }}>
+          <Link href="/sign-in" className="font-bold" style={{ color: "var(--ca-dark-green)" }}>
             Sign in
           </Link>
-          <Link href="/enroll" className="btn btn-primary">
-            Join the program
+          <Link href="/enroll" className="btn btn-primary font-bold">
+            Join the Program
           </Link>
         </nav>
 
@@ -123,7 +120,7 @@ export default function SiteHeader() {
               onClick={() => setOpen(false)}
               className="btn btn-primary mt-2 text-center"
             >
-              Join the program
+              Join the Program
             </Link>
           </nav>
         </div>

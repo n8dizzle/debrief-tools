@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Lobster, Open_Sans } from "next/font/google";
+import { Anton, Open_Sans } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 import AnalyticsProvider from "@/components/AnalyticsProvider";
 
-const lobster = Lobster({
+const anton = Anton({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-lobster",
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${lobster.variable} ${openSans.variable}`}>
+    <html lang="en" className={`${anton.variable} ${openSans.variable}`}>
       <body>
         <AnalyticsProvider>
           <AuthProvider>{children}</AuthProvider>

@@ -103,12 +103,12 @@ export default function ReferralForm({
             border: "2px solid var(--ca-green)",
           }}
         >
-          <h2 className="text-4xl mb-3">Got it, {firstName}.</h2>
+          <h2 className="text-4xl mb-3">Got it, {firstName}</h2>
           <p className="text-lg opacity-80 mb-4">
             A Christmas Air team member will reach out within one business day.
             If you need us sooner, call{" "}
-            <a href="tel:4692142013" className="font-semibold">
-              (469) 214-2013
+            <a href="tel:4692145517" className="font-semibold">
+              (469) 214-5517
             </a>
             .
           </p>
@@ -160,11 +160,11 @@ export default function ReferralForm({
         >
           Prefer to just call? Dial{" "}
           <a
-            href="tel:4692142013"
+            href="tel:4692145517"
             className="font-semibold"
             style={{ color: "var(--ca-dark-green)" }}
           >
-            (469) 214-2013
+            (469) 214-5517
           </a>{" "}
           and tell us {referrerFirstName} sent you.
         </div>
@@ -201,7 +201,7 @@ export default function ReferralForm({
                 value={referredPhone}
                 onChange={(e) => setReferredPhone(e.target.value)}
                 autoComplete="tel"
-                placeholder="Phone — (469) 214-2013"
+                placeholder="Phone — (469) 214-5517"
               />
             </label>
             <label className="block">

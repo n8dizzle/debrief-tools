@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function SiteFooter() {
   return (
@@ -8,13 +9,15 @@ export default function SiteFooter() {
     >
       <div className="max-w-6xl mx-auto grid gap-8 md:gap-10 md:grid-cols-3">
         <div>
-          <h3 className="text-2xl mb-3" style={{ color: "var(--ca-cream)" }}>
-            Christmas Air
-          </h3>
+          <Image
+            src="/logo-wordmark.png"
+            alt="Christmas Air and Plumbing"
+            width={140}
+            height={70}
+            className="mb-4"
+          />
           <p className="text-sm opacity-90 leading-relaxed">
-            Conditioning &amp; Plumbing
-            <br />
-            Your neighbors in Flower Mound
+            Neighbors Helping Neighbors
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="badge-trust" style={{ background: "rgba(245,242,220,0.15)", color: "var(--ca-cream)" }}>
@@ -27,10 +30,10 @@ export default function SiteFooter() {
         </div>
 
         <div className="text-sm opacity-90 leading-relaxed">
-          <p className="font-semibold mb-2" style={{ color: "var(--ca-cream)" }}>
-            Get in touch
+          <p className="font-bold text-base mb-2" style={{ color: "var(--ca-cream)" }}>
+            Contact Us
           </p>
-          <p>(469) 214-2013</p>
+          <p className="font-bold">(469) 214-5517</p>
           <p>1011 Surrey Ln., Bldg 200</p>
           <p>Flower Mound, TX 75022</p>
           <p className="mt-3 text-xs opacity-75">
@@ -39,13 +42,13 @@ export default function SiteFooter() {
         </div>
 
         <div className="text-sm">
-          <p className="font-semibold mb-2" style={{ color: "var(--ca-cream)" }}>
-            Program
+          <p className="font-bold text-base mb-2" style={{ color: "var(--ca-cream)" }}>
+            Resources
           </p>
           <ul className="space-y-1.5 opacity-90">
             <li>
               <Link href="/" style={{ color: "var(--ca-cream)" }}>
-                How it works
+                How It Works
               </Link>
             </li>
             <li>
@@ -65,7 +68,7 @@ export default function SiteFooter() {
             </li>
             <li>
               <Link href="/sign-in" style={{ color: "var(--ca-cream)" }}>
-                Sign in to your dashboard
+                Sign In To Your Dashboard
               </Link>
             </li>
             <li>
@@ -73,7 +76,7 @@ export default function SiteFooter() {
                 href="https://christmasair.com"
                 style={{ color: "var(--ca-cream)" }}
               >
-                Main site
+                Main Site
               </a>
             </li>
           </ul>
@@ -84,7 +87,7 @@ export default function SiteFooter() {
         className="max-w-6xl mx-auto mt-10 pt-6 text-xs opacity-70"
         style={{ borderTop: "1px solid rgba(245,242,220,0.15)" }}
       >
-        &copy; {new Date().getFullYear()}{" "}Christmas Air Conditioning &amp; Plumbing. Neighbors helping neighbors.
+        &copy; {new Date().getFullYear()}{" "}Christmas Air Conditioning &amp; Plumbing
       </div>
     </footer>
   );

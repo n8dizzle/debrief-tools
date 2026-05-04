@@ -144,7 +144,7 @@ export default async function TermsPage() {
           <Section title="9. Termination">
             <p>
               You may leave the program at any time by contacting Christmas
-              Air at <a href="tel:4692142013">(469) 214-2013</a>. Active
+              Air at <a href="tel:4692145517">(469) 214-5517</a>. Active
               referrals will continue to be honored. Christmas Air reserves
               the right to terminate any participant&apos;s account for
               violations of these terms or fraudulent activity, with notice
@@ -168,7 +168,7 @@ export default async function TermsPage() {
               <br />
               Flower Mound, TX 75022
               <br />
-              <a href="tel:4692142013">(469) 214-2013</a>
+              <a href="tel:4692145517">(469) 214-5517</a>
               <br />
               TACLA00120029E &middot; M18185
             </p>
