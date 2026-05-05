@@ -59,9 +59,12 @@ export async function PATCH(
       if (!hasPermission(session, 'can_approve_payments')) {
         return NextResponse.json({ error: 'You do not have permission to approve payments. Contact a manager.' }, { status: 403 });
       }
-      // Require notes when approving
-      if (!payment_notes?.trim()) {
-        return NextResponse.json({ error: 'Approval notes are required when approving a payment.' }, { status: 400 });
+      // Require notes only when the approver is overriding the contractor's amount
+      const amountChanging =
+        payment_amount !== undefined &&
+        Number(payment_amount) !== Number(currentJob.payment_amount ?? 0);
+      if (amountChanging && !payment_notes?.trim()) {
+        return NextResponse.json({ error: 'Notes are required when changing the amount during approval.' }, { status: 400 });
       }
     }
 
@@ -73,10 +76,6 @@ export async function PATCH(
       // Prevent same person from approving and paying (unless owner)
       if (currentJob.payment_approved_by === session.user.id && role !== 'owner') {
         return NextResponse.json({ error: 'The same person cannot both approve and issue a payment.' }, { status: 403 });
-      }
-      // Require notes when marking paid
-      if (!payment_notes?.trim()) {
-        return NextResponse.json({ error: 'Payment notes are required when issuing a payment.' }, { status: 400 });
       }
     }
 
@@ -106,8 +105,13 @@ export async function PATCH(
 
     if (payment_status === 'ready_to_pay') {
       updateData.payment_received_at = new Date().toISOString();
-      updateData.payment_approved_at = new Date().toISOString();
-      updateData.payment_approved_by = session.user.id;
+      // Only stamp the approver when transitioning INTO ready_to_pay.
+      // Prevents a re-PATCH from silently rewriting payment_approved_by and
+      // bypassing separation-of-duties on the subsequent /paid step.
+      if (currentJob.payment_status !== 'ready_to_pay') {
+        updateData.payment_approved_at = new Date().toISOString();
+        updateData.payment_approved_by = session.user.id;
+      }
     } else if (payment_status === 'pending_approval') {
       updateData.payment_received_at = new Date().toISOString();
       if (currentJob.payment_status === 'paid') {
@@ -127,11 +131,6 @@ export async function PATCH(
       updateData.invoice_source = null;
     }
 
-    // If approving from pending_approval → ready_to_pay
-    if (currentJob.payment_status === 'pending_approval' && payment_status === 'ready_to_pay') {
-      updateData.payment_approved_at = new Date().toISOString();
-      updateData.payment_approved_by = session.user.id;
-    }
     // If reverting from paid → ready_to_pay, clear paid timestamp
     if (currentJob.payment_status === 'paid' && payment_status === 'ready_to_pay') {
       updateData.payment_paid_at = null;

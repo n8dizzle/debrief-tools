@@ -7,6 +7,7 @@ import { APInstallJob, APContractor, APContractorRate } from '@/lib/supabase';
 import { formatCurrency, formatDate } from '@/lib/ap-utils';
 import PaymentStatusBadge from './PaymentStatusBadge';
 import AssignmentBadge from './AssignmentBadge';
+import ApproveModal from './ApproveModal';
 
 // --- Column definitions ---
 
@@ -123,12 +124,17 @@ interface JobsTableProps {
   isLoading: boolean;
   canManageAssignments: boolean;
   canManagePayments: boolean;
+  canApprovePayments: boolean;
   onAssign: (jobId: string, data: {
     assignment_type: 'unassigned' | 'in_house' | 'contractor';
     contractor_id?: string;
     payment_amount?: number;
   }) => Promise<void>;
-  onPaymentStatusChange: (jobId: string, newStatus: string) => Promise<void>;
+  onPaymentStatusChange: (
+    jobId: string,
+    newStatus: string,
+    extras?: { payment_notes?: string; payment_amount?: number }
+  ) => Promise<void>;
   onNotesChange?: (jobId: string, notes: string) => Promise<void>;
   onBulkExclude?: (jobIds: string[], isIgnored: boolean) => Promise<void>;
   showIgnored?: boolean;
@@ -145,6 +151,7 @@ function InlineAssignmentRow({
   contractors,
   canManageAssignments,
   canManagePayments,
+  canApprovePayments,
   onAssign,
   onPaymentStatusChange,
   onNotesChange,
@@ -157,6 +164,7 @@ function InlineAssignmentRow({
   contractors: APContractor[];
   canManageAssignments: boolean;
   canManagePayments: boolean;
+  canApprovePayments: boolean;
   onAssign: JobsTableProps['onAssign'];
   onPaymentStatusChange: JobsTableProps['onPaymentStatusChange'];
   onNotesChange?: JobsTableProps['onNotesChange'];
@@ -177,6 +185,7 @@ function InlineAssignmentRow({
   const [notesValue, setNotesValue] = useState(job.payment_notes || '');
   const [editingNotes, setEditingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -277,8 +286,19 @@ function InlineAssignmentRow({
     if (e.key === 'Enter') amountRef.current?.blur();
   };
 
-  const handlePaymentChange = async (newStatus: string) => {
-    await onPaymentStatusChange(job.id, newStatus);
+  const handlePaymentChange = async (
+    newStatus: string,
+    extras?: { payment_notes?: string; payment_amount?: number }
+  ) => {
+    await onPaymentStatusChange(job.id, newStatus, extras);
+  };
+
+  const handleSelectChange = async (newStatus: string) => {
+    try {
+      await onPaymentStatusChange(job.id, newStatus);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update payment status');
+    }
   };
 
   // Build a cell map keyed by column key
@@ -521,19 +541,29 @@ function InlineAssignmentRow({
       <td key="payment_status" onClick={(e) => e.stopPropagation()}>
         {canManagePayments && assignmentType === 'contractor' && job.payment_status !== 'paid' ? (
           job.payment_status === 'pending_approval' ? (
-            <button
-              className="btn btn-primary text-xs py-1 px-3"
-              onClick={() => handlePaymentChange('ready_to_pay')}
-              title="Approve this invoice"
-            >
-              Approve
-            </button>
+            canApprovePayments ? (
+              <button
+                className="btn btn-primary text-xs py-1 px-3"
+                onClick={() => setApproveModalOpen(true)}
+                title="Approve this invoice"
+              >
+                Approve
+              </button>
+            ) : (
+              <span
+                className="text-xs"
+                style={{ color: 'var(--text-muted)' }}
+                title="You need approval permission. Contact a manager."
+              >
+                Pending Approval
+              </span>
+            )
           ) : (
             <select
               className="select text-xs py-1 px-2"
               style={{ width: 'auto', minWidth: '120px' }}
               value={job.payment_status}
-              onChange={(e) => handlePaymentChange(e.target.value)}
+              onChange={(e) => handleSelectChange(e.target.value)}
             >
               <option value="none">None</option>
               <option value="pending_approval">Pending Approval</option>
@@ -607,30 +637,42 @@ function InlineAssignmentRow({
   const isIgnored = job.is_ignored;
 
   return (
-    <tr
-      style={{
-        opacity: saving ? 0.6 : isIgnored ? 0.45 : 1,
-        transition: 'opacity 0.2s',
-        cursor: 'pointer',
-        backgroundColor: isSelected ? 'rgba(93, 138, 102, 0.08)' : undefined,
-      }}
-      onClick={handleRowClick}
-    >
-      {showCheckbox && (
-        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', padding: '0 4px' }}>
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={onToggleSelect}
-            style={{ accentColor: 'var(--christmas-green)', cursor: 'pointer' }}
-          />
-        </td>
+    <>
+      <tr
+        style={{
+          opacity: saving ? 0.6 : isIgnored ? 0.45 : 1,
+          transition: 'opacity 0.2s',
+          cursor: 'pointer',
+          backgroundColor: isSelected ? 'rgba(93, 138, 102, 0.08)' : undefined,
+        }}
+        onClick={handleRowClick}
+      >
+        {showCheckbox && (
+          <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', padding: '0 4px' }}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onToggleSelect}
+              style={{ accentColor: 'var(--christmas-green)', cursor: 'pointer' }}
+            />
+          </td>
+        )}
+        {columnOrder.map(idx => {
+          // columnOrder already filtered to visible columns
+          return cells[COLUMNS[idx].key];
+        })}
+      </tr>
+      {approveModalOpen && typeof document !== 'undefined' && createPortal(
+        <ApproveModal
+          job={job}
+          onClose={() => setApproveModalOpen(false)}
+          onApprove={async ({ payment_notes, payment_amount }) => {
+            await handlePaymentChange('ready_to_pay', { payment_notes, payment_amount });
+          }}
+        />,
+        document.body
       )}
-      {columnOrder.map(idx => {
-        // columnOrder already filtered to visible columns
-        return cells[COLUMNS[idx].key];
-      })}
-    </tr>
+    </>
   );
 }
 
@@ -653,6 +695,7 @@ export default function JobsTable({
   isLoading,
   canManageAssignments,
   canManagePayments,
+  canApprovePayments,
   onAssign,
   onPaymentStatusChange,
   onNotesChange,
@@ -1141,6 +1184,7 @@ export default function JobsTable({
                   contractors={contractors}
                   canManageAssignments={canManageAssignments}
                   canManagePayments={canManagePayments}
+                  canApprovePayments={canApprovePayments}
                   onAssign={onAssign}
                   onPaymentStatusChange={onPaymentStatusChange}
                   onNotesChange={onNotesChange}
