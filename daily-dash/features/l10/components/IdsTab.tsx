@@ -2,6 +2,23 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useIssues, usePortalUsers, Issue } from '@/lib/hooks/useL10Data';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Column definitions
 type SortKey = 'title' | 'priority' | 'owner' | 'status';
@@ -313,6 +330,243 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
   );
 }
 
+// Sortable row component
+interface SortableRowProps {
+  issue: Issue;
+  colWidths: Record<string, number>;
+  editingCell: { id: string; field: string } | null;
+  editValue: string;
+  editRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
+  users: { id: string; name: string; email: string }[];
+  isDragDisabled: boolean;
+  onToggle: (id: string, isResolved: boolean) => void;
+  onStartEdit: (id: string, field: string, value: string) => void;
+  onSaveInline: (id: string, field: string, value: string) => void;
+  onCancelEdit: () => void;
+  onSetEditValue: (value: string) => void;
+  onEdit: (issue: Issue) => void;
+  onDelete: (id: string) => void;
+}
+
+function SortableRow({
+  issue,
+  colWidths,
+  editingCell,
+  editValue,
+  editRef,
+  users,
+  isDragDisabled,
+  onToggle,
+  onStartEdit,
+  onSaveInline,
+  onCancelEdit,
+  onSetEditValue,
+  onEdit,
+  onDelete,
+}: SortableRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: issue.id, disabled: isDragDisabled });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : issue.is_resolved ? 0.5 : 1,
+    position: 'relative' as const,
+    zIndex: isDragging ? 10 : undefined,
+    backgroundColor: isDragging ? 'var(--bg-secondary)' : undefined,
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style}>
+      <td style={{ width: 32, padding: '0 4px' }}>
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-white/10 transition-colors"
+          style={{ opacity: isDragDisabled ? 0.2 : 0.5, cursor: isDragDisabled ? 'default' : undefined }}
+          title={isDragDisabled ? 'Clear column sort to drag' : 'Drag to reorder'}
+        >
+          <DragHandle />
+        </button>
+      </td>
+
+      <td style={{ width: colWidths.resolved }}>
+        <button
+          onClick={() => onToggle(issue.id, issue.is_resolved)}
+          className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+          style={{
+            borderColor: issue.is_resolved ? 'var(--christmas-green)' : 'var(--border-default)',
+            backgroundColor: issue.is_resolved ? 'var(--christmas-green)' : 'transparent',
+          }}
+        >
+          {issue.is_resolved && (
+            <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+      </td>
+
+      <td style={{ width: colWidths.title }}>
+        {editingCell?.id === issue.id && editingCell.field === 'title' ? (
+          <input
+            ref={editRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            value={editValue}
+            onChange={(e) => onSetEditValue(e.target.value)}
+            onBlur={() => onSaveInline(issue.id, 'title', editValue)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onSaveInline(issue.id, 'title', editValue);
+              if (e.key === 'Escape') onCancelEdit();
+            }}
+            className="w-full px-1.5 py-0.5 rounded text-xs font-medium"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+          />
+        ) : (
+          <span
+            className={`text-xs font-medium cursor-pointer hover:underline ${issue.is_resolved ? 'line-through' : ''}`}
+            style={{ color: 'var(--christmas-cream)' }}
+            onClick={() => onStartEdit(issue.id, 'title', issue.title)}
+            title="Click to edit"
+          >
+            {issue.title}
+          </span>
+        )}
+      </td>
+
+      <td style={{ width: colWidths.priority }}>
+        {editingCell?.id === issue.id && editingCell.field === 'priority' ? (
+          <select
+            ref={editRef as React.RefObject<HTMLSelectElement>}
+            value={editValue}
+            onChange={(e) => onSaveInline(issue.id, 'priority', e.target.value)}
+            onBlur={() => onCancelEdit()}
+            onKeyDown={(e) => { if (e.key === 'Escape') onCancelEdit(); }}
+            className="w-full px-1 py-0.5 rounded text-xs"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+          >
+            <option value="">None</option>
+            <option value="High">High</option>
+            <option value="Mid">Mid</option>
+            <option value="Low">Low</option>
+          </select>
+        ) : (
+          <span
+            className="cursor-pointer"
+            onClick={() => onStartEdit(issue.id, 'priority', issue.priority || '')}
+            title="Click to edit"
+          >
+            {issue.priority ? <PriorityBadge priority={issue.priority} /> : (
+              <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+            )}
+          </span>
+        )}
+      </td>
+
+      <td style={{ width: colWidths.owner }}>
+        {editingCell?.id === issue.id && editingCell.field === 'owner_name' ? (
+          <select
+            ref={editRef as React.RefObject<HTMLSelectElement>}
+            value={editValue}
+            onChange={(e) => onSaveInline(issue.id, 'owner_name', e.target.value)}
+            onBlur={() => onCancelEdit()}
+            onKeyDown={(e) => { if (e.key === 'Escape') onCancelEdit(); }}
+            className="w-full px-1 py-0.5 rounded text-xs"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+          >
+            <option value="">Unassigned</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
+            ))}
+          </select>
+        ) : (
+          <span
+            className="text-xs whitespace-nowrap cursor-pointer hover:underline"
+            style={{ color: 'var(--text-secondary)' }}
+            onClick={() => onStartEdit(issue.id, 'owner_name', issue.owner_name || '')}
+            title="Click to edit"
+          >
+            {issue.owner_name || '—'}
+          </span>
+        )}
+      </td>
+
+      <td style={{ width: colWidths.notes, maxWidth: colWidths.notes, overflow: 'hidden' }}>
+        {editingCell?.id === issue.id && editingCell.field === 'notes' ? (
+          <textarea
+            ref={editRef as React.RefObject<HTMLTextAreaElement>}
+            value={editValue}
+            onChange={(e) => onSetEditValue(e.target.value)}
+            onBlur={() => onSaveInline(issue.id, 'notes', editValue)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSaveInline(issue.id, 'notes', editValue); }
+              if (e.key === 'Escape') onCancelEdit();
+            }}
+            rows={2}
+            className="w-full px-1.5 py-0.5 rounded text-xs resize-none"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+          />
+        ) : (
+          <div
+            className="cursor-pointer"
+            onClick={() => onStartEdit(issue.id, 'notes', issue.notes || '')}
+            title="Click to edit"
+          >
+            {issue.notes ? <NotesTooltip notes={issue.notes} /> : (
+              <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+            )}
+          </div>
+        )}
+      </td>
+
+      <td style={{ width: colWidths.actions, textAlign: 'right' }}>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={() => onEdit(issue)}
+            className="p-1.5 rounded transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-muted)' }}
+            title="Edit"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => onDelete(issue.id)}
+            className="p-1.5 rounded transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-muted)' }}
+            title="Delete"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// Drag handle icon
+function DragHandle() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>
+      <circle cx="5" cy="3" r="1.5" />
+      <circle cx="11" cy="3" r="1.5" />
+      <circle cx="5" cy="8" r="1.5" />
+      <circle cx="11" cy="8" r="1.5" />
+      <circle cx="5" cy="13" r="1.5" />
+      <circle cx="11" cy="13" r="1.5" />
+    </svg>
+  );
+}
+
 export default function IdsTab() {
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('open');
   const [ownerFilter, setOwnerFilter] = useState<string[]>([]);
@@ -327,6 +581,11 @@ export default function IdsTab() {
   });
   const { issues, isLoading, mutate } = useIssues();
   const { users } = usePortalUsers();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const [modalIssue, setModalIssue] = useState<Partial<Issue> | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -445,6 +704,44 @@ export default function IdsTab() {
     mutate();
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !filteredIssues.length) return;
+
+    const oldIndex = filteredIssues.findIndex((i) => i.id === active.id);
+    const newIndex = filteredIssues.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(filteredIssues, oldIndex, newIndex);
+
+    // Optimistic update
+    const newOrder = reordered.map((issue, idx) => ({ ...issue, sort_order: idx + 1 }));
+    mutate(
+      (current) => {
+        if (!current?.issues) return current;
+        const orderMap = new Map(newOrder.map((i) => [i.id, i.sort_order]));
+        const updated = current.issues.map((i) =>
+          orderMap.has(i.id) ? { ...i, sort_order: orderMap.get(i.id)! } : i
+        );
+        updated.sort((a, b) => a.sort_order - b.sort_order);
+        return { issues: updated };
+      },
+      false
+    );
+
+    // Persist to DB
+    await fetch('/api/l10/issues/reorder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order: newOrder.map(({ id, sort_order }) => ({ id, sort_order })),
+      }),
+    });
+    mutate();
+  };
+
+  const isDragDisabled = sortKey !== null;
+
   // Build owner filter options from issues data
   const ownerOptions = (() => {
     const seen = new Set<string>();
@@ -560,207 +857,73 @@ export default function IdsTab() {
           No issues match the current filters.
         </div>
       ) : (
-        <div
-          className="rounded-lg overflow-hidden"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-        >
-          <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 380px)' }}>
-            <table className="dash-table">
-              <thead>
-                <tr>
-                  {COLUMNS.map((col) => (
-                    <th
-                      key={col.id}
-                      className="relative select-none"
-                      style={{ width: colWidths[col.id], minWidth: col.minWidth }}
-                    >
-                      {col.sortable ? (
-                        <button
-                          onClick={() => handleSort(col.id as SortKey)}
-                          className="flex items-center gap-1 hover:text-white/80 transition-colors"
-                          style={{ color: sortKey === col.id ? 'var(--christmas-cream)' : undefined }}
-                        >
-                          {col.label}
-                          <span className="text-[10px] opacity-60">{sortIcon(col.id as SortKey)}</span>
-                        </button>
-                      ) : (
-                        col.label
-                      )}
-                      {/* Resize handle */}
-                      {col.id !== 'actions' && (
-                        <div
-                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group flex items-center justify-center"
-                          onMouseDown={(e) => handleResizeStart(e, col.id)}
-                        >
-                          <div className="w-0.5 h-4 rounded bg-gray-600 group-hover:bg-blue-400 transition-colors" />
-                        </div>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredIssues.map((issue) => (
-                  <tr key={issue.id} style={{ opacity: issue.is_resolved ? 0.5 : 1 }}>
-                    <td style={{ width: colWidths.resolved }}>
-                      <button
-                        onClick={() => handleToggle(issue.id, issue.is_resolved)}
-                        className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-                        style={{
-                          borderColor: issue.is_resolved ? 'var(--christmas-green)' : 'var(--border-default)',
-                          backgroundColor: issue.is_resolved ? 'var(--christmas-green)' : 'transparent',
-                        }}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+          >
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 380px)' }}>
+              <table className="dash-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 32, minWidth: 32 }} />
+                    {COLUMNS.map((col) => (
+                      <th
+                        key={col.id}
+                        className="relative select-none"
+                        style={{ width: colWidths[col.id], minWidth: col.minWidth }}
                       >
-                        {issue.is_resolved && (
-                          <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
+                        {col.sortable ? (
+                          <button
+                            onClick={() => handleSort(col.id as SortKey)}
+                            className="flex items-center gap-1 hover:text-white/80 transition-colors"
+                            style={{ color: sortKey === col.id ? 'var(--christmas-cream)' : undefined }}
+                          >
+                            {col.label}
+                            <span className="text-[10px] opacity-60">{sortIcon(col.id as SortKey)}</span>
+                          </button>
+                        ) : (
+                          col.label
                         )}
-                      </button>
-                    </td>
-
-                    <td style={{ width: colWidths.title }}>
-                      {editingCell?.id === issue.id && editingCell.field === 'title' ? (
-                        <input
-                          ref={editRef as React.RefObject<HTMLInputElement>}
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => saveInline(issue.id, 'title', editValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveInline(issue.id, 'title', editValue);
-                            if (e.key === 'Escape') cancelEdit();
-                          }}
-                          className="w-full px-1.5 py-0.5 rounded text-xs font-medium"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
-                        />
-                      ) : (
-                        <span
-                          className={`text-xs font-medium cursor-pointer hover:underline ${issue.is_resolved ? 'line-through' : ''}`}
-                          style={{ color: 'var(--christmas-cream)' }}
-                          onClick={() => startEdit(issue.id, 'title', issue.title)}
-                          title="Click to edit"
-                        >
-                          {issue.title}
-                        </span>
-                      )}
-                    </td>
-
-                    <td style={{ width: colWidths.priority }}>
-                      {editingCell?.id === issue.id && editingCell.field === 'priority' ? (
-                        <select
-                          ref={editRef as React.RefObject<HTMLSelectElement>}
-                          value={editValue}
-                          onChange={(e) => saveInline(issue.id, 'priority', e.target.value)}
-                          onBlur={() => cancelEdit()}
-                          onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
-                          className="w-full px-1 py-0.5 rounded text-xs"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
-                        >
-                          <option value="">None</option>
-                          <option value="High">High</option>
-                          <option value="Mid">Mid</option>
-                          <option value="Low">Low</option>
-                        </select>
-                      ) : (
-                        <span
-                          className="cursor-pointer"
-                          onClick={() => startEdit(issue.id, 'priority', issue.priority || '')}
-                          title="Click to edit"
-                        >
-                          {issue.priority ? <PriorityBadge priority={issue.priority} /> : (
-                            <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
-                          )}
-                        </span>
-                      )}
-                    </td>
-
-                    <td style={{ width: colWidths.owner }}>
-                      {editingCell?.id === issue.id && editingCell.field === 'owner_name' ? (
-                        <select
-                          ref={editRef as React.RefObject<HTMLSelectElement>}
-                          value={editValue}
-                          onChange={(e) => saveInline(issue.id, 'owner_name', e.target.value)}
-                          onBlur={() => cancelEdit()}
-                          onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
-                          className="w-full px-1 py-0.5 rounded text-xs"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
-                        >
-                          <option value="">Unassigned</option>
-                          {(users || []).map((u) => (
-                            <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span
-                          className="text-xs whitespace-nowrap cursor-pointer hover:underline"
-                          style={{ color: 'var(--text-secondary)' }}
-                          onClick={() => startEdit(issue.id, 'owner_name', issue.owner_name || '')}
-                          title="Click to edit"
-                        >
-                          {issue.owner_name || '—'}
-                        </span>
-                      )}
-                    </td>
-
-                    <td style={{ width: colWidths.notes, maxWidth: colWidths.notes, overflow: 'hidden' }}>
-                      {editingCell?.id === issue.id && editingCell.field === 'notes' ? (
-                        <textarea
-                          ref={editRef as React.RefObject<HTMLTextAreaElement>}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => saveInline(issue.id, 'notes', editValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveInline(issue.id, 'notes', editValue); }
-                            if (e.key === 'Escape') cancelEdit();
-                          }}
-                          rows={2}
-                          className="w-full px-1.5 py-0.5 rounded text-xs resize-none"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
-                        />
-                      ) : (
-                        <div
-                          className="cursor-pointer"
-                          onClick={() => startEdit(issue.id, 'notes', issue.notes || '')}
-                          title="Click to edit"
-                        >
-                          {issue.notes ? <NotesTooltip notes={issue.notes} /> : (
-                            <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-
-                    <td style={{ width: colWidths.actions, textAlign: 'right' }}>
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => { setModalIssue(issue); setShowModal(true); }}
-                          className="p-1.5 rounded transition-colors hover:bg-white/10"
-                          style={{ color: 'var(--text-muted)' }}
-                          title="Edit"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(issue.id)}
-                          className="p-1.5 rounded transition-colors hover:bg-white/10"
-                          style={{ color: 'var(--text-muted)' }}
-                          title="Delete"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
+                        {col.id !== 'actions' && (
+                          <div
+                            className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group flex items-center justify-center"
+                            onMouseDown={(e) => handleResizeStart(e, col.id)}
+                          >
+                            <div className="w-0.5 h-4 rounded bg-gray-600 group-hover:bg-blue-400 transition-colors" />
+                          </div>
+                        )}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <SortableContext items={filteredIssues.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  <tbody>
+                    {filteredIssues.map((issue) => (
+                      <SortableRow
+                        key={issue.id}
+                        issue={issue}
+                        colWidths={colWidths}
+                        editingCell={editingCell}
+                        editValue={editValue}
+                        editRef={editRef}
+                        users={users || []}
+                        isDragDisabled={isDragDisabled}
+                        onToggle={handleToggle}
+                        onStartEdit={startEdit}
+                        onSaveInline={saveInline}
+                        onCancelEdit={cancelEdit}
+                        onSetEditValue={setEditValue}
+                        onEdit={(i) => { setModalIssue(i); setShowModal(true); }}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </tbody>
+                </SortableContext>
+              </table>
+            </div>
           </div>
-        </div>
+        </DndContext>
       )}
 
       {/* Modal */}
