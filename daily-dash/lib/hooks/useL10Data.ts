@@ -92,6 +92,7 @@ export interface Issue {
   is_resolved: boolean;
   resolved_at: string | null;
   created_by: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }

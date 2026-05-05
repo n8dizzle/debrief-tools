@@ -15,8 +15,7 @@ export async function GET() {
     const { data: issues, error } = await supabase
       .from('l10_issues')
       .select('*')
-      .order('is_resolved', { ascending: true })
-      .order('created_at', { ascending: false });
+      .order('sort_order', { ascending: true });
 
     if (error) {
       console.error('Error fetching issues:', error);
@@ -46,6 +45,16 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServerSupabase();
+
+    // Get max sort_order to append new issue at the end
+    const { data: maxRow } = await supabase
+      .from('l10_issues')
+      .select('sort_order')
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .single();
+    const nextOrder = (maxRow?.sort_order ?? 0) + 1;
+
     const { data, error } = await supabase
       .from('l10_issues')
       .insert({
@@ -55,6 +64,7 @@ export async function POST(request: NextRequest) {
         owner_id: owner_id || null,
         notes: notes || null,
         created_by: session.user.id,
+        sort_order: nextOrder,
       })
       .select()
       .single();
