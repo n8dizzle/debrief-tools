@@ -105,8 +105,13 @@ export async function PATCH(
 
     if (payment_status === 'ready_to_pay') {
       updateData.payment_received_at = new Date().toISOString();
-      updateData.payment_approved_at = new Date().toISOString();
-      updateData.payment_approved_by = session.user.id;
+      // Only stamp the approver when transitioning INTO ready_to_pay.
+      // Prevents a re-PATCH from silently rewriting payment_approved_by and
+      // bypassing separation-of-duties on the subsequent /paid step.
+      if (currentJob.payment_status !== 'ready_to_pay') {
+        updateData.payment_approved_at = new Date().toISOString();
+        updateData.payment_approved_by = session.user.id;
+      }
     } else if (payment_status === 'pending_approval') {
       updateData.payment_received_at = new Date().toISOString();
       if (currentJob.payment_status === 'paid') {
@@ -126,11 +131,6 @@ export async function PATCH(
       updateData.invoice_source = null;
     }
 
-    // If approving from pending_approval → ready_to_pay
-    if (currentJob.payment_status === 'pending_approval' && payment_status === 'ready_to_pay') {
-      updateData.payment_approved_at = new Date().toISOString();
-      updateData.payment_approved_by = session.user.id;
-    }
     // If reverting from paid → ready_to_pay, clear paid timestamp
     if (currentJob.payment_status === 'paid' && payment_status === 'ready_to_pay') {
       updateData.payment_paid_at = null;

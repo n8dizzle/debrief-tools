@@ -18,9 +18,9 @@ export default function ApproveModal({ job, onClose, onApprove }: ApproveModalPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amountChanged =
-    amount !== '' &&
-    parseFloat(amount) !== (job.payment_amount ?? NaN);
+  const parsedAmount = parseFloat(amount);
+  const amountValid = amount !== '' && !isNaN(parsedAmount);
+  const amountChanged = amountValid && parsedAmount !== (job.payment_amount ?? 0);
 
   const notesRequired = amountChanged;
   const canSubmit = (!notesRequired || notes.trim().length > 0) && !saving;
@@ -32,7 +32,7 @@ export default function ApproveModal({ job, onClose, onApprove }: ApproveModalPr
     try {
       await onApprove({
         payment_notes: notes.trim() || undefined,
-        payment_amount: amountChanged ? parseFloat(amount) : undefined,
+        payment_amount: amountChanged ? parsedAmount : undefined,
       });
       onClose();
     } catch (err) {
