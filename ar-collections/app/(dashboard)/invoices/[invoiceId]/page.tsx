@@ -29,6 +29,8 @@ export default function InvoiceDetailPage() {
   const [financingData, setFinancingData] = useState<FinancingInvoice | null>(null);
   const [expectedPayments, setExpectedPayments] = useState<FinancingExpectedPayment[]>([]);
   const [financingEditing, setFinancingEditing] = useState(false);
+  const [financingSaveError, setFinancingSaveError] = useState<string | null>(null);
+  const [financingSaving, setFinancingSaving] = useState(false);
   const [financingForm, setFinancingForm] = useState({
     monthly_amount: '',
     due_day: '',
@@ -138,6 +140,8 @@ export default function InvoiceDetailPage() {
   }
 
   async function saveFinancingSettings() {
+    setFinancingSaving(true);
+    setFinancingSaveError(null);
     try {
       const response = await fetch(`/api/financing/${invoiceId}`, {
         method: 'PATCH',
@@ -151,12 +155,24 @@ export default function InvoiceDetailPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to save');
+      if (!response.ok) {
+        let message = `Save failed (${response.status})`;
+        try {
+          const data = await response.json();
+          if (data?.error) message = data.error;
+        } catch {
+          // response wasn't JSON; keep the status-based message
+        }
+        throw new Error(message);
+      }
 
       setFinancingEditing(false);
       fetchFinancingData();
     } catch (err) {
       console.error('Failed to save financing settings:', err);
+      setFinancingSaveError(err instanceof Error ? err.message : 'Save failed. Please try again.');
+    } finally {
+      setFinancingSaving(false);
     }
   }
 
@@ -558,7 +574,10 @@ export default function InvoiceDetailPage() {
                 {canUpdateWorkflow && !financingEditing && (
                   <button
                     className="btn btn-secondary btn-sm"
-                    onClick={() => setFinancingEditing(true)}
+                    onClick={() => {
+                      setFinancingSaveError(null);
+                      setFinancingEditing(true);
+                    }}
                   >
                     Edit Plan
                   </button>
@@ -619,17 +638,28 @@ export default function InvoiceDetailPage() {
                       onChange={(e) => setFinancingForm(prev => ({ ...prev, notes: e.target.value }))}
                     />
                   </div>
+                  {financingSaveError && (
+                    <div
+                      className="text-sm rounded px-3 py-2"
+                      style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'rgb(252, 165, 165)', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                    >
+                      {financingSaveError}
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={saveFinancingSettings}
+                      disabled={financingSaving}
                     >
-                      Save
+                      {financingSaving ? 'Saving...' : 'Save'}
                     </button>
                     <button
                       className="btn btn-secondary btn-sm"
+                      disabled={financingSaving}
                       onClick={() => {
                         setFinancingEditing(false);
+                        setFinancingSaveError(null);
                         // Reset form to saved values
                         if (financingData) {
                           setFinancingForm({
