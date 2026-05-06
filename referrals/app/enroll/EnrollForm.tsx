@@ -66,7 +66,7 @@ export default function EnrollForm({ charities }: EnrollFormProps) {
       if (!res.ok) {
         const hint =
           res.status >= 500
-            ? "Something went wrong on our end. Please try again, or call (469) 214-2013 and we'll enroll you by hand."
+            ? "Something went wrong on our end. Please try again, or call (469) 214-5517 and we'll enroll you by hand."
             : data.error || "Please check the info above and try again.";
         setError(hint);
         setSubmitting(false);
@@ -235,7 +235,7 @@ function ContactStep({
           value={form.phone}
           onChange={(e) => update("phone", e.target.value)}
           autoComplete="tel"
-          placeholder="(469) 214-2013"
+          placeholder="(469) 214-5517"
         />
       </Field>
 
@@ -365,7 +365,7 @@ function CharityStep({
 
   return (
     <div className="card">
-      <h2 className="text-3xl mb-2">Pick the cause you&apos;d like to support.</h2>
+      <h2 className="text-3xl mb-2">Pick the cause you&apos;d like to support</h2>
       <p className="opacity-80 mb-6">
         Every successful referral from you also triggers a matched donation from
         Christmas Air to the charity you pick.{" "}
@@ -456,14 +456,14 @@ function DoneScreen({
       <div className="card text-center">
         {result.alreadyEnrolled ? (
           <>
-            <h2 className="text-3xl mb-2">Welcome back.</h2>
+            <h2 className="text-3xl mb-2">Welcome back</h2>
             <p className="opacity-80 mb-6">
               You&apos;re already enrolled. Here&apos;s your link:
             </p>
           </>
         ) : (
           <>
-            <h2 className="text-3xl mb-2">You&apos;re in.</h2>
+            <h2 className="text-3xl mb-2">You&apos;re in</h2>
             <p className="opacity-80 mb-6">
               {tripleWinActive
                 ? "Triple Win is on — your referrals now support your charity. We sent a welcome email to your inbox."

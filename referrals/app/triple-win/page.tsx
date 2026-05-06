@@ -33,7 +33,7 @@ export default async function TripleWinPage() {
 
       <section className="px-4 md:px-6 pt-12 md:pt-24 pb-8 md:pb-12">
         <div className="max-w-4xl mx-auto text-center">
-          <span className="badge-trust mb-4">One referral. Three winners.</span>
+          <span className="badge-trust text-3xl font-bold px-6 py-3 mb-4">One Referral. Three Winners.</span>
           <h1 className="text-4xl sm:text-5xl md:text-7xl mt-4 mb-5 md:mb-6 leading-tight">
             Triple Win
           </h1>
@@ -70,7 +70,7 @@ export default async function TripleWinPage() {
       <section className="section-cream px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl md:text-5xl text-center mb-4">
-            The charities you can choose.
+            The charities you can choose
           </h2>
           <p className="text-center text-base md:text-lg opacity-80 max-w-2xl mx-auto mb-10 md:mb-12">
             Pick one at sign-up. Switch any time from your dashboard.
@@ -108,7 +108,7 @@ export default async function TripleWinPage() {
       <section className="section-green px-4 md:px-6 py-12 md:py-16">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-5xl text-center mb-6 md:mb-8">
-            The fine print, plain-spoken.
+            The fine print
           </h2>
           <div className="space-y-4 md:space-y-5 text-base md:text-lg opacity-90">
             <p>
@@ -140,7 +140,7 @@ export default async function TripleWinPage() {
             Sign up in two minutes. Pick your charity. Share your link.
           </p>
           <Link href="/enroll" className="btn btn-primary">
-            Join the program
+            Join the Program
           </Link>
         </div>
       </section>
