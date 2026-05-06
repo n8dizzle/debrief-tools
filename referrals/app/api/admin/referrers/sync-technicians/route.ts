@@ -120,7 +120,6 @@ export async function POST(req: NextRequest) {
         reward_preference: "VISA_GIFT_CARD",
         assigned_reward_config_id: rewardConfigId,
         selected_charity_id: defaultCharityId,
-        triple_win_enabled: true,
         is_active: true,
       });
 
