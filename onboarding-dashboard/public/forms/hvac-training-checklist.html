@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HVAC Technician — Week 1 & 2 Training Checklist</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & base ──────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:    #1a5c35;
+    --green-dk: #0e3820;
+    --green-lt: #e8f5ee;
+    --amber:    #c07010;
+    --amber-lt: #fdf3dc;
+    --gray:     #f5f4f0;
+    --border:   #d0d0c8;
+    --text:     #1a1a18;
+    --muted:    #666660;
+    --red:      #c0392b;
+  }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: #eceae4;
+    padding: 2rem 1rem;
+    line-height: 1.5;
+  }
+
+  /* ── Page wrapper ──────────────────────────────── */
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  }
+
+  /* ── Header band ───────────────────────────────── */
+  .header {
+    background: var(--green-dk);
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+  }
+  .header-accent {
+    width: 8px;
+    background: var(--amber);
+    flex-shrink: 0;
+  }
+  .header-body {
+    padding: 22px 28px;
+    flex: 1;
+  }
+  .header-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.55);
+    margin-bottom: 4px;
+  }
+  .header-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.1;
+    letter-spacing: .01em;
+  }
+  .header-title span { color: #f0c060; }
+  .header-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,.6);
+    margin-top: 6px;
+  }
+  .header-badge {
+    align-self: center;
+    margin: 0 28px;
+    background: var(--amber);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 16px;
+    border-radius: 3px;
+    white-space: nowrap;
+    letter-spacing: .04em;
+  }
+
+  /* ── Info bar ──────────────────────────────────── */
+  .info-bar {
+    background: var(--green-lt);
+    border-bottom: 2px solid var(--green);
+    padding: 16px 28px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .info-field label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--green);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .info-field input {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid var(--green);
+    background: transparent;
+    padding: 3px 0;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+  }
+  .info-field input::placeholder { color: #aaa; }
+
+  /* ── Section wrapper ───────────────────────────── */
+  .content { padding: 24px 28px; }
+
+  /* ── Purpose note ──────────────────────────────── */
+  .purpose-note {
+    background: var(--amber-lt);
+    border-left: 4px solid var(--amber);
+    border-radius: 0 4px 4px 0;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #5c3800;
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+  .purpose-note strong { font-weight: 700; color: var(--amber); }
+
+  /* ── Week dividers ─────────────────────────────── */
+  .week-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0 14px;
+  }
+  .week-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .week-label.w1 { color: var(--green); }
+  .week-label.w2 { color: var(--amber); }
+  .week-rule { flex: 1; height: 2px; }
+  .week-rule.w1 { background: var(--green); }
+  .week-rule.w2 { background: var(--amber); }
+  .week-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  /* ── Skill level header ────────────────────────── */
+  .level-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 6px;
+  }
+  .level-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    padding: 3px 10px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .lvl1 { background: #e8f5ee; color: #085041; }
+  .lvl2 { background: #e6f0fb; color: #0c447c; }
+  .lvl3 { background: #faeeda; color: #633806; }
+  .level-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .02em;
+  }
+
+  /* ── Skill table ───────────────────────────────── */
+  .skill-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .skill-table thead tr {
+    background: var(--green-dk);
+    color: #fff;
+  }
+  .skill-table thead th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,.15);
+  }
+  .skill-table thead th:first-child { text-align: left; }
+  .skill-table tbody tr { border-bottom: 1px solid var(--border); }
+  .skill-table tbody tr:last-child { border-bottom: 2px solid var(--border); }
+  .skill-table tbody tr:nth-child(even) { background: #fafaf8; }
+  .skill-table tbody tr:hover { background: #f0f8f4; }
+  .skill-table tbody td {
+    padding: 7px 10px;
+    border-right: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .skill-table tbody td:last-child { border-right: none; }
+  .skill-name { font-weight: 500; color: var(--text); }
+  .skill-note { font-size: 10px; color: var(--muted); margin-top: 1px; font-style: italic; }
+  .na-cell { text-align: center; color: #bbb; font-size: 10px; letter-spacing:.05em; }
+
+  /* ── Rating cells ──────────────────────────────── */
+  .rating-cell { text-align: center; }
+  .rating-group {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .rating-group label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 9px;
+    color: var(--muted);
+    cursor: pointer;
+    line-height: 1.2;
+  }
+  .rating-group input[type="radio"] {
+    accent-color: var(--green);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    margin: 0;
+  }
+
+  /* ── Obs/Date inline in a row ──────────────────── */
+  .obs-date-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .obs-date-row .info-field label { color: var(--muted); }
+  .obs-date-row .info-field input { border-bottom-color: var(--border); }
+
+  /* ── Daily log ─────────────────────────────────── */
+  .day-log {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .day-log-header {
+    background: var(--gray);
+    padding: 7px 12px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--green-dk);
+    letter-spacing: .04em;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .day-tag {
+    background: var(--green);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 2px;
+    font-weight: 700;
+  }
+  .day-log-body { padding: 10px 12px; display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; }
+  .day-field label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 3px; font-weight: 600; }
+  .day-field input, .day-field textarea {
+    width: 100%; border: none; border-bottom: 1px solid var(--border);
+    background: transparent; font-family: 'Barlow', sans-serif; font-size: 12px;
+    color: var(--text); outline: none; padding: 2px 0; resize: none;
+  }
+  .day-field textarea { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 4px 6px; font-size: 12px; resize: vertical; }
+  .day-field input::placeholder, .day-field textarea::placeholder { color: #ccc; }
+
+  /* ── Signoff section ───────────────────────────── */
+  .signoff-section {
+    margin-top: 24px;
+    border: 2px solid var(--green);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .signoff-header {
+    background: var(--green);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: .06em;
+    padding: 10px 16px;
+    text-transform: uppercase;
+  }
+  .signoff-body { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .signoff-block label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing:.1em; display: block; margin-bottom: 4px; font-weight: 700; }
+  .sig-line { border-bottom: 1.5px solid var(--text); margin-bottom: 4px; height: 32px; }
+  .sig-sub  { font-size: 9px; color: var(--muted); }
+  .signoff-verdict {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: var(--green-lt);
+    border-radius: 3px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+  }
+  .verdict-label { font-size: 11px; font-weight: 700; color: var(--green-dk); flex-shrink: 0; }
+  .verdict-options { display: flex; gap: 16px; flex-wrap: wrap; }
+  .verdict-options label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .verdict-options input[type="radio"] { accent-color: var(--green); width: 15px; height: 15px; }
+  .verdict-pass { color: var(--green); }
+  .verdict-partial { color: var(--amber); }
+  .verdict-fail { color: var(--red); }
+  .notes-full { grid-column: 1 / -1; }
+  .notes-full label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing:.1em; display: block; margin-bottom: 4px; font-weight: 700; }
+  .notes-full textarea { width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 7px 9px; font-family: 'Barlow', sans-serif; font-size: 12px; color: var(--text); outline: none; resize: vertical; height: 64px; }
+
+  /* ── Footer ────────────────────────────────────── */
+  .doc-footer {
+    margin-top: 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #bbb;
+    letter-spacing: .04em;
+  }
+
+  /* ── Print button ──────────────────────────────── */
+  .print-bar {
+    background: var(--green-dk);
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .print-bar span { font-size: 11px; color: rgba(255,255,255,.6); }
+  .print-btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 8px 22px;
+    background: var(--amber);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .print-btn:hover { background: #a05c0a; }
+  .clear-btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    background: transparent;
+    color: rgba(255,255,255,.6);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .clear-btn:hover { color: #fff; border-color: rgba(255,255,255,.5); }
+
+  /* ── Progress bar ──────────────────────────────── */
+  .progress-strip {
+    background: #f0efe9;
+    padding: 10px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .prog-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .prog-bar-bg { flex: 1; background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+  .prog-bar-fill { height: 8px; background: var(--green); border-radius: 4px; transition: width .3s; width: 0%; }
+  .prog-pct { font-size: 12px; font-weight: 700; color: var(--green); min-width: 36px; text-align: right; }
+
+  /* ── Print styles ──────────────────────────────── */
+  @media print {
+    body { background: #fff; padding: 0; font-size: 11px; }
+    .page { box-shadow: none; border-radius: 0; max-width: 100%; }
+    .print-bar, .progress-strip { display: none; }
+    .skill-table tbody tr:hover { background: transparent; }
+    .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .skill-table thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .level-badge, .day-tag, .signoff-header, .week-label, .header-accent, .purpose-note, .info-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 0.5in; size: letter; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ── Print / Clear bar ── -->
+  <div class="print-bar" id="printBar">
+    <span>Christmas Air, Plumbing &amp; Electrical — HVAC Training Form</span>
+    <div style="display:flex;gap:8px">
+      <button class="clear-btn" onclick="clearForm()">Clear form</button>
+      <button class="print-btn" onclick="window.print()">&#128438; Print / Save PDF</button>
+    </div>
+  </div>
+
+  <!-- ── Progress bar ── -->
+  <div class="progress-strip">
+    <span class="prog-label">Skills signed off:</span>
+    <div class="prog-bar-bg"><div class="prog-bar-fill" id="progFill"></div></div>
+    <span class="prog-pct" id="progPct">0%</span>
+  </div>
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="header-accent"></div>
+    <div class="header-body">
+      <div class="header-eyebrow">Christmas Air, Plumbing &amp; Electrical</div>
+      <div class="header-title">HVAC Technician <span>Week 1 &amp; 2</span><br>Technical Training Checklist</div>
+      <div class="header-sub">To be completed by supervising technician or manager during the first two weeks of field training</div>
+    </div>
+    <div class="header-badge">Weeks 1 &amp; 2<br>Field Readiness</div>
+  </div>
+
+  <!-- ── Info bar ── -->
+  <div class="info-bar">
+    <div class="info-field"><label>Apprentice Name</label><input type="text" placeholder="Full name" id="techName"></div>
+    <div class="info-field"><label>Supervising Technician / Manager</label><input type="text" placeholder="Full name" id="supName"></div>
+    <div class="info-field"><label>Start Date of Training</label><input type="date" id="startDate"></div>
+    <div class="info-field"><label>Job Title</label><input type="text" placeholder="HVAC Apprentice / Tech" id="jobTitle"></div>
+    <div class="info-field"><label>Department</label><input type="text" value="HVAC-Service" id="dept"></div>
+    <div class="info-field"><label>Hire Date</label><input type="date" id="hireDate"></div>
+  </div>
+
+  <!-- ── Main content ── -->
+  <div class="content">
+
+    <div class="purpose-note">
+      <strong>Purpose:</strong> This checklist documents the skill evaluation of a new HVAC Technician during their first two weeks of supervised field training. Each skill is rated across four competency areas. The supervising technician or manager must observe and sign off on each item before the apprentice is cleared to run service calls independently.
+    </div>
+
+    <!-- ══════════════════════════════════════
+         WEEK 1
+    ══════════════════════════════════════ -->
+    <div class="week-header">
+      <span class="week-label w1">WEEK ONE — Days 1 through 5</span>
+      <div class="week-rule w1"></div>
+    </div>
+    <p class="week-sub">Focus: Observation, ride-along, basic system fundamentals, and Level 1 skill introduction.</p>
+
+    <!-- Level 1 -->
+    <div class="level-header">
+      <span class="level-badge lvl1">Level 1</span>
+      <span class="level-name">Foundational Skills — Observation &amp; Basic Repair</span>
+    </div>
+
+    <table class="skill-table" id="tbl-lvl1">
+      <thead>
+        <tr>
+          <th style="width:36%">Skill / Task</th>
+          <th style="width:16%">Diagnosis</th>
+          <th style="width:16%">Installation</th>
+          <th style="width:16%">Repair</th>
+          <th style="width:16%">Communication</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="skill-name">Cooling Tune-Up</div><div class="skill-note">Skills demonstration only</div></td>
+          <td class="na-cell">N/A</td>
+          <td class="na-cell">N/A</td>
+          <td class="na-cell">N/A</td>
+          <td class="rating-cell">
+            <div class="rating-group">
+              <label><input type="radio" name="l1_ctu_comm" value="1">1<br>Needs work</label>
+              <label><input type="radio" name="l1_ctu_comm" value="2">2<br>Learning</label>
+              <label><input type="radio" name="l1_ctu_comm" value="3">3<br>Proficient</label>
+              <label><input type="radio" name="l1_ctu_comm" value="4">4<br>Excellent</label>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Heating Tune-Up</div><div class="skill-note">Skills demonstration only</div></td>
+          <td class="na-cell">N/A</td>
+          <td class="na-cell">N/A</td>
+          <td class="na-cell">N/A</td>
+          <td class="rating-cell">
+            <div class="rating-group">
+              <label><input type="radio" name="l1_htu_comm" value="1">1<br>Needs work</label>
+              <label><input type="radio" name="l1_htu_comm" value="2">2<br>Learning</label>
+              <label><input type="radio" name="l1_htu_comm" value="3">3<br>Proficient</label>
+              <label><input type="radio" name="l1_htu_comm" value="4">4<br>Excellent</label>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Capacitor</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cap_diag" value="1">1</label><label><input type="radio" name="l1_cap_diag" value="2">2</label><label><input type="radio" name="l1_cap_diag" value="3">3</label><label><input type="radio" name="l1_cap_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cap_inst" value="1">1</label><label><input type="radio" name="l1_cap_inst" value="2">2</label><label><input type="radio" name="l1_cap_inst" value="3">3</label><label><input type="radio" name="l1_cap_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cap_rep" value="1">1</label><label><input type="radio" name="l1_cap_rep" value="2">2</label><label><input type="radio" name="l1_cap_rep" value="3">3</label><label><input type="radio" name="l1_cap_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cap_comm" value="1">1</label><label><input type="radio" name="l1_cap_comm" value="2">2</label><label><input type="radio" name="l1_cap_comm" value="3">3</label><label><input type="radio" name="l1_cap_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Contactor</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_con_diag" value="1">1</label><label><input type="radio" name="l1_con_diag" value="2">2</label><label><input type="radio" name="l1_con_diag" value="3">3</label><label><input type="radio" name="l1_con_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_con_inst" value="1">1</label><label><input type="radio" name="l1_con_inst" value="2">2</label><label><input type="radio" name="l1_con_inst" value="3">3</label><label><input type="radio" name="l1_con_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_con_rep" value="1">1</label><label><input type="radio" name="l1_con_rep" value="2">2</label><label><input type="radio" name="l1_con_rep" value="3">3</label><label><input type="radio" name="l1_con_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_con_comm" value="1">1</label><label><input type="radio" name="l1_con_comm" value="2">2</label><label><input type="radio" name="l1_con_comm" value="3">3</label><label><input type="radio" name="l1_con_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Condensate Drain Line</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cdn_diag" value="1">1</label><label><input type="radio" name="l1_cdn_diag" value="2">2</label><label><input type="radio" name="l1_cdn_diag" value="3">3</label><label><input type="radio" name="l1_cdn_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cdn_inst" value="1">1</label><label><input type="radio" name="l1_cdn_inst" value="2">2</label><label><input type="radio" name="l1_cdn_inst" value="3">3</label><label><input type="radio" name="l1_cdn_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cdn_rep" value="1">1</label><label><input type="radio" name="l1_cdn_rep" value="2">2</label><label><input type="radio" name="l1_cdn_rep" value="3">3</label><label><input type="radio" name="l1_cdn_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l1_cdn_comm" value="1">1</label><label><input type="radio" name="l1_cdn_comm" value="2">2</label><label><input type="radio" name="l1_cdn_comm" value="3">3</label><label><input type="radio" name="l1_cdn_comm" value="4">4</label></div></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Daily log Week 1 -->
+    <div class="week-sub" style="margin-top:14px;font-weight:600;color:var(--green-dk);">Daily Ride-Along Log — Week 1</div>
+    <div style="margin-top:8px">
+      <!-- Days 1–5 -->
+      <script>
+        const wk1days = ['Monday — Day 1','Tuesday — Day 2','Wednesday — Day 3','Thursday — Day 4','Friday — Day 5'];
+        document.write(wk1days.map((d,i)=>`
+        <div class="day-log">
+          <div class="day-log-header"><span class="day-tag">${i+1}</span>${d}</div>
+          <div class="day-log-body">
+            <div class="day-field"><label>Job / Task Location</label><input type="text" placeholder="Customer name or address"></div>
+            <div class="day-field"><label>Skills Observed / Practiced</label><input type="text" placeholder="e.g. Capacitor replacement, Tune-up observation"></div>
+            <div class="day-field"><label>Hours</label><input type="text" placeholder="e.g. 8:00 AM – 5:00 PM"></div>
+            <div class="day-field" style="grid-column:1/-1"><label>Notes</label><textarea placeholder="Any observations, concerns, or highlights from today…"></textarea></div>
+          </div>
+        </div>`).join(''));
+      </script>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         WEEK 2
+    ══════════════════════════════════════ -->
+    <div class="week-header" style="margin-top:28px">
+      <span class="week-label w2">WEEK TWO — Days 6 through 10</span>
+      <div class="week-rule w2"></div>
+    </div>
+    <p class="week-sub">Focus: Increased responsibility, Level 2 skills, and preparing for solo service calls.</p>
+
+    <!-- Level 2 -->
+    <div class="level-header">
+      <span class="level-badge lvl2">Level 2</span>
+      <span class="level-name">Intermediate Skills — Independent Repair &amp; Diagnostics</span>
+    </div>
+
+    <table class="skill-table" id="tbl-lvl2">
+      <thead>
+        <tr>
+          <th style="width:36%">Skill / Task</th>
+          <th style="width:16%">Diagnosis</th>
+          <th style="width:16%">Installation</th>
+          <th style="width:16%">Repair</th>
+          <th style="width:16%">Communication</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="skill-name">Thermostat / Low Voltage Wiring</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_therm_diag" value="1">1</label><label><input type="radio" name="l2_therm_diag" value="2">2</label><label><input type="radio" name="l2_therm_diag" value="3">3</label><label><input type="radio" name="l2_therm_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_therm_inst" value="1">1</label><label><input type="radio" name="l2_therm_inst" value="2">2</label><label><input type="radio" name="l2_therm_inst" value="3">3</label><label><input type="radio" name="l2_therm_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_therm_rep" value="1">1</label><label><input type="radio" name="l2_therm_rep" value="2">2</label><label><input type="radio" name="l2_therm_rep" value="3">3</label><label><input type="radio" name="l2_therm_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_therm_comm" value="1">1</label><label><input type="radio" name="l2_therm_comm" value="2">2</label><label><input type="radio" name="l2_therm_comm" value="3">3</label><label><input type="radio" name="l2_therm_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Outdoor Fan Motor</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ofm_diag" value="1">1</label><label><input type="radio" name="l2_ofm_diag" value="2">2</label><label><input type="radio" name="l2_ofm_diag" value="3">3</label><label><input type="radio" name="l2_ofm_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ofm_inst" value="1">1</label><label><input type="radio" name="l2_ofm_inst" value="2">2</label><label><input type="radio" name="l2_ofm_inst" value="3">3</label><label><input type="radio" name="l2_ofm_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ofm_rep" value="1">1</label><label><input type="radio" name="l2_ofm_rep" value="2">2</label><label><input type="radio" name="l2_ofm_rep" value="3">3</label><label><input type="radio" name="l2_ofm_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ofm_comm" value="1">1</label><label><input type="radio" name="l2_ofm_comm" value="2">2</label><label><input type="radio" name="l2_ofm_comm" value="3">3</label><label><input type="radio" name="l2_ofm_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Indoor Blower Motor</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ibm_diag" value="1">1</label><label><input type="radio" name="l2_ibm_diag" value="2">2</label><label><input type="radio" name="l2_ibm_diag" value="3">3</label><label><input type="radio" name="l2_ibm_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ibm_inst" value="1">1</label><label><input type="radio" name="l2_ibm_inst" value="2">2</label><label><input type="radio" name="l2_ibm_inst" value="3">3</label><label><input type="radio" name="l2_ibm_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ibm_rep" value="1">1</label><label><input type="radio" name="l2_ibm_rep" value="2">2</label><label><input type="radio" name="l2_ibm_rep" value="3">3</label><label><input type="radio" name="l2_ibm_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_ibm_comm" value="1">1</label><label><input type="radio" name="l2_ibm_comm" value="2">2</label><label><input type="radio" name="l2_ibm_comm" value="3">3</label><label><input type="radio" name="l2_ibm_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Measure Superheat / Subcooling</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_sc_diag" value="1">1</label><label><input type="radio" name="l2_sc_diag" value="2">2</label><label><input type="radio" name="l2_sc_diag" value="3">3</label><label><input type="radio" name="l2_sc_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_sc_inst" value="1">1</label><label><input type="radio" name="l2_sc_inst" value="2">2</label><label><input type="radio" name="l2_sc_inst" value="3">3</label><label><input type="radio" name="l2_sc_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_sc_rep" value="1">1</label><label><input type="radio" name="l2_sc_rep" value="2">2</label><label><input type="radio" name="l2_sc_rep" value="3">3</label><label><input type="radio" name="l2_sc_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_sc_comm" value="1">1</label><label><input type="radio" name="l2_sc_comm" value="2">2</label><label><input type="radio" name="l2_sc_comm" value="3">3</label><label><input type="radio" name="l2_sc_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Control Board or Relay</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_cbr_diag" value="1">1</label><label><input type="radio" name="l2_cbr_diag" value="2">2</label><label><input type="radio" name="l2_cbr_diag" value="3">3</label><label><input type="radio" name="l2_cbr_diag" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_cbr_inst" value="1">1</label><label><input type="radio" name="l2_cbr_inst" value="2">2</label><label><input type="radio" name="l2_cbr_inst" value="3">3</label><label><input type="radio" name="l2_cbr_inst" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_cbr_rep" value="1">1</label><label><input type="radio" name="l2_cbr_rep" value="2">2</label><label><input type="radio" name="l2_cbr_rep" value="3">3</label><label><input type="radio" name="l2_cbr_rep" value="4">4</label></div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_cbr_comm" value="1">1</label><label><input type="radio" name="l2_cbr_comm" value="2">2</label><label><input type="radio" name="l2_cbr_comm" value="3">3</label><label><input type="radio" name="l2_cbr_comm" value="4">4</label></div></td>
+        </tr>
+        <tr>
+          <td><div class="skill-name">Pump Down System</div><div class="skill-note">Diagnosis only</div></td>
+          <td class="rating-cell"><div class="rating-group"><label><input type="radio" name="l2_pds_diag" value="1">1</label><label><input type="radio" name="l2_pds_diag" value="2">2</label><label><input type="radio" name="l2_pds_diag" value="3">3</label><label><input type="radio" name="l2_pds_diag" value="4">4</label></div></td>
+          <td class="na-cell">N/A</td>
+          <td class="na-cell">N/A</td>
+          <td class="na-cell">N/A</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Daily log Week 2 -->
+    <div class="week-sub" style="margin-top:14px;font-weight:600;color:#8a5610;">Daily Ride-Along Log — Week 2</div>
+    <div style="margin-top:8px">
+      <script>
+        const wk2days = ['Monday — Day 6','Tuesday — Day 7','Wednesday — Day 8','Thursday — Day 9','Friday — Day 10'];
+        document.write(wk2days.map((d,i)=>`
+        <div class="day-log">
+          <div class="day-log-header" style="background:#fdf3dc;color:#5c3800;border-bottom-color:#f0c060">
+            <span class="day-tag" style="background:var(--amber)">${i+6}</span>${d}
+          </div>
+          <div class="day-log-body">
+            <div class="day-field"><label>Job / Task Location</label><input type="text" placeholder="Customer name or address"></div>
+            <div class="day-field"><label>Skills Observed / Practiced</label><input type="text" placeholder="e.g. Thermostat replacement, Superheat measurement"></div>
+            <div class="day-field"><label>Hours</label><input type="text" placeholder="e.g. 8:00 AM – 5:00 PM"></div>
+            <div class="day-field" style="grid-column:1/-1"><label>Notes</label><textarea placeholder="Any observations, concerns, or highlights from today…"></textarea></div>
+          </div>
+        </div>`).join(''));
+      </script>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         SIGN-OFF
+    ══════════════════════════════════════ -->
+    <div class="signoff-section">
+      <div class="signoff-header">Final Sign-Off &amp; Field Readiness Assessment</div>
+      <div class="signoff-body">
+
+        <div class="signoff-verdict">
+          <span class="verdict-label">Overall Assessment:</span>
+          <div class="verdict-options">
+            <label class="verdict-pass">
+              <input type="radio" name="verdict" value="pass">
+              ✓ Cleared for Solo Service Calls
+            </label>
+            <label class="verdict-partial">
+              <input type="radio" name="verdict" value="partial">
+              ⚠ Additional Supervised Ride-Alongs Required
+            </label>
+            <label class="verdict-fail">
+              <input type="radio" name="verdict" value="fail">
+              ✗ Extended Training Needed
+            </label>
+          </div>
+        </div>
+
+        <div class="notes-full">
+          <label>Supervisor Notes — Strengths, Areas for Improvement &amp; Action Items</label>
+          <textarea placeholder="Describe the apprentice's overall performance, specific strengths, areas that need more work, and any recommended next steps before solo service calls…"></textarea>
+        </div>
+
+        <div class="signoff-block">
+          <label>Supervising Technician / Manager</label>
+          <div class="sig-line"></div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:6px">
+            <input type="text" placeholder="Print name" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:12px;outline:none;padding:2px 0">
+            <input type="date" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:12px;outline:none;padding:2px 0">
+          </div>
+          <div class="sig-sub" style="margin-top:2px">I certify that the skills above were observed and meet company standards.</div>
+        </div>
+
+        <div class="signoff-block">
+          <label>Apprentice Technician</label>
+          <div class="sig-line"></div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:6px">
+            <input type="text" placeholder="Print name" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:12px;outline:none;padding:2px 0">
+            <input type="date" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:12px;outline:none;padding:2px 0">
+          </div>
+          <div class="sig-sub" style="margin-top:2px">I acknowledge the skills evaluated and feedback provided above.</div>
+        </div>
+
+        <div class="signoff-block">
+          <label>HR Representative (if applicable)</label>
+          <div class="sig-line"></div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:6px">
+            <input type="text" placeholder="Print name" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:12px;outline:none;padding:2px 0">
+            <input type="date" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:12px;outline:none;padding:2px 0">
+          </div>
+        </div>
+
+        <div class="signoff-block">
+          <label>Next Review Date / Follow-Up Action</label>
+          <input type="date" style="width:100%;border:none;border-bottom:1.5px solid var(--border);background:transparent;font-family:'Barlow',sans-serif;font-size:13px;outline:none;padding:4px 0;margin-top:8px">
+          <div style="margin-top:8px">
+            <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;display:block;margin-bottom:4px">Follow-Up Notes</label>
+            <textarea style="width:100%;border:1px solid var(--border);border-radius:3px;padding:6px 8px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--text);outline:none;resize:vertical;height:52px" placeholder="Specific areas to revisit, additional training assigned…"></textarea>
+          </div>
+        </div>
+
+      </div><!-- end signoff-body -->
+    </div><!-- end signoff-section -->
+
+    <!-- Footer -->
+    <div class="doc-footer">
+      <span>Christmas Air, Plumbing &amp; Electrical · HVAC Technician Training Checklist · Weeks 1 &amp; 2</span>
+      <span>Form Version 1.0 · Retain in employee file</span>
+    </div>
+
+  </div><!-- end content -->
+</div><!-- end page -->
+
+<script>
+  // ── Progress bar ──────────────────────────────────────────────────────────
+  function updateProgress() {
+    const groups = {}
+    document.querySelectorAll('input[type="radio"]').forEach(r => {
+      if (r.name === 'verdict') return
+      if (!groups[r.name]) groups[r.name] = false
+      if (r.checked) groups[r.name] = true
+    })
+    const names = Object.keys(groups)
+    const done  = Object.values(groups).filter(Boolean).length
+    const pct   = names.length ? Math.round(done / names.length * 100) : 0
+    document.getElementById('progFill').style.width = pct + '%'
+    document.getElementById('progPct').textContent  = pct + '%'
+  }
+  document.addEventListener('change', updateProgress)
+  updateProgress()
+
+  // ── Clear form ────────────────────────────────────────────────────────────
+  function clearForm() {
+    if (!confirm('Clear all form data? This cannot be undone.')) return
+    document.querySelectorAll('input[type="text"], input[type="date"], textarea').forEach(el => el.value = '')
+    document.querySelectorAll('input[type="radio"]').forEach(el => el.checked = false)
+    updateProgress()
+  }
+</script>
+</body>
+</html>

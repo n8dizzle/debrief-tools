@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Service Call Checklist — Christmas Air, Plumbing & Electrical</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:     #1a5c35;
+    --green-dk:  #0e3820;
+    --green-lt:  #e8f5ee;
+    --amber:     #c07010;
+    --amber-lt:  #fdf6e3;
+    --red:       #c0392b;
+    --border:    #d4d2cc;
+    --bg:        #f5f3ee;
+    --text:      #1a1a18;
+    --muted:     #6b6b66;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: #dddbd4;
+    padding: 2rem 1rem 3rem;
+    line-height: 1.55;
+  }
+
+  /* ── Page ── */
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 10px 40px rgba(0,0,0,.2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  /* ── Action bar ── */
+  .action-bar {
+    background: var(--green-dk);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .action-bar-label { font-size: 11px; color: rgba(255,255,255,.5); letter-spacing: .06em; }
+  .action-btns { display: flex; gap: 8px; }
+  .btn-print {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 7px 18px;
+    background: var(--amber);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: .03em;
+  }
+  .btn-print:hover { background: #a05c0a; }
+  .btn-clear {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    padding: 7px 14px;
+    background: transparent;
+    color: rgba(255,255,255,.55);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .btn-clear:hover { color: #fff; border-color: rgba(255,255,255,.45); }
+
+  /* ── Progress strip ── */
+  .prog-strip {
+    background: var(--bg);
+    padding: 9px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .prog-lbl { font-size: 11px; color: var(--muted); white-space: nowrap; font-weight: 500; }
+  .prog-bg   { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 7px; background: var(--green); border-radius: 4px; width: 0%; transition: width .3s; }
+  .prog-pct  { font-size: 12px; font-weight: 700; color: var(--green); min-width: 34px; text-align: right; }
+
+  /* ── Header ── */
+  .header {
+    background: var(--green);
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+  }
+  .header-stripe { width: 7px; background: var(--amber); flex-shrink: 0; }
+  .header-content { flex: 1; padding: 20px 24px; }
+  .header-eyebrow {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.5);
+    margin-bottom: 5px;
+  }
+  .header-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 38px;
+    color: #fff;
+    letter-spacing: .04em;
+    line-height: 1;
+  }
+  .header-title em { color: #f0c060; font-style: normal; }
+  .header-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,.55);
+    margin-top: 6px;
+    max-width: 500px;
+    line-height: 1.6;
+  }
+  .header-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 20px 24px;
+    gap: 6px;
+  }
+  .dept-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+    letter-spacing: .1em;
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    padding: 5px 14px;
+    border-radius: 2px;
+  }
+
+  /* ── Info bar ── */
+  .info-bar {
+    background: var(--green-lt);
+    border-bottom: 2px solid var(--green);
+    padding: 14px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .if label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--green);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .if input, .if select {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid var(--green);
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    padding: 3px 0;
+    outline: none;
+  }
+  .if input::placeholder { color: #aaa; }
+  .if select { cursor: pointer; }
+
+  /* ── Purpose note ── */
+  .purpose-note {
+    background: var(--amber-lt);
+    border-left: 4px solid var(--amber);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #5c3800;
+    margin: 20px 24px 0;
+    border-radius: 0 3px 3px 0;
+    line-height: 1.65;
+  }
+  .purpose-note strong { color: var(--amber); font-weight: 700; }
+
+  /* ── Main grid ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    padding: 20px 24px;
+  }
+  .col-left  { padding-right: 20px; border-right: 1px solid var(--border); }
+  .col-right { padding-left: 20px; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 22px; }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 17px;
+    letter-spacing: .06em;
+    color: var(--green-dk);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--green);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .num {
+    background: var(--green);
+    color: #fff;
+    font-size: 11px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  /* ── Checklist items ── */
+  .check-list { display: flex; flex-direction: column; gap: 5px; }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 7px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #fafaf8;
+    cursor: pointer;
+    transition: background .1s, border-color .1s;
+  }
+  .check-item:hover { background: #f0f8f4; border-color: var(--green); }
+  .check-item.checked { background: var(--green-lt); border-color: var(--green); }
+
+  .cb-wrap {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    transition: all .1s;
+  }
+  .check-item.checked .cb-wrap {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .cb-check {
+    display: none;
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .check-item.checked .cb-check { display: block; }
+
+  .item-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    min-width: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .check-item.checked .item-num { color: var(--green); }
+  .item-text { font-size: 12px; font-weight: 500; flex: 1; line-height: 1.4; }
+  .item-sub  { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
+
+  /* ── Presenting section — spans full width ── */
+  .full-section {
+    padding: 0 24px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .presenting-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .presenting-col .section-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  /* ── After the work ── */
+  .after-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .after-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #fafaf8;
+    cursor: pointer;
+    transition: background .1s, border-color .1s;
+  }
+  .after-item:hover { background: #f0f8f4; border-color: var(--green); }
+  .after-item.checked { background: var(--green-lt); border-color: var(--green); }
+  .after-item .cb-wrap { width: 16px; height: 16px; border-width: 1.5px; }
+
+  /* ── Notes area ── */
+  .notes-section {
+    margin: 0 24px 20px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .notes-header {
+    background: var(--bg);
+    padding: 8px 12px;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--green-dk);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: .03em;
+  }
+  .notes-body { padding: 0; }
+  .notes-body textarea {
+    width: 100%;
+    border: none;
+    resize: vertical;
+    min-height: 72px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    background: #fff;
+  }
+  .notes-body textarea::placeholder { color: #bbb; }
+
+  /* ── Evaluation scoring ── */
+  .eval-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .eval-row:last-child { border-bottom: none; }
+  .eval-label { font-size: 12px; font-weight: 500; flex: 1; }
+  .score-group {
+    display: flex;
+    gap: 5px;
+  }
+  .score-group label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 9px;
+    color: var(--muted);
+    gap: 2px;
+    cursor: pointer;
+    min-width: 28px;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .score-group input[type="radio"] {
+    accent-color: var(--green);
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+    margin: 0;
+  }
+
+  /* ── Sign-off block ── */
+  .signoff {
+    margin: 0 24px 24px;
+    border: 2px solid var(--green);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .signoff-hdr {
+    background: var(--green);
+    color: #fff;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: .08em;
+    padding: 10px 16px;
+  }
+  .signoff-body {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .sig-block label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .sig-line {
+    height: 36px;
+    border-bottom: 1.5px solid var(--text);
+    margin-bottom: 5px;
+  }
+  .sig-sub { font-size: 9px; color: var(--muted); }
+  .sig-name-date {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .sig-name-date input {
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    padding: 2px 0;
+    width: 100%;
+  }
+  .sig-name-date input::placeholder { color: #ccc; }
+
+  .verdict-row {
+    grid-column: 1 / -1;
+    background: var(--green-lt);
+    border-radius: 3px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .verdict-lbl { font-size: 11px; font-weight: 700; color: var(--green-dk); flex-shrink: 0; }
+  .verdict-opts { display: flex; gap: 16px; flex-wrap: wrap; }
+  .verdict-opts label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .verdict-opts input[type="radio"] { accent-color: var(--green); width: 15px; height: 15px; }
+  .v-pass    { color: var(--green); }
+  .v-partial { color: var(--amber); }
+  .v-fail    { color: var(--red); }
+
+  /* ── Footer ── */
+  .doc-footer {
+    margin: 0 24px 20px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #bbb;
+    letter-spacing: .03em;
+  }
+
+  /* ── Divider ── */
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 24px 20px;
+  }
+
+  /* ── Print ── */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { box-shadow: none; }
+    .action-bar, .prog-strip { display: none !important; }
+    .check-item.checked, .after-item.checked { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header, .signoff-hdr, .info-bar, .section-title .num, .verdict-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 0.45in; size: letter; }
+    .full-section, .notes-section, .signoff, .doc-footer { page-break-inside: avoid; }
+    .main-grid { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Action bar -->
+  <div class="action-bar" id="actionBar">
+    <span class="action-bar-label">Christmas Air, Plumbing &amp; Electrical · Service Call Checklist</span>
+    <div class="action-btns">
+      <button class="btn-clear" onclick="clearForm()">Clear form</button>
+      <button class="btn-print" onclick="window.print()">&#128438;&nbsp; Print / Save PDF</button>
+    </div>
+  </div>
+
+  <!-- Progress strip -->
+  <div class="prog-strip">
+    <span class="prog-lbl">Steps completed:</span>
+    <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+    <span class="prog-pct" id="progPct">0%</span>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-stripe"></div>
+    <div class="header-content">
+      <div class="header-eyebrow">Christmas Air, Plumbing &amp; Electrical</div>
+      <div class="header-title">Service Call <em>Checklist</em></div>
+      <div class="header-sub">New Technician Ride-Along Evaluation — to be completed by the lead technician or manager during a live service call. Trainee must demonstrate proficiency in each section before being cleared for solo calls.</div>
+    </div>
+    <div class="header-side">
+      <div class="dept-badge">All Departments</div>
+      <div class="dept-badge">Trainee Sign-Off</div>
+    </div>
+  </div>
+
+  <!-- Info bar -->
+  <div class="info-bar">
+    <div class="if"><label>Date</label><input type="date" id="callDate"></div>
+    <div class="if"><label>Invoice # from Service Call</label><input type="text" placeholder="Invoice number" id="invoiceNum"></div>
+    <div class="if"><label>Lead Technician</label><input type="text" placeholder="Full name" id="leadTech"></div>
+    <div class="if"><label>Trainee / Observing Technician</label><input type="text" placeholder="Full name" id="observingTech"></div>
+    <div class="if"><label>Trainee Department</label>
+      <select id="dept">
+        <option value="">— Select —</option>
+        <option>HVAC-Service</option>
+        <option>HVAC-Install</option>
+        <option>Office/Admin</option>
+        <option>Warehouse</option>
+        <option>Plumbing</option>
+        <option>Electrical</option>
+      </select>
+    </div>
+    <div class="if"><label>Trainee Hire Date</label><input type="date" id="hireDate"></div>
+    <div class="if"><label>Week of Training</label>
+      <select id="weekNum">
+        <option value="">— Select —</option>
+        <option>Week 1</option>
+        <option>Week 2</option>
+        <option>Week 3+</option>
+      </select>
+    </div>
+    <div class="if"><label>Customer / Job Address</label><input type="text" placeholder="Address or customer name" id="jobAddr"></div>
+  </div>
+
+  <!-- Purpose note -->
+  <div class="purpose-note">
+    <strong>Instructions:</strong> The lead technician works through each section with the trainee during a live service call. Check off each step as the trainee demonstrates it. Rate overall performance at sign-off. Both parties sign to confirm the evaluation. Retain in the employee's onboarding file.
+  </div>
+
+  <!-- Main two-column grid -->
+  <div class="main-grid">
+
+    <!-- LEFT COLUMN -->
+    <div class="col-left">
+
+      <!-- 6 Steps to Approaching a Home -->
+      <div class="section">
+        <div class="section-title"><span class="num">6</span>Steps to Approaching a Home</div>
+        <p class="section-sub">Trainee demonstrates proper mindset, vehicle conduct, and professional appearance before contacting the customer.</p>
+        <div class="check-list">
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">1</span>
+            <div><div class="item-text">Mental End-Zone Preparation</div><div class="item-sub">Mindset ready before arrival — focused, positive, professional</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">2</span>
+            <div><div class="item-text">Observation while driving to home</div><div class="item-sub">Notes surroundings, access, equipment on exterior</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">3</span>
+            <div><div class="item-text">Positive vehicle placement on road</div><div class="item-sub">Truck parked professionally — logo visible, not blocking</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">4</span>
+            <div><div class="item-text">Proper approach to the door</div><div class="item-sub">Confident, unhurried, professional demeanor</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">5</span>
+            <div><div class="item-text">Provide an "I Came to Work" image</div><div class="item-sub">Uniform clean, tools ready, professional appearance</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">6</span>
+            <div><div class="item-text">Notification of arrival and greeting</div><div class="item-sub">Warm, confident introduction — name, company, purpose</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 Steps to Building a Relationship -->
+      <div class="section">
+        <div class="section-title"><span class="num">6</span>Steps to Building a Relationship with the Customer</div>
+        <p class="section-sub">Trainee demonstrates soft skills and customer rapport throughout the visit.</p>
+        <div class="check-list">
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">1</span>
+            <div><div class="item-text">Be friendly &amp; approachable</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">2</span>
+            <div><div class="item-text">Be respectful</div><div class="item-sub">Shoes off / booties on, respectful of home</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">3</span>
+            <div><div class="item-text">Demonstrate concern</div><div class="item-sub">Listens actively, acknowledges the customer's situation</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">4</span>
+            <div><div class="item-text">Provide a sincere compliment</div><div class="item-sub">Genuine, relevant — not scripted feeling</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">5</span>
+            <div><div class="item-text">Establish friendly control</div><div class="item-sub">Guides the conversation and process confidently</div></div>
+          </div>
+          <div class="check-item" onclick="toggle(this)">
+            <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+            <span class="item-num">6</span>
+            <div><div class="item-text">Gather information</div><div class="item-sub">Asks the right questions to understand the problem fully</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end col-left -->
+
+    <!-- RIGHT COLUMN -->
+    <div class="col-right">
+
+      <!-- 8 Steps to Today's Service Experience -->
+      <div class="section">
+        <div class="section-title"><span class="num">8</span>Steps to "Today's Service Experience"</div>
+        <p class="section-sub">Trainee presents findings and options using the StraightForward Pricing® Guide.</p>
+
+        <div style="background:var(--amber-lt);border-left:3px solid var(--amber);padding:8px 10px;border-radius:0 3px 3px 0;margin-bottom:10px;font-size:11px;color:#5c3800">
+          <strong style="color:var(--amber)">Before the steps —</strong> Trainee must first deliver the Credibility Statement and explain the "Our Commitment to You" page.
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+            <div class="check-item" onclick="toggle(this)" style="background:#fff;border-color:#f0c060">
+              <div class="cb-wrap" style="border-color:#f0c060"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+              <span class="item-num" style="color:#8a5610">→</span>
+              <div class="item-text" style="font-size:11px">Credibility Statement delivered (company, technician, StraightForward Pricing®)</div>
+            </div>
+            <div class="check-item" onclick="toggle(this)" style="background:#fff;border-color:#f0c060">
+              <div class="cb-wrap" style="border-color:#f0c060"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+              <span class="item-num" style="color:#8a5610">→</span>
+              <div class="item-text" style="font-size:11px">"Our Commitment to You" page explained to customer</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="check-list">
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">1</span><div><div class="item-text">Today's Symptoms</div><div class="item-sub">Clearly restates what the customer described</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">2</span><div><div class="item-text">System Diagnosis</div><div class="item-sub">Completes thorough inspection of system</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">3</span><div><div class="item-text">Share What I Find</div><div class="item-sub">Invites customer to view findings; explains clearly</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">4</span><div><div class="item-text">Your Options &amp; StraightForward Pricing®</div><div class="item-sub">Presents all options at flat-rate pricing without pressure</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">5</span><div><div class="item-text">Industry-Leading Guarantees</div><div class="item-sub">Communicates company's guarantee and warranty</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">6</span><div><div class="item-text">Select Your Solution</div><div class="item-sub">Customer selects preferred option; confirmed clearly</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">7</span><div><div class="item-text">I'll Get the Job Done Right</div><div class="item-sub">Reassures customer; sets clear expectations for the work</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">8</span><div><div class="item-text">Paperwork &amp; Investment</div><div class="item-sub">Reviews final invoice; customer acknowledges costs</div></div></div>
+        </div>
+
+        <div style="margin-top:10px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Remaining Steps</div>
+          <div class="check-list">
+            <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">→</span><div class="item-text">Authorization of the service fee obtained</div></div>
+            <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">→</span><div class="item-text">Club membership seed planted</div></div>
+            <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">→</span><div class="item-text">Customer invited to join inspection</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 Steps to Asking for the Business -->
+      <div class="section">
+        <div class="section-title"><span class="num">5</span>Steps to Asking for the Business</div>
+        <div class="check-list">
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">1</span><div><div class="item-text">Present today's repair</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">2</span><div><div class="item-text">Present your inspection findings</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">3</span><div><div class="item-text">Present options</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">4</span><div><div class="item-text">Present the Club Membership</div></div></div>
+          <div class="check-item" onclick="toggle(this)"><div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div><span class="item-num">5</span><div><div class="item-text">Get to work</div></div></div>
+        </div>
+      </div>
+
+    </div><!-- end col-right -->
+  </div><!-- end main-grid -->
+
+  <!-- Full-width: After the Work is Done -->
+  <div class="section-divider"></div>
+  <div class="full-section">
+    <div class="section-title" style="margin-bottom:12px"><span class="num">6</span>After the Work is Done</div>
+    <div class="after-grid">
+      <div class="after-item" onclick="toggle(this)">
+        <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+        <div class="item-text">Give the homeowner paperwork</div>
+      </div>
+      <div class="after-item" onclick="toggle(this)">
+        <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+        <div class="item-text">Ensure you have proper payment</div>
+      </div>
+      <div class="after-item" onclick="toggle(this)">
+        <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+        <div class="item-text">Look for a way to go "Above and Beyond"</div>
+      </div>
+      <div class="after-item" onclick="toggle(this)">
+        <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+        <div class="item-text">CLEAN UP — leave the space better than you found it</div>
+      </div>
+      <div class="after-item" onclick="toggle(this)">
+        <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+        <div class="item-text">Discuss reviews with the customer</div>
+      </div>
+      <div class="after-item" onclick="toggle(this)">
+        <div class="cb-wrap"><svg class="cb-check" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2"/></svg></div>
+        <div class="item-text">Call dispatch for call debrief</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overall Performance Rating -->
+  <div class="section-divider" style="margin-top:4px"></div>
+  <div class="full-section">
+    <div class="section-title" style="margin-bottom:12px"><span class="num" style="background:var(--amber)">★</span>Overall Performance Rating</div>
+    <p class="section-sub" style="margin-bottom:12px">Rate the trainee's performance in each area on this call (1 = Needs significant work · 2 = Developing · 3 = Proficient · 4 = Excellent).</p>
+    <div style="border:1px solid var(--border);border-radius:4px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr repeat(4,60px);background:var(--green-dk);color:#fff;padding:7px 12px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;gap:4px;align-items:center">
+        <span>Competency Area</span>
+        <span style="text-align:center">1<br><span style="font-weight:400;opacity:.7;text-transform:none;letter-spacing:0">Needs work</span></span>
+        <span style="text-align:center">2<br><span style="font-weight:400;opacity:.7;text-transform:none;letter-spacing:0">Developing</span></span>
+        <span style="text-align:center">3<br><span style="font-weight:400;opacity:.7;text-transform:none;letter-spacing:0">Proficient</span></span>
+        <span style="text-align:center">4<br><span style="font-weight:400;opacity:.7;text-transform:none;letter-spacing:0">Excellent</span></span>
+      </div>
+      <div id="ratingRows">
+        <script>
+          const ratings = [
+            ['Professionalism & Appearance','prof'],
+            ['Customer Communication','comm'],
+            ['Technical Knowledge Demonstrated','tech'],
+            ['StraightForward Pricing® Presentation','sfp'],
+            ['Asking for the Business','biz'],
+            ['After-Service & Cleanup','clean'],
+            ['Overall Call Performance','overall'],
+          ];
+          document.write(ratings.map((r,i)=>`
+          <div style="display:grid;grid-template-columns:1fr repeat(4,60px);padding:8px 12px;border-top:1px solid var(--border);align-items:center;gap:4px;background:${i%2===0?'#fafaf8':'#fff'}">
+            <span style="font-size:12px;font-weight:500">${r[0]}</span>
+            ${[1,2,3,4].map(v=>`<div style="text-align:center"><input type="radio" name="rate_${r[1]}" value="${v}" style="accent-color:var(--green);width:15px;height:15px;cursor:pointer"></div>`).join('')}
+          </div>`).join(''));
+        </script>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="notes-section">
+    <div class="notes-header">Lead Technician Notes — Strengths, Areas for Improvement &amp; Next Steps</div>
+    <div class="notes-body">
+      <textarea placeholder="Describe the trainee's performance on this call. Note specific strengths, areas that need more practice, and any recommended action items before the next ride-along or solo call…"></textarea>
+    </div>
+  </div>
+
+  <!-- Sign-off -->
+  <div class="signoff">
+    <div class="signoff-hdr">Sign-Off &amp; Field Readiness Verdict</div>
+    <div class="signoff-body">
+
+      <div class="verdict-row">
+        <span class="verdict-lbl">Trainee Cleared For:</span>
+        <div class="verdict-opts">
+          <label class="v-pass"><input type="radio" name="verdict" value="solo">✓ Solo Service Calls</label>
+          <label class="v-partial"><input type="radio" name="verdict" value="more">⚠ Additional Ride-Alongs Required</label>
+          <label class="v-fail"><input type="radio" name="verdict" value="extend">✗ Extended Training Needed</label>
+        </div>
+      </div>
+
+      <div class="sig-block">
+        <label>Lead Technician / Manager</label>
+        <div class="sig-line"></div>
+        <div class="sig-name-date">
+          <input type="text" placeholder="Print name">
+          <input type="date">
+        </div>
+        <div class="sig-sub">I certify that I observed the trainee complete each checked item on this call.</div>
+      </div>
+
+      <div class="sig-block">
+        <label>Trainee / Observing Technician</label>
+        <div class="sig-line"></div>
+        <div class="sig-name-date">
+          <input type="text" placeholder="Print name">
+          <input type="date">
+        </div>
+        <div class="sig-sub">I acknowledge the evaluation and feedback provided on this service call.</div>
+      </div>
+
+      <div class="sig-block">
+        <label>HR Representative (if applicable)</label>
+        <div class="sig-line"></div>
+        <div class="sig-name-date">
+          <input type="text" placeholder="Print name">
+          <input type="date">
+        </div>
+      </div>
+
+      <div class="sig-block">
+        <label>Next Scheduled Ride-Along / Review Date</label>
+        <input type="date" style="width:100%;border:none;border-bottom:1.5px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;padding:6px 0;margin-top:8px">
+        <div style="margin-top:8px">
+          <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;display:block;margin-bottom:4px">Action Items Before Next Call</label>
+          <textarea style="width:100%;border:1px solid var(--border);border-radius:3px;padding:7px 9px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);outline:none;resize:vertical;height:52px" placeholder="Specific skills or steps the trainee needs to practice or review…"></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <span>Christmas Air, Plumbing &amp; Electrical · Service Call Checklist · Retain in Employee Onboarding File</span>
+    <span>Version 1.0 · All Departments</span>
+  </div>
+
+</div><!-- end page -->
+
+<script>
+  function toggle(el) {
+    el.classList.toggle('checked')
+    updateProgress()
+  }
+
+  function updateProgress() {
+    const all  = document.querySelectorAll('.check-item, .after-item')
+    const done = document.querySelectorAll('.check-item.checked, .after-item.checked').length
+    const pct  = all.length ? Math.round(done / all.length * 100) : 0
+    document.getElementById('progFill').style.width = pct + '%'
+    document.getElementById('progPct').textContent  = pct + '%'
+  }
+
+  function clearForm() {
+    if (!confirm('Clear all data on this form? This cannot be undone.')) return
+    document.querySelectorAll('.check-item, .after-item').forEach(el => el.classList.remove('checked'))
+    document.querySelectorAll('input[type="text"], input[type="date"], textarea').forEach(el => el.value = '')
+    document.querySelectorAll('input[type="radio"], select').forEach(el => el.checked = false)
+    document.querySelectorAll('select').forEach(el => el.selectedIndex = 0)
+    updateProgress()
+  }
+
+  updateProgress()
+</script>
+</body>
+</html>
