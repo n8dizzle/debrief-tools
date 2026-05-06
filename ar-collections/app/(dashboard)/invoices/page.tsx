@@ -213,7 +213,29 @@ export default function InvoicesPage() {
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [colorRowsByStatus, setColorRowsByStatus] = useState(false);
   const columnPickerRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [tableMaxHeight, setTableMaxHeight] = useState<number | null>(null);
   const { canUpdateWorkflow, canAssignOwner, canChangeControlBucket } = useARPermissions();
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    const recompute = () => {
+      const top = el.getBoundingClientRect().top;
+      const bottomPadding = 24;
+      setTableMaxHeight(Math.max(240, window.innerHeight - top - bottomPadding));
+    };
+
+    recompute();
+    window.addEventListener('resize', recompute);
+    const ro = new ResizeObserver(recompute);
+    if (document.body) ro.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', recompute);
+      ro.disconnect();
+    };
+  }, [filtersExpanded]);
 
   useEffect(() => {
     try {
@@ -1372,7 +1394,7 @@ export default function InvoicesPage() {
 
       {/* Invoice Table */}
       <div className="card p-0 overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto" style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 380px)' }}>
+        <div ref={tableScrollRef} className="overflow-x-auto overflow-y-auto" style={{ maxWidth: '100%', maxHeight: tableMaxHeight ? `${tableMaxHeight}px` : 'calc(100vh - 380px)' }}>
           <table className="ar-table" style={{ minWidth: 'max-content' }}>
             <thead className="sticky top-0 z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
               <tr>
