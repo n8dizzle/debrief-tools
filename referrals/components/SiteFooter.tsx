@@ -73,7 +73,7 @@ export default function SiteFooter() {
             </li>
             <li>
               <a
-                href="https://christmasair.com"
+                href="https://christmasair.com/?utm_source=newsletter&utm_medium=webform&utm_campaign=triple_win_referral"
                 style={{ color: "var(--ca-cream)" }}
               >
                 Main Site
