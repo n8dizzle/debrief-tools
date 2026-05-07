@@ -22,6 +22,16 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   };
 }
 
+/** Filter out shared/team/system emails that shouldn't be enrolled. */
+function isPersonalEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  const blockedDomains = ["slack.com"];
+  const blockedPrefixes = ["approved-", "noreply", "no-reply", "donotreply", "notifications@", "alerts@"];
+  if (blockedDomains.some((d) => lower.includes(`@${d}`))) return false;
+  if (blockedPrefixes.some((p) => lower.startsWith(p))) return false;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
   const admin = await requireReferralsAdmin("can_view_admin");
   if (!admin) {
@@ -36,16 +46,35 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Fetch all active technicians from ST
-  let technicians;
+  // Fetch technicians and employees in parallel
+  let technicians: Awaited<ReturnType<typeof st.getTechnicians>>;
+  let employees: Awaited<ReturnType<typeof st.getEmployees>>;
   try {
-    technicians = await st.getTechnicians(true);
+    [technicians, employees] = await Promise.all([
+      st.getTechnicians(true),
+      st.getEmployees(true),
+    ]);
   } catch (err) {
-    console.error("Failed to fetch ST technicians:", err);
+    console.error("Failed to fetch ST staff:", err);
     return NextResponse.json(
-      { error: "Failed to fetch technicians from ServiceTitan." },
+      { error: "Failed to fetch staff from ServiceTitan." },
       { status: 502 }
     );
+  }
+
+  // Merge technicians + employees, deduplicate by ST ID (technicians take priority)
+  const seenStIds = new Set<string>();
+  const combined: Array<{ id: number; name: string; email?: string; phoneNumber?: string }> = [];
+
+  for (const t of technicians) {
+    seenStIds.add(String(t.id));
+    combined.push(t);
+  }
+  for (const e of employees) {
+    if (!seenStIds.has(String(e.id))) {
+      seenStIds.add(String(e.id));
+      combined.push(e);
+    }
   }
 
   const supabase = getServerSupabase();
@@ -60,7 +89,7 @@ export async function POST(req: NextRequest) {
     .limit(1);
   const defaultCharityId = charities?.[0]?.id ?? null;
 
-  // Get existing referrers by email and ST ID to detect duplicates
+  // Load existing referrers to detect duplicates
   const { data: existing } = await supabase
     .from("ref_referrers")
     .select("email, service_titan_id");
@@ -68,38 +97,43 @@ export async function POST(req: NextRequest) {
     (existing || []).map((r) => r.email?.toLowerCase())
   );
   const existingStIds = new Set(
-    (existing || [])
-      .filter((r) => r.service_titan_id)
-      .map((r) => r.service_titan_id)
+    (existing || []).filter((r) => r.service_titan_id).map((r) => r.service_titan_id)
   );
 
   let created = 0;
   let skippedExisting = 0;
   let skippedNoEmail = 0;
+  let skippedBadEmail = 0;
   const errors: string[] = [];
 
-  for (const tech of technicians) {
-    // Skip techs already enrolled by ST ID
-    if (existingStIds.has(String(tech.id))) {
+  for (const person of combined) {
+    // Already enrolled by ST ID
+    if (existingStIds.has(String(person.id))) {
       skippedExisting++;
       continue;
     }
 
-    // Skip techs without an email
-    if (!tech.email) {
+    // No email on file
+    if (!person.email) {
       skippedNoEmail++;
       continue;
     }
 
-    const emailLower = tech.email.toLowerCase();
+    const emailLower = person.email.toLowerCase();
 
-    // Skip techs whose email is already enrolled
+    // Filter out shared/system emails
+    if (!isPersonalEmail(emailLower)) {
+      skippedBadEmail++;
+      continue;
+    }
+
+    // Already enrolled by email
     if (existingEmails.has(emailLower)) {
       skippedExisting++;
       continue;
     }
 
-    const { firstName, lastName } = splitName(tech.name);
+    const { firstName, lastName } = splitName(person.name);
 
     try {
       const [referralCode, rewardConfigId] = await Promise.all([
@@ -111,10 +145,10 @@ export async function POST(req: NextRequest) {
 
       const { error } = await supabase.from("ref_referrers").insert({
         email: emailLower,
-        phone: tech.phoneNumber ?? null,
+        phone: person.phoneNumber ?? null,
         first_name: firstName,
         last_name: lastName,
-        service_titan_id: String(tech.id),
+        service_titan_id: String(person.id),
         referral_code: referralCode,
         referral_link: referralLink,
         reward_preference: "VISA_GIFT_CARD",
@@ -124,29 +158,31 @@ export async function POST(req: NextRequest) {
       });
 
       if (error) {
-        // Race condition — another request created this email/code first
         if (error.code === "23505") {
           skippedExisting++;
         } else {
-          errors.push(`${tech.name} (${emailLower}): ${error.message}`);
+          errors.push(`${person.name} (${emailLower}): ${error.message}`);
         }
         continue;
       }
 
-      // Track to avoid duplicates within this batch
+      // Track within this batch to avoid duplicates
       existingEmails.add(emailLower);
-      existingStIds.add(String(tech.id));
+      existingStIds.add(String(person.id));
       created++;
     } catch (err) {
-      errors.push(`${tech.name}: ${String(err)}`);
+      errors.push(`${person.name}: ${String(err)}`);
     }
   }
 
   return NextResponse.json({
-    total: technicians.length,
+    total_technicians: technicians.length,
+    total_employees: employees.length,
+    total_unique: combined.length,
     created,
     skipped_existing: skippedExisting,
     skipped_no_email: skippedNoEmail,
+    skipped_bad_email: skippedBadEmail,
     errors,
   });
 }
