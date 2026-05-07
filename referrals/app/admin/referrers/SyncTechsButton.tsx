@@ -48,7 +48,7 @@ export default function SyncTechsButton() {
         className="btn btn-primary"
         style={{ opacity: loading ? 0.7 : 1 }}
       >
-        {loading ? "Syncing…" : "Sync Technicians from ST"}
+        {loading ? "Syncing…" : "Sync Staff from ST"}
       </button>
 
       {result && (

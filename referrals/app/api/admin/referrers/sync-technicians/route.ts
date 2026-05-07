@@ -4,6 +4,8 @@ import { getServerSupabase } from "@/lib/supabase";
 import { getServiceTitanClient } from "@/lib/servicetitan";
 import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
+import type { Charity } from "@/lib/supabase";
 
 function getAppUrl(): string {
   return process.env.NEXTAUTH_URL || "https://refer.christmasair.com";
@@ -80,14 +82,15 @@ export async function POST(req: NextRequest) {
   const supabase = getServerSupabase();
   const appUrl = getAppUrl();
 
-  // Get first active charity to assign as default
+  // Get first active charity to assign as default (full object needed for welcome email)
   const { data: charities } = await supabase
     .from("ref_charities")
-    .select("id")
+    .select("*")
     .eq("is_active", true)
     .order("display_order", { ascending: true })
     .limit(1);
-  const defaultCharityId = charities?.[0]?.id ?? null;
+  const defaultCharity = (charities?.[0] as Charity) ?? null;
+  const defaultCharityId = defaultCharity?.id ?? null;
 
   // Load existing referrers to detect duplicates
   const { data: existing } = await supabase
@@ -170,6 +173,32 @@ export async function POST(req: NextRequest) {
       existingEmails.add(emailLower);
       existingStIds.add(String(person.id));
       created++;
+
+      // Send welcome email fire-and-forget — don't let failures block the batch
+      const newReferrer = {
+        id: "",
+        email: emailLower,
+        phone: person.phoneNumber ?? null,
+        first_name: firstName,
+        last_name: lastName,
+        referral_code: referralCode,
+        referral_link: referralLink,
+        reward_preference: "VISA_GIFT_CARD" as const,
+        selected_charity_id: defaultCharityId,
+        service_titan_id: String(person.id),
+        assigned_reward_config_id: rewardConfigId,
+        total_earned: 0,
+        total_donated_on_their_behalf: 0,
+        lifetime_referrals: 0,
+        is_active: true,
+        enrolled_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      sendWelcomeEmail({
+        referrer: newReferrer,
+        charity: defaultCharity,
+        dashboardUrl: `${appUrl}/dashboard`,
+      }).catch((e) => console.error(`Welcome email failed for ${emailLower}:`, e));
     } catch (err) {
       errors.push(`${person.name}: ${String(err)}`);
     }
