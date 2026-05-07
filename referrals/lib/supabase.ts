@@ -170,6 +170,7 @@ export interface Referrer {
   reward_preference: RewardType;
   assigned_reward_config_id: string | null;
   selected_charity_id: string | null;
+  suggested_charity_name: string | null;
   total_earned: number;
   total_donated_on_their_behalf: number;
   lifetime_referrals: number;

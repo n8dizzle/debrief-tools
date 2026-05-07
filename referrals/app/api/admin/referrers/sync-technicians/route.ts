@@ -185,6 +185,7 @@ export async function POST(req: NextRequest) {
         referral_link: referralLink,
         reward_preference: "VISA_GIFT_CARD" as const,
         selected_charity_id: defaultCharityId,
+        suggested_charity_name: null,
         service_titan_id: String(person.id),
         assigned_reward_config_id: rewardConfigId,
         total_earned: 0,

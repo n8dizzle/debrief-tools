@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 interface ReferrerRow extends Referrer {
   charity?: { id: string; name: string } | null;
+  suggested_charity_name: string | null;
 }
 
 async function getReferrers(): Promise<ReferrerRow[]> {
@@ -85,6 +86,10 @@ export default async function ReferrersPage() {
                 <Td className="text-xs">
                   {r.charity ? (
                     r.charity.name
+                  ) : r.suggested_charity_name ? (
+                    <span className="italic opacity-70">
+                      💡 {r.suggested_charity_name}
+                    </span>
                   ) : (
                     <span className="opacity-50">—</span>
                   )}

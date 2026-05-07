@@ -19,6 +19,7 @@ interface FormState {
   phone: string;
   rewardPreference: RewardPref;
   selectedCharityId: string | null;
+  suggestedCharityName: string;
 }
 
 const initialState: FormState = {
@@ -28,6 +29,7 @@ const initialState: FormState = {
   phone: "",
   rewardPreference: "VISA_GIFT_CARD",
   selectedCharityId: null,
+  suggestedCharityName: "",
 };
 
 interface EnrollFormProps {
@@ -57,10 +59,19 @@ export default function EnrollForm({ charities }: EnrollFormProps) {
     setSubmitting(true);
     setError(null);
     try {
+      const payload = {
+        ...form,
+        suggestedCharityName: form.selectedCharityId === "other"
+          ? form.suggestedCharityName.trim()
+          : null,
+        selectedCharityId: form.selectedCharityId === "other"
+          ? null
+          : form.selectedCharityId,
+      };
       const res = await fetch("/api/enroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -361,7 +372,9 @@ function CharityStep({
   submitting: boolean;
   error: string | null;
 }) {
-  const canSubmit = !!form.selectedCharityId;
+  const isOther = form.selectedCharityId === "other";
+  const canSubmit = !!form.selectedCharityId &&
+    (!isOther || form.suggestedCharityName.trim().length > 0);
 
   return (
     <div className="card">
@@ -404,6 +417,39 @@ function CharityStep({
               </div>
             </label>
           ))}
+
+          {/* Suggest a charity option */}
+          <label
+            className="flex items-start gap-3 p-4 rounded-lg cursor-pointer"
+            style={{
+              border: `2px solid ${isOther ? "var(--ca-green)" : "var(--border-subtle)"}`,
+              background: isOther ? "rgba(97,139,96,0.06)" : "var(--bg-card)",
+            }}
+          >
+            <input
+              type="radio"
+              name="selectedCharityId"
+              value="other"
+              checked={isOther}
+              onChange={() => update("selectedCharityId", "other")}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <p className="font-semibold">Suggest a charity</p>
+              <p className="text-sm opacity-70 mt-1">
+                Don&apos;t see your cause? Type it in and we&apos;ll review it.
+              </p>
+              {isOther && (
+                <input
+                  className="input mt-3"
+                  placeholder="e.g. American Red Cross"
+                  value={form.suggestedCharityName}
+                  onChange={(e) => update("suggestedCharityName", e.target.value)}
+                  autoFocus
+                />
+              )}
+            </div>
+          </label>
         </div>
         <p className="text-xs opacity-60 mt-3">
           You can change your charity any time from your dashboard.
