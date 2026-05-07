@@ -100,6 +100,19 @@ export default async function TripleWinPage() {
                   )}
                 </div>
               ))}
+
+              {/* Suggest your own charity */}
+              <div className="card" style={{ borderStyle: "dashed", borderColor: "var(--ca-green)", opacity: 0.85 }}>
+                <h3 className="text-2xl mb-2">Suggest your own</h3>
+                <p className="opacity-80 text-sm leading-relaxed">
+                  Don&apos;t see your cause here? When you sign up you can suggest
+                  any charity you&apos;d like — we&apos;ll review it and add it to
+                  the list.
+                </p>
+                <Link href="/enroll" className="inline-block mt-3 text-sm font-semibold">
+                  Join and suggest a charity →
+                </Link>
+              </div>
             </div>
           )}
         </div>
