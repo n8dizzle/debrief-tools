@@ -550,6 +550,7 @@ export default function JobsPage() {
                 )}
                 <div>
                   {[
+                    { value: 'needs_assignment', label: 'Needs Assignment' },
                     { value: 'none', label: 'No Payment' },
                     { value: 'pending_approval', label: 'Pending Approval' },
                     { value: 'ready_to_pay', label: 'Ready to Pay' },

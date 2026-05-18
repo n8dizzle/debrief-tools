@@ -3,6 +3,7 @@
 import { APPaymentStatus } from '@/lib/supabase';
 
 const statusConfig: Record<APPaymentStatus, { bg: string; text: string; label: string }> = {
+  needs_assignment: { bg: 'rgba(163, 113, 247, 0.15)', text: '#a371f7', label: 'Needs Assignment' },
   none: { bg: 'rgba(107, 124, 110, 0.15)', text: '#6B7C6E', label: 'None' },
   pending_approval: { bg: 'rgba(234, 179, 8, 0.15)', text: '#fcd34d', label: 'Pending Approval' },
   ready_to_pay: { bg: 'rgba(59, 130, 246, 0.15)', text: '#60a5fa', label: 'Ready to Pay' },

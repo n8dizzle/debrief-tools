@@ -69,7 +69,7 @@ export interface APContractorRate {
 }
 
 export type APAssignmentType = 'unassigned' | 'in_house' | 'contractor';
-export type APPaymentStatus = 'none' | 'pending_approval' | 'ready_to_pay' | 'paid';
+export type APPaymentStatus = 'needs_assignment' | 'none' | 'pending_approval' | 'ready_to_pay' | 'paid';
 export type APInvoiceSource = 'manager_text' | 'ap_email' | null;
 
 export interface APInstallJob {
