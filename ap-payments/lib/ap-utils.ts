@@ -98,6 +98,7 @@ export function getAssignmentLabel(type: string): string {
  */
 export function getPaymentStatusLabel(status: string): string {
   switch (status) {
+    case 'needs_assignment': return 'Needs Assignment';
     case 'pending_approval': return 'Pending Approval';
     case 'ready_to_pay': return 'Ready to Pay';
     case 'paid': return 'Paid';

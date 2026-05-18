@@ -7,6 +7,7 @@ import { useAPPermissions } from '@/hooks/useAPPermissions';
 
 const mainLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
+  { href: '/board', label: 'Payment Board', icon: 'board' },
   { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase' },
   { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const },
   { href: '/labor', label: 'Labor Calculator', icon: 'calculator' },
@@ -24,6 +25,13 @@ function NavIcon({ type }: { type: string }) {
     briefcase: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    ),
+    board: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="4" height="16" rx="1" strokeWidth={1.5} />
+        <rect x="10" y="4" width="4" height="10" rx="1" strokeWidth={1.5} />
+        <rect x="17" y="4" width="4" height="7" rx="1" strokeWidth={1.5} />
       </svg>
     ),
     users: (

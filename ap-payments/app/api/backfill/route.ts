@@ -312,6 +312,7 @@ export async function POST(request: NextRequest) {
             technician_id: techDbId,
             labor_cost: laborCost,
             technician_count: techCount,
+            payment_status: 'needs_assignment',
             synced_at: new Date().toISOString(),
           });
 

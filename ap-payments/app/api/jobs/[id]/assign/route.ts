@@ -34,7 +34,7 @@ export async function POST(
   // Get current job state for activity log
   const { data: currentJob } = await supabase
     .from('ap_install_jobs')
-    .select('assignment_type, contractor_id, payment_amount')
+    .select('assignment_type, contractor_id, payment_amount, payment_status')
     .eq('id', id)
     .single();
 
@@ -55,6 +55,12 @@ export async function POST(
     if (payment_amount != null) {
       updateData.payment_amount = payment_amount;
     }
+    // First-time assignment from needs_assignment → awaiting invoice ('none').
+    // Don't touch status if payment is already mid-flight (pending_approval/ready_to_pay/paid)
+    // — reassignment should not reset an in-progress payment.
+    if (currentJob.payment_status === 'needs_assignment') {
+      updateData.payment_status = 'none';
+    }
   } else if (assignment_type === 'in_house') {
     updateData.contractor_id = null;
     updateData.payment_amount = null;
@@ -65,10 +71,10 @@ export async function POST(
     updateData.payment_approved_by = null;
     updateData.payment_paid_at = null;
   } else {
-    // unassigned
+    // unassigned → goes back to 'needs_assignment' so it surfaces on the Payment Board
     updateData.contractor_id = null;
     updateData.payment_amount = null;
-    updateData.payment_status = 'none';
+    updateData.payment_status = 'needs_assignment';
     updateData.invoice_source = null;
     updateData.payment_received_at = null;
     updateData.payment_approved_at = null;
