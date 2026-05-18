@@ -1,11 +1,13 @@
 import { getServerSupabase } from "@/lib/supabase";
 import type { Charity, Referrer } from "@/lib/supabase";
 import STCustomerEdit from "./STCustomerEdit";
+import SyncTechsButton from "./SyncTechsButton";
 
 export const dynamic = "force-dynamic";
 
 interface ReferrerRow extends Referrer {
   charity?: { id: string; name: string } | null;
+  suggested_charity_name: string | null;
 }
 
 async function getReferrers(): Promise<ReferrerRow[]> {
@@ -37,10 +39,15 @@ export default async function ReferrersPage() {
 
   return (
     <div>
-      <h1 className="text-4xl mb-2">Referrers</h1>
-      <p className="opacity-70 mb-6">
-        {referrers.length} enrolled (showing most recent 200)
-      </p>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-4xl mb-2">Referrers</h1>
+          <p className="opacity-70">
+            {referrers.length} enrolled (showing most recent 200)
+          </p>
+        </div>
+        <SyncTechsButton />
+      </div>
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
@@ -79,6 +86,10 @@ export default async function ReferrersPage() {
                 <Td className="text-xs">
                   {r.charity ? (
                     r.charity.name
+                  ) : r.suggested_charity_name ? (
+                    <span className="italic opacity-70">
+                      💡 {r.suggested_charity_name}
+                    </span>
                   ) : (
                     <span className="opacity-50">—</span>
                   )}

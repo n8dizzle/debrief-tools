@@ -35,7 +35,7 @@ export async function sendReferralConfirmedToFriend(opts: Opts): Promise<void> {
         : ""
     }
 
-    <p>A Christmas Air team member will call or text within one business day. If you need us sooner, call <strong>(469) 214-2013</strong>.</p>
+    <p>A Christmas Air team member will call or text within one business day. If you need us sooner, call <strong>(469) 214-5517</strong>.</p>
 
     <p style="margin-top:32px;color:#415440;">
       Welcome to the neighborhood,<br>

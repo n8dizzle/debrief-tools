@@ -70,7 +70,7 @@ function buildFaq(program: CurrentProgram): { q: string; a: string }[] {
     },
     {
       q: "Can I leave the program?",
-      a: "Absolutely. Just let us know — call (469) 214-2013 — and we'll deactivate your account. Any referrals already in flight will still pay out.",
+      a: "Absolutely. Just let us know — call (469) 214-5517 — and we'll deactivate your account. Any referrals already in flight will still pay out.",
     },
     {
       q: "Is my friend's information safe?",
@@ -95,8 +95,8 @@ export default async function FAQPage() {
           <h1 className="text-4xl md:text-6xl mb-4 leading-tight">FAQ</h1>
           <p className="text-base md:text-lg opacity-80">
             Don&apos;t see your question? Call us at{" "}
-            <a href="tel:4692142013" className="font-semibold">
-              (469) 214-2013
+            <a href="tel:4692145517" className="font-semibold">
+              (469) 214-5517
             </a>
             .
           </p>

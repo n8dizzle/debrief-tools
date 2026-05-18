@@ -57,6 +57,24 @@ export interface STInvoice {
   invoiceConfiguration?: string;
 }
 
+export interface STTechnician {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  active: boolean;
+  businessUnitId?: number;
+}
+
+export interface STEmployee {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  active: boolean;
+  role?: string;
+}
+
 export interface STLeadContactInfo {
   type: "Phone" | "Email";
   value: string;
@@ -426,6 +444,50 @@ export class ServiceTitanClient {
       return false;
     }
   }
+
+  // ============================================
+  // TECHNICIANS (for bulk referrer enrollment)
+  // ============================================
+
+  async getTechnicians(activeOnly = true): Promise<STTechnician[]> {
+    const results: STTechnician[] = [];
+    let page = 1;
+    while (page <= 20) {
+      const params: Record<string, string> = { pageSize: "200", page: String(page) };
+      if (activeOnly) params.active = "true";
+      const response = await this.request<STPagedResponse<STTechnician>>(
+        "GET",
+        `settings/v2/tenant/${this.tenantId}/technicians`,
+        { params }
+      );
+      results.push(...(response.data || []));
+      if (!response.hasMore) break;
+      page++;
+    }
+    return results;
+  }
+
+  async getEmployees(activeOnly = true): Promise<STEmployee[]> {
+    const results: STEmployee[] = [];
+    let page = 1;
+    while (page <= 20) {
+      const params: Record<string, string> = { pageSize: "200", page: String(page) };
+      if (activeOnly) params.active = "true";
+      const response = await this.request<STPagedResponse<STEmployee>>(
+        "GET",
+        `settings/v2/tenant/${this.tenantId}/employees`,
+        { params }
+      );
+      results.push(...(response.data || []));
+      if (!response.hasMore) break;
+      page++;
+    }
+    return results;
+  }
+
+  // ============================================
+  // HEALTH CHECK
+  // ============================================
 
   /**
    * Quick health check — verifies credentials work by fetching the current tenant.

@@ -30,7 +30,7 @@ export default async function EnrollPage() {
       <CampaignBanner label={program?.campaign_label ?? null} />
       <section className="px-4 md:px-6 pt-10 md:pt-16 pb-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl mb-4 leading-tight">Join the program.</h1>
+          <h1 className="text-4xl md:text-6xl mb-4 leading-tight">Join the Program</h1>
           <p className="text-base md:text-lg opacity-80">
             Two minutes. No obligations. Free to leave any time.
           </p>

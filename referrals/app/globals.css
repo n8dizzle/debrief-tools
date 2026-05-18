@@ -42,6 +42,7 @@ h1, h2, h3 {
   font-family: var(--font-lobster), cursive;
   color: var(--ca-dark-green);
   line-height: 1.15;
+  text-transform: uppercase;
 }
 
 h4, h5, h6 {

@@ -16,14 +16,21 @@ export default async function LandingPage() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="px-4 md:px-6 pt-12 pb-16 md:pt-24 md:pb-28">
+      <section
+        className="px-4 md:px-6 pt-12 pb-16 md:pt-24 md:pb-28 relative"
+        style={{
+          backgroundImage: "url('/hero.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center 10%",
+        }}
+      >
         <div className="max-w-5xl mx-auto text-center">
           <div className="flex flex-wrap justify-center gap-2 mb-6">
-            <span className="badge-trust">Veteran-Owned</span>
-            <span className="badge-trust">Locally-Owned since day one</span>
+            <span className="badge-trust text-3xl font-bold px-6 py-3">Veteran-Owned</span>
+            <span className="badge-trust text-3xl font-bold px-6 py-3">Locally-Owned Since Day One</span>
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-7xl mb-6 leading-tight">
-            Neighbors helping neighbors.
+            Neighbors helping neighbors
           </h1>
           <p className="text-base md:text-xl max-w-2xl mx-auto opacity-80">
             You&apos;ve trusted us with your home. Tell your friends, and we&apos;ll
@@ -32,10 +39,10 @@ export default async function LandingPage() {
           </p>
           <div className="mt-8 md:mt-10 flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/enroll" className="btn btn-primary">
-              Join the program
+              Join the Program
             </Link>
-            <Link href="/triple-win" className="btn btn-secondary">
-              Learn about Triple Win
+            <Link href="/triple-win" className="btn btn-primary">
+              Learn About Triple Win
             </Link>
           </div>
         </div>
@@ -45,7 +52,7 @@ export default async function LandingPage() {
       <section className="section-white px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl md:text-5xl text-center mb-10 md:mb-14">
-            Three simple steps.
+            Three simple steps
           </h2>
           <div className="grid gap-6 md:gap-8 md:grid-cols-3">
             <StepCard
@@ -105,7 +112,7 @@ export default async function LandingPage() {
       <section className="section-green px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-5xl mb-5 md:mb-6">
-            Every referral is a Triple Win.
+            Every referral is a Triple Win
           </h2>
           <p className="text-base md:text-xl opacity-90 max-w-2xl mx-auto mb-6 md:mb-8">
             You get your gift card. Your friend gets theirs. And we donate to a
@@ -119,7 +126,7 @@ export default async function LandingPage() {
               color: "var(--ca-dark-green)",
             }}
           >
-            See how it works
+            See How It Works
           </Link>
         </div>
       </section>
@@ -127,12 +134,12 @@ export default async function LandingPage() {
       {/* Final CTA */}
       <section className="px-4 md:px-6 py-14 md:py-20">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl md:text-5xl mb-4">Ready when you are.</h2>
+          <h2 className="text-3xl md:text-5xl mb-4">Ready when you are</h2>
           <p className="text-base md:text-lg opacity-80 mb-6 md:mb-8">
             Takes two minutes. No obligations. Free to leave any time.
           </p>
           <Link href="/enroll" className="btn btn-primary">
-            Join the program
+            Join the Program
           </Link>
         </div>
       </section>

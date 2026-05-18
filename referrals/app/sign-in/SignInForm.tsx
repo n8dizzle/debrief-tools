@@ -34,7 +34,7 @@ export default function SignInForm() {
   if (sent) {
     return (
       <div className="card text-center">
-        <h2 className="text-2xl mb-2">Check your email.</h2>
+        <h2 className="text-2xl mb-2">Check your email</h2>
         <p className="opacity-80">
           If there&apos;s an account for <strong>{email}</strong>, we just sent a sign-in link.
           It expires in 15 minutes.
@@ -96,7 +96,7 @@ export default function SignInForm() {
       <p className="mt-6 text-center text-sm opacity-70">
         New here?{" "}
         <a href="/enroll" className="font-semibold">
-          Join the program →
+          Join the Program →
         </a>
       </p>
     </form>

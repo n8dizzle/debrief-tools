@@ -5,6 +5,7 @@ import { getServerSupabase } from "@/lib/supabase";
 
 const UpdateSchema = z.object({
   selectedCharityId: z.string().uuid().nullable(),
+  suggestedCharityName: z.string().trim().max(200).nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
     .from("ref_referrers")
     .update({
       selected_charity_id: parsed.data.selectedCharityId,
+      suggested_charity_name: parsed.data.suggestedCharityName ?? null,
     })
     .eq("id", referrer.id);
 
