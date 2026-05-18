@@ -39,7 +39,7 @@ export default async function TripleWinPage() {
           </h1>
           <p className="text-base md:text-xl max-w-2xl mx-auto opacity-80">
             When you refer a neighbor, you get your reward, they get their
-            discount, <em>and</em> we donate to a charity you choose. All three
+            reward, <em>and</em> we donate to a charity you choose. All three
             wins — every single time.
           </p>
         </div>
