@@ -63,7 +63,7 @@ export default async function ReferrersPage() {
               <Th className="text-right">Earned</Th>
               <Th className="text-right">Donated</Th>
               <Th>Enrolled</Th>
-              <Th></Th>
+              <Th>{""}</Th>
             </tr>
           </thead>
           <tbody>
