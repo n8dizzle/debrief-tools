@@ -174,6 +174,7 @@ export interface Referrer {
   total_earned: number;
   total_donated_on_their_behalf: number;
   lifetime_referrals: number;
+  referrer_type: "EMPLOYEE" | "CUSTOMER" | null;
   is_active: boolean;
   enrolled_at: string;
   updated_at: string;

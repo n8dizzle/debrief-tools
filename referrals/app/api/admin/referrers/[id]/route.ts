@@ -18,6 +18,9 @@ const PatchSchema = z.object({
       z.null(),
     ])
     .optional(),
+  referrer_type: z
+    .union([z.enum(["EMPLOYEE", "CUSTOMER"]), z.null()])
+    .optional(),
 });
 
 export async function PATCH(

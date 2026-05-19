@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
         reward_preference: "VISA_GIFT_CARD",
         assigned_reward_config_id: rewardConfigId,
         selected_charity_id: defaultCharityId,
+        referrer_type: "EMPLOYEE",
         is_active: true,
       });
 
@@ -220,6 +221,7 @@ export async function POST(req: NextRequest) {
         total_earned: 0,
         total_donated_on_their_behalf: 0,
         lifetime_referrals: 0,
+        referrer_type: "EMPLOYEE" as const,
         is_active: true,
         enrolled_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

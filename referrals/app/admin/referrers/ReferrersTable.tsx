@@ -4,6 +4,7 @@ import AdminTable, { type AdminColumn } from "@/components/AdminTable";
 import type { Referrer } from "@/lib/supabase";
 import STCustomerEdit from "./STCustomerEdit";
 import DeleteReferrerButton from "./DeleteReferrerButton";
+import ReferrerTypeTag from "./ReferrerTypeTag";
 
 export interface ReferrerRow extends Referrer {
   charity?: { id: string; name: string } | null;
@@ -24,6 +25,16 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
           <span className="ml-2 text-xs opacity-60">(inactive)</span>
         )}
       </>
+    ),
+  },
+  {
+    key: "type",
+    label: "Type",
+    sortable: true,
+    sortValue: (r) => r.referrer_type ?? "",
+    searchValue: (r) => r.referrer_type ?? "",
+    render: (r) => (
+      <ReferrerTypeTag referrerId={r.id} initialType={r.referrer_type} />
     ),
   },
   {
