@@ -24,14 +24,34 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   };
 }
 
+/** Specific emails that should never be enrolled (shared/team/vendor accounts). */
+const BLOCKED_EMAILS = new Set([
+  "jordans@christmasair.com", // Install Team shared account
+]);
+
+/** Name substrings (case-insensitive) that should never be enrolled. */
+const BLOCKED_NAME_FRAGMENTS = [
+  "install team",
+  "best postcards",
+  "after hours",
+  "cxr team",
+];
+
 /** Filter out shared/team/system emails that shouldn't be enrolled. */
 function isPersonalEmail(email: string): boolean {
   const lower = email.toLowerCase();
+  if (BLOCKED_EMAILS.has(lower)) return false;
   const blockedDomains = ["slack.com"];
   const blockedPrefixes = ["approved-", "noreply", "no-reply", "donotreply", "notifications@", "alerts@"];
   if (blockedDomains.some((d) => lower.includes(`@${d}`))) return false;
   if (blockedPrefixes.some((p) => lower.startsWith(p))) return false;
   return true;
+}
+
+/** Filter out non-person ST accounts by name. */
+function isPersonName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return !BLOCKED_NAME_FRAGMENTS.some((frag) => lower.includes(frag));
 }
 
 export async function POST(req: NextRequest) {
@@ -107,12 +127,19 @@ export async function POST(req: NextRequest) {
   let skippedExisting = 0;
   let skippedNoEmail = 0;
   let skippedBadEmail = 0;
+  let skippedBlocked = 0;
   const errors: string[] = [];
 
   for (const person of combined) {
     // Already enrolled by ST ID
     if (existingStIds.has(String(person.id))) {
       skippedExisting++;
+      continue;
+    }
+
+    // Blocked by name (team/vendor accounts)
+    if (!isPersonName(person.name)) {
+      skippedBlocked++;
       continue;
     }
 
@@ -213,6 +240,7 @@ export async function POST(req: NextRequest) {
     skipped_existing: skippedExisting,
     skipped_no_email: skippedNoEmail,
     skipped_bad_email: skippedBadEmail,
+    skipped_blocked: skippedBlocked,
     errors,
   });
 }
