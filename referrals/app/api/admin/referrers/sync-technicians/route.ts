@@ -27,6 +27,8 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 /** Specific emails that should never be enrolled (shared/team/vendor accounts). */
 const BLOCKED_EMAILS = new Set([
   "jordans@christmasair.com", // Install Team shared account
+  "ar@christmasair.com",      // AR shared account
+  "admin@christmasair.com",   // Admin shared account
 ]);
 
 /** Name substrings (case-insensitive) that should never be enrolled. */
