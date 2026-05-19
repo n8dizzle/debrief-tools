@@ -1,15 +1,9 @@
 import { getServerSupabase } from "@/lib/supabase";
 import type { Charity, Referrer } from "@/lib/supabase";
-import STCustomerEdit from "./STCustomerEdit";
 import SyncTechsButton from "./SyncTechsButton";
-import DeleteReferrerButton from "./DeleteReferrerButton";
+import ReferrersTable, { type ReferrerRow } from "./ReferrersTable";
 
 export const dynamic = "force-dynamic";
-
-interface ReferrerRow extends Referrer {
-  charity?: { id: string; name: string } | null;
-  suggested_charity_name: string | null;
-}
 
 async function getReferrers(): Promise<ReferrerRow[]> {
   const supabase = getServerSupabase();
@@ -50,93 +44,7 @@ export default async function ReferrersPage() {
         <SyncTechsButton />
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead style={{ background: "var(--bg-muted)" }}>
-            <tr>
-              <Th>Name</Th>
-              <Th>Email</Th>
-              <Th>Code</Th>
-              <Th>ST customer</Th>
-              <Th>Charity</Th>
-              <Th className="text-right">Lifetime</Th>
-              <Th className="text-right">Earned</Th>
-              <Th className="text-right">Donated</Th>
-              <Th>Enrolled</Th>
-              <Th>{""}</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {referrers.map((r) => (
-              <tr key={r.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
-                <Td>
-                  {r.first_name} {r.last_name}
-                  {!r.is_active && (
-                    <span className="ml-2 text-xs opacity-60">(inactive)</span>
-                  )}
-                </Td>
-                <Td className="opacity-70">{r.email}</Td>
-                <Td>
-                  <code className="text-xs">{r.referral_code}</code>
-                </Td>
-                <Td>
-                  <STCustomerEdit
-                    referrerId={r.id}
-                    initialId={r.service_titan_id}
-                  />
-                </Td>
-                <Td className="text-xs">
-                  {r.charity ? (
-                    r.charity.name
-                  ) : r.suggested_charity_name ? (
-                    <span className="italic opacity-70">
-                      💡 {r.suggested_charity_name}
-                    </span>
-                  ) : (
-                    <span className="opacity-50">—</span>
-                  )}
-                </Td>
-                <Td className="text-right">{r.lifetime_referrals}</Td>
-                <Td className="text-right">${Number(r.total_earned).toFixed(0)}</Td>
-                <Td className="text-right">
-                  ${Number(r.total_donated_on_their_behalf).toFixed(0)}
-                </Td>
-                <Td className="opacity-70 text-xs">
-                  {new Date(r.enrolled_at).toLocaleDateString()}
-                </Td>
-                <Td>
-                  <DeleteReferrerButton
-                    referrerId={r.id}
-                    name={`${r.first_name} ${r.last_name}`}
-                  />
-                </Td>
-              </tr>
-            ))}
-            {referrers.length === 0 && (
-              <tr>
-                <td colSpan={10} className="p-8 text-center opacity-60">
-                  No referrers yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ReferrersTable rows={referrers} />
     </div>
   );
-}
-
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={`text-left p-3 text-xs font-semibold uppercase tracking-wide ${className}`}
-      style={{ color: "var(--text-muted)" }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <td className={`p-3 ${className}`}>{children}</td>;
 }
