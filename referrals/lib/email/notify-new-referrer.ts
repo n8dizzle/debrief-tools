@@ -2,7 +2,7 @@ import { getResend, getFromAddress } from "./resend";
 import { renderEmailLayout, escapeHtml } from "./layout";
 import type { Referrer, Charity } from "@/lib/supabase";
 
-const ADMIN_NOTIFY_EMAIL = "marketing@christmasair.com";
+const ADMIN_NOTIFY_EMAILS = ["marketing@christmasair.com", "jon@christmasair.com"];
 
 interface NotifyNewReferrerOpts {
   referrer: Referrer;
@@ -80,7 +80,7 @@ export async function notifyNewReferrerSignup(
 
   await getResend().emails.send({
     from: getFromAddress(),
-    to: ADMIN_NOTIFY_EMAIL,
+    to: ADMIN_NOTIFY_EMAILS,
     subject: `New referral sign-up: ${referrer.first_name} ${referrer.last_name}`,
     html: renderEmailLayout({
       preheader: `${referrer.first_name} ${referrer.last_name} (${referrer.email}) just joined the referral program.`,
