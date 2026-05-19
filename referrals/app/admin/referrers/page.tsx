@@ -2,6 +2,7 @@ import { getServerSupabase } from "@/lib/supabase";
 import type { Charity, Referrer } from "@/lib/supabase";
 import STCustomerEdit from "./STCustomerEdit";
 import SyncTechsButton from "./SyncTechsButton";
+import DeleteReferrerButton from "./DeleteReferrerButton";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export default async function ReferrersPage() {
               <Th className="text-right">Earned</Th>
               <Th className="text-right">Donated</Th>
               <Th>Enrolled</Th>
+              <Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -102,11 +104,17 @@ export default async function ReferrersPage() {
                 <Td className="opacity-70 text-xs">
                   {new Date(r.enrolled_at).toLocaleDateString()}
                 </Td>
+                <Td>
+                  <DeleteReferrerButton
+                    referrerId={r.id}
+                    name={`${r.first_name} ${r.last_name}`}
+                  />
+                </Td>
               </tr>
             ))}
             {referrers.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-8 text-center opacity-60">
+                <td colSpan={10} className="p-8 text-center opacity-60">
                   No referrers yet.
                 </td>
               </tr>

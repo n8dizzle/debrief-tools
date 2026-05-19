@@ -71,3 +71,25 @@ export async function PATCH(
     service_titan_id: data.service_titan_id,
   });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const admin = await requireReferralsAdmin("can_view_admin");
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { id } = await ctx.params;
+  const supabase = getServerSupabase();
+
+  const { error } = await supabase
+    .from("ref_referrers")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
