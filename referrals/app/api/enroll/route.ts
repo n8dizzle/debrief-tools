@@ -4,6 +4,7 @@ import { getServerSupabase } from "@/lib/supabase";
 import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
+import { notifyNewReferrerSignup } from "@/lib/email/notify-new-referrer";
 import { issueMagicLinkToken, issueSessionCookie } from "@/lib/customer-auth";
 import { sendMagicLinkEmail } from "@/lib/email/magic-link";
 import type { Charity, Referrer } from "@/lib/supabase";
@@ -202,6 +203,12 @@ export async function POST(req: NextRequest) {
       firstName: referrer.first_name,
       loginUrl: dashboardUrl,
     }).catch(() => {}),
+    notifyNewReferrerSignup({
+      referrer,
+      charity,
+      suggestedCharityName,
+      referralLink,
+    }).catch((err) => console.error("Admin notify email failed:", err)),
   ]).catch((err) => console.error("Welcome email batch failed:", err));
 
   return NextResponse.json({
