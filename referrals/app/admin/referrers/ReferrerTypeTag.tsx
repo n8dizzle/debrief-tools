@@ -17,10 +17,12 @@ const STYLES: Record<string, { bg: string; fg: string }> = {
 
 export default function ReferrerTypeTag({ referrerId, initialType }: Props) {
   const router = useRouter();
+  const [type, setType] = useState<ReferrerType>(initialType);
   const [busy, setBusy] = useState(false);
 
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newType = (e.target.value || null) as ReferrerType;
+    setType(newType);
     setBusy(true);
     try {
       await fetch(`/api/admin/referrers/${referrerId}`, {
@@ -34,11 +36,11 @@ export default function ReferrerTypeTag({ referrerId, initialType }: Props) {
     }
   }
 
-  const style = initialType ? STYLES[initialType] : null;
+  const style = type ? STYLES[type] : null;
 
   return (
     <select
-      defaultValue={initialType ?? ""}
+      value={type ?? ""}
       onChange={handleChange}
       disabled={busy}
       className="text-xs font-semibold rounded-full px-2 py-0.5 border-0 cursor-pointer"
