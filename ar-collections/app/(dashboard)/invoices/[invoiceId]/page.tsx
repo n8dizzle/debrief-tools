@@ -878,10 +878,9 @@ export default function InvoiceDetailPage() {
                   disabled={!canUpdateWorkflow}
                 >
                   <option value="">Not Set</option>
-                  <option value="cash">Cash</option>
-                  <option value="check">Check</option>
-                  <option value="card">Card</option>
-                  <option value="financing">Financing</option>
+                  {jobStatuses.filter(s => s.category === 'payment_type').map(status => (
+                    <option key={status.key} value={status.key}>{status.label}</option>
+                  ))}
                 </select>
               </div>
               {tracking?.payment_type === 'financing' && (
