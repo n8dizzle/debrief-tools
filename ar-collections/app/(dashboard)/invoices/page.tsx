@@ -131,7 +131,7 @@ function MultiSelectDropdown({
   );
 }
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'location_address' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'collection_status' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'estimate_sold_by' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'location_address' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'collection_status' | 'payment_type' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'estimate_sold_by' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -161,6 +161,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'balance', label: 'Balance', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'job_status', label: 'Work Status', sortable: false, minWidth: 100, defaultWidth: 130 },
   { id: 'collection_status', label: 'Collection Status', sortable: false, minWidth: 100, defaultWidth: 140 },
+  { id: 'payment_type', label: 'Payment Type', sortable: false, minWidth: 100, defaultWidth: 130 },
   { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'days_outstanding', label: 'Age', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
@@ -960,6 +961,20 @@ export default function InvoicesPage() {
           >
             <option value="">-</option>
             {jobStatuses.filter(s => s.category === 'collection').map(status => (
+              <option key={status.key} value={status.key}>{status.label}</option>
+            ))}
+          </select>
+        );
+      case 'payment_type':
+        return (
+          <select
+            className="select text-xs py-1"
+            value={invoice.tracking?.payment_type || ''}
+            onChange={(e) => updateTracking(invoice.id, 'payment_type', e.target.value || null)}
+            disabled={!canUpdateWorkflow}
+          >
+            <option value="">-</option>
+            {jobStatuses.filter(s => s.category === 'payment_type').map(status => (
               <option key={status.key} value={status.key}>{status.label}</option>
             ))}
           </select>
