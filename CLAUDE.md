@@ -104,6 +104,7 @@ This monorepo contains internal tools for Christmas Air Conditioning & Plumbing:
 | **Doc Dispatch** (`/doc-dispatch`) | https://docs.christmasair.com | Next.js | 3007 |
 | **HR Hub** (`/hr-hub`) | https://hr.christmasair.com | Next.js | 3010 |
 | **Referrals** (`/referrals`) | https://refer.christmasair.com | Next.js | 3011 |
+| **Parts & Equipment** (`/parts-equipment`) | https://orders.christmasair.com | Next.js | 3008 |
 
 ### Shared Package (`/packages/shared`)
 Common code shared across all Next.js apps:
@@ -419,6 +420,9 @@ can_access, can_view_onboardings, can_create_onboardings, can_manage_templates, 
 
 // referrals
 can_view_admin, can_manage_charities, can_manage_config, can_manage_settings
+
+// parts_equipment
+can_view, can_manage, can_sync_data
 ```
 
 ## Deployment
@@ -623,6 +627,7 @@ cd membership-manager && npm run dev # http://localhost:3006
 
 # Terminal 8 - HR Hub
 cd hr-hub && npm run dev              # http://localhost:3010
+cd parts-equipment && npm run dev    # http://localhost:3008
 ```
 
 ## Secret Scanning

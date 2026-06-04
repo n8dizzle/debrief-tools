@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parts Order Dashboard — Christmas Air</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e8ecf2;
+  --bg2: #dde2ea;
+  --surface: #ffffff;
+  --surface2: #f0f3f7;
+  --surface3: #e4e9f0;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.13);
+  --text: #1e2535;
+  --muted: #6b7592;
+  --muted2: #a0aabf;
+  --accent: #2d6be4;
+  --accent-dim: rgba(45,107,228,0.1);
+
+  --green: #1a9e6a;
+  --green-dim: rgba(26,158,106,0.1);
+  --amber: #d48a0a;
+  --amber-dim: rgba(212,138,10,0.1);
+  --red: #d63b3b;
+  --red-dim: rgba(214,59,59,0.1);
+  --purple: #7c5cbf;
+  --purple-dim: rgba(124,92,191,0.1);
+  --teal: #1a9aaa;
+  --teal-dim: rgba(26,154,170,0.1);
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* HEADER */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 500; color: #fff; letter-spacing: -0.5px;
+}
+.logo-text { font-size: 14px; font-weight: 600; color: var(--text); }
+.logo-sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.last-sync { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+.sync-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 5px; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+.btn {
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  font-size: 12.5px; font-weight: 500; font-family: inherit;
+  cursor: pointer; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text);
+  transition: all 0.15s; box-shadow: var(--shadow);
+}
+.btn:hover { background: var(--surface3); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: #2460cc; }
+.btn-success { background: var(--green); border-color: var(--green); color: #fff; }
+.btn-success:hover { background: #158a5a; }
+.btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-danger:hover { background: #bf3030; }
+
+/* STAT BAR */
+.stat-bar {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  gap: 12px; padding: 16px 24px;
+  background: var(--bg);
+}
+
+.stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 18px;
+  cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow);
+  position: relative; overflow: hidden;
+}
+.stat:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.stat.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow); }
+.stat.active::before { content:''; position:absolute; top:0;left:0;right:0; height:3px; background:var(--accent); }
+
+.stat-num { font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:500; line-height:1; margin-bottom:4px; }
+.stat-label { font-size:11px; color:var(--muted); font-weight:400; text-transform:uppercase; letter-spacing:0.5px; }
+.stat-num.col-green { color:var(--green); }
+.stat-num.col-amber { color:var(--amber); }
+.stat-num.col-red { color:var(--red); }
+.stat-num.col-accent { color:var(--accent); }
+
+/* AGING BANNER */
+.aging-banner {
+  margin: 0 24px 4px; background: #fff5f5;
+  border: 1px solid rgba(214,59,59,0.2); border-radius: var(--radius);
+  padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; box-shadow: var(--shadow);
+}
+.aging-count { background:var(--red); color:#fff; border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600; font-family:'IBM Plex Mono',monospace; }
+
+/* OWNER BAR */
+.owner-bar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 10px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.owner-card {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 10px 16px;
+  cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow);
+  min-width: 130px;
+}
+.owner-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.owner-card.active { box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow); }
+
+.owner-card-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.owner-card-info { display: flex; flex-direction: column; }
+.owner-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.owner-card-count { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; line-height: 1.1; margin-top: 2px; }
+.owner-card-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
+
+/* TOOLBAR */
+.toolbar {
+  padding: 12px 24px; display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; background: var(--surface);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.search-wrap { position:relative; flex:1; min-width:200px; max-width:300px; }
+.search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); opacity:0.4; }
+.search-input {
+  width:100%; background:var(--surface2); border:1px solid var(--border2);
+  border-radius:var(--radius-sm); padding:7px 10px 7px 32px;
+  font-size:12px; color:var(--text); font-family:inherit; outline:none; transition:border-color 0.15s;
+}
+.search-input:focus { border-color:var(--accent); }
+.search-input::placeholder { color:var(--muted2); }
+
+select.filter {
+  background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius-sm);
+  padding:7px 28px 7px 10px; font-size:12px; color:var(--text); font-family:inherit;
+  outline:none; cursor:pointer; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7592'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center; transition:border-color 0.15s;
+}
+select.filter:focus { border-color:var(--accent); }
+.row-count { font-size:11px; color:var(--muted); margin-left:auto; font-family:'IBM Plex Mono',monospace; }
+
+/* TABLE */
+.table-wrap { padding: 16px 24px; overflow-x: auto; }
+
+table { width:100%; border-collapse:separate; border-spacing:0 4px; font-size:12.5px; min-width:960px; }
+
+thead tr th {
+  text-align:left; padding:6px 12px;
+  font-size:10.5px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.6px; color:var(--muted); cursor:pointer; user-select:none; white-space:nowrap;
+}
+th:hover { color:var(--text); }
+th.sorted { color:var(--accent); }
+th .sort-arrow { opacity:0.3; margin-left:3px; font-size:9px; }
+th.sorted .sort-arrow { opacity:1; }
+
+tbody tr {
+  background:var(--surface); cursor:pointer;
+  transition: all 0.12s; box-shadow: var(--shadow);
+}
+tbody tr:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+td { padding:11px 12px; vertical-align:middle; }
+td:first-child { border-radius:var(--radius) 0 0 var(--radius); }
+td:last-child { border-radius:0 var(--radius) var(--radius) 0; }
+
+.age-flag { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; flex-shrink:0; }
+.age-ok { background:var(--green); }
+.age-warn { background:var(--amber); }
+.age-over { background:var(--red); }
+.date-cell { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); white-space:nowrap; display:flex; align-items:center; }
+.job-link { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent); text-decoration:none; border-bottom:1px dashed rgba(45,107,228,0.3); }
+.job-link:hover { border-color:var(--accent); }
+.tech-name { font-weight:500; font-size:12px; }
+.cust-name { font-size:12px; color:var(--text); }
+.cust-sub { font-size:11px; color:var(--muted); margin-top:1px; }
+.part-name { font-size:12px; max-width:170px; line-height:1.4; }
+.part-supplier { font-size:11px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono',monospace; }
+.age-cell { font-family:'IBM Plex Mono',monospace; font-size:11px; white-space:nowrap; }
+.age-ok-text { color:var(--green); }
+.age-warn-text { color:var(--amber); }
+.age-over-text { color:var(--red); font-weight:600; }
+.warranty { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted); }
+.warranty.yes { color:var(--amber); font-weight:500; }
+
+/* PILLS */
+.pill { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:500; white-space:nowrap; }
+.pill-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.pill-place-order { background:var(--amber-dim); color:var(--amber); }
+.pill-place-order .pill-dot { background:var(--amber); }
+.pill-shipping { background:var(--accent-dim); color:var(--accent); }
+.pill-shipping .pill-dot { background:var(--accent); }
+.pill-argyle { background:var(--green-dim); color:var(--green); }
+.pill-argyle .pill-dot { background:var(--green); }
+.pill-backordered { background:var(--red-dim); color:var(--red); }
+.pill-backordered .pill-dot { background:var(--red); }
+.pill-lewisville { background:var(--teal-dim); color:var(--teal); }
+.pill-lewisville .pill-dot { background:var(--teal); }
+.pill-cancel { background:var(--surface3); color:var(--muted); }
+.pill-cancel .pill-dot { background:var(--muted2); }
+.pill-pickup { background:var(--purple-dim); color:var(--purple); }
+.pill-pickup .pill-dot { background:var(--purple); }
+
+.pill-waiting { background:var(--amber-dim); color:var(--amber); }
+.pill-waiting .pill-dot { background:var(--amber); }
+.pill-completed { background:var(--green-dim); color:var(--green); }
+.pill-completed .pill-dot { background:var(--green); }
+.pill-duct { background:rgba(26,154,170,0.1); color:#1a9aaa; }
+.pill-duct .pill-dot { background:#1a9aaa; }
+
+/* OWNER BADGES */
+.owner { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+.owner-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.o-jordon,.o-matt { background:rgba(214,59,59,0.1); color:#d63b3b; }
+.o-jordon .owner-dot,.o-matt .owner-dot { background:#d63b3b; }
+.o-ruben { background:rgba(45,107,228,0.1); color:#2d6be4; }
+.o-ruben .owner-dot { background:#2d6be4; }
+.o-john { background:rgba(26,158,106,0.1); color:#1a9e6a; }
+.o-john .owner-dot { background:#1a9e6a; }
+.o-rachel { background:rgba(26,154,170,0.1); color:#1a9aaa; }
+.o-rachel .owner-dot { background:#1a9aaa; }
+.o-jordan { background:rgba(212,138,10,0.1); color:#d48a0a; }
+.o-jordan .owner-dot { background:#d48a0a; }
+.o-cxr { background:rgba(124,92,191,0.1); color:#7c5cbf; }
+.o-cxr .owner-dot { background:#7c5cbf; }
+.o-hannah { background:rgba(160,110,220,0.1); color:#a06edc; }
+.o-hannah .owner-dot { background:#a06edc; }
+.o-tina { background:rgba(107,117,146,0.1); color:#6b7592; }
+.o-tina .owner-dot { background:#6b7592; }
+.o-cxr { background:rgba(124,92,191,0.1); color:#7c5cbf; }
+.o-cxr .owner-dot { background:#7c5cbf; }
+.o-warehouse { background:rgba(26,158,106,0.1); color:#1a9e6a; }
+.o-warehouse .owner-dot { background:#1a9e6a; }
+.o-servicemanager { background:rgba(214,59,59,0.1); color:#d63b3b; }
+.o-servicemanager .owner-dot { background:#d63b3b; }
+.o-installmanager { background:rgba(26,154,170,0.1); color:#1a9aaa; }
+.o-installmanager .owner-dot { background:#1a9aaa; }
+.o-sales { background:rgba(212,138,10,0.1); color:#d48a0a; }
+.o-sales .owner-dot { background:#d48a0a; }
+
+/* MODAL */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(30,37,53,0.45);
+  z-index:200; display:flex; align-items:flex-start; justify-content:flex-end;
+  opacity:0; pointer-events:none; transition:opacity 0.2s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal {
+  width:480px; height:100vh; background:var(--surface);
+  border-left:1px solid var(--border); padding:24px; overflow-y:auto;
+  transform:translateX(40px); transition:transform 0.2s;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+}
+.modal-overlay.open .modal { transform:translateX(0); }
+.modal-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; }
+.modal-title { font-size:16px; font-weight:600; }
+.modal-sub { font-size:12px; color:var(--muted); margin-top:3px; font-family:'IBM Plex Mono',monospace; }
+.close-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:18px; padding:2px; }
+.close-btn:hover { color:var(--text); }
+
+.detail-section { margin-bottom:20px; }
+.detail-label { font-size:10.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); margin-bottom:8px; font-weight:600; }
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.detail-item { background:var(--surface2); border-radius:var(--radius-sm); padding:10px 12px; border:1px solid var(--border); }
+.detail-item-label { font-size:10.5px; color:var(--muted); margin-bottom:3px; }
+.detail-item-val { font-size:12.5px; font-weight:500; }
+.detail-item-val.mono { font-family:'IBM Plex Mono',monospace; font-size:12px; }
+
+/* EDITABLE FIELDS IN MODAL */
+.edit-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.edit-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:var(--muted); min-width:110px; }
+.edit-select, .edit-input {
+  flex:1; background:var(--surface2); border:1px solid var(--border2);
+  border-radius:var(--radius-sm); padding:7px 10px; font-size:12.5px;
+  color:var(--text); font-family:inherit; outline:none; transition:border-color 0.15s;
+}
+.edit-select:focus, .edit-input:focus { border-color:var(--accent); }
+.edit-select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7592'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; cursor:pointer; }
+
+.notes-area {
+  width:100%; background:var(--surface2); border:1px solid var(--border2);
+  border-radius:var(--radius-sm); padding:10px 12px; font-size:12.5px;
+  color:var(--text); font-family:inherit; outline:none; resize:vertical;
+  min-height:64px; transition:border-color 0.15s; line-height:1.6;
+}
+.notes-area:focus { border-color:var(--accent); }
+
+.save-bar {
+  display:flex; gap:8px; padding:12px 0 0;
+  border-top:1px solid var(--border); margin-top:16px;
+}
+
+/* CLOSE OUT SECTION */
+.closeout-box {
+  background:#f0faf5; border:1px solid rgba(26,158,106,0.25);
+  border-radius:var(--radius); padding:16px; margin-top:16px;
+  transition: background 0.3s, border-color 0.3s;
+}
+.closeout-box h4 { font-size:12px; font-weight:600; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.4px; }
+.closeout-box.scheduled { background:#d4f5e5; border-color:rgba(26,158,106,0.6); }
+.closeout-box.scheduled h4 { color:#0e7a50; }
+.check-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:13px; }
+.check-row input[type=checkbox] { width:15px; height:15px; accent-color:var(--green); cursor:pointer; }
+.check-row label { cursor:pointer; }
+
+/* CANCEL SECTION */
+.cancel-box {
+  background:#fff8f8; border:1px solid rgba(214,59,59,0.2);
+  border-radius:var(--radius); padding:16px; margin-top:12px;
+}
+.cancel-box h4 { font-size:12px; font-weight:600; color:var(--red); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.4px; }
+
+.backorder-box {
+  background:#fffbf0; border:1px solid rgba(212,138,10,0.3);
+  border-radius:var(--radius); padding:16px; margin-top:12px;
+  transition: background 0.3s, border-color 0.3s;
+}
+.backorder-box.notified { background:#edfaf3; border-color:rgba(26,158,106,0.4); }
+.backorder-box h4 { font-size:12px; font-weight:600; color:var(--amber); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.4px; }
+.backorder-box.notified h4 { color:var(--green); }
+
+/* COMPLETED ROW STYLE */
+tbody tr.completed-row { opacity:0.55; }
+tbody tr.completed-row td { text-decoration: none; }
+
+
+
+/* INLINE EDIT CELLS */
+.inline-select {
+  background: transparent; border: none; font-size: 11px;
+  font-family: inherit; color: inherit; cursor: pointer;
+  width: 100%; padding: 0; outline: none; appearance: none;
+  -webkit-appearance: none;
+}
+.inline-cell {
+  position: relative; cursor: pointer;
+}
+.inline-cell:hover .inline-pill-wrap { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 20px; }
+.inline-cell select { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+
+/* BACKORDER — bright yellow, highest priority */
+tbody tr.bo-row { background: #fff8c0; }
+tbody tr.bo-row:hover { background: #fff099; }
+tbody tr.bo-row td { border-top: 1px solid #e6d800; border-bottom: 1px solid #e6d800; }
+tbody tr.bo-row td:first-child { border-left: 4px solid #c8b800; padding-left: 9px; }
+
+/* CANCEL PO — bright orange */
+tbody tr.cancel-row { background: #ffe8cc; }
+tbody tr.cancel-row:hover { background: #ffd4a0; }
+tbody tr.cancel-row td { border-top: 1px solid #f59030; border-bottom: 1px solid #f59030; }
+tbody tr.cancel-row td:first-child { border-left: 4px solid #e07000; padding-left: 9px; }
+
+/* WAREHOUSE OWNER — blue */
+tbody tr.owner-warehouse { background: #e8f2ff; }
+tbody tr.owner-warehouse:hover { background: #d4e6ff; }
+tbody tr.owner-warehouse td:first-child { border-left: 4px solid #2d6be4; padding-left: 9px; }
+
+/* CXR OWNER — green */
+tbody tr.owner-cxr { background: #edfaf3; }
+tbody tr.owner-cxr:hover { background: #d8f5e6; }
+tbody tr.owner-cxr td:first-child { border-left: 4px solid #1a9e6a; padding-left: 9px; }
+
+/* SCHEDULED — bright green, overrides owner colors */
+tbody tr.scheduled-row { background: #d4f5e4; }
+tbody tr.scheduled-row:hover { background: #baeeda; }
+tbody tr.scheduled-row td { border-top: 1px solid #1a9e6a; border-bottom: 1px solid #1a9e6a; }
+tbody tr.scheduled-row td:first-child { border-left: 4px solid #0e7a50; padding-left: 9px; }
+
+/* OVER 30 DAYS — red left border accent only */
+tbody tr.aged-row td:first-child { border-left: 4px solid #d63b3b; padding-left: 9px; }
+
+/* ADD ORDER FORM */
+.form-group { margin-bottom:14px; }
+.form-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:var(--muted); margin-bottom:5px; display:block; }
+.form-input,.form-select,.form-textarea {
+  width:100%; background:var(--surface2); border:1px solid var(--border2);
+  border-radius:var(--radius-sm); padding:8px 10px; font-size:12.5px;
+  color:var(--text); font-family:inherit; outline:none; transition:border-color 0.15s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus { border-color:var(--accent); }
+.form-textarea { resize:vertical; min-height:64px; }
+.form-select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7592'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; cursor:pointer; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+.divider { border:none; border-top:1px solid var(--border); margin:16px 0; }
+
+.empty { text-align:center; padding:60px 20px; color:var(--muted); }
+.empty-icon { font-size:32px; margin-bottom:12px; opacity:0.3; }
+
+.toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--text); color:#fff; padding:10px 20px; border-radius:var(--radius);
+  font-size:13px; font-weight:500; opacity:0; transition:all 0.25s; pointer-events:none; z-index:999;
+  box-shadow:var(--shadow-md);
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* COLUMN MANAGER */
+.col-manager-btn { position:relative; }
+.col-manager-dropdown {
+  position:absolute; top:calc(100% + 6px); right:0; z-index:300;
+  background:var(--surface); border:1px solid var(--border2); border-radius:var(--radius);
+  box-shadow:var(--shadow-md); padding:10px 0; min-width:200px; display:none;
+}
+.col-manager-dropdown.open { display:block; }
+.col-manager-item {
+  display:flex; align-items:center; gap:8px; padding:7px 16px;
+  font-size:12.5px; cursor:pointer; transition:background 0.1s;
+}
+.col-manager-item:hover { background:var(--surface2); }
+.col-manager-item input { accent-color:var(--accent); cursor:pointer; width:14px; height:14px; }
+
+/* AUDIT TRAIL */
+.audit-panel {
+  position:fixed; inset:0; background:rgba(30,37,53,0.45);
+  z-index:200; display:none; align-items:flex-start; justify-content:flex-end;
+}
+.audit-panel.open { display:flex; }
+.audit-inner {
+  width:480px; height:100vh; background:var(--surface);
+  border-left:1px solid var(--border); padding:24px; overflow-y:auto;
+  box-shadow:-4px 0 24px rgba(0,0,0,0.1);
+}
+.audit-entry {
+  padding:12px 0; border-bottom:1px solid var(--border); display:flex; gap:12px;
+}
+.audit-entry:last-child { border-bottom:none; }
+.audit-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:5px; }
+.audit-time { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted); white-space:nowrap; }
+.audit-action { font-size:12.5px; color:var(--text); line-height:1.5; }
+.audit-job { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent); }
+.audit-filter { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.audit-filter-btn { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:500; cursor:pointer; border:1px solid var(--border2); background:var(--surface2); color:var(--muted); transition:all 0.15s; font-family:inherit; }
+.audit-filter-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+@media(max-width:768px){
+  .stat-bar { grid-template-columns:repeat(3,1fr); }
+  .modal { width:100%; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">CA</div>
+    <div><div class="logo-text">Christmas Air <span class="logo-sub">/ Parts Orders</span></div></div>
+  </div>
+  <div class="header-right">
+    <div class="last-sync"><span class="sync-dot"></span>Live · <span id="sync-time">just now</span></div>
+    <button class="btn btn-primary" onclick="openAddModal()">+ New Order</button>
+  </div>
+</header>
+
+<div class="stat-bar" id="stat-bar">
+  <div class="stat active" onclick="filterStatus('all',this)">
+    <div class="stat-num col-accent" id="stat-all">0</div>
+    <div class="stat-label">All Open</div>
+  </div>
+  <div class="stat" onclick="filterStatus('Place Order',this)">
+    <div class="stat-num col-amber" id="stat-place">0</div>
+    <div class="stat-label">Place Order</div>
+  </div>
+  <div class="stat" onclick="filterStatus('Shipping to Shop',this)">
+    <div class="stat-num col-accent" id="stat-ship">0</div>
+    <div class="stat-label">In Transit</div>
+  </div>
+  <div class="stat" onclick="filterStatus('Backordered',this)">
+    <div class="stat-num col-red" id="stat-bo">0</div>
+    <div class="stat-label">Backordered</div>
+  </div>
+  <div class="stat" onclick="filterStatus('cxr-ready',this)">
+    <div class="stat-num col-green" id="stat-ready">0</div>
+    <div class="stat-label">CXR / Schedule</div>
+  </div>
+  <div class="stat" id="stat-aging-card" onclick="filterStatus('aging',this)">
+    <div class="stat-num col-red" id="stat-aging">0</div>
+    <div class="stat-label">Over 30 Days</div>
+  </div>
+  <div class="stat" id="stat-completed-card" onclick="filterStatus('completed-all',this)">
+    <div class="stat-num col-green" id="stat-completed">0</div>
+    <div class="stat-label">Completed</div>
+  </div>
+</div>
+
+<!-- OWNER BAR -->
+<div class="owner-bar" id="owner-bar"></div>
+
+<div id="aging-banner" class="aging-banner" style="display:none">
+  <span class="aging-count" id="aging-count">0</span>
+  <span style="color:var(--red);font-weight:500;">Orders over 30 days</span>
+  <span style="color:var(--muted)">— review notes or initiate Cancel PO</span>
+  <button class="btn" style="margin-left:auto;font-size:11px;padding:4px 10px;" onclick="filterStatus('aging',document.getElementById('stat-aging-card'))">View all</button>
+</div>
+
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input class="search-input" type="text" placeholder="Search job, customer, tech, part..." oninput="applyFilters()" id="search"/>
+  </div>
+  <select class="filter" onchange="applyFilters()" id="filter-owner">
+    <option value="">All owners</option>
+    <option>CXR</option>
+    <option>Warehouse</option>
+    <option>Service Manager</option>
+    <option>Install Manager</option>
+    <option>Sales</option>
+          <option>Rachel</option>
+        </select>
+  <select class="filter" onchange="applyFilters()" id="filter-type">
+    <option value="">All types</option>
+    <option>Parts</option><option>Equipment</option><option>W/Parts</option><option>Insulation</option><option>Duct Cleaning</option>
+  </select>
+  <select class="filter" onchange="applyFilters()" id="filter-location">
+    <option value="">All locations</option>
+    <option>Place Order</option><option>Shipping to Shop</option>
+    <option>Backordered</option><option>Lewisville Shop</option><option>P/U Supply House</option>
+    <option>Shipping to Supplier</option><option>Waiting for Tech/Cus</option><option>Duct Cleaning - Schedule</option>
+  </select>
+  <select class="filter" onchange="applyFilters()" id="filter-show">
+    <option value="open">Open orders</option>
+    <option value="completed">Completed orders</option>
+    <option value="all">All orders</option>
+  </select>
+  <span class="row-count" id="row-count"></span>
+  <div class="col-manager-btn">
+    <button class="btn" onclick="toggleColManager()" id="col-mgr-btn" title="Show/hide columns">⊞ Columns</button>
+    <div class="col-manager-dropdown" id="col-manager">
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(0,this)"><span>Date</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(1,this)"><span>Job #</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(2,this)"><span>Tech</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(3,this)"><span>Customer</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(4,this)"><span>Part / Equipment</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(5,this)"><span>Location</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(6,this)"><span>Owner</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(7,this)"><span>Warranty</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(8,this)"><span>Age</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(9,this)"><span>ETA</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(10,this)"><span>Scheduled</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(11,this)"><span>WH Notes</span></div>
+      <div class="col-manager-item"><input type="checkbox" checked onchange="toggleCol(12,this)"><span>CXR Notes</span></div>
+    </div>
+  </div>
+  <button class="btn" onclick="openAudit()" title="Audit trail">📋 Audit</button>
+</div>
+
+<div class="table-wrap">
+  <table id="orders-table">
+    <thead>
+      <tr>
+        <th onclick="sortBy('date')">Date <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('job')">Job # <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('tech')">Tech <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('customer')">Customer <span class="sort-arrow">↕</span></th>
+        <th>Part / Equipment</th>
+        <th onclick="sortBy('location')">Location <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('owner')">Owner <span class="sort-arrow">↕</span></th>
+        <th>Warranty</th>
+        <th onclick="sortBy('age')">Age <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('eta')">ETA <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('scheduledDate')">Scheduled <span class="sort-arrow">↕</span></th>
+        <th>WH Notes</th>
+        <th>CXR Notes</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+  <div class="empty" id="empty-state" style="display:none">
+    <div class="empty-icon">◎</div>
+    <p>No orders match your filters.</p>
+  </div>
+</div>
+
+<!-- DETAIL / EDIT MODAL -->
+<div class="modal-overlay" id="detail-modal" onclick="closeModalClick(event,'detail-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="m-customer"></div>
+        <div class="modal-sub" id="m-job"></div>
+      </div>
+      <button class="close-btn" onclick="closeModal('detail-modal')">✕</button>
+    </div>
+
+    <!-- Read-only info -->
+    <div class="detail-section">
+      <div class="detail-label">Job details</div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-item-label">Technician</div><div class="detail-item-val" id="m-tech"></div></div>
+        <div class="detail-item"><div class="detail-item-label">Type</div><div class="detail-item-val" id="m-type"></div></div>
+        <div class="detail-item"><div class="detail-item-label">Date added</div><div class="detail-item-val mono" id="m-date"></div></div>
+        <div class="detail-item"><div class="detail-item-label">Age</div><div class="detail-item-val mono" id="m-age"></div></div>
+        <div id="equip-row" class="detail-item" style="grid-column:1/-1">
+          <div class="detail-item-label" style="display:flex;align-items:center;justify-content:space-between;">
+            Part / Equipment
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:0.4px;">
+              <input type="checkbox" id="chk-equipment" onchange="equipmentTypeChanged()" style="width:14px;height:14px;accent-color:var(--teal);cursor:pointer;">
+              <span id="equip-label">Equipment order</span>
+            </label>
+          </div>
+          <input class="edit-input" type="text" id="m-part" placeholder="Part or equipment description" style="margin-top:6px;width:100%;font-size:12.5px;font-weight:500;"/>
+        </div>
+        <div class="detail-item"><div class="detail-item-label">Supplier</div><div class="detail-item-val mono" id="m-supplier"></div></div>
+        <div class="detail-item"><div class="detail-item-label">Order #</div><div class="detail-item-val mono" id="m-order-num"></div></div>
+        <div class="detail-item"><div class="detail-item-label">Cost of part</div><div class="detail-item-val mono" id="m-cost"></div></div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- EDITABLE FIELDS -->
+    <div class="detail-section">
+      <div class="detail-label">Update order</div>
+
+      <div class="edit-row">
+        <span class="edit-label">Owner of ticket</span>
+        <select class="edit-select" id="e-owner">
+          <option>CXR</option>
+          <option>Warehouse</option>
+          <option>Service Manager</option>
+          <option>Install Manager</option>
+          <option>Sales</option>
+          <option>Rachel</option>
+        </select>
+      </div>
+
+      <div class="edit-row">
+        <span class="edit-label">Location / Status</span>
+        <select class="edit-select" id="e-location" onchange="panelLocationChanged(this.value)">
+          <option>Place Order</option>
+          <option>Shipping to Shop</option>
+          <option>Backordered</option>
+          <option>Lewisville Shop</option>
+          <option>P/U Supply House</option>
+          <option>Waiting for Tech/Cus</option>
+          <option>Shipping to Supplier</option>
+          <option>Cancel PO</option>
+          <option>Duct Cleaning - Schedule</option>
+        </select>
+      </div>
+
+      <div class="edit-row" id="supplier-row">
+        <span class="edit-label">Ordered from</span>
+        <select class="edit-select" id="e-supplier">
+          <option value="">— select supplier —</option>
+          <option>STOCK</option>
+          <option>Shear - Allen</option><option>Shear - Carr</option><option>Shear - Den</option><option>Shear - FW</option>
+          <option>CE - Allen</option><option>CE - Carr</option><option>CE - Dallas</option><option>CE - Denton</option><option>CE - FW</option><option>CE - SW FW</option><option>CE - Gar</option><option>CE - Sher</option>
+          <option>Lennox - Allen</option><option>Lennox - Carr</option><option>Lennox Ft Worth</option><option>Lennox - Grand Prairie</option><option>Lennox - Lew</option><option>Lennox - Southlake</option><option>Lennox Garland</option>
+          <option>Good - Allen</option><option>Good - Carr</option><option>Good - Den</option><option>Good - NFW</option>
+          <option>Century Supply - Dallas</option><option>Century Supply - Fort Worth</option><option>Century Supply - Richardson</option>
+          <option>Reece - Den</option><option>Reece (Carrollton)</option><option>Reece - Gar</option>
+          <option>Baker Denton</option><option>Baker Lewisville</option>
+          <option>AACA Lewisville</option><option>AC Supply</option><option>Amazon</option><option>Am. Stand</option><option>AMSCO</option>
+          <option>Barsco Denton</option><option>Ferguson</option><option>FISSCO Supply - Denton</option><option>Gemaire</option>
+          <option>Home Depot</option><option>INSCO</option><option>Johnson (N. Beach)</option><option>Johnstone Supply</option>
+          <option>Locke</option><option>M&amp;M Metals</option><option>ONLINE SITE</option><option>RepairClinic.com</option>
+          <option>Standard Supply</option><option>SupplyHouse.com</option><option>Trane</option>
+          <option>United Refrigeration</option><option>WinSupply</option>
+        </select>
+      </div>
+
+      <div class="edit-row" id="ordernum-row">
+        <span class="edit-label">Order #</span>
+        <input class="edit-input" type="text" id="e-order-num" placeholder="DE015375"/>
+      </div>
+
+      <div class="edit-row" id="cost-row">
+        <span class="edit-label">Cost of part</span>
+        <input class="edit-input" type="text" id="e-cost" placeholder="$0.00"/>
+      </div>
+
+      <div class="edit-row">
+        <span class="edit-label">ETA / Scheduled</span>
+        <input class="edit-input" type="date" id="e-eta"/>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div class="detail-label" style="margin-bottom:5px;">Notes from Warehouse</div>
+        <textarea class="notes-area" id="e-notes-wh" placeholder="Warehouse internal notes..."></textarea>
+      </div>
+
+      <div>
+        <div class="detail-label" style="margin-bottom:5px;">Notes from CXR</div>
+        <textarea class="notes-area" id="e-notes-cxr" placeholder="Customer contact attempts, scheduling notes..."></textarea>
+      </div>
+    </div>
+
+    <!-- BACKORDER NOTIFICATION SECTION -->
+    <div class="backorder-box" id="backorder-box" style="display:none">
+      <h4>Backorder — customer notification</h4>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.6;">This part is backordered. CXR must notify the customer and confirm below before the ticket returns to Warehouse.</p>
+
+      <div class="check-row" style="margin-bottom:10px;">
+        <input type="checkbox" id="chk-bo-notified" onclick="checkBoNotified()">
+        <label for="chk-bo-notified" style="font-size:12.5px;">Customer notified of backorder</label>
+      </div>
+
+      <div id="bo-date-row" style="display:none;margin-bottom:12px;">
+        <div class="detail-label" style="margin-bottom:4px;">Date customer was notified</div>
+        <input class="edit-input" type="date" id="e-bo-notified-date" style="width:100%"/>
+      </div>
+
+      <div id="bo-handoff-banner" style="display:none;padding:9px 12px;background:rgba(26,158,106,0.08);border:1px solid rgba(26,158,106,0.25);border-radius:var(--radius-sm);margin-bottom:10px;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:#1a9e6a;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;">Owner updated</span>
+        <span style="font-size:12px;color:#1a9e6a;">Ticket owner set to <strong>Warehouse</strong> — warehouse to watch for part arrival</span>
+      </div>
+
+      <button class="btn" id="bo-confirm-btn" onclick="confirmBoNotified()" disabled
+        style="width:100%;padding:9px;font-size:12.5px;background:var(--amber);border-color:var(--amber);color:#fff;">
+        Confirm &amp; return to Warehouse
+      </button>
+    </div>
+
+    <!-- CLOSE OUT SECTION -->
+    <div class="closeout-box" id="closeout-box">
+      <h4>Close out</h4>
+      <div class="check-row">
+        <input type="checkbox" id="chk-scheduled" onclick="checkCloseout()">
+        <label for="chk-scheduled">Job scheduled on technician</label>
+      </div>
+      <div id="scheduled-date-row" style="display:none;margin-top:10px;">
+        <div class="detail-label" style="margin-bottom:4px;">Scheduled date</div>
+        <input class="edit-input" type="date" id="e-scheduled-date" style="width:100%" oninput="saveScheduledDate()"/>
+        <p style="font-size:11px;color:#1a9e6a;margin-top:5px;line-height:1.5;">Row will move to completed automatically once this date has passed.</p>
+      </div>
+      <div id="completed-by-row" style="display:none;margin-top:10px;">
+        <div class="detail-label" style="margin-bottom:4px;">Completed by</div>
+        <input class="edit-input" type="text" id="completed-by" placeholder="Your name" style="width:100%"/>
+      </div>
+      <button class="btn btn-success" id="close-out-btn" onclick="closeOutOrder()" disabled style="width:100%;margin-top:10px;padding:9px;font-size:13px;">
+        Mark complete &amp; move to Parts Completed
+      </button>
+    </div>
+
+    <!-- CANCEL PO SECTION -->
+    <div class="cancel-box">
+      <h4>Cancel PO</h4>
+
+      <div style="margin-bottom:12px;">
+        <div class="detail-label" style="margin-bottom:5px;color:var(--red);">Step 1 — CXR / Customer reason</div>
+        <select class="edit-select" id="e-cancel-source" style="margin-bottom:8px;width:100%;" onchange="checkCancelReady()">
+          <option value="">Who is requesting the cancel?</option>
+          <option>Customer requested cancellation</option>
+          <option>Customer unreachable — 3 texts &amp; 3 calls exhausted</option>
+          <option>Customer declined after follow-up</option>
+          <option>Duplicate order</option>
+          <option>Tech resolved without part</option>
+          <option>Other</option>
+        </select>
+        <textarea class="notes-area" id="e-cancel-reason" placeholder="Add any additional detail about why the PO is being cancelled..." style="min-height:54px;"></textarea>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Remember: cancel the estimate in ServiceTitan so it clears the Follow Up section.</p>
+      </div>
+
+      <div id="cancel-handoff-banner" style="display:none;margin-bottom:10px;padding:9px 12px;background:rgba(26,158,106,0.08);border:1px solid rgba(26,158,106,0.25);border-radius:var(--radius-sm);align-items:center;gap:8px;">
+        <span style="font-size:11px;color:#1a9e6a;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;">Owner updated</span>
+        <span style="font-size:12px;color:#1a9e6a;">Ticket owner set to <strong>Warehouse</strong> — warehouse must now cancel PO with vendor</span>
+      </div>
+
+      <div style="margin-bottom:12px;padding:12px;background:rgba(214,59,59,0.05);border-radius:var(--radius-sm);border:1px solid rgba(214,59,59,0.15);">
+        <div class="detail-label" style="margin-bottom:6px;color:var(--red);">Step 2 — Warehouse cancels PO with vendor</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;min-width:60px;">Owner</span>
+          <span id="cancel-owner-badge" style="font-size:12px;"></span>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="chk-vendor-cancelled" onclick="checkCancelReady()">
+          <label for="chk-vendor-cancelled" style="font-size:12.5px;">PO cancelled with vendor / supplier</label>
+        </div>
+      </div>
+
+      <button class="btn btn-danger" id="cancel-btn" onclick="cancelOrder()" disabled style="width:100%;padding:9px;font-size:12.5px;">Archive row &amp; move to cancelled</button>
+    </div>
+
+    <div class="save-bar">
+      <button class="btn btn-primary" onclick="saveChanges()" style="flex:1;padding:9px;font-size:13px;">Save changes</button>
+      <button class="btn" onclick="openSTJob()" style="padding:9px 14px;">Open in ST ↗</button>
+      <button class="btn" onclick="closeModal('detail-modal')" style="padding:9px 14px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ORDER MODAL -->
+<div class="modal-overlay" id="add-modal" onclick="closeModalClick(event,'add-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div><div class="modal-title">New parts order</div><div class="modal-sub">Add from Dispatch Pro queue</div></div>
+      <button class="close-btn" onclick="closeModal('add-modal')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="f-date"/></div>
+      <div class="form-group"><label class="form-label">Job # (PO)</label><input class="form-input" type="text" placeholder="179247769" id="f-job"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Technician</label>
+        <select class="form-select" id="f-tech">
+          <option value="">Select tech</option>
+          <option>Keith</option><option>Jack</option><option>Jacob</option><option>Kaileb</option>
+          <option>Santi</option><option>Jonathan</option><option>Braulio</option><option>Eduardo</option>
+          <option>John</option><option>Brett</option><option>Luke</option><option>Phil</option><option>Eric</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Type</label>
+        <select class="form-select" id="f-type">
+          <option>Parts</option><option>W/Parts</option><option>Equipment</option><option>Insulation</option><option>Duct Cleaning</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Customer name</label><input class="form-input" type="text" placeholder="John Smith" id="f-customer"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Owner of ticket</label>
+        <select class="form-select" id="f-owner">
+          <option>CXR</option>
+          <option>Warehouse</option>
+          <option>Service Manager</option>
+          <option>Install Manager</option>
+          <option>Sales</option>
+          <option>Rachel</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Warranty</label>
+        <select class="form-select" id="f-warranty">
+          <option value="No">No</option><option value="P">P</option><option value="P/L">P/L</option><option value="E/L">E/L</option><option value="E">E</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <label class="form-label" style="margin-bottom:0">Part / Equipment</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:0.4px;">
+          <input type="checkbox" id="f-is-equipment" style="width:14px;height:14px;accent-color:var(--teal);cursor:pointer;">
+          Equipment order
+        </label>
+      </div>
+      <input class="form-input" type="text" placeholder="Blower Motor Trane 29139913" id="f-part"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group" id="add-supplier-row"><label class="form-label">Supplier</label>
+        <select class="form-select" id="f-supplier">
+          <option>STOCK</option><option>Shear - Den</option><option>CE - Carr</option><option>CE - Denton</option>
+          <option>Lennox - Lew</option><option>Lennox Ft Worth</option><option>Good - Den</option>
+          <option>Standard Supply</option><option>INSCO</option><option>SupplyHouse.com</option><option>Amazon</option><option>Baker Denton</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Location of part</label>
+        <select class="form-select" id="f-location" onchange="toggleAddFormDuctFields(this.value)">
+          <option>Place Order</option><option>Shipping to Shop</option>
+          <option>Backordered</option><option>Lewisville Shop</option><option>P/U Supply House</option>
+          <option>Waiting for Tech/Cus</option><option>Shipping to Supplier</option><option>Duct Cleaning - Schedule</option>
+          </select>
+      </div>
+    </div>
+    <div class="form-row" id="add-ordercost-row">
+      <div class="form-group"><label class="form-label">Order #</label><input class="form-input" type="text" placeholder="DE015375" id="f-order-num"/></div>
+      <div class="form-group"><label class="form-label">Part cost</label><input class="form-input" type="text" placeholder="$0.00" id="f-cost"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes from Warehouse</label><textarea class="form-textarea" id="f-notes-wh" placeholder="Internal notes..."></textarea></div>
+    <div class="save-bar">
+      <button class="btn btn-primary" onclick="addOrder()" style="flex:1;padding:9px;font-size:13px;">Add order</button>
+      <button class="btn" onclick="closeModal('add-modal')" style="padding:9px 14px;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- AUDIT TRAIL PANEL -->
+<div class="audit-panel" id="audit-panel" onclick="closeAuditClick(event)">
+  <div class="audit-inner">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div class="modal-title">Audit Trail</div>
+        <div class="modal-sub" id="audit-count">0 events</div>
+      </div>
+      <button class="close-btn" onclick="closeAudit()">✕</button>
+    </div>
+    <div class="audit-filter">
+      <button class="audit-filter-btn active" onclick="filterAudit('all',this)">All</button>
+      <button class="audit-filter-btn" onclick="filterAudit('owner',this)">Owner changes</button>
+      <button class="audit-filter-btn" onclick="filterAudit('location',this)">Location changes</button>
+      <button class="audit-filter-btn" onclick="filterAudit('completed',this)">Completed</button>
+      <button class="audit-filter-btn" onclick="filterAudit('cancelled',this)">Cancelled</button>
+    </div>
+    <div id="audit-list"></div>
+  </div>
+</div>
+
+<script>
+const today = new Date();
+
+const SAMPLE = [
+  {id:1,date:'2026-04-07',job:'174562474',tech:'Keith',customer:'George Carranza',type:'Parts',warranty:'No',part:'3 Damper Motors',supplier:'STOCK',orderNum:'',cost:'',location:'Argyle Shop',owner:'CXR',eta:'',noteWh:'',noteCxr:'txt 4/8',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/174562474'},
+  {id:2,date:'2026-04-06',job:'179059088',tech:'Keith',customer:'Daniel Brown',type:'Parts',warranty:'No',part:'Blower Motor Trane 29139913',supplier:'Shear - Den',orderNum:'DE015375',cost:'$726.42',location:'Argyle Shop',owner:'CXR',eta:'',noteWh:'Confirmed arrived 4/9',noteCxr:'txt 4/10',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/179059088'},
+  {id:3,date:'2026-04-09',job:'179247769',tech:'Jack',customer:'John Whiting',type:'W/Parts',warranty:'P/L',part:'Reverse Airflow Switches',supplier:'Shear - Den',orderNum:'DE015375',cost:'$18.89',location:'Shipping to Shop',owner:'Warehouse',eta:'',noteWh:'ETA 4/13',noteCxr:'',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/179247769'},
+  {id:4,date:'2026-04-09',job:'178861846',tech:'Santi',customer:'Joseph Burda',type:'Parts',warranty:'No',part:'TXV',supplier:'INSCO',orderNum:'11028810',cost:'$132.49',location:'Shipping to Shop',owner:'Warehouse',eta:'',noteWh:'7-10 day lead time',noteCxr:'',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/178861846'},
+  {id:5,date:'2026-04-03',job:'178796250',tech:'Brett',customer:'Debra Edmondson',type:'Equipment',warranty:'No',part:'AS Coil & Condenser',supplier:'Shear - Den',orderNum:'DE015248',cost:'$2,242.94',location:'Backordered',owner:'CXR',eta:'',noteWh:'ETA unknown',noteCxr:'Customer notified 4/5',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/178796250'},
+  {id:6,date:'2026-04-07',job:'177792271',tech:'Eduardo',customer:'Nicole Threadgill',type:'Parts',warranty:'No',part:'Condensate Repair, Float, Cap, Filter',supplier:'STOCK',orderNum:'',cost:'',location:'Waiting for Tech/Cus',owner:'CXR',eta:'',noteWh:'',noteCxr:'Customer wants to wait until May',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/177792271'},
+  {id:7,date:'2026-03-24',job:'177513614',tech:'Brett',customer:'Todd Butcher',type:'Parts',warranty:'No',part:'2 Zone System for D/S',supplier:'STOCK',orderNum:'',cost:'',location:'Place Order',owner:'Warehouse',eta:'',noteWh:'Waiting on PO approval',noteCxr:'',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/177513614'},
+  {id:8,date:'2026-02-11',job:'175409044',tech:'Kaileb',customer:'Brian Kenny',type:'Parts',warranty:'No',part:'Clean Evap in Place',supplier:'STOCK',orderNum:'',cost:'',location:'Waiting for Tech/Cus',owner:'CXR',eta:'',noteWh:'',noteCxr:'lvm 2/12, txt 2/16, LVM 2/26',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/175409044'},
+  {id:9,date:'2026-04-09',job:'178866835',tech:'Eduardo',customer:'Wayne & Shirley Robinson',type:'Equipment',warranty:'No',part:'Evaporator Coil',supplier:'Lennox - Lew',orderNum:'41362950',cost:'$1,538.23',location:'Argyle Shop',owner:'Install Manager',eta:'',noteWh:'LVM 4/10 to schedule',noteCxr:'',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/178866835'},
+  {id:10,date:'2026-04-08',job:'179201941',tech:'Brett',customer:'Mike Heyen',type:'Equipment',warranty:'No',part:'Amana S 4 Ton 17 SEER',supplier:'Standard Supply',orderNum:'7797113',cost:'$5,500.06',location:'Argyle Shop',owner:'Install Manager',eta:'',noteWh:'Pick up 4/9 afternoon',noteCxr:'Scheduled 4/10',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/179201941'},
+  {id:11,date:'2026-01-16',job:'173444738',tech:'Phil',customer:'Chris & Denise Reuter',type:'Parts',warranty:'No',part:'Emergency Drain Pan w/ Float Switch',supplier:'STOCK',orderNum:'',cost:'',location:'Argyle Shop',owner:'CXR',eta:'',noteWh:'',noteCxr:'Multiple attempts — no response',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/173444738'},
+  {id:12,date:'2026-04-13',job:'176894407',tech:'John',customer:'Mina Kaneda',type:'Parts',warranty:'No',part:'Condenser Fan Motor, Drain Pan & Float Switch',supplier:'Good - Den',orderNum:'HT89484',cost:'$151.29',location:'P/U Supply House',owner:'Warehouse',eta:'',noteWh:'Pick up ready',noteCxr:'',cancelSource:'',isEquipment:false,status:'open',stUrl:'https://app.servicetitan.com/job/176894407'},
+];
+
+let orders = SAMPLE.map(o => ({...o}));
+let filteredOrders = [];
+let activeStatus = 'all';
+let sortCol = 'date';
+let sortDir = -1;
+let selectedId = null;
+
+function getDays(dateStr) {
+  return Math.floor((today - new Date(dateStr)) / 86400000);
+}
+
+function ageDot(d) { return d > 30 ? 'age-over' : d > 20 ? 'age-warn' : 'age-ok'; }
+function ageText(d) { return d > 30 ? 'age-over-text' : d > 20 ? 'age-warn-text' : 'age-ok-text'; }
+
+function locationPill(loc) {
+  const m = {
+    'Place Order':'pill-place-order','Shipping to Shop':'pill-shipping','Argyle Shop':'pill-argyle',
+    'Backordered':'pill-backordered','Lewisville Shop':'pill-lewisville','Cancel PO':'pill-cancel',
+    'P/U Supply House':'pill-pickup','Tech':'pill-tech','Waiting for Tech/Cus':'pill-waiting',
+    'Shipping to Supplier':'pill-cancel','Completed':'pill-completed','Duct Cleaning - Schedule':'pill-duct'
+  };
+  return `<span class="pill ${m[loc]||'pill-cancel'}"><span class="pill-dot"></span>${loc}</span>`;
+}
+
+function ownerBadge(o) {
+  const c = 'o-'+o.toLowerCase().replace(/[^a-z]/g,'');
+  return `<span class="owner ${c}"><span class="owner-dot"></span>${o}</span>`;
+}
+
+const OWNER_COLORS = {
+  'CXR':             { dot: '#7c5cbf', count: '#7c5cbf' },
+  'Warehouse':       { dot: '#1a9e6a', count: '#1a9e6a' },
+  'Service Manager': { dot: '#d63b3b', count: '#d63b3b' },
+  'Install Manager': { dot: '#1a9aaa', count: '#1a9aaa' },
+  'Sales':           { dot: '#d48a0a', count: '#d48a0a' },
+  'Rachel':          { dot: '#1a9aaa', count: '#1a9aaa' },
+};
+
+function renderOwnerBar() {
+  const open = orders.filter(o => o.status === 'open');
+  const owners = ['CXR', 'Warehouse', 'Service Manager', 'Install Manager', 'Sales', 'Rachel'];
+  const bar = document.getElementById('owner-bar');
+  bar.innerHTML = owners.map(name => {
+    const count = open.filter(o => o.owner === name).length;
+    const col = OWNER_COLORS[name] || { dot: '#6b7592', count: '#6b7592' };
+    const isActive = document.getElementById('filter-owner').value === name;
+    return `<div class="owner-card${isActive ? ' active' : ''}" onclick="filterByOwner('${name}')">
+      <div class="owner-card-dot" style="background:${col.dot}"></div>
+      <div class="owner-card-info">
+        <div class="owner-card-name">${name}</div>
+        <div class="owner-card-count" style="color:${col.count}">${count}</div>
+        <div class="owner-card-label">${count === 1 ? 'open order' : 'open orders'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterByOwner(name) {
+  const sel = document.getElementById('filter-owner');
+  if (sel.value === name) {
+    sel.value = '';
+    document.querySelectorAll('.owner-card').forEach(c => c.classList.remove('active'));
+  } else {
+    sel.value = name;
+    document.querySelectorAll('.owner-card').forEach(c => c.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+  activeStatus = 'all';
+  document.querySelectorAll('.stat').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.stat')[0].classList.add('active');
+  applyFilters();
+}
+
+function updateStats() {
+  const open = orders.filter(o => o.status === 'open');
+  document.getElementById('stat-all').textContent = open.length;
+  document.getElementById('stat-place').textContent = open.filter(o => o.location==='Place Order').length;
+  document.getElementById('stat-ship').textContent = open.filter(o => o.location==='Shipping to Shop').length;
+  document.getElementById('stat-bo').textContent = open.filter(o => o.location==='Backordered').length;
+  document.getElementById('stat-ready').textContent = open.filter(o => o.owner==='CXR' && o.status==='open').length;
+  const aged = open.filter(o => getDays(o.date) > 30).length;
+  document.getElementById('stat-aging').textContent = aged;
+  document.getElementById('aging-count').textContent = aged;
+  document.getElementById('aging-banner').style.display = aged > 0 ? 'flex' : 'none';
+  document.getElementById('stat-completed').textContent = orders.filter(o => o.status === 'completed').length;
+  renderOwnerBar();
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const owner = document.getElementById('filter-owner').value;
+  const type = document.getElementById('filter-type').value;
+  const loc = document.getElementById('filter-location').value;
+  const show = document.getElementById('filter-show').value;
+
+  filteredOrders = orders.filter(o => {
+    if (activeStatus === 'completed-all') { if (o.status !== 'completed') return false; }
+    else if (activeStatus === 'cxr-ready') { if (o.owner !== 'CXR' || o.status !== 'open') return false; }
+    else {
+      if (show === 'open' && o.status !== 'open') return false;
+      if (show === 'completed' && o.status !== 'completed') return false;
+      if (activeStatus === 'aging' && (getDays(o.date) <= 30 || o.status !== 'open')) return false;
+      if (activeStatus !== 'all' && activeStatus !== 'aging' && o.location !== activeStatus) return false;
+    }
+    if (owner && o.owner !== owner) return false;
+    if (type && o.type !== type) return false;
+    if (loc && o.location !== loc) return false;
+    if (q) {
+      const hay = [o.job,o.tech,o.customer,o.part,o.supplier,o.noteCxr,o.noteWh].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  sortOrders();
+  renderTable();
+}
+
+function sortOrders() {
+  filteredOrders.sort((a,b) => {
+    let va, vb;
+    if (sortCol==='date'||sortCol==='age') { va=new Date(a.date); vb=new Date(b.date); }
+    else { va=a[sortCol]||''; vb=b[sortCol]||''; }
+    return va<vb ? sortDir : va>vb ? -sortDir : 0;
+  });
+}
+
+function sortBy(col) {
+  sortDir = sortCol===col ? sortDir*-1 : -1;
+  sortCol = col;
+  document.querySelectorAll('th').forEach(t=>t.classList.remove('sorted'));
+  event.target.closest('th').classList.add('sorted');
+  sortOrders(); renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+  document.getElementById('row-count').textContent = filteredOrders.length + ' order' + (filteredOrders.length!==1?'s':'');
+  if (!filteredOrders.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = filteredOrders.map(o => {
+    const dateStr = new Date(o.date).toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+    const preview = (o.noteCxr||'—').substring(0,38)+((o.noteCxr||'').length>38?'…':'');
+    const age = getDays(o.date);
+    let rowCls = '';
+    if (o.status==='completed') {
+      rowCls = 'completed-row';
+    } else if (o.location==='Backordered') {
+      rowCls = 'bo-row';                          // yellow — always, regardless of owner
+    } else if (o.location==='Cancel PO') {
+      rowCls = 'cancel-row';                      // orange — always
+    } else if (o.scheduledDate) {
+      rowCls = 'scheduled-row';                   // bright green — job on tech
+    } else if (o.owner==='Warehouse') {
+      rowCls = age > 30 ? 'owner-warehouse aged-row' : 'owner-warehouse';
+    } else if (o.owner==='CXR') {
+      rowCls = age > 30 ? 'owner-cxr aged-row' : 'owner-cxr';
+    } else if (o.owner==='Rachel') {
+      rowCls = age > 30 ? 'owner-rachel aged-row' : 'owner-rachel';
+    } else if (age > 30) {
+      rowCls = 'aged-row';
+    }
+    return `<tr class="${rowCls}" onclick="openDetail(${o.id})">
+      <td><div class="date-cell"><span class="age-flag ${ageDot(age)}"></span>${dateStr}</div></td>
+      <td><a class="job-link" onclick="event.stopPropagation();window.open('${o.stUrl}')">${o.job}</a></td>
+      <td><div class="tech-name">${o.tech}</div></td>
+      <td><div class="cust-name">${o.customer}</div><div class="cust-sub">${o.type}</div></td>
+      <td><div class="part-name">${o.part}</div><div class="part-supplier">${o.supplier}</div></td>
+      <td class="inline-cell" onclick="event.stopPropagation()">
+        <span class="inline-pill-wrap">${o.status==='completed' ? locationPill('Completed') : locationPill(o.location)}</span>
+        <select onchange="inlineUpdateLocation(${o.id}, this.value)" title="Change location">
+          <option value="">— change location —</option>
+          <option>Place Order</option><option>Shipping to Shop</option>
+          <option>Backordered</option><option>Lewisville Shop</option><option>P/U Supply House</option>
+          <option>Waiting for Tech/Cus</option><option>Shipping to Supplier</option><option>Cancel PO</option><option>Duct Cleaning - Schedule</option>
+        </select>
+      </td>
+      <td class="inline-cell" onclick="event.stopPropagation()">
+        <span class="inline-pill-wrap">${ownerBadge(o.owner)}</span>
+        <select onchange="inlineUpdateOwner(${o.id}, this.value)" title="Change owner">
+          <option value="">— change owner —</option>
+          <option>CXR</option><option>Warehouse</option><option>Service Manager</option><option>Install Manager</option><option>Sales</option>
+          <option>Rachel</option>
+        </select>
+      </td>
+      <td><span class="warranty${['P','P/L','E/L','E'].includes(o.warranty)?' yes':''}">${o.warranty}</span></td>
+      <td><span class="age-cell ${ageText(age)}">${age}d</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:${o.eta ? 'var(--amber)' : 'var(--muted2)'}">${o.eta ? new Date(o.eta).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}) : '—'}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:${o.scheduledDate ? 'var(--green)' : 'var(--muted2)'}">
+        ${o.scheduledDate ? new Date(o.scheduledDate).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}) : '—'}
+      </td>
+      <td style="color:var(--muted);font-size:11.5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(o.noteWh||'—').substring(0,35)+((o.noteWh||'').length>35?'…':'')}</td>
+      <td style="color:var(--muted);font-size:11.5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterStatus(status, el) {
+  document.querySelectorAll('.stat').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  activeStatus = status;
+  document.getElementById('filter-owner').value = '';
+  document.querySelectorAll('.owner-card').forEach(c=>c.classList.remove('active'));
+  applyFilters();
+}
+
+function openDetail(id) {
+  selectedId = id;
+  const o = orders.find(x=>x.id===id);
+  if (!o) return;
+  const age = getDays(o.date);
+  document.getElementById('m-customer').textContent = o.customer;
+  document.getElementById('m-job').textContent = 'Job #' + o.job;
+  document.getElementById('m-tech').textContent = o.tech;
+  document.getElementById('m-type').textContent = o.type;
+  document.getElementById('m-date').textContent = new Date(o.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('m-age').innerHTML = `<span class="${ageText(age)}">${age} days</span>`;
+  document.getElementById('m-part').value = o.part||'';
+  document.getElementById('chk-equipment').checked = o.isEquipment||false;
+  document.getElementById('equip-label').style.color = o.isEquipment ? 'var(--teal)' : '';
+  toggleDuctCleaningFields(o.location === 'Duct Cleaning - Schedule');
+  // Show completed by banner if completed
+  let completedBanner = document.getElementById('completed-banner');
+  if (!completedBanner) {
+    completedBanner = document.createElement('div');
+    completedBanner.id = 'completed-banner';
+    completedBanner.style.cssText = 'padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px;display:none;';
+    document.querySelector('.modal-title').parentNode.insertBefore(completedBanner, document.querySelector('.modal-title').nextSibling);
+  }
+  if (o.completedBy) {
+    completedBanner.style.display = 'block';
+    completedBanner.style.background = 'var(--green-dim)';
+    completedBanner.style.color = 'var(--green)';
+    completedBanner.innerHTML = '✓ Completed by <strong>' + o.completedBy + '</strong> on ' + o.completedAt;
+  } else {
+    completedBanner.style.display = 'none';
+  }
+  document.getElementById('m-supplier').textContent = o.supplier||'—';
+  document.getElementById('m-order-num').textContent = o.orderNum||'—';
+  document.getElementById('m-cost').textContent = o.cost||'—';
+
+  // Editable fields
+  document.getElementById('e-owner').value = o.owner;
+  document.getElementById('e-location').value = o.location;
+  document.getElementById('e-eta').value = o.eta||'';
+  document.getElementById('e-notes-wh').value = o.noteWh||'';
+  document.getElementById('e-notes-cxr').value = o.noteCxr||'';
+  document.getElementById('e-cancel-reason').value = '';
+  document.getElementById('e-cancel-source').value = o.cancelSource||'';
+  if (o.cancelSource) checkCancelReady();
+  if (document.getElementById('chk-vendor-cancelled')) document.getElementById('chk-vendor-cancelled').checked = false;
+  if (document.getElementById('cancel-btn')) document.getElementById('cancel-btn').disabled = true;
+  if (document.getElementById('cancel-handoff-banner')) document.getElementById('cancel-handoff-banner').style.display = 'none';
+  if (document.getElementById('cancel-owner-badge')) document.getElementById('cancel-owner-badge').innerHTML = '<span style="color:var(--muted2);font-size:12px;">— will be set to Warehouse once Step 1 is complete</span>';
+
+  // Editable ordering fields
+  document.getElementById('e-supplier').value = o.supplier||'';
+  document.getElementById('e-order-num').value = o.orderNum||'';
+  document.getElementById('e-cost').value = o.cost||'';
+
+  // Show backorder box only if location is Backordered
+  const boBox = document.getElementById('backorder-box');
+  const boChk = document.getElementById('chk-bo-notified');
+  const boDateRow = document.getElementById('bo-date-row');
+  const boHandoff = document.getElementById('bo-handoff-banner');
+  const boBtn = document.getElementById('bo-confirm-btn');
+  if (o.location === 'Backordered') {
+    boBox.style.display = 'block';
+    if (o.boNotified) {
+      boBox.classList.add('notified');
+      boChk.checked = true;
+      boDateRow.style.display = 'block';
+      document.getElementById('e-bo-notified-date').value = o.boNotifiedDate || '';
+      boHandoff.style.display = 'flex';
+      boBtn.disabled = true;
+      boBtn.textContent = 'Customer notified ✓';
+    } else {
+      boBox.classList.remove('notified');
+      boChk.checked = false;
+      boDateRow.style.display = 'none';
+      boHandoff.style.display = 'none';
+      boBtn.disabled = true;
+      boBtn.textContent = 'Confirm & return to Warehouse';
+    }
+  } else {
+    boBox.style.display = 'none';
+    boBox.classList.remove('notified');
+    boChk.checked = false;
+    boDateRow.style.display = 'none';
+    boHandoff.style.display = 'none';
+    boBtn.disabled = true;
+    boBtn.textContent = 'Confirm & return to Warehouse';
+  }
+
+  // Reset/restore close out section
+  const chk = document.getElementById('chk-scheduled');
+  const box = document.getElementById('closeout-box');
+  const dateRow = document.getElementById('scheduled-date-row');
+  const o2 = orders.find(x => x.id === id);
+  if (o2 && o2.scheduledDate) {
+    chk.checked = true;
+    box.classList.add('scheduled');
+    dateRow.style.display = 'block';
+    document.getElementById('e-scheduled-date').value = o2.scheduledDate;
+    document.getElementById('close-out-btn').disabled = false;
+  } else {
+    chk.checked = false;
+    box.classList.remove('scheduled');
+    dateRow.style.display = 'none';
+    document.getElementById('close-out-btn').disabled = true;
+  }
+  document.getElementById('completed-by').value = '';
+  document.getElementById('completed-by-row').style.display = 'none';
+
+  document.getElementById('detail-modal').classList.add('open');
+  setTimeout(() => {
+    const boBox = document.getElementById('backorder-box');
+    if (o.location === 'Backordered') {
+      boBox.style.setProperty('display', 'block', 'important');
+    } else {
+      boBox.style.setProperty('display', 'none', 'important');
+    }
+  }, 50);
+}
+
+function checkBoNotified() {
+  const checked = document.getElementById('chk-bo-notified').checked;
+  const dateRow = document.getElementById('bo-date-row');
+  const btn = document.getElementById('bo-confirm-btn');
+  dateRow.style.display = checked ? 'block' : 'none';
+  if (checked) {
+    document.getElementById('e-bo-notified-date').value = today.toISOString().split('T')[0];
+  }
+  const dateSet = document.getElementById('e-bo-notified-date').value !== '';
+  btn.disabled = !(checked && dateSet);
+}
+
+function confirmBoNotified() {
+  const o = orders.find(x => x.id === selectedId);
+  if (!o) return;
+  const notifiedDate = document.getElementById('e-bo-notified-date').value;
+  if (!notifiedDate) { showToast('Please enter the date customer was notified'); return; }
+  o.boNotifiedDate = notifiedDate;
+  o.boNotified = true;
+  o.owner = 'Warehouse';
+  o.noteCxr = (o.noteCxr ? o.noteCxr + ' | ' : '') + 'B/O customer notified ' + new Date(notifiedDate).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
+  document.getElementById('e-owner').value = 'Warehouse';
+  document.getElementById('bo-handoff-banner').style.display = 'flex';
+  document.getElementById('backorder-box').classList.add('notified');
+  document.getElementById('bo-confirm-btn').disabled = true;
+  document.getElementById('bo-confirm-btn').textContent = 'Customer notified ✓';
+  updateStats(); applyFilters();
+  showToast('Customer notified — ticket returned to Warehouse');
+}
+
+function inlineUpdateLocation(id, val) {
+  if (!val) return;
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  const prevLoc = o.location;
+  o.location = val;
+  const newOwner = ownerForLocation(val, o.isEquipment||false);
+  if (newOwner) {
+    const prevOwner2 = o.owner;
+    o.owner = newOwner;
+    logAudit('location', o.job, o.customer, 'Location: ' + prevLoc + ' → ' + val, 'Owner auto-set: ' + prevOwner2 + ' → ' + newOwner);
+    showToast('Location → ' + val + ' · Owner → ' + newOwner);
+  } else {
+    logAudit('location', o.job, o.customer, 'Location: ' + prevLoc + ' → ' + val);
+    showToast('Location updated to ' + val);
+  }
+  updateStats(); applyFilters();
+}
+
+function ownerForLocation(loc, isEquipment) {
+  if (loc === 'Backordered')                               return 'CXR';
+
+  if (loc === 'Lewisville Shop' && isEquipment)            return 'Install Manager';
+  if (loc === 'Lewisville Shop' && !isEquipment)           return 'CXR';
+  if (loc === 'Place Order')                               return 'Warehouse';
+  if (loc === 'Shipping to Shop')                          return 'Warehouse';
+  if (loc === 'P/U Supply House')                          return 'Warehouse';
+  if (loc === 'Shipping to Supplier')                      return 'Warehouse';
+  if (loc === 'Waiting for Tech/Cus')                      return 'Service Manager';
+  if (loc === 'Duct Cleaning - Schedule')                    return 'Rachel';
+  return null;
+}
+
+function panelLocationChanged(val) {
+  const ownerSelect = document.getElementById('e-owner');
+  const boBox = document.getElementById('backorder-box');
+  const isEquipment = document.getElementById('chk-equipment').checked;
+  const newOwner = ownerForLocation(val, isEquipment);
+  if (newOwner) ownerSelect.value = newOwner;
+  if (val === 'Backordered') {
+    boBox.style.setProperty('display', 'block', 'important');
+    showToast('Backordered — owner set to CXR');
+  } else {
+    boBox.style.setProperty('display', 'none', 'important');
+    if (newOwner) showToast('Location updated — owner set to ' + newOwner);
+  }
+}
+
+function toggleAddFormDuctFields(val) {
+  const isDuct = val === 'Duct Cleaning - Schedule';
+  ['add-equip-row','add-supplier-row','add-ordercost-row'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isDuct ? 'none' : '';
+  });
+  if (isDuct) {
+    document.getElementById('f-owner').value = 'Rachel';
+    showToast('Duct Cleaning — owner set to Rachel');
+  }
+}
+
+function toggleDuctCleaningFields(isDuct) {
+  ['equip-row','supplier-row','ordernum-row','cost-row'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isDuct ? 'none' : '';
+  });
+}
+
+function equipmentTypeChanged() {
+  const isEquipment = document.getElementById('chk-equipment').checked;
+  document.getElementById('equip-label').style.color = isEquipment ? 'var(--teal)' : '';
+  const loc = document.getElementById('e-location').value;
+  const newOwner = ownerForLocation(loc, isEquipment);
+  if (newOwner) {
+    document.getElementById('e-owner').value = newOwner;
+    showToast('Equipment type changed — owner set to ' + newOwner);
+  }
+}
+
+function inlineUpdateOwner(id, val) {
+  if (!val) return;
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  const prevOwner = o.owner;
+  o.owner = val;
+  logAudit('owner', o.job, o.customer, 'Owner changed: ' + prevOwner + ' → ' + val);
+  updateStats();
+  applyFilters();
+  showToast('Owner updated to ' + val);
+}
+
+function checkCloseout() {
+  const checked = document.getElementById('chk-scheduled').checked;
+  document.getElementById('close-out-btn').disabled = !checked;
+  document.getElementById('completed-by-row').style.display = checked ? 'block' : 'none';
+  const box = document.getElementById('closeout-box');
+  const dateRow = document.getElementById('scheduled-date-row');
+  if (checked) {
+    box.classList.add('scheduled');
+    dateRow.style.display = 'block';
+    const o = orders.find(x => x.id === selectedId);
+    if (o && o.scheduledDate) document.getElementById('e-scheduled-date').value = o.scheduledDate;
+    if (o) {
+      o.owner = 'Service Manager';
+      document.getElementById('e-owner').value = 'Service Manager';
+      updateStats(); applyFilters();
+    }
+  } else {
+    box.classList.remove('scheduled');
+    dateRow.style.display = 'none';
+  }
+}
+
+function saveScheduledDate() {
+  const o = orders.find(x => x.id === selectedId);
+  if (o) {
+    o.scheduledDate = document.getElementById('e-scheduled-date').value;
+    checkAutoComplete();
+  }
+}
+
+function checkAutoComplete() {
+  orders.forEach(o => {
+    if (o.status === 'open' && o.scheduledDate) {
+      const scheduled = new Date(o.scheduledDate);
+      scheduled.setHours(23, 59, 59);
+      if (today > scheduled) {
+        o.status = 'completed';
+        o.location = 'Completed';
+      }
+    }
+  });
+  updateStats();
+  applyFilters();
+}
+
+function saveChanges() {
+  const o = orders.find(x=>x.id===selectedId);
+  if (!o) return;
+  o.owner = document.getElementById('e-owner').value;
+  o.location = document.getElementById('e-location').value;
+  o.part = document.getElementById('m-part').value;
+  o.isEquipment = document.getElementById('chk-equipment').checked;
+  o.supplier = document.getElementById('e-supplier').value;
+  o.orderNum = document.getElementById('e-order-num').value;
+  o.cost = document.getElementById('e-cost').value;
+  o.eta = document.getElementById('e-eta').value;
+  o.noteWh = document.getElementById('e-notes-wh').value;
+  o.noteCxr = document.getElementById('e-notes-cxr').value;
+  o.cancelSource = document.getElementById('e-cancel-source').value;
+  logAudit('edit', o.job, o.customer, 'Order updated', 'Owner: ' + o.owner + ' · Location: ' + o.location);
+  updateStats();
+  applyFilters();
+  closeModal('detail-modal');
+  showToast('Changes saved for ' + o.customer);
+}
+
+function closeOutOrder() {
+  const o = orders.find(x=>x.id===selectedId);
+  if (!o) return;
+  const completedByName = document.getElementById('completed-by').value.trim() || 'Unknown';
+  o.status = 'completed';
+  o.location = 'Completed';
+  o.completedBy = completedByName;
+  o.completedAt = new Date().toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit',hour12:true});
+  logAudit('completed', o.job, o.customer, 'Order completed by ' + completedByName);
+  o.noteCxr = document.getElementById('e-notes-cxr').value;
+  o.noteWh = document.getElementById('e-notes-wh').value;
+  closeModal('detail-modal');
+  updateStats(); applyFilters();
+  showToast('Order closed out — moved to Parts Completed ✓');
+}
+
+function checkCancelReady() {
+  const sourceSet = document.getElementById('e-cancel-source').value !== '';
+  const vendorChecked = document.getElementById('chk-vendor-cancelled').checked;
+  document.getElementById('cancel-btn').disabled = !(sourceSet && vendorChecked);
+
+  const banner = document.getElementById('cancel-handoff-banner');
+  const badge = document.getElementById('cancel-owner-badge');
+  if (sourceSet) {
+    banner.style.display = 'flex';
+    badge.innerHTML = '<span class="owner o-warehouse"><span class="owner-dot"></span>Warehouse</span>';
+    document.getElementById('e-owner').value = 'Warehouse';
+    const o = orders.find(x => x.id === selectedId);
+    if (o) { o.owner = 'Warehouse'; updateStats(); applyFilters(); }
+  } else {
+    banner.style.display = 'none';
+    badge.innerHTML = '<span style="color:var(--muted2);font-size:12px;">— will be set to Warehouse once Step 1 is complete</span>';
+  }
+}
+
+function cancelOrder() {
+  const o = orders.find(x=>x.id===selectedId);
+  if (!o) return;
+  const source = document.getElementById('e-cancel-source').value;
+  const reason = document.getElementById('e-cancel-reason').value;
+  if (!source) { showToast('Please select a cancellation reason in Step 1'); return; }
+  if (!document.getElementById('chk-vendor-cancelled').checked) { showToast('Warehouse must confirm vendor PO is cancelled'); return; }
+  o.status = 'cancelled';
+  o.location = 'Cancel PO';
+  o.owner = 'Warehouse';
+  logAudit('cancelled', o.job, o.customer, 'PO cancelled', source + (reason.trim() ? ' — ' + reason.trim() : ''));
+  const cancelNote = source + (reason.trim() ? ' — ' + reason.trim() : '');
+  o.noteCxr = (o.noteCxr ? o.noteCxr + ' | ' : '') + 'CANCELLED: ' + cancelNote;
+  closeModal('detail-modal');
+  updateStats(); applyFilters();
+  showToast('PO cancelled — remember to cancel ST estimate ✓');
+}
+
+function addOrder() {
+  const newOrder = {
+    id: Date.now(),
+    date: document.getElementById('f-date').value || today.toISOString().split('T')[0],
+    job: document.getElementById('f-job').value || '000000000',
+    tech: document.getElementById('f-tech').value,
+    customer: document.getElementById('f-customer').value || 'Unknown',
+    type: document.getElementById('f-type').value,
+    warranty: document.getElementById('f-warranty').value,
+    part: document.getElementById('f-part').value,
+    isEquipment: document.getElementById('f-is-equipment') ? document.getElementById('f-is-equipment').checked : false,
+    supplier: document.getElementById('f-supplier').value,
+    orderNum: document.getElementById('f-order-num').value,
+    cost: document.getElementById('f-cost').value,
+    location: document.getElementById('f-location').value,
+    owner: document.getElementById('f-owner').value,
+    eta: '',
+    noteWh: document.getElementById('f-notes-wh').value,
+    noteCxr: '',
+    cancelSource: '',
+    isEquipment: false,
+    status: 'open',
+    stUrl: `https://app.servicetitan.com/job/${document.getElementById('f-job').value}`
+  };
+  orders.unshift(newOrder);
+  closeModal('add-modal');
+  updateStats(); applyFilters();
+  showToast('Order added for ' + newOrder.customer);
+}
+
+function openSTJob() {
+  const o = orders.find(x=>x.id===selectedId);
+  if (o) window.open(o.stUrl, '_blank');
+}
+
+function openAddModal() {
+  document.getElementById('f-date').value = today.toISOString().split('T')[0];
+  ['f-job','f-customer','f-part','f-order-num','f-cost','f-notes-wh'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('f-location').value = 'Place Order';
+  toggleAddFormDuctFields('Place Order');
+  ['add-equip-row','add-supplier-row','add-ordercost-row'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display=''; });
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalClick(e, id) { if (e.target===document.getElementById(id)) closeModal(id); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── AUDIT TRAIL ──
+let auditLog = [];
+let auditFilter = 'all';
+
+function logAudit(type, jobId, customer, action, detail) {
+  auditLog.unshift({
+    id: Date.now(),
+    type,
+    jobId,
+    customer,
+    action,
+    detail,
+    time: new Date().toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit',hour12:true})
+  });
+}
+
+function openAudit() {
+  renderAuditList();
+  document.getElementById('audit-panel').classList.add('open');
+}
+
+function closeAudit() { document.getElementById('audit-panel').classList.remove('open'); }
+function closeAuditClick(e) { if (e.target === document.getElementById('audit-panel')) closeAudit(); }
+
+function filterAudit(type, el) {
+  auditFilter = type;
+  document.querySelectorAll('.audit-filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderAuditList();
+}
+
+function renderAuditList() {
+  const filtered = auditFilter === 'all' ? auditLog : auditLog.filter(e => e.type === auditFilter);
+  document.getElementById('audit-count').textContent = filtered.length + ' event' + (filtered.length !== 1 ? 's' : '');
+  const list = document.getElementById('audit-list');
+  if (!filtered.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--muted);font-size:13px;">No events recorded yet.</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(e => `
+    <div class="audit-entry">
+      <div class="audit-dot" style="background:${e.type==='completed'?'var(--green)':e.type==='cancelled'?'var(--red)':e.type==='owner'?'var(--purple)':e.type==='location'?'var(--accent)':'var(--amber)'}"></div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+          <span class="audit-job">#${e.jobId}</span>
+          <span style="font-size:12px;font-weight:500;color:var(--text)">${e.customer}</span>
+          <span class="audit-time" style="margin-left:auto">${e.time}</span>
+        </div>
+        <div class="audit-action">${e.action}</div>
+        ${e.detail ? `<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${e.detail}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+// ── COLUMN MANAGER ──
+function toggleColManager() {
+  document.getElementById('col-manager').classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  const btn = document.getElementById('col-mgr-btn');
+  const menu = document.getElementById('col-manager');
+  if (menu && !menu.contains(e.target) && e.target !== btn) {
+    menu.classList.remove('open');
+  }
+});
+
+function toggleCol(colIndex, checkbox) {
+  const table = document.getElementById('orders-table');
+  const rows = table.querySelectorAll('tr');
+  rows.forEach(row => {
+    const cells = row.children;
+    if (cells[colIndex]) cells[colIndex].style.display = checkbox.checked ? '' : 'none';
+  });
+}
+
+let syncSecs = 0;
+setInterval(() => {
+  syncSecs++;
+  const el = document.getElementById('sync-time');
+  el.textContent = syncSecs < 60 ? syncSecs+'s ago' : Math.floor(syncSecs/60)+'m ago';
+}, 1000);
+
+activeStatus = 'all';
+document.getElementById('filter-show').value = 'open';
+checkAutoComplete();
+updateStats();
+applyFilters();
+</script>
+</body>
+</html>
