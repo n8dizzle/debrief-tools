@@ -29,9 +29,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const { date, backfillDays, today: syncToday } = body;
 
-    // Support ?today=true query param for GET requests (cron)
+    // Support ?today=true and ?yesterday=true query params for GET requests (cron)
     const url = new URL(request.url);
     const isTodaySync = syncToday || url.searchParams.get('today') === 'true';
+    const isYesterdaySync = url.searchParams.get('yesterday') === 'true';
 
     const stClient = getServiceTitanClient();
     if (!stClient.isConfigured()) {
@@ -57,6 +58,13 @@ export async function POST(request: NextRequest) {
     } else if (isTodaySync) {
       // Sync today's data (for 10-min cron)
       datesToSync.push(getLocalDateString(new Date()));
+    } else if (isYesterdaySync) {
+      // Sync yesterday + today (hourly cron to catch late job completions)
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      datesToSync.push(getLocalDateString(yesterday));
+      datesToSync.push(getLocalDateString(now));
     } else {
       // Default: sync last 7 days to catch late adjustments (reopened jobs, refunds, etc.)
       const now = new Date();

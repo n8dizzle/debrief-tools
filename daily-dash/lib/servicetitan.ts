@@ -568,18 +568,34 @@ export class ServiceTitanClient {
       revenueByBU.set(row.businessUnitName, row);
     }
 
+    // DEBUG: Log all BU names from Report 222 and which ones we recognize
+    const droppedBUs: { name: string; revenue: number; sales: number }[] = [];
+    const includedBUs: { name: string; trade: string; revenue: number; sales: number }[] = [];
+    let totalReport222Revenue = 0;
+
     // Aggregate by trade and department
     for (const buName of allBUNames) {
       const isHvac = HVAC_BUSINESS_UNITS.includes(buName);
       const isPlumbing = PLUMBING_BUSINESS_UNITS.includes(buName);
-      if (!isHvac && !isPlumbing) continue;
-
       const rev = revenueByBU.get(buName);
-      const buSales = salesByBU.get(buName) || 0;
+      const buRevenue = rev?.totalRevenue || 0;
+      const buSalesAmt = salesByBU.get(buName) || 0;
+      totalReport222Revenue += buRevenue;
+
+      if (!isHvac && !isPlumbing) {
+        if (buRevenue > 0 || buSalesAmt > 0) {
+          droppedBUs.push({ name: buName, revenue: buRevenue, sales: buSalesAmt });
+        }
+        continue;
+      }
+
+      includedBUs.push({ name: buName, trade: isHvac ? 'HVAC' : 'Plumbing', revenue: buRevenue, sales: buSalesAmt });
+
       const completedRevenue = rev?.completedRevenue || 0;
       const nonJobRevenue = rev?.nonJobRevenue || 0;
       const adjRevenue = rev?.adjRevenue || 0;
       const totalRevenue = rev?.totalRevenue || 0;
+      const buSales = buSalesAmt;
 
       if (isHvac) {
         hvac.completedRevenue += completedRevenue;
@@ -621,6 +637,24 @@ export class ServiceTitanClient {
         plumbing.revenue += totalRevenue;
         plumbing.sales += buSales;
       }
+    }
+
+    // DEBUG: Log revenue breakdown
+    const includedRevenue = hvac.revenue + plumbing.revenue;
+    const droppedRevenue = droppedBUs.reduce((sum, b) => sum + b.revenue, 0);
+    console.log(`[TradeMetrics DEBUG] ${startDate}-${effectiveEndDate}`);
+    console.log(`  Report 222 total: $${totalReport222Revenue.toLocaleString()}`);
+    console.log(`  Included (${includedBUs.length} BUs): $${includedRevenue.toLocaleString()}`);
+    for (const bu of includedBUs) {
+      console.log(`    ✓ ${bu.trade} "${bu.name}" rev=$${bu.revenue.toLocaleString()} sales=$${bu.sales.toLocaleString()}`);
+    }
+    if (droppedBUs.length > 0) {
+      console.log(`  DROPPED (${droppedBUs.length} BUs): $${droppedRevenue.toLocaleString()}`);
+      for (const bu of droppedBUs) {
+        console.log(`    ✗ UNRECOGNIZED "${bu.name}" rev=$${bu.revenue.toLocaleString()} sales=$${bu.sales.toLocaleString()}`);
+      }
+    } else {
+      console.log(`  No dropped BUs.`);
     }
 
     return {

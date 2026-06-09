@@ -530,7 +530,12 @@ export default function HuddleDashboard({
   const pacingCardLabel = getRangeLabel(selectedDate, selectedEndDate);
 
   // Compute daily pacing % (how far through today's business hours)
+  // When viewing a past date, pacing should reflect end-of-day for that date
+  // (the day is complete, so daily = 100%, weekly = full days elapsed through that date)
+  const isViewingPastDate = selectedEndDate < today;
+
   const getDailyPacing = () => {
+    if (isViewingPastDate) return 100; // Past day is complete
     const now = new Date();
     const dow = now.getDay();
     if (dow === 0) return 0;
@@ -543,10 +548,16 @@ export default function HuddleDashboard({
 
   // Compute weekly pacing %
   const getWeeklyPacing = () => {
-    const now = new Date();
-    const dow = now.getDay();
+    // Use the selected end date for past dates, current time for today
+    const refDate = isViewingPastDate ? new Date(selectedEndDate + 'T18:00:00') : new Date();
+    const dow = refDate.getDay();
     if (dow === 0) return 0;
-    const hour = now.getHours() + now.getMinutes() / 60;
+    if (isViewingPastDate) {
+      // Past date: count completed business days Mon through selected date
+      const daysCompleted = dow === 6 ? 5.5 : dow; // Mon=1, Tue=2, ..., Fri=5, Sat=5.5
+      return Math.round((daysCompleted / 5.5) * 100);
+    }
+    const hour = refDate.getHours() + refDate.getMinutes() / 60;
     let dayProgress = 0;
     if (hour >= 18) dayProgress = dow === 6 ? 0.5 : 1;
     else if (hour >= 8) dayProgress = ((hour - 8) / 10) * (dow === 6 ? 0.5 : 1);
