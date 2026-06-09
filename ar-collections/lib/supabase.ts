@@ -63,7 +63,9 @@ export type ARJobStatus =
   | 'financing_pending'
   | 'other';
 
-export type ARPaymentType = 'cash' | 'check' | 'card' | 'financing';
+// Payment type is now a configurable key from ar_job_statuses (category='payment_type').
+// Kept as a string alias rather than a fixed union so the workflow tab can manage the list.
+export type ARPaymentType = string;
 export type ARFinancingType =
   | 'synchrony'
   | 'wells_fargo'
@@ -452,7 +454,7 @@ export interface ARJobStatusOption {
   sort_order: number;
   is_active: boolean;
   control_bucket: ARControlBucket | null; // Linked control bucket for auto-assignment
-  category: 'work' | 'collection';
+  category: 'work' | 'collection' | 'payment_type';
   color: string | null; // Hex string like "#4ade80" used to tint invoice rows when enabled
   created_at: string;
   updated_at: string;

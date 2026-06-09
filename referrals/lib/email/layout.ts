@@ -33,7 +33,7 @@ export function renderEmailLayout(opts: {
         <tr>
           <td style="background:#F5F2DC;padding:20px 32px;font-size:12px;color:#415440;opacity:0.8;text-align:center;">
             Christmas Air Conditioning &amp; Plumbing &middot; Veteran-Owned, Locally-Owned<br>
-            (469) 214-2013 &middot; TACLA00120029E &middot; M18185
+            (469) 214-5517 &middot; TACLA00120029E &middot; M18185
           </td>
         </tr>
       </table>

@@ -4,6 +4,7 @@ import { getServerSupabase } from "@/lib/supabase";
 import { generateReferralCode } from "@/lib/referral-codes";
 import { assignRewardConfig } from "@/lib/assign-reward-config";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
+import { notifyNewReferrerSignup } from "@/lib/email/notify-new-referrer";
 import { issueMagicLinkToken, issueSessionCookie } from "@/lib/customer-auth";
 import { sendMagicLinkEmail } from "@/lib/email/magic-link";
 import type { Charity, Referrer } from "@/lib/supabase";
@@ -20,6 +21,7 @@ const EnrollSchema = z.object({
     "CHARITY_DONATION",
   ]),
   selectedCharityId: z.string().uuid().nullable().optional(),
+  suggestedCharityName: z.string().trim().max(200).nullable().optional(),
 });
 
 function getAppUrl(req: NextRequest): string {
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest) {
   // where the donation lands).
   let charity: Charity | null = null;
   const effectiveCharityId = data.selectedCharityId || null;
+  const suggestedCharityName = data.suggestedCharityName?.trim() || null;
 
   if (effectiveCharityId) {
     const { data: c } = await supabase
@@ -100,7 +103,8 @@ export async function POST(req: NextRequest) {
     charity = c as Charity;
   }
 
-  if (!effectiveCharityId) {
+  // Allow enrollment with a suggested charity (no selected_charity_id)
+  if (!effectiveCharityId && !suggestedCharityName) {
     return NextResponse.json(
       { error: "Please pick a charity before finishing enrollment." },
       { status: 400 }
@@ -143,6 +147,7 @@ export async function POST(req: NextRequest) {
         reward_preference: data.rewardPreference,
         assigned_reward_config_id: assignedRewardConfigId,
         selected_charity_id: effectiveCharityId,
+        suggested_charity_name: suggestedCharityName,
       })
       .select("*")
       .single();
@@ -198,6 +203,12 @@ export async function POST(req: NextRequest) {
       firstName: referrer.first_name,
       loginUrl: dashboardUrl,
     }).catch(() => {}),
+    notifyNewReferrerSignup({
+      referrer,
+      charity,
+      suggestedCharityName,
+      referralLink,
+    }).catch((err) => console.error("Admin notify email failed:", err)),
   ]).catch((err) => console.error("Welcome email batch failed:", err));
 
   return NextResponse.json({

@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
-import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
-import STLinkBadge from "@/components/STLinkBadge";
 import type { Referral, ReferralStatus, Referrer } from "@/lib/supabase";
-import TagInSTButton from "./TagInSTButton";
-import SimulateCompletionButton from "./SimulateCompletionButton";
+import ReferralsTable from "./ReferralsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -72,134 +69,7 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
         ))}
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead style={{ background: "var(--bg-muted)" }}>
-            <tr>
-              <Th>Friend</Th>
-              <Th>Referred by</Th>
-              <Th>Service</Th>
-              <Th>Status</Th>
-              <Th>ServiceTitan</Th>
-              <Th className="text-right">Invoice</Th>
-              <Th>Submitted</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {referrals.map((r) => (
-              <tr key={r.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
-                <Td>
-                  {r.referred_name}
-                  <div className="text-xs opacity-60">{r.referred_phone}</div>
-                </Td>
-                <Td>
-                  {r.referrer.first_name} {r.referrer.last_name}
-                  <div className="text-xs opacity-60">
-                    <code>{r.referrer.referral_code}</code>
-                  </div>
-                </Td>
-                <Td className="opacity-80 text-xs max-w-xs">{r.service_requested}</Td>
-                <Td>
-                  <ReferralStatusBadge status={r.status} />
-                </Td>
-                <Td>
-                  <div className="flex flex-col gap-1.5">
-                    {r.service_titan_booking_id ? (
-                      <div className="flex flex-col gap-0.5">
-                        <STLinkBadge
-                          id={r.service_titan_booking_id}
-                          href={stBookingUrl(r.service_titan_booking_id)}
-                        />
-                        <span
-                          className="text-[10px] uppercase tracking-wide opacity-60"
-                        >
-                          booking
-                        </span>
-                      </div>
-                    ) : r.service_titan_lead_id ? (
-                      <div className="flex flex-col gap-0.5">
-                        <STLinkBadge
-                          id={r.service_titan_lead_id}
-                          href={stLeadUrl(r.service_titan_lead_id)}
-                        />
-                        <span
-                          className="text-[10px] uppercase tracking-wide opacity-60"
-                        >
-                          lead
-                        </span>
-                      </div>
-                    ) : (
-                      <STLinkBadge
-                        id={null}
-                        href={null}
-                        emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
-                      />
-                    )}
-                    <TagInSTButton
-                      referralId={r.id}
-                      customerId={r.service_titan_customer_id}
-                    />
-                    <SimulateCompletionButton
-                      referralId={r.id}
-                      status={r.status}
-                    />
-                  </div>
-                </Td>
-                <Td className="text-right">
-                  {r.invoice_total
-                    ? `$${Number(r.invoice_total).toFixed(0)}`
-                    : "—"}
-                </Td>
-                <Td className="opacity-70 text-xs">
-                  {new Date(r.submitted_at).toLocaleDateString()}
-                </Td>
-              </tr>
-            ))}
-            {referrals.length === 0 && (
-              <tr>
-                <td colSpan={7} className="p-8 text-center opacity-60">
-                  No referrals match this filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ReferralsTable rows={referrals} />
     </div>
   );
-}
-
-function ReferralStatusBadge({ status }: { status: string }) {
-  const styles: Record<string, { bg: string; fg: string; label: string }> = {
-    SUBMITTED: { bg: "rgba(184,149,107,0.2)", fg: "#8a6a3a", label: "Submitted" },
-    BOOKED: { bg: "rgba(59,130,246,0.15)", fg: "#1e40af", label: "Booked" },
-    COMPLETED: { bg: "rgba(97,139,96,0.15)", fg: "#415440", label: "Completed" },
-    REWARD_ISSUED: { bg: "rgba(34,197,94,0.15)", fg: "#15803d", label: "Reward issued" },
-    EXPIRED: { bg: "rgba(135,76,59,0.1)", fg: "#874c3b", label: "Expired" },
-    INELIGIBLE: { bg: "rgba(0,0,0,0.05)", fg: "#6b7280", label: "Ineligible" },
-  };
-  const s = styles[status] || styles.SUBMITTED;
-  return (
-    <span
-      className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-      style={{ background: s.bg, color: s.fg }}
-    >
-      {s.label}
-    </span>
-  );
-}
-
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={`text-left p-3 text-xs font-semibold uppercase tracking-wide ${className}`}
-      style={{ color: "var(--text-muted)" }}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <td className={`p-3 ${className}`}>{children}</td>;
 }

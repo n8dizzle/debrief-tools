@@ -19,7 +19,7 @@ function getSavedFilters(): Record<string, any> | null {
 }
 
 export default function JobsPage() {
-  const { canSyncData, canManageAssignments, canManagePayments } = useAPPermissions();
+  const { canSyncData, canManageAssignments, canManagePayments, canApprovePayments } = useAPPermissions();
   const [jobs, setJobs] = useState<APInstallJob[]>([]);
   const [contractors, setContractors] = useState<APContractor[]>([]);
   const [businessUnitOptions, setBusinessUnitOptions] = useState<string[]>([]);
@@ -198,16 +198,23 @@ export default function JobsPage() {
     await loadJobs();
   };
 
-  const handlePaymentStatusChange = async (jobId: string, newStatus: string) => {
+  const handlePaymentStatusChange = async (
+    jobId: string,
+    newStatus: string,
+    extras?: { payment_notes?: string; payment_amount?: number }
+  ) => {
     const res = await fetch(`/api/jobs/${jobId}/payment`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_status: newStatus }),
+      body: JSON.stringify({ payment_status: newStatus, ...extras }),
     });
 
-    if (res.ok) {
-      await loadJobs();
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || `Failed to update payment status (${res.status})`);
     }
+
+    await loadJobs();
   };
 
   const handleNotesChange = async (jobId: string, notes: string) => {
@@ -543,6 +550,7 @@ export default function JobsPage() {
                 )}
                 <div>
                   {[
+                    { value: 'needs_assignment', label: 'Needs Assignment' },
                     { value: 'none', label: 'No Payment' },
                     { value: 'pending_approval', label: 'Pending Approval' },
                     { value: 'ready_to_pay', label: 'Ready to Pay' },
@@ -619,6 +627,7 @@ export default function JobsPage() {
         isLoading={loading}
         canManageAssignments={canManageAssignments}
         canManagePayments={canManagePayments}
+        canApprovePayments={canApprovePayments}
         onAssign={handleAssign}
         onPaymentStatusChange={handlePaymentStatusChange}
         onNotesChange={handleNotesChange}

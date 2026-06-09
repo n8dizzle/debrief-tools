@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Key and label are required' }, { status: 400 });
     }
 
-    const validCategory = category === 'collection' ? 'collection' : 'work';
+    const validCategory =
+      category === 'collection' ? 'collection' :
+      category === 'payment_type' ? 'payment_type' :
+      'work';
 
     // Sanitize key to be lowercase with underscores
     const sanitizedKey = key.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');

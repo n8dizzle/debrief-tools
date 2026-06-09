@@ -48,7 +48,7 @@ export default function SettingsPage() {
   const [jobStatusesLoading, setJobStatusesLoading] = useState(true);
   const [newStatusKey, setNewStatusKey] = useState('');
   const [newStatusLabel, setNewStatusLabel] = useState('');
-  const [newStatusCategory, setNewStatusCategory] = useState<'work' | 'collection'>('work');
+  const [newStatusCategory, setNewStatusCategory] = useState<'work' | 'collection' | 'payment_type'>('work');
   const [addingStatus, setAddingStatus] = useState(false);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
@@ -1165,6 +1165,160 @@ export default function SettingsPage() {
                 );
               })()}
 
+              {/* Payment Types Section */}
+              {(() => {
+                const paymentTypes = jobStatuses.filter(s => s.category === 'payment_type');
+                const activePayment = paymentTypes.filter(s => s.is_active);
+                const inactivePayment = paymentTypes.filter(s => !s.is_active);
+                return (
+                  <div className="card">
+                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                      Payment Types
+                    </h2>
+                    <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                      How the customer plans to pay (cash, check, card, financing, etc.). Does not affect the AR bucket.
+                    </p>
+
+                    <div className="space-y-1">
+                      {activePayment.map((status, index) => (
+                        <div
+                          key={status.id}
+                          className="flex items-center gap-2 p-2 rounded-lg group"
+                          style={{ backgroundColor: 'var(--bg-secondary)' }}
+                        >
+                          <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
+                            <button
+                              onClick={() => moveStatus(status.id, 'up')}
+                              disabled={index === 0}
+                              className="p-1 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Move up"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => moveStatus(status.id, 'down')}
+                              disabled={index === activePayment.length - 1}
+                              className="p-1 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Move down"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          <span className="w-6 text-center text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+                            {index + 1}
+                          </span>
+
+                          <div className="flex-1">
+                            {editingStatusId === status.id ? (
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={editingLabel}
+                                  onChange={(e) => setEditingLabel(e.target.value)}
+                                  className="flex-1 px-2 py-1 text-sm rounded"
+                                  style={{
+                                    backgroundColor: 'var(--bg-tertiary)',
+                                    color: 'var(--christmas-cream)',
+                                    border: '1px solid var(--christmas-green)',
+                                  }}
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') updateJobStatus(status.id, { label: editingLabel });
+                                    if (e.key === 'Escape') setEditingStatusId(null);
+                                  }}
+                                />
+                                <button
+                                  onClick={() => updateJobStatus(status.id, { label: editingLabel })}
+                                  className="p-1 rounded hover:bg-green-500/20"
+                                  title="Save"
+                                >
+                                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => setEditingStatusId(null)}
+                                  className="p-1 rounded hover:bg-red-500/20"
+                                  title="Cancel"
+                                >
+                                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--christmas-cream)' }}>{status.label}</span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100">
+                            <button
+                              onClick={() => {
+                                setEditingStatusId(status.id);
+                                setEditingLabel(status.label);
+                              }}
+                              className="p-1 rounded hover:bg-white/10"
+                              title="Edit label"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => updateJobStatus(status.id, { is_active: false })}
+                              className="p-1 rounded hover:bg-red-500/20"
+                              title="Deactivate"
+                            >
+                              <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {inactivePayment.length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                            Inactive ({inactivePayment.length})
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {inactivePayment.map((status) => (
+                            <div
+                              key={status.id}
+                              className="flex items-center gap-2 p-2 rounded-lg group"
+                              style={{ backgroundColor: 'var(--bg-secondary)', opacity: 0.6 }}
+                            >
+                              <span className="w-14"></span>
+                              <span className="w-6"></span>
+                              <span className="flex-1" style={{ color: 'var(--text-muted)' }}>{status.label}</span>
+                              <button
+                                onClick={() => updateJobStatus(status.id, { is_active: true })}
+                                className="p-1 rounded hover:bg-green-500/20 opacity-50 group-hover:opacity-100"
+                                title="Reactivate"
+                              >
+                                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Add New Status */}
               <div className="card">
                 <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
@@ -1173,7 +1327,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <select
                     value={newStatusCategory}
-                    onChange={(e) => setNewStatusCategory(e.target.value as 'work' | 'collection')}
+                    onChange={(e) => setNewStatusCategory(e.target.value as 'work' | 'collection' | 'payment_type')}
                     className="px-3 py-2 rounded text-sm"
                     style={{
                       backgroundColor: 'var(--bg-tertiary)',
@@ -1183,6 +1337,7 @@ export default function SettingsPage() {
                   >
                     <option value="work">Work</option>
                     <option value="collection">Collection</option>
+                    <option value="payment_type">Payment Type</option>
                   </select>
                   <input
                     type="text"
@@ -1232,7 +1387,11 @@ export default function SettingsPage() {
                     track outreach actions (called, emailed). They don't affect the AR bucket.
                   </li>
                   <li className="flex gap-2">
-                    An invoice can have <strong>both</strong> a work status and a collection status at the same time.
+                    <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Payment types</span>
+                    capture how the customer plans to pay (cash, check, card, financing).
+                  </li>
+                  <li className="flex gap-2">
+                    An invoice can have a work status, a collection status, and a payment type at the same time.
                   </li>
                 </ul>
               </div>

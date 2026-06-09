@@ -19,6 +19,7 @@ interface FormState {
   phone: string;
   rewardPreference: RewardPref;
   selectedCharityId: string | null;
+  suggestedCharityName: string;
 }
 
 const initialState: FormState = {
@@ -28,6 +29,7 @@ const initialState: FormState = {
   phone: "",
   rewardPreference: "VISA_GIFT_CARD",
   selectedCharityId: null,
+  suggestedCharityName: "",
 };
 
 interface EnrollFormProps {
@@ -57,16 +59,25 @@ export default function EnrollForm({ charities }: EnrollFormProps) {
     setSubmitting(true);
     setError(null);
     try {
+      const payload = {
+        ...form,
+        suggestedCharityName: form.selectedCharityId === "other"
+          ? form.suggestedCharityName.trim()
+          : null,
+        selectedCharityId: form.selectedCharityId === "other"
+          ? null
+          : form.selectedCharityId,
+      };
       const res = await fetch("/api/enroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
         const hint =
           res.status >= 500
-            ? "Something went wrong on our end. Please try again, or call (469) 214-2013 and we'll enroll you by hand."
+            ? "Something went wrong on our end. Please try again, or call (469) 214-5517 and we'll enroll you by hand."
             : data.error || "Please check the info above and try again.";
         setError(hint);
         setSubmitting(false);
@@ -235,7 +246,7 @@ function ContactStep({
           value={form.phone}
           onChange={(e) => update("phone", e.target.value)}
           autoComplete="tel"
-          placeholder="(469) 214-2013"
+          placeholder="(469) 214-5517"
         />
       </Field>
 
@@ -361,11 +372,13 @@ function CharityStep({
   submitting: boolean;
   error: string | null;
 }) {
-  const canSubmit = !!form.selectedCharityId;
+  const isOther = form.selectedCharityId === "other";
+  const canSubmit = !!form.selectedCharityId &&
+    (!isOther || form.suggestedCharityName.trim().length > 0);
 
   return (
     <div className="card">
-      <h2 className="text-3xl mb-2">Pick the cause you&apos;d like to support.</h2>
+      <h2 className="text-3xl mb-2">Pick the cause you&apos;d like to support</h2>
       <p className="opacity-80 mb-6">
         Every successful referral from you also triggers a matched donation from
         Christmas Air to the charity you pick.{" "}
@@ -404,6 +417,39 @@ function CharityStep({
               </div>
             </label>
           ))}
+
+          {/* Suggest a charity option */}
+          <label
+            className="flex items-start gap-3 p-4 rounded-lg cursor-pointer"
+            style={{
+              border: `2px solid ${isOther ? "var(--ca-green)" : "var(--border-subtle)"}`,
+              background: isOther ? "rgba(97,139,96,0.06)" : "var(--bg-card)",
+            }}
+          >
+            <input
+              type="radio"
+              name="selectedCharityId"
+              value="other"
+              checked={isOther}
+              onChange={() => update("selectedCharityId", "other")}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <p className="font-semibold">Suggest a charity</p>
+              <p className="text-sm opacity-70 mt-1">
+                Don&apos;t see your cause? Type it in and we&apos;ll review it.
+              </p>
+              {isOther && (
+                <input
+                  className="input mt-3"
+                  placeholder="e.g. American Red Cross"
+                  value={form.suggestedCharityName}
+                  onChange={(e) => update("suggestedCharityName", e.target.value)}
+                  autoFocus
+                />
+              )}
+            </div>
+          </label>
         </div>
         <p className="text-xs opacity-60 mt-3">
           You can change your charity any time from your dashboard.
@@ -456,14 +502,14 @@ function DoneScreen({
       <div className="card text-center">
         {result.alreadyEnrolled ? (
           <>
-            <h2 className="text-3xl mb-2">Welcome back.</h2>
+            <h2 className="text-3xl mb-2">Welcome back</h2>
             <p className="opacity-80 mb-6">
               You&apos;re already enrolled. Here&apos;s your link:
             </p>
           </>
         ) : (
           <>
-            <h2 className="text-3xl mb-2">You&apos;re in.</h2>
+            <h2 className="text-3xl mb-2">You&apos;re in</h2>
             <p className="opacity-80 mb-6">
               {tripleWinActive
                 ? "Triple Win is on — your referrals now support your charity. We sent a welcome email to your inbox."
