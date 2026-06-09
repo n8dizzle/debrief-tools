@@ -21,8 +21,8 @@ const SHEETS = [
 ];
 
 // Row numbers (1-indexed) mapping to metric names
-// These map to the spreadsheet structure discovered via exploration
-const ROW_MAP = {
+// 2026 layout (canonical)
+const ROW_MAP_2026 = {
   // CHRISTMAS TOTALS (company)
   company_revenue: 5,
   company_completed_revenue: 6,
@@ -122,6 +122,10 @@ const ROW_MAP = {
   plumbing_jobs_ran: 178,
 };
 
+// 2025 sheet has been updated to match 2026 row layout
+// (user added Total Sales rows to match). Same map for both years.
+const ROW_MAP_2025 = ROW_MAP_2026;
+
 function parseNum(val: string | undefined): number {
   if (!val) return 0;
   // Remove $, commas, %, #REF!, and trim
@@ -172,6 +176,7 @@ function getISOWeekNumber(date: Date): number {
 async function importSheet(sheetConfig: { year: number; id: string }) {
   console.log(`\nReading ${sheetConfig.year} spreadsheet...`);
   const rows = readSheet(sheetConfig.id);
+  const ROW_MAP = sheetConfig.year === 2025 ? ROW_MAP_2025 : ROW_MAP_2026;
 
   if (rows.length === 0) {
     console.log('  No data found');
@@ -183,10 +188,12 @@ async function importSheet(sheetConfig: { year: number; id: string }) {
   // Week columns start at index 2 (skip year label + YTD Total)
   const weekColumns = headerRow.slice(2);
 
-  console.log(`  Found ${weekColumns.length} week columns`);
+  console.log(`  Found ${weekColumns.length} week columns (using ${sheetConfig.year === 2025 ? '2025' : '2026'} row map)`);
 
   // Helper to get cell value by row number (1-indexed) and column index
+  // Returns '' for row 0 (metric not available in this year's layout)
   const getVal = (rowNum: number, colIdx: number): string => {
+    if (rowNum === 0) return '';
     const row = rows[rowNum - 1]; // Convert to 0-indexed
     if (!row) return '';
     return row[colIdx + 2] || ''; // +2 to skip label + YTD columns

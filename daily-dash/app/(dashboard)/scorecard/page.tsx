@@ -97,6 +97,7 @@ export default function ScorecardPage() {
     trailing13,
     priorYear13,
     targets,
+    weeklyTargets,
     ytd,
     annualRevTarget,
     expectedYtdRevenue,
@@ -197,13 +198,29 @@ export default function ScorecardPage() {
     ];
   }, [currentWeek, prevWeek, targets]);
 
+  // Format week ending date as "Mon D" (e.g., "Jun 7")
+  const fmtWeekDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T12:00:00');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
+  };
+
   // Build chart data for 13-week trends (per department)
   const trendData = useMemo(() => {
     if (!trailing13?.length) return [];
-    return trailing13.map((w: any) => ({
-      week: `WK ${w.week_number}`,
+    return trailing13.map((w: any, idx: number) => {
+      const wt = weeklyTargets?.[idx] || {};
+      return {
+      week: fmtWeekDate(w.week_ending),
       weekNum: w.week_number,
       date: w.week_ending,
+      // Targets for this week (from the month it falls in)
+      targetTotal: wt['TOTAL'] || 0,
+      targetHvacInstall: wt['HVAC Install'] || 0,
+      targetHvacService: wt['HVAC Service'] || 0,
+      targetHvacMaint: wt['HVAC Maintenance'] || 0,
+      targetPlumbing: wt['Plumbing'] || 0,
       // Company
       revenue: Number(w.company?.revenue) || 0,
       sales: Number(w.company?.sales) || 0,
@@ -228,8 +245,8 @@ export default function ScorecardPage() {
       membershipsSold: w.company?.memberships_sold || 0,
       membershipsExpired: w.company?.memberships_expired || 0,
       membershipsNet: (w.company?.memberships_sold || 0) + (w.company?.memberships_renewed || 0) + (w.company?.memberships_reactivated || 0) - (w.company?.memberships_expired || 0) - (w.company?.memberships_cancelled || 0) - (w.company?.memberships_deleted || 0),
-    }));
-  }, [trailing13]);
+    };});
+  }, [trailing13, weeklyTargets]);
 
   // Prior year data for YoY overlay (per department)
   const priorYearTrendData = useMemo(() => {
@@ -479,13 +496,13 @@ export default function ScorecardPage() {
       {/* ══ TRENDS TAB ══ */}
       {tab === 'trends' && (() => {
         // Department chart config: label, current rev key, prior rev key, current sales key, prior sales key, bar color
-        const deptCharts: { label: string; revKey: string; priorRevKey: string; salesKey: string; priorSalesKey: string; color: string; showRevenue: boolean }[] = [
-          { label: 'Company Total', revKey: 'revenue', priorRevKey: 'priorRevenue', salesKey: 'sales', priorSalesKey: 'priorSales', color: 'var(--christmas-green)', showRevenue: true },
-          { label: 'HVAC Install', revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', salesKey: 'hvacInstallSales', priorSalesKey: 'priorHvacInstallSales', color: '#3b82f6', showRevenue: true },
-          { label: 'HVAC Service', revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', color: '#8b5cf6', showRevenue: true },
-          { label: 'HVAC Maintenance', revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', color: '#06b6d4', showRevenue: true },
-          { label: 'HVAC Sales', revKey: '', priorRevKey: '', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', color: '#f59e0b', showRevenue: false },
-          { label: 'Plumbing', revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', color: 'var(--christmas-gold)', showRevenue: true },
+        const deptCharts: { label: string; revKey: string; priorRevKey: string; salesKey: string; priorSalesKey: string; targetKey: string; color: string; showRevenue: boolean }[] = [
+          { label: 'Company Total', revKey: 'revenue', priorRevKey: 'priorRevenue', salesKey: 'sales', priorSalesKey: 'priorSales', targetKey: 'targetTotal', color: 'var(--christmas-green)', showRevenue: true },
+          { label: 'HVAC Install', revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', salesKey: 'hvacInstallSales', priorSalesKey: 'priorHvacInstallSales', targetKey: 'targetHvacInstall', color: '#3b82f6', showRevenue: true },
+          { label: 'HVAC Service', revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', targetKey: 'targetHvacService', color: '#8b5cf6', showRevenue: true },
+          { label: 'HVAC Maintenance', revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', targetKey: 'targetHvacMaint', color: '#06b6d4', showRevenue: true },
+          { label: 'HVAC Sales', revKey: '', priorRevKey: '', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', targetKey: '', color: '#f59e0b', showRevenue: false },
+          { label: 'Plumbing', revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', targetKey: 'targetPlumbing', color: 'var(--christmas-gold)', showRevenue: true },
         ];
 
         return (
@@ -516,6 +533,7 @@ export default function ScorecardPage() {
                             ))}
                           </Bar>
                           <Line type="monotone" dataKey={dept.priorRevKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                          {dept.targetKey && <Line type="stepAfter" dataKey={dept.targetKey} name="Target" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="6 3" dot={false} />}
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>

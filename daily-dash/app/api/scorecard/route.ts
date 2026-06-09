@@ -148,6 +148,13 @@ export async function GET(request: NextRequest) {
   const currentMonth = currentWeekEnding.getMonth() + 1;
   const targets = weeklyTargetsByMonth[currentMonth] || {};
 
+  // Attach per-week targets based on each week's month
+  const weeklyTargets = currentWeeks.map(w => {
+    const we = new Date(w.week_ending + 'T12:00:00');
+    const m = we.getMonth() + 1;
+    return weeklyTargetsByMonth[m] || {};
+  });
+
   // Compute YTD totals
   const { data: ytdData } = await supabase
     .from('weekly_scorecard')
@@ -194,6 +201,7 @@ export async function GET(request: NextRequest) {
     trailing13: currentWeeks,
     priorYear13: priorWeeks,
     targets,
+    weeklyTargets,
     ytd,
     annualRevTarget,
     expectedYtdRevenue,
