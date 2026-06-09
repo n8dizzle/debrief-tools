@@ -197,22 +197,33 @@ export default function ScorecardPage() {
     ];
   }, [currentWeek, prevWeek, targets]);
 
-  // Build chart data for 13-week trends
+  // Build chart data for 13-week trends (per department)
   const trendData = useMemo(() => {
     if (!trailing13?.length) return [];
     return trailing13.map((w: any) => ({
       week: `WK ${w.week_number}`,
       weekNum: w.week_number,
       date: w.week_ending,
+      // Company
       revenue: Number(w.company?.revenue) || 0,
       sales: Number(w.company?.sales) || 0,
       avgTicket: Number(w.company?.avg_ticket) || 0,
       jobsRan: w.company?.jobs_ran || 0,
+      // HVAC departments
       hvacRev: Number(w.hvac?.revenue) || 0,
-      plumbingRev: Number(w.plumbing?.revenue) || 0,
+      hvacSales: Number(w.hvac?.sales) || 0,
       hvacInstallRev: Number(w.hvac_install?.revenue) || 0,
+      hvacInstallSales: Number(w.hvac_install?.sales) || 0,
       hvacServiceRev: Number(w.hvac_service?.revenue) || 0,
+      hvacServiceSales: Number(w.hvac_service?.sales) || 0,
       hvacMaintRev: Number(w.hvac_maintenance?.revenue) || 0,
+      hvacMaintSales: Number(w.hvac_maintenance?.sales) || 0,
+      // HVAC Sales (sales only, no revenue)
+      hvacSalesDeptSales: Number(w.hvac_sales?.hvac_lead_sales) || 0,
+      // Plumbing (all depts combined)
+      plumbingRev: Number(w.plumbing?.revenue) || 0,
+      plumbingSales: Number(w.plumbing?.sales) || 0,
+      // Memberships
       membershipsActive: w.company?.memberships_active_end || 0,
       membershipsSold: w.company?.memberships_sold || 0,
       membershipsExpired: w.company?.memberships_expired || 0,
@@ -220,7 +231,7 @@ export default function ScorecardPage() {
     }));
   }, [trailing13]);
 
-  // Prior year data for YoY overlay
+  // Prior year data for YoY overlay (per department)
   const priorYearTrendData = useMemo(() => {
     if (!priorYear13?.length) return [];
     return priorYear13.map((w: any) => ({
@@ -229,10 +240,19 @@ export default function ScorecardPage() {
       sales: Number(w.company?.sales) || 0,
       avgTicket: Number(w.company?.avg_ticket) || 0,
       jobsRan: w.company?.jobs_ran || 0,
+      hvacInstallRev: Number(w.hvac_install?.revenue) || 0,
+      hvacInstallSales: Number(w.hvac_install?.sales) || 0,
+      hvacServiceRev: Number(w.hvac_service?.revenue) || 0,
+      hvacServiceSales: Number(w.hvac_service?.sales) || 0,
+      hvacMaintRev: Number(w.hvac_maintenance?.revenue) || 0,
+      hvacMaintSales: Number(w.hvac_maintenance?.sales) || 0,
+      hvacSalesDeptSales: Number(w.hvac_sales?.hvac_lead_sales) || 0,
+      plumbingRev: Number(w.plumbing?.revenue) || 0,
+      plumbingSales: Number(w.plumbing?.sales) || 0,
     }));
   }, [priorYear13]);
 
-  // Merge current + prior year for YoY chart
+  // Merge current + prior year for YoY charts
   const yoyChartData = useMemo(() => {
     return trendData.map((d: any) => {
       const py = priorYearTrendData.find((p: any) => p.weekNum === d.weekNum);
@@ -242,6 +262,15 @@ export default function ScorecardPage() {
         priorSales: py?.sales || 0,
         priorAvgTicket: py?.avgTicket || 0,
         priorJobsRan: py?.jobsRan || 0,
+        priorHvacInstallRev: py?.hvacInstallRev || 0,
+        priorHvacInstallSales: py?.hvacInstallSales || 0,
+        priorHvacServiceRev: py?.hvacServiceRev || 0,
+        priorHvacServiceSales: py?.hvacServiceSales || 0,
+        priorHvacMaintRev: py?.hvacMaintRev || 0,
+        priorHvacMaintSales: py?.hvacMaintSales || 0,
+        priorHvacSalesDeptSales: py?.hvacSalesDeptSales || 0,
+        priorPlumbingRev: py?.plumbingRev || 0,
+        priorPlumbingSales: py?.plumbingSales || 0,
       };
     });
   }, [trendData, priorYearTrendData]);
@@ -448,113 +477,74 @@ export default function ScorecardPage() {
       )}
 
       {/* ══ TRENDS TAB ══ */}
-      {tab === 'trends' && (
-        <>
-          {/* Revenue: current year bars + prior year line */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-              Revenue (13 Weeks) — {year} vs {year - 1}
-            </h3>
-            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={yoyChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} tickLine={false} axisLine={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" name={`${year} Revenue`} radius={[4, 4, 0, 0]} fillOpacity={0.85}>
-                    {yoyChartData.map((d: any, i: number) => (
-                      <Cell key={i} fill={d.revenue >= d.priorRevenue ? 'var(--christmas-green)' : '#EF4444'} />
-                    ))}
-                  </Bar>
-                  <Line type="monotone" dataKey="priorRevenue" name={`${year - 1} Revenue`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+      {tab === 'trends' && (() => {
+        // Department chart config: label, current rev key, prior rev key, current sales key, prior sales key, bar color
+        const deptCharts: { label: string; revKey: string; priorRevKey: string; salesKey: string; priorSalesKey: string; color: string; showRevenue: boolean }[] = [
+          { label: 'Company Total', revKey: 'revenue', priorRevKey: 'priorRevenue', salesKey: 'sales', priorSalesKey: 'priorSales', color: 'var(--christmas-green)', showRevenue: true },
+          { label: 'HVAC Install', revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', salesKey: 'hvacInstallSales', priorSalesKey: 'priorHvacInstallSales', color: '#3b82f6', showRevenue: true },
+          { label: 'HVAC Service', revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', color: '#8b5cf6', showRevenue: true },
+          { label: 'HVAC Maintenance', revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', color: '#06b6d4', showRevenue: true },
+          { label: 'HVAC Sales', revKey: '', priorRevKey: '', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', color: '#f59e0b', showRevenue: false },
+          { label: 'Plumbing', revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', color: 'var(--christmas-gold)', showRevenue: true },
+        ];
 
-          {/* Revenue by trade (stacked) */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-              Revenue by Trade
-            </h3>
-            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} tickLine={false} axisLine={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="hvacRev" name="HVAC" fill="var(--christmas-green)" stackId="a" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="plumbingRev" name="Plumbing" fill="var(--christmas-gold)" stackId="a" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+        return (
+          <>
+            {deptCharts.map((dept, di) => (
+              <div key={di} className="mb-8">
+                <div className="flex items-center gap-3 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                    {dept.label}
+                  </h3>
+                  <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+                </div>
 
-          {/* Avg Ticket trend */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-              Avg Ticket — {year} vs {year - 1}
-            </h3>
-            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={yoyChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `$${v}`} tickLine={false} axisLine={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Line type="monotone" dataKey="avgTicket" name={`${year} Avg Ticket`} stroke="var(--christmas-green)" strokeWidth={2} dot={{ r: 3, fill: 'var(--christmas-green)' }} />
-                  <Line type="monotone" dataKey="priorAvgTicket" name={`${year - 1} Avg Ticket`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Revenue chart */}
+                  {dept.showRevenue && (
+                    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Revenue — {year} vs {year - 1}</p>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <ComposedChart data={yoyChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} tickLine={false} axisLine={false} />
+                          <Tooltip content={<ChartTooltip />} />
+                          <Bar dataKey={dept.revKey} name={`${year}`} radius={[3, 3, 0, 0]} fillOpacity={0.85}>
+                            {yoyChartData.map((d: any, i: number) => (
+                              <Cell key={i} fill={(d[dept.revKey] || 0) >= (d[dept.priorRevKey] || 0) ? dept.color : '#EF4444'} />
+                            ))}
+                          </Bar>
+                          <Line type="monotone" dataKey={dept.priorRevKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
 
-          {/* 13-Week Detail Table */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-              13-Week Detail
-            </h3>
-            <div className="rounded-xl overflow-x-auto" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <table className="w-full text-xs" style={{ borderCollapse: 'collapse', minWidth: 700 }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    {['Week', 'Revenue', 'YoY Rev', 'Sales', 'Avg Ticket', 'Jobs', 'HVAC Rev', 'Plumbing Rev'].map(h => (
-                      <th key={h} className="px-3 py-2 font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)', textAlign: h === 'Week' ? 'left' : 'right' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {yoyChartData.map((w: any, i: number) => {
-                    const yoyDelta = w.priorRevenue > 0 ? ((w.revenue - w.priorRevenue) / w.priorRevenue * 100).toFixed(0) : '';
-                    const isCurrent = i === yoyChartData.length - 1;
-                    return (
-                      <tr key={i} style={{
-                        borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        backgroundColor: isCurrent ? 'rgba(34,197,94,0.04)' : 'transparent',
-                      }}>
-                        <td className="px-3 py-2 font-mono font-semibold" style={{ color: 'var(--christmas-cream)' }}>{w.week}</td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold" style={{ color: w.revenue >= w.priorRevenue ? 'var(--christmas-green)' : '#EF4444' }}>{fmt$(w.revenue)}</td>
-                        <td className="px-3 py-2 text-right font-mono" style={{ color: yoyDelta && Number(yoyDelta) >= 0 ? 'var(--christmas-green)' : '#EF4444' }}>
-                          {yoyDelta ? `${Number(yoyDelta) >= 0 ? '+' : ''}${yoyDelta}%` : '---'}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>{fmt$(w.sales)}</td>
-                        <td className="px-3 py-2 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>{fmt$(w.avgTicket)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{fmtN(w.jobsRan)}</td>
-                        <td className="px-3 py-2 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>{fmt$(w.hvacRev)}</td>
-                        <td className="px-3 py-2 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>{fmt$(w.plumbingRev)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
+                  {/* Sales chart */}
+                  <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                    <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Sales — {year} vs {year - 1}</p>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <ComposedChart data={yoyChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                        <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} tickLine={false} axisLine={false} />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Bar dataKey={dept.salesKey} name={`${year}`} radius={[3, 3, 0, 0]} fillOpacity={0.85}>
+                          {yoyChartData.map((d: any, i: number) => (
+                            <Cell key={i} fill={(d[dept.salesKey] || 0) >= (d[dept.priorSalesKey] || 0) ? dept.color : '#EF4444'} />
+                          ))}
+                        </Bar>
+                        <Line type="monotone" dataKey={dept.priorSalesKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        );
+      })()}
 
       {/* ══ MEMBERSHIPS TAB ══ */}
       {tab === 'memberships' && (
