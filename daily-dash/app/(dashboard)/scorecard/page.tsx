@@ -237,15 +237,23 @@ export default function ScorecardPage() {
       hvacSales: Number(w.hvac?.sales) || 0,
       hvacInstallRev: Number(w.hvac_install?.revenue) || 0,
       hvacInstallSales: Number(w.hvac_install?.sales) || 0,
+      hvacInstallJobs: w.hvac_install?.jobs_ran || 0,
+      hvacInstallAvgTicket: Number(w.hvac_install?.avg_ticket) || 0,
       hvacServiceRev: Number(w.hvac_service?.revenue) || 0,
       hvacServiceSales: Number(w.hvac_service?.sales) || 0,
+      hvacServiceJobs: w.hvac_service?.jobs_ran || 0,
+      hvacServiceAvgTicket: Number(w.hvac_service?.avg_ticket) || 0,
       hvacMaintRev: Number(w.hvac_maintenance?.revenue) || 0,
       hvacMaintSales: Number(w.hvac_maintenance?.sales) || 0,
+      hvacMaintJobs: w.hvac_maintenance?.jobs_ran || 0,
+      hvacMaintAvgTicket: Number(w.hvac_maintenance?.avg_ticket) || 0,
       // HVAC Sales (sales only, no revenue)
       hvacSalesDeptSales: Number(w.hvac_sales?.hvac_lead_sales) || 0,
       // Plumbing (all depts combined)
       plumbingRev: Number(w.plumbing?.revenue) || 0,
       plumbingSales: Number(w.plumbing?.sales) || 0,
+      plumbingJobs: w.plumbing?.jobs_ran || 0,
+      plumbingAvgTicket: Number(w.plumbing?.avg_ticket) || 0,
       // Memberships
       membershipsActive: w.company?.memberships_active_end || 0,
       membershipsSold: w.company?.memberships_sold || 0,
@@ -265,13 +273,21 @@ export default function ScorecardPage() {
       jobsRan: w.company?.jobs_ran || 0,
       hvacInstallRev: Number(w.hvac_install?.revenue) || 0,
       hvacInstallSales: Number(w.hvac_install?.sales) || 0,
+      hvacInstallJobs: w.hvac_install?.jobs_ran || 0,
+      hvacInstallAvgTicket: Number(w.hvac_install?.avg_ticket) || 0,
       hvacServiceRev: Number(w.hvac_service?.revenue) || 0,
       hvacServiceSales: Number(w.hvac_service?.sales) || 0,
+      hvacServiceJobs: w.hvac_service?.jobs_ran || 0,
+      hvacServiceAvgTicket: Number(w.hvac_service?.avg_ticket) || 0,
       hvacMaintRev: Number(w.hvac_maintenance?.revenue) || 0,
       hvacMaintSales: Number(w.hvac_maintenance?.sales) || 0,
+      hvacMaintJobs: w.hvac_maintenance?.jobs_ran || 0,
+      hvacMaintAvgTicket: Number(w.hvac_maintenance?.avg_ticket) || 0,
       hvacSalesDeptSales: Number(w.hvac_sales?.hvac_lead_sales) || 0,
       plumbingRev: Number(w.plumbing?.revenue) || 0,
       plumbingSales: Number(w.plumbing?.sales) || 0,
+      plumbingJobs: w.plumbing?.jobs_ran || 0,
+      plumbingAvgTicket: Number(w.plumbing?.avg_ticket) || 0,
     }));
   }, [priorYear13]);
 
@@ -287,13 +303,21 @@ export default function ScorecardPage() {
         priorJobsRan: py?.jobsRan || 0,
         priorHvacInstallRev: py?.hvacInstallRev || 0,
         priorHvacInstallSales: py?.hvacInstallSales || 0,
+        priorHvacInstallJobs: py?.hvacInstallJobs || 0,
+        priorHvacInstallAvgTicket: py?.hvacInstallAvgTicket || 0,
         priorHvacServiceRev: py?.hvacServiceRev || 0,
         priorHvacServiceSales: py?.hvacServiceSales || 0,
+        priorHvacServiceJobs: py?.hvacServiceJobs || 0,
+        priorHvacServiceAvgTicket: py?.hvacServiceAvgTicket || 0,
         priorHvacMaintRev: py?.hvacMaintRev || 0,
         priorHvacMaintSales: py?.hvacMaintSales || 0,
+        priorHvacMaintJobs: py?.hvacMaintJobs || 0,
+        priorHvacMaintAvgTicket: py?.hvacMaintAvgTicket || 0,
         priorHvacSalesDeptSales: py?.hvacSalesDeptSales || 0,
         priorPlumbingRev: py?.plumbingRev || 0,
         priorPlumbingSales: py?.plumbingSales || 0,
+        priorPlumbingJobs: py?.plumbingJobs || 0,
+        priorPlumbingAvgTicket: py?.plumbingAvgTicket || 0,
       };
     });
   }, [trendData, priorYearTrendData]);
@@ -502,13 +526,20 @@ export default function ScorecardPage() {
       {/* ══ TRENDS TAB ══ */}
       {tab === 'trends' && (() => {
         // Department chart config: label, current rev key, prior rev key, current sales key, prior sales key, bar color
-        const deptCharts: { label: string; revKey: string; priorRevKey: string; salesKey: string; priorSalesKey: string; targetKey: string; salesTargetKey: string; color: string; showRevenue: boolean }[] = [
-          { label: 'Company Total', revKey: 'revenue', priorRevKey: 'priorRevenue', salesKey: 'sales', priorSalesKey: 'priorSales', targetKey: 'targetTotal', salesTargetKey: 'targetTotal', color: 'var(--christmas-green)', showRevenue: true },
-          { label: 'HVAC Install', revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', salesKey: 'hvacInstallSales', priorSalesKey: 'priorHvacInstallSales', targetKey: 'targetHvacInstall', salesTargetKey: 'targetHvacInstall', color: '#3b82f6', showRevenue: true },
-          { label: 'HVAC Service', revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', targetKey: 'targetHvacService', salesTargetKey: 'targetHvacService', color: '#8b5cf6', showRevenue: true },
-          { label: 'HVAC Maintenance', revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', targetKey: 'targetHvacMaint', salesTargetKey: 'targetHvacMaint', color: '#06b6d4', showRevenue: true },
-          { label: 'HVAC Sales', revKey: '', priorRevKey: '', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', targetKey: '', salesTargetKey: 'salesTargetTotal', color: '#f59e0b', showRevenue: false },
-          { label: 'Plumbing', revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', targetKey: 'targetPlumbing', salesTargetKey: 'targetPlumbing', color: 'var(--christmas-gold)', showRevenue: true },
+        type DeptChart = {
+          label: string; color: string; showRevenue: boolean;
+          revKey: string; priorRevKey: string; targetKey: string;
+          salesKey: string; priorSalesKey: string; salesTargetKey: string;
+          jobsKey: string; priorJobsKey: string;
+          avgTicketKey: string; priorAvgTicketKey: string;
+        };
+        const deptCharts: DeptChart[] = [
+          { label: 'Company Total', color: 'var(--christmas-green)', showRevenue: true, revKey: 'revenue', priorRevKey: 'priorRevenue', targetKey: 'targetTotal', salesKey: 'sales', priorSalesKey: 'priorSales', salesTargetKey: 'targetTotal', jobsKey: 'jobsRan', priorJobsKey: 'priorJobsRan', avgTicketKey: 'avgTicket', priorAvgTicketKey: 'priorAvgTicket' },
+          { label: 'HVAC Install', color: '#3b82f6', showRevenue: true, revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', targetKey: 'targetHvacInstall', salesKey: 'hvacInstallSales', priorSalesKey: 'priorHvacInstallSales', salesTargetKey: 'targetHvacInstall', jobsKey: 'hvacInstallJobs', priorJobsKey: 'priorHvacInstallJobs', avgTicketKey: 'hvacInstallAvgTicket', priorAvgTicketKey: 'priorHvacInstallAvgTicket' },
+          { label: 'HVAC Service', color: '#8b5cf6', showRevenue: true, revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', targetKey: 'targetHvacService', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', salesTargetKey: 'targetHvacService', jobsKey: 'hvacServiceJobs', priorJobsKey: 'priorHvacServiceJobs', avgTicketKey: 'hvacServiceAvgTicket', priorAvgTicketKey: 'priorHvacServiceAvgTicket' },
+          { label: 'HVAC Maintenance', color: '#06b6d4', showRevenue: true, revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', targetKey: 'targetHvacMaint', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', salesTargetKey: 'targetHvacMaint', jobsKey: 'hvacMaintJobs', priorJobsKey: 'priorHvacMaintJobs', avgTicketKey: 'hvacMaintAvgTicket', priorAvgTicketKey: 'priorHvacMaintAvgTicket' },
+          { label: 'HVAC Sales', color: '#f59e0b', showRevenue: false, revKey: '', priorRevKey: '', targetKey: '', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', salesTargetKey: 'salesTargetTotal', jobsKey: '', priorJobsKey: '', avgTicketKey: '', priorAvgTicketKey: '' },
+          { label: 'Plumbing', color: 'var(--christmas-gold)', showRevenue: true, revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', targetKey: 'targetPlumbing', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', salesTargetKey: 'targetPlumbing', jobsKey: 'plumbingJobs', priorJobsKey: 'priorPlumbingJobs', avgTicketKey: 'plumbingAvgTicket', priorAvgTicketKey: 'priorPlumbingAvgTicket' },
         ];
 
         return (
@@ -564,6 +595,44 @@ export default function ScorecardPage() {
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
+
+                  {/* Jobs Ran chart */}
+                  {dept.jobsKey && (
+                    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jobs Ran — {year} vs {year - 1}</p>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <ComposedChart data={yoyChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickLine={false} axisLine={false} />
+                          <Tooltip content={<ChartTooltip prefix="#" />} />
+                          <Bar dataKey={dept.jobsKey} name={`${year}`} radius={[3, 3, 0, 0]} fillOpacity={0.85}>
+                            {yoyChartData.map((d: any, i: number) => (
+                              <Cell key={i} fill={(d[dept.jobsKey] || 0) >= (d[dept.priorJobsKey] || 0) ? dept.color : '#EF4444'} />
+                            ))}
+                          </Bar>
+                          <Line type="monotone" dataKey={dept.priorJobsKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Avg Ticket chart */}
+                  {dept.avgTicketKey && (
+                    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Avg Ticket — {year} vs {year - 1}</p>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <ComposedChart data={yoyChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="week" tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickFormatter={v => `$${v.toLocaleString()}`} tickLine={false} axisLine={false} />
+                          <Tooltip content={<ChartTooltip />} />
+                          <Line type="monotone" dataKey={dept.avgTicketKey} name={`${year}`} stroke={dept.color} strokeWidth={2} dot={{ r: 3, fill: dept.color }} />
+                          <Line type="monotone" dataKey={dept.priorAvgTicketKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
