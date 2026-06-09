@@ -12,7 +12,7 @@ interface DashSidebarProps {
 
 const overviewLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
-  { href: '/pacing', label: 'Goal Pacing', icon: 'target' },
+  { href: '/scorecard', label: 'Scorecard', icon: 'target' },
   { href: '/huddle', label: 'Daily Huddle', icon: 'clipboard' },
   { href: '/huddle/history', label: 'Huddle History', icon: 'calendar' },
   { href: '/reviews', label: 'Reviews', icon: 'star' },
