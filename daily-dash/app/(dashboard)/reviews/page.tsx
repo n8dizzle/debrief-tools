@@ -418,16 +418,40 @@ function GoalProgress({
     return null;
   }
 
-  // Calculate business days between two dates (excludes weekends)
+  // Calculate business days between two dates (Mon-Fri = 1, Sat = 0.5, Sun = 0)
+  // Matches the huddle pacing logic
   function getBusinessDays(start: Date, end: Date): number {
     let count = 0;
     const current = new Date(start);
     while (current <= end) {
       const day = current.getDay();
-      if (day !== 0 && day !== 6) count++;
+      if (day >= 1 && day <= 5) count++;
+      else if (day === 6) count += 0.5;
       current.setDate(current.getDate() + 1);
     }
     return count;
+  }
+
+  // Calculate business days elapsed in a month up to (but not including) the given date
+  // Matches the huddle pacing logic exactly
+  function getBusinessDaysElapsedInMonth(date: Date): number {
+    const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    let count = 0;
+    const current = new Date(firstOfMonth);
+    while (current < date) { // strictly less than: excludes today
+      const day = current.getDay();
+      if (day >= 1 && day <= 5) count++;
+      else if (day === 6) count += 0.5;
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  }
+
+  // Calculate total business days in a month
+  function getBusinessDaysInMonth(year: number, month: number): number {
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    return getBusinessDays(first, last);
   }
 
   // Helper to get monthly goal from the monthly_goals array
@@ -607,33 +631,35 @@ function GoalProgress({
   // Simple day-based calc is wrong when monthly targets vary (e.g., summer months are higher)
   function getExpectedPercent(): number {
     if (isPastPeriod) return 100;
+
+    const currentMonth = now.getMonth(); // 0-indexed
+    const businessDaysElapsed = getBusinessDaysElapsedInMonth(now);
+    const totalBusinessDaysThisMonth = getBusinessDaysInMonth(now.getFullYear(), currentMonth);
+    const monthProgress = totalBusinessDaysThisMonth > 0 ? businessDaysElapsed / totalBusinessDaysThisMonth : 0;
+
     if (period === 'this_year' && goal > 0) {
-      // Sum completed months' goals + prorated current month
-      const currentMonth = now.getMonth() + 1;
-      const currentDay = now.getDate();
+      // Sum completed months' goals + prorated current month by business days
+      const currentMonthNum = currentMonth + 1; // 1-indexed for getMonthlyGoalValue
       let expectedReviews = 0;
-      for (let m = 1; m < currentMonth; m++) {
+      for (let m = 1; m < currentMonthNum; m++) {
         expectedReviews += getMonthlyGoalValue(m);
       }
-      const daysInCurrentMonth = new Date(now.getFullYear(), currentMonth, 0).getDate();
-      expectedReviews += getMonthlyGoalValue(currentMonth) * (currentDay / daysInCurrentMonth);
+      expectedReviews += getMonthlyGoalValue(currentMonthNum) * monthProgress;
       return Math.min((expectedReviews / goal) * 100, 100);
     }
     if (period === 'this_quarter' && goal > 0) {
-      // Sum completed months' goals within the quarter + prorated current month
-      const currentMonth = now.getMonth() + 1;
-      const currentDay = now.getDate();
-      const quarterStartMonth = Math.floor((currentMonth - 1) / 3) * 3 + 1;
+      // Sum completed months' goals within the quarter + prorated current month by business days
+      const currentMonthNum = currentMonth + 1;
+      const quarterStartMonth = Math.floor((currentMonthNum - 1) / 3) * 3 + 1;
       let expectedReviews = 0;
-      for (let m = quarterStartMonth; m < currentMonth; m++) {
+      for (let m = quarterStartMonth; m < currentMonthNum; m++) {
         expectedReviews += getMonthlyGoalValue(m);
       }
-      const daysInCurrentMonth = new Date(now.getFullYear(), currentMonth, 0).getDate();
-      expectedReviews += getMonthlyGoalValue(currentMonth) * (currentDay / daysInCurrentMonth);
+      expectedReviews += getMonthlyGoalValue(currentMonthNum) * monthProgress;
       return Math.min((expectedReviews / goal) * 100, 100);
     }
-    // For month and rolling periods, simple day-based is fine
-    return Math.min((daysElapsed / totalPeriodDays) * 100, 100);
+    // For month and rolling periods, use business day pacing
+    return Math.min(monthProgress * 100, 100);
   }
 
   const expectedPercent = getExpectedPercent();
