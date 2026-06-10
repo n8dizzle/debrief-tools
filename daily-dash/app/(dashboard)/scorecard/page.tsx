@@ -151,7 +151,7 @@ export default function ScorecardPage() {
         ],
       },
       {
-        section: 'HVAC INSTALL',
+        section: 'HVAC REPLACEMENTS',
         rows: [
           { label: 'Revenue', actual: getVal('hvac_install', 'revenue'), target: targets?.['HVAC Install'] || 0, format: '$', prev: getPrevVal('hvac_install', 'revenue'), key: 'revenue', section: 'hvac_install' },
           { label: 'Avg Ticket', actual: getVal('hvac_install', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('hvac_install', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_install' },
@@ -535,11 +535,10 @@ export default function ScorecardPage() {
         };
         const deptCharts: DeptChart[] = [
           { label: 'Company Total', color: 'var(--christmas-green)', showRevenue: true, revKey: 'revenue', priorRevKey: 'priorRevenue', targetKey: 'targetTotal', salesKey: 'sales', priorSalesKey: 'priorSales', salesTargetKey: 'targetTotal', jobsKey: 'jobsRan', priorJobsKey: 'priorJobsRan', avgTicketKey: 'avgTicket', priorAvgTicketKey: 'priorAvgTicket' },
-          { label: 'HVAC Install', color: '#3b82f6', showRevenue: true, revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', targetKey: 'targetHvacInstall', salesKey: 'hvacInstallSales', priorSalesKey: 'priorHvacInstallSales', salesTargetKey: 'targetHvacInstall', jobsKey: 'hvacInstallJobs', priorJobsKey: 'priorHvacInstallJobs', avgTicketKey: 'hvacInstallAvgTicket', priorAvgTicketKey: 'priorHvacInstallAvgTicket' },
-          { label: 'HVAC Service', color: '#8b5cf6', showRevenue: true, revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', targetKey: 'targetHvacService', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', salesTargetKey: 'targetHvacService', jobsKey: 'hvacServiceJobs', priorJobsKey: 'priorHvacServiceJobs', avgTicketKey: 'hvacServiceAvgTicket', priorAvgTicketKey: 'priorHvacServiceAvgTicket' },
-          { label: 'HVAC Maintenance', color: '#06b6d4', showRevenue: true, revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', targetKey: 'targetHvacMaint', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', salesTargetKey: 'targetHvacMaint', jobsKey: 'hvacMaintJobs', priorJobsKey: 'priorHvacMaintJobs', avgTicketKey: 'hvacMaintAvgTicket', priorAvgTicketKey: 'priorHvacMaintAvgTicket' },
-          { label: 'HVAC Sales', color: '#f59e0b', showRevenue: false, revKey: '', priorRevKey: '', targetKey: '', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', salesTargetKey: 'salesTargetTotal', jobsKey: '', priorJobsKey: '', avgTicketKey: '', priorAvgTicketKey: '' },
-          { label: 'Plumbing', color: 'var(--christmas-gold)', showRevenue: true, revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', targetKey: 'targetPlumbing', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', salesTargetKey: 'targetPlumbing', jobsKey: 'plumbingJobs', priorJobsKey: 'priorPlumbingJobs', avgTicketKey: 'plumbingAvgTicket', priorAvgTicketKey: 'priorPlumbingAvgTicket' },
+          { label: 'HVAC Replacements', color: 'var(--christmas-green)', showRevenue: true, revKey: 'hvacInstallRev', priorRevKey: 'priorHvacInstallRev', targetKey: 'targetHvacInstall', salesKey: 'hvacSalesDeptSales', priorSalesKey: 'priorHvacSalesDeptSales', salesTargetKey: 'targetHvacInstall', jobsKey: 'hvacInstallJobs', priorJobsKey: 'priorHvacInstallJobs', avgTicketKey: 'hvacInstallAvgTicket', priorAvgTicketKey: 'priorHvacInstallAvgTicket' },
+          { label: 'HVAC Service', color: 'var(--christmas-green)', showRevenue: true, revKey: 'hvacServiceRev', priorRevKey: 'priorHvacServiceRev', targetKey: 'targetHvacService', salesKey: 'hvacServiceSales', priorSalesKey: 'priorHvacServiceSales', salesTargetKey: 'targetHvacService', jobsKey: 'hvacServiceJobs', priorJobsKey: 'priorHvacServiceJobs', avgTicketKey: 'hvacServiceAvgTicket', priorAvgTicketKey: 'priorHvacServiceAvgTicket' },
+          { label: 'HVAC Maintenance', color: 'var(--christmas-green)', showRevenue: true, revKey: 'hvacMaintRev', priorRevKey: 'priorHvacMaintRev', targetKey: 'targetHvacMaint', salesKey: 'hvacMaintSales', priorSalesKey: 'priorHvacMaintSales', salesTargetKey: 'targetHvacMaint', jobsKey: 'hvacMaintJobs', priorJobsKey: 'priorHvacMaintJobs', avgTicketKey: 'hvacMaintAvgTicket', priorAvgTicketKey: 'priorHvacMaintAvgTicket' },
+          { label: 'Plumbing', color: 'var(--christmas-green)', showRevenue: true, revKey: 'plumbingRev', priorRevKey: 'priorPlumbingRev', targetKey: 'targetPlumbing', salesKey: 'plumbingSales', priorSalesKey: 'priorPlumbingSales', salesTargetKey: 'targetPlumbing', jobsKey: 'plumbingJobs', priorJobsKey: 'priorPlumbingJobs', avgTicketKey: 'plumbingAvgTicket', priorAvgTicketKey: 'priorPlumbingAvgTicket' },
         ];
 
         return (

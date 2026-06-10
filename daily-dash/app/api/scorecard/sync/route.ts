@@ -153,17 +153,29 @@ export async function POST(request: NextRequest) {
     data_source: 'sync',
   });
 
-  // Upsert
-  const { error: upsertError } = await supabase
+  // Delete existing rows for this week, then insert fresh
+  // (upsert with onConflict doesn't work for NULL department values)
+  const { error: deleteError } = await supabase
     .from('weekly_scorecard')
-    .upsert(rows, { onConflict: 'year,week_number,trade,department' });
+    .delete()
+    .eq('year', year)
+    .eq('week_number', weekNumber);
 
-  if (upsertError) {
-    console.error('[Scorecard Sync] Upsert error:', upsertError);
-    return NextResponse.json({ error: upsertError.message }, { status: 500 });
+  if (deleteError) {
+    console.error('[Scorecard Sync] Delete error:', deleteError);
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }
 
-  console.log(`[Scorecard Sync] Upserted ${rows.length} rows for WK ${weekNumber} (${mondayStr} to ${sundayStr})`);
+  const { error: insertError } = await supabase
+    .from('weekly_scorecard')
+    .insert(rows);
+
+  if (insertError) {
+    console.error('[Scorecard Sync] Insert error:', insertError);
+    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  console.log(`[Scorecard Sync] Inserted ${rows.length} rows for WK ${weekNumber} (${mondayStr} to ${sundayStr})`);
 
   return NextResponse.json({
     success: true,
