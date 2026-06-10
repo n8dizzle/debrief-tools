@@ -14,7 +14,7 @@ import type { UserPermissions, UserRole } from './permissions';
 // CONFIGURATION
 // ============================================
 
-const ALLOWED_DOMAINS = ['christmasair.com'];
+const ALLOWED_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || 'christmasair.com').split(',');
 
 interface AuthConfig {
   googleClientId: string;

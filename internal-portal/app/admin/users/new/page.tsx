@@ -211,7 +211,7 @@ export default function NewUserPage() {
               }}
             />
             <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              Must be a @christmasair.com or @bartshvac.com email
+              Must be a company or approved partner email
             </p>
           </div>
 
