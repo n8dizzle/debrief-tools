@@ -92,6 +92,19 @@ export function formatKPIValue(
 }
 
 /**
+ * Format currency in compact form ($61K, $1.57M)
+ */
+export function formatCurrencyCompact(value: number): string {
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(2)}M`;
+  }
+  if (value >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  }
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+/**
  * Format percent to goal for display
  */
 export function formatPercentToGoal(percent: number | null): string {
