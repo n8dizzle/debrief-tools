@@ -23,7 +23,6 @@ const navLinks = [
   { href: '/leads', label: 'Lead Attribution', icon: 'funnel' },
   { href: '/lsa', label: 'Local Service Ads', icon: 'phone' },
   { href: '/gbp', label: 'GBP Insights', icon: 'chart-bar' },
-  { href: '/customers', label: 'Customer Map', icon: 'map-pin' },
   { href: '/analytics', label: 'Website Analytics', icon: 'globe' },
   { href: '/settings', label: 'Marketing Spend', icon: 'dollar' },
 ];
