@@ -8,6 +8,7 @@ import {
   calculatePercentToGoal,
   getTodayDateString,
   getYesterdayDateString,
+  calculateDailyPaceNeeded,
 } from '@/lib/huddle-utils';
 
 interface SyncResult {
@@ -223,6 +224,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ============================================
+    // CALCULATED KPIs (Christmas Pacing)
+    // ============================================
+    const calculatedResults = await syncCalculatedKPIs(supabase, date);
+    results.push(...calculatedResults);
+
     const syncedCount = results.filter((r) => r.actual_value !== null).length;
 
     // Update sync log with completion status
@@ -248,6 +255,213 @@ export async function POST(request: NextRequest) {
     console.error('Error in snapshots sync:', error);
     return NextResponse.json({ error: 'Failed to sync snapshots' }, { status: 500 });
   }
+}
+
+// ============================================
+// Calculated KPI sync (Christmas Pacing rows)
+// ============================================
+
+// KPI IDs for the Christmas Pacing department
+const PACING_KPI_IDS = {
+  weeklyTarget: 'f8af934e-cd52-4287-a78c-1da23f9d59cf',
+  weeklyToDate: 'a448b9fb-6acc-4267-be36-917601db7f4a',
+  monthlyTarget: '9daa6f7c-aba1-490a-a9c0-016556cc2dad',
+  monthlyToDate: '857f9e57-72d7-4364-84b7-6fec3e2204b1',
+  currentPacing: '3a8cf3dc-1ede-4245-89ee-134dfd25a519',
+  businessDaysRemaining: 'e7d0ee5b-d879-4b92-97dc-3889d301a055',
+  dailyPaceNeeded: 'ec5fc6c3-aa32-44c1-8426-8f10b568543a',
+};
+
+const TOTAL_REVENUE_KPI_ID = 'b66abe1f-2408-4a11-8219-9cb27f333a51';
+
+function getMonday(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
+  const diff = day === 0 ? 6 : day - 1; // days since Monday
+  d.setDate(d.getDate() - diff);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function getMonthStart(dateStr: string): string {
+  return dateStr.substring(0, 8) + '01';
+}
+
+function getBusinessDaysInMonth(year: number, month: number): number {
+  const lastDay = new Date(year, month, 0).getDate(); // month is 1-indexed here
+  let bizDays = 0;
+  for (let day = 1; day <= lastDay; day++) {
+    const d = new Date(year, month - 1, day);
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) bizDays += 1;
+    else if (dow === 6) bizDays += 0.5;
+  }
+  return bizDays;
+}
+
+function getBusinessDaysElapsedUpTo(dateStr: string): number {
+  const [year, monthStr] = dateStr.split('-');
+  const y = parseInt(year);
+  const m = parseInt(monthStr);
+  const dayNum = parseInt(dateStr.split('-')[2]);
+  let bizDays = 0;
+  for (let day = 1; day <= dayNum; day++) {
+    const d = new Date(y, m - 1, day);
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) bizDays += 1;
+    else if (dow === 6) bizDays += 0.5;
+  }
+  return bizDays;
+}
+
+function getBusinessDaysRemainingAfter(dateStr: string): number {
+  // Count business days from the day AFTER dateStr to end of month
+  const [yearStr, monthStr, dayStr] = dateStr.split('-');
+  const y = parseInt(yearStr);
+  const m = parseInt(monthStr);
+  const startDay = parseInt(dayStr) + 1; // day after the snapshot
+  const lastDay = new Date(y, m, 0).getDate(); // last day of month (m is 1-indexed)
+  let bizDays = 0;
+  for (let day = startDay; day <= lastDay; day++) {
+    const d = new Date(y, m - 1, day);
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) bizDays += 1;
+    else if (dow === 6) bizDays += 0.5;
+  }
+  return bizDays;
+}
+
+async function syncCalculatedKPIs(
+  supabase: ReturnType<typeof getServerSupabase>,
+  date: string
+): Promise<SyncResult[]> {
+  const results: SyncResult[] = [];
+  const [yearStr, monthStr] = date.split('-');
+  const year = parseInt(yearStr);
+  const month = parseInt(monthStr);
+
+  try {
+    // 1. Get monthly target from dash_monthly_targets
+    const { data: targetRow } = await supabase
+      .from('dash_monthly_targets')
+      .select('target_value')
+      .eq('year', year)
+      .eq('month', month)
+      .eq('department', 'TOTAL')
+      .eq('target_type', 'revenue')
+      .single();
+
+    const monthlyTarget = targetRow ? parseFloat(targetRow.target_value) : 0;
+
+    // 2. Get total-revenue snapshots for MTD (month start through date)
+    const monthStart = getMonthStart(date);
+    const { data: mtdSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value')
+      .eq('kpi_id', TOTAL_REVENUE_KPI_ID)
+      .gte('snapshot_date', monthStart)
+      .lte('snapshot_date', date);
+
+    const mtdRevenue = (mtdSnapshots || []).reduce(
+      (sum, s) => sum + (parseFloat(s.actual_value) || 0),
+      0
+    );
+
+    // 3. Get total-revenue snapshots for WTD (Monday through date)
+    const monday = getMonday(date);
+    const { data: wtdSnapshots } = await supabase
+      .from('huddle_snapshots')
+      .select('actual_value')
+      .eq('kpi_id', TOTAL_REVENUE_KPI_ID)
+      .gte('snapshot_date', monday)
+      .lte('snapshot_date', date);
+
+    const wtdRevenue = (wtdSnapshots || []).reduce(
+      (sum, s) => sum + (parseFloat(s.actual_value) || 0),
+      0
+    );
+
+    // 4. Calculate business days
+    const bizDaysInMonth = getBusinessDaysInMonth(year, month);
+    const bizDaysElapsed = getBusinessDaysElapsedUpTo(date);
+    const bizDaysRemaining = getBusinessDaysRemainingAfter(date);
+
+    // 5. Weekly target = monthly target / biz days in month * 5.5
+    const weeklyTarget = bizDaysInMonth > 0
+      ? (monthlyTarget / bizDaysInMonth) * 5.5
+      : 0;
+
+    // 6. Current pacing = projected monthly based on pace so far
+    const currentPacing = bizDaysElapsed > 0
+      ? (mtdRevenue / bizDaysElapsed) * bizDaysInMonth
+      : 0;
+
+    // 7. Daily pace needed = (target - MTD) / biz days remaining
+    const dailyPaceNeeded = calculateDailyPaceNeeded(
+      monthlyTarget,
+      mtdRevenue,
+      bizDaysRemaining
+    );
+
+    // Upsert all calculated KPIs
+    const calculatedValues: Array<{
+      slug: string;
+      kpiId: string;
+      value: number;
+      target?: number;
+    }> = [
+      { slug: 'weekly-target', kpiId: PACING_KPI_IDS.weeklyTarget, value: weeklyTarget },
+      { slug: 'weekly-to-date', kpiId: PACING_KPI_IDS.weeklyToDate, value: wtdRevenue, target: weeklyTarget },
+      { slug: 'monthly-target', kpiId: PACING_KPI_IDS.monthlyTarget, value: monthlyTarget },
+      { slug: 'monthly-to-date', kpiId: PACING_KPI_IDS.monthlyToDate, value: mtdRevenue, target: monthlyTarget },
+      { slug: 'current-pacing', kpiId: PACING_KPI_IDS.currentPacing, value: currentPacing, target: monthlyTarget },
+      { slug: 'business-days-remaining', kpiId: PACING_KPI_IDS.businessDaysRemaining, value: bizDaysRemaining },
+      { slug: 'daily-pace-needed', kpiId: PACING_KPI_IDS.dailyPaceNeeded, value: dailyPaceNeeded },
+    ];
+
+    for (const calc of calculatedValues) {
+      const percentToGoal = calc.target && calc.target > 0
+        ? (calc.value / calc.target) * 100
+        : null;
+      const status = getStatusFromPercentage(percentToGoal, true);
+
+      const { error: upsertError } = await supabase.from('huddle_snapshots').upsert(
+        {
+          kpi_id: calc.kpiId,
+          snapshot_date: date,
+          actual_value: Math.round(calc.value * 100) / 100,
+          percent_to_goal: percentToGoal ? Math.round(percentToGoal * 100) / 100 : null,
+          status,
+          data_source: 'calculated',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'kpi_id,snapshot_date' }
+      );
+
+      if (upsertError) {
+        console.error(`Error upserting calculated KPI ${calc.slug}:`, upsertError);
+      }
+
+      results.push({
+        kpi_slug: calc.slug,
+        actual_value: Math.round(calc.value * 100) / 100,
+        status,
+        error: upsertError?.message,
+      });
+    }
+  } catch (e) {
+    console.error('Error syncing calculated KPIs:', e);
+    results.push({
+      kpi_slug: 'calculated-kpis',
+      actual_value: null,
+      status: 'pending',
+      error: e instanceof Error ? e.message : 'Unknown error',
+    });
+  }
+
+  return results;
 }
 
 /**
