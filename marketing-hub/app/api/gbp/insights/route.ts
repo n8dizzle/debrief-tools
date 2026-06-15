@@ -128,11 +128,12 @@ export async function GET(request: NextRequest) {
     const yoyStartStr = formatDate(yoyStartDate);
     const yoyEndStr = formatDate(yoyEndDate);
 
-    // Calculate MoM date range (same-length period immediately before current)
-    const momEndDate = new Date(startDateStr + 'T00:00:00');
-    momEndDate.setDate(momEndDate.getDate() - 1);
-    const momStartDate = new Date(momEndDate);
-    momStartDate.setDate(momStartDate.getDate() - periodDays + 1);
+    // Calculate MoM date range (same day range in previous month)
+    // June 1-15 → May 1-15 (not May 18-31)
+    const momStartDate = new Date(startDateStr + 'T00:00:00');
+    momStartDate.setMonth(momStartDate.getMonth() - 1);
+    const momEndDate = new Date(endDateStr + 'T00:00:00');
+    momEndDate.setMonth(momEndDate.getMonth() - 1);
     const momStartStr = formatDate(momStartDate);
     const momEndStr = formatDate(momEndDate);
 

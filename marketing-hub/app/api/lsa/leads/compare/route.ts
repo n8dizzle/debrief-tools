@@ -144,11 +144,11 @@ export async function GET(request: NextRequest) {
     const yoyEnd = new Date(endDate);
     yoyEnd.setFullYear(yoyEnd.getFullYear() - 1);
 
-    // MoM: previous period of same length
-    const momEnd = new Date(startDate);
-    momEnd.setDate(momEnd.getDate() - 1);
-    const momStart = new Date(momEnd);
-    momStart.setDate(momStart.getDate() - periodDays + 1);
+    // MoM: same day range in previous month (June 1-15 → May 1-15)
+    const momStart = new Date(startDate);
+    momStart.setMonth(momStart.getMonth() - 1);
+    const momEnd = new Date(endDate);
+    momEnd.setMonth(momEnd.getMonth() - 1);
 
     const formatLocalDate = (d: Date) => {
       const year = d.getFullYear();
