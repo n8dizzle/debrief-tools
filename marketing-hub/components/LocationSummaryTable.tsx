@@ -313,6 +313,12 @@ export function LocationSummaryTable({
                   </span>
                 </th>
               )}
+              {/* Call Conv % (Calls ÷ Views) */}
+              <th className="text-right py-3 px-2" title="Calls ÷ Views — conversion rate">
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  Conv %
+                </span>
+              </th>
               {/* Views */}
               <th className="text-right py-3 px-3">
                 <button
@@ -474,6 +480,17 @@ export function LocationSummaryTable({
                     <YoYCell value={loc.callsMoM} />
                   </td>
                 )}
+                {/* Call Conv % (Calls ÷ Views) */}
+                <td className="py-3.5 px-2 text-right">
+                  {(() => {
+                    const rate = loc.totalViews > 0 ? (loc.phoneCalls / loc.totalViews) * 100 : 0;
+                    return rate > 0 ? (
+                      <span className="text-sm font-medium tabular-nums" style={{ color: rate >= 25 ? '#6eb887' : rate >= 15 ? '#E8DFC4' : '#c97878' }}>
+                        {rate.toFixed(1)}%
+                      </span>
+                    ) : <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>;
+                  })()}
+                </td>
                 {/* Views */}
                 <td className="py-3.5 px-3 text-right">
                   <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
@@ -620,6 +637,17 @@ export function LocationSummaryTable({
                   <YoYCell value={totalMoM.calls} />
                 </td>
               )}
+              {/* Total Conv % */}
+              <td className="py-3.5 px-2 text-right">
+                {(() => {
+                  const rate = totals.views > 0 ? (totals.calls / totals.views) * 100 : 0;
+                  return rate > 0 ? (
+                    <span className="text-sm font-bold tabular-nums" style={{ color: '#E8DFC4' }}>
+                      {rate.toFixed(1)}%
+                    </span>
+                  ) : <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>;
+                })()}
+              </td>
               <td className="py-3.5 px-3 text-right">
                 <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.views)}

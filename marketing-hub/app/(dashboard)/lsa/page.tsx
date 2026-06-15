@@ -764,24 +764,25 @@ export default function LSAPage() {
                   </div>
                 </div>
               ) : (
-                <table className="w-full">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#2a3e2a]">
-                      <th className="text-left py-3 px-3 text-sm font-medium text-gray-400">Location</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Leads</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">YoY</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">MoM</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">
-                        <span className="text-[#6eb887]">H</span> / <span className="text-[#B8956B]">P</span>
+                      <th className="text-left py-2.5 px-3 font-medium text-gray-400">Location</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400">Leads</th>
+                      <th className="text-right py-2.5 px-1 font-medium text-gray-500 text-xs">YoY</th>
+                      <th className="text-right py-2.5 px-1 font-medium text-gray-500 text-xs">MoM</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400">
+                        <span className="text-[#6eb887]">H</span><span className="text-gray-600">/</span><span className="text-[#B8956B]">P</span>
                       </th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Impr</th>
-                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400" title="Top impression rate on Search">Top %</th>
-                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400" title="Absolute top impression rate on Search">Abs Top %</th>
-                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
-                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Spend</th>
-                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400 border-l border-[#2a3e2a]">Impr</th>
+                      <th className="text-right py-2.5 px-1 font-medium text-gray-500 text-xs">MoM</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400" title="Leads ÷ Impressions">Conv %</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400 border-l border-[#2a3e2a]" title="Top impression rate on Search">Top %</th>
+                      <th className="text-right py-2.5 px-1 font-medium text-gray-500 text-xs">MoM</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400" title="Absolute top impression rate on Search">Abs Top</th>
+                      <th className="text-right py-2.5 px-1 font-medium text-gray-500 text-xs">MoM</th>
+                      <th className="text-right py-2.5 px-1.5 font-medium text-gray-400 border-l border-[#2a3e2a]">Spend</th>
+                      <th className="text-right py-2.5 px-1 font-medium text-gray-500 text-xs">MoM</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -818,52 +819,45 @@ export default function LSAPage() {
                             ? ((currentShare.absTopShare - momShare.absTopShare) / momShare.absTopShare) * 100 : null;
                           const spendMoM = momSpend > 0 ? ((currentSpend - momSpend) / momSpend) * 100 : null;
 
+                          const convRate = currentImpr > 0 ? (loc.total / currentImpr) * 100 : 0;
+
                           return (
                             <tr key={loc.customerId} className="border-b border-[#2a3e2a] hover:bg-[#0d1f0d] transition-colors">
-                              <td className="py-3 px-3">
+                              <td className="py-2.5 px-3">
                                 <div className="text-[#E8DFC4] font-medium">{loc.customerName}</div>
                               </td>
-                              <td className="py-3 px-2 text-right text-[#E8DFC4] font-medium">
+                              <td className="py-2.5 px-1.5 text-right text-[#E8DFC4] font-semibold tabular-nums">
                                 {loc.total}
                                 {yoyLoc && yoyLoc.total > 0 ? (
-                                  <div className="text-xs text-gray-500">was {yoyLoc.total}</div>
+                                  <div className="text-[11px] text-gray-500 font-normal">was {yoyLoc.total}</div>
                                 ) : null}
                               </td>
-                              <td className="py-3 px-2 text-right">
-                                <YoYBadge value={totalYoY} />
-                              </td>
-                              <td className="py-3 px-2 text-right">
-                                <YoYBadge value={totalMoM} />
-                              </td>
-                              <td className="py-3 px-2 text-right">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalYoY} /></td>
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right tabular-nums">
                                 <span className="text-[#6eb887]">{loc.hvac}</span>
-                                <span className="text-gray-600 mx-0.5">/</span>
+                                <span className="text-gray-600">/</span>
                                 <span className="text-[#B8956B]">{loc.plumbing}</span>
                               </td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums border-l border-[#2a3e2a]">
                                 {currentImpr > 0 ? formatNumber(currentImpr) : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right">
-                                <YoYBadge value={imprMoM} />
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={imprMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right tabular-nums" style={{ color: convRate >= 3 ? '#6eb887' : convRate >= 1.5 ? '#E8DFC4' : '#c97878' }}>
+                                {currentImpr > 0 ? `${convRate.toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums border-l border-[#2a3e2a]">
                                 {currentShare && currentShare.topShare > 0 ? `${(currentShare.topShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right">
-                                <YoYBadge value={topMoM} />
-                              </td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={topMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums">
                                 {currentShare && currentShare.absTopShare > 0 ? `${(currentShare.absTopShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right">
-                                <YoYBadge value={absTopMoM} />
-                              </td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={absTopMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums border-l border-[#2a3e2a]">
                                 {currentSpend > 0 ? formatCurrency(currentSpend) : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right">
-                                <YoYBadge value={spendMoM} />
-                              </td>
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={spendMoM} /></td>
                             </tr>
                           );
                         })}
@@ -904,36 +898,41 @@ export default function LSAPage() {
                           const totalAbsTopMoM = totalMomAbsTopShare > 0 ? ((totalAbsTopShare - totalMomAbsTopShare) / totalMomAbsTopShare) * 100 : null;
                           const totalSpendMoM = totalMomSpend > 0 ? ((totalCurrentSpend - totalMomSpend) / totalMomSpend) * 100 : null;
 
+                          const totalConvRate = totalCurrentImpr > 0 ? (ct.total / totalCurrentImpr) * 100 : 0;
+
                           return (
                             <tr className="bg-[#0d1f0d] font-semibold">
-                              <td className="py-3 px-3 text-[#E8DFC4]">TOTAL</td>
-                              <td className="py-3 px-2 text-right text-[#E8DFC4]">
+                              <td className="py-2.5 px-3 text-[#E8DFC4]">TOTAL</td>
+                              <td className="py-2.5 px-1.5 text-right text-[#E8DFC4] tabular-nums">
                                 {ct.total}
-                                {yt.total > 0 && <div className="text-xs text-gray-500 font-normal">was {yt.total}</div>}
+                                {yt.total > 0 && <div className="text-[11px] text-gray-500 font-normal">was {yt.total}</div>}
                               </td>
-                              <td className="py-3 px-2 text-right"><YoYBadge value={totalYoY} /></td>
-                              <td className="py-3 px-2 text-right"><YoYBadge value={totalMoM} /></td>
-                              <td className="py-3 px-2 text-right">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalYoY} /></td>
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right tabular-nums">
                                 <span className="text-[#6eb887]">{ct.hvac}</span>
-                                <span className="text-gray-600 mx-0.5">/</span>
+                                <span className="text-gray-600">/</span>
                                 <span className="text-[#B8956B]">{ct.plumbing}</span>
                               </td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums border-l border-[#2a3e2a]">
                                 {totalCurrentImpr > 0 ? formatNumber(totalCurrentImpr) : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right"><YoYBadge value={totalImprMoM} /></td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalImprMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right tabular-nums text-[#E8DFC4]">
+                                {totalCurrentImpr > 0 ? `${totalConvRate.toFixed(1)}%` : '—'}
+                              </td>
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums border-l border-[#2a3e2a]">
                                 {totalTopShare > 0 ? `${(totalTopShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right"><YoYBadge value={totalTopMoM} /></td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalTopMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums">
                                 {totalAbsTopShare > 0 ? `${(totalAbsTopShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right"><YoYBadge value={totalAbsTopMoM} /></td>
-                              <td className="py-3 px-2 text-right text-gray-300">
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalAbsTopMoM} /></td>
+                              <td className="py-2.5 px-1.5 text-right text-gray-300 tabular-nums border-l border-[#2a3e2a]">
                                 {totalCurrentSpend > 0 ? formatCurrency(totalCurrentSpend) : '—'}
                               </td>
-                              <td className="py-3 px-1 text-right"><YoYBadge value={totalSpendMoM} /></td>
+                              <td className="py-2.5 px-1 text-right"><YoYBadge value={totalSpendMoM} /></td>
                             </tr>
                           );
                         })()}
