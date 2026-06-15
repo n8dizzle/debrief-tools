@@ -768,26 +768,26 @@ export default function LSAPage() {
                   <thead>
                     <tr className="border-b border-[#2a3e2a]">
                       <th className="text-left py-3 px-3 text-sm font-medium text-gray-400">Location</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Leads</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">YoY</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">MoM</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Leads</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">YoY</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">MoM</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">
                         <span className="text-[#6eb887]">H</span> / <span className="text-[#B8956B]">P</span>
                       </th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Impr</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400" title="Top impression rate on Search">Top %</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400" title="Absolute top impression rate on Search">Abs Top %</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Spend</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400 border-l border-[#2a3e2a]">ST Jobs</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Revenue</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">Avg Ticket</th>
-                      <th className="text-right py-3 px-3 text-sm font-medium text-gray-400">ROAS</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Impr</th>
+                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400" title="Top impression rate on Search">Top %</th>
+                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400" title="Absolute top impression rate on Search">Abs Top %</th>
+                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Spend</th>
+                      <th className="text-right py-3 px-1 text-sm font-medium text-gray-400">MoM</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(!comparisonData || comparisonData.current.locations.length === 0) ? (
                       <tr>
-                        <td colSpan={13} className="py-8 text-center text-gray-500">
+                        <td colSpan={13} className="py-8 text-center text-gray-500" style={{textAlign: 'center'}}>
                           No location data found for this period
                         </td>
                       </tr>
@@ -803,63 +803,66 @@ export default function LSAPage() {
                             ? ((loc.total - momLoc.total) / momLoc.total) * 100 : null;
 
                           const currentSpend = comparisonData.spendByPeriod.current[loc.customerId] || 0;
-                          const stLoc = comparisonData.stMetrics?.[loc.customerId];
-                          const roas = currentSpend > 0 && stLoc?.revenue ? stLoc.revenue / currentSpend : 0;
+                          const momSpend = comparisonData.spendByPeriod.mom[loc.customerId] || 0;
+
+                          const currentImpr = comparisonData.impressionsByPeriod?.current[loc.customerId] || 0;
+                          const momImpr = comparisonData.impressionsByPeriod?.mom?.[loc.customerId] || 0;
+
+                          const currentShare = comparisonData.impressionShareByPeriod?.current[loc.customerId];
+                          const momShare = comparisonData.impressionShareByPeriod?.mom?.[loc.customerId];
+
+                          const imprMoM = momImpr > 0 ? ((currentImpr - momImpr) / momImpr) * 100 : null;
+                          const topMoM = momShare && momShare.topShare > 0 && currentShare
+                            ? ((currentShare.topShare - momShare.topShare) / momShare.topShare) * 100 : null;
+                          const absTopMoM = momShare && momShare.absTopShare > 0 && currentShare
+                            ? ((currentShare.absTopShare - momShare.absTopShare) / momShare.absTopShare) * 100 : null;
+                          const spendMoM = momSpend > 0 ? ((currentSpend - momSpend) / momSpend) * 100 : null;
 
                           return (
                             <tr key={loc.customerId} className="border-b border-[#2a3e2a] hover:bg-[#0d1f0d] transition-colors">
                               <td className="py-3 px-3">
                                 <div className="text-[#E8DFC4] font-medium">{loc.customerName}</div>
                               </td>
-                              <td className="py-3 px-3 text-right text-[#E8DFC4] font-medium">
+                              <td className="py-3 px-2 text-right text-[#E8DFC4] font-medium">
                                 {loc.total}
                                 {yoyLoc && yoyLoc.total > 0 ? (
                                   <div className="text-xs text-gray-500">was {yoyLoc.total}</div>
                                 ) : null}
                               </td>
-                              <td className="py-3 px-3 text-right">
+                              <td className="py-3 px-2 text-right">
                                 <YoYBadge value={totalYoY} />
                               </td>
-                              <td className="py-3 px-3 text-right">
+                              <td className="py-3 px-2 text-right">
                                 <YoYBadge value={totalMoM} />
                               </td>
-                              <td className="py-3 px-3 text-right">
+                              <td className="py-3 px-2 text-right">
                                 <span className="text-[#6eb887]">{loc.hvac}</span>
                                 <span className="text-gray-600 mx-0.5">/</span>
                                 <span className="text-[#B8956B]">{loc.plumbing}</span>
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {(() => {
-                                  const impr = comparisonData.impressionsByPeriod?.current[loc.customerId] || 0;
-                                  return impr > 0 ? formatNumber(impr) : '—';
-                                })()}
+                              <td className="py-3 px-2 text-right text-gray-300">
+                                {currentImpr > 0 ? formatNumber(currentImpr) : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {(() => {
-                                  const share = comparisonData.impressionShareByPeriod?.current[loc.customerId];
-                                  return share && share.topShare > 0 ? `${(share.topShare * 100).toFixed(1)}%` : '—';
-                                })()}
+                              <td className="py-3 px-1 text-right">
+                                <YoYBadge value={imprMoM} />
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {(() => {
-                                  const share = comparisonData.impressionShareByPeriod?.current[loc.customerId];
-                                  return share && share.absTopShare > 0 ? `${(share.absTopShare * 100).toFixed(1)}%` : '—';
-                                })()}
+                              <td className="py-3 px-2 text-right text-gray-300">
+                                {currentShare && currentShare.topShare > 0 ? `${(currentShare.topShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
+                              <td className="py-3 px-1 text-right">
+                                <YoYBadge value={topMoM} />
+                              </td>
+                              <td className="py-3 px-2 text-right text-gray-300">
+                                {currentShare && currentShare.absTopShare > 0 ? `${(currentShare.absTopShare * 100).toFixed(1)}%` : '—'}
+                              </td>
+                              <td className="py-3 px-1 text-right">
+                                <YoYBadge value={absTopMoM} />
+                              </td>
+                              <td className="py-3 px-2 text-right text-gray-300">
                                 {currentSpend > 0 ? formatCurrency(currentSpend) : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-purple-400 border-l border-[#2a3e2a]">
-                                {stLoc && stLoc.jobCount > 0 ? stLoc.jobCount : '—'}
-                              </td>
-                              <td className="py-3 px-3 text-right text-green-400">
-                                {stLoc && stLoc.revenue > 0 ? formatCurrency(stLoc.revenue) : '—'}
-                              </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {stLoc && stLoc.avgTicket > 0 ? formatCurrencyDecimal(stLoc.avgTicket) : '—'}
-                              </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
+                              <td className="py-3 px-1 text-right">
+                                <YoYBadge value={spendMoM} />
                               </td>
                             </tr>
                           );
@@ -873,72 +876,64 @@ export default function LSAPage() {
                           const totalMoM = mt.total > 0 ? ((ct.total - mt.total) / mt.total) * 100 : null;
 
                           const totalCurrentSpend = Object.values(comparisonData.spendByPeriod.current).reduce((s, v) => s + v, 0);
-                          const st = comparisonData.stMetrics?._total;
-                          const roas = totalCurrentSpend > 0 && st?.revenue ? st.revenue / totalCurrentSpend : 0;
+                          const totalMomSpend = Object.values(comparisonData.spendByPeriod.mom || {}).reduce((s, v) => s + v, 0);
+
+                          const totalCurrentImpr = Object.values(comparisonData.impressionsByPeriod?.current || {}).reduce((s, v) => s + v, 0);
+                          const totalMomImpr = Object.values(comparisonData.impressionsByPeriod?.mom || {}).reduce((s, v) => s + v, 0);
+
+                          // Weighted average impression share for current and MoM
+                          const calcWeightedShare = (period: 'current' | 'mom', field: 'topShare' | 'absTopShare') => {
+                            const shares = comparisonData.impressionShareByPeriod?.[period] || {};
+                            const impr = comparisonData.impressionsByPeriod?.[period] || {};
+                            let weightedSum = 0, total = 0;
+                            for (const cid of Object.keys(shares)) {
+                              const w = impr[cid] || 0;
+                              weightedSum += (shares[cid]?.[field] || 0) * w;
+                              total += w;
+                            }
+                            return total > 0 ? weightedSum / total : 0;
+                          };
+
+                          const totalTopShare = calcWeightedShare('current', 'topShare');
+                          const totalMomTopShare = calcWeightedShare('mom', 'topShare');
+                          const totalAbsTopShare = calcWeightedShare('current', 'absTopShare');
+                          const totalMomAbsTopShare = calcWeightedShare('mom', 'absTopShare');
+
+                          const totalImprMoM = totalMomImpr > 0 ? ((totalCurrentImpr - totalMomImpr) / totalMomImpr) * 100 : null;
+                          const totalTopMoM = totalMomTopShare > 0 ? ((totalTopShare - totalMomTopShare) / totalMomTopShare) * 100 : null;
+                          const totalAbsTopMoM = totalMomAbsTopShare > 0 ? ((totalAbsTopShare - totalMomAbsTopShare) / totalMomAbsTopShare) * 100 : null;
+                          const totalSpendMoM = totalMomSpend > 0 ? ((totalCurrentSpend - totalMomSpend) / totalMomSpend) * 100 : null;
 
                           return (
                             <tr className="bg-[#0d1f0d] font-semibold">
                               <td className="py-3 px-3 text-[#E8DFC4]">TOTAL</td>
-                              <td className="py-3 px-3 text-right text-[#E8DFC4]">
+                              <td className="py-3 px-2 text-right text-[#E8DFC4]">
                                 {ct.total}
                                 {yt.total > 0 && <div className="text-xs text-gray-500 font-normal">was {yt.total}</div>}
                               </td>
-                              <td className="py-3 px-3 text-right"><YoYBadge value={totalYoY} /></td>
-                              <td className="py-3 px-3 text-right"><YoYBadge value={totalMoM} /></td>
-                              <td className="py-3 px-3 text-right">
+                              <td className="py-3 px-2 text-right"><YoYBadge value={totalYoY} /></td>
+                              <td className="py-3 px-2 text-right"><YoYBadge value={totalMoM} /></td>
+                              <td className="py-3 px-2 text-right">
                                 <span className="text-[#6eb887]">{ct.hvac}</span>
                                 <span className="text-gray-600 mx-0.5">/</span>
                                 <span className="text-[#B8956B]">{ct.plumbing}</span>
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {(() => {
-                                  const totalImpr = Object.values(comparisonData.impressionsByPeriod?.current || {}).reduce((s, v) => s + v, 0);
-                                  return totalImpr > 0 ? formatNumber(totalImpr) : '—';
-                                })()}
+                              <td className="py-3 px-2 text-right text-gray-300">
+                                {totalCurrentImpr > 0 ? formatNumber(totalCurrentImpr) : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {(() => {
-                                  const shares = comparisonData.impressionShareByPeriod?.current || {};
-                                  const impr = comparisonData.impressionsByPeriod?.current || {};
-                                  let weightedSum = 0, totalImpr = 0;
-                                  for (const cid of Object.keys(shares)) {
-                                    const w = impr[cid] || 0;
-                                    weightedSum += (shares[cid]?.topShare || 0) * w;
-                                    totalImpr += w;
-                                  }
-                                  const avg = totalImpr > 0 ? weightedSum / totalImpr : 0;
-                                  return avg > 0 ? `${(avg * 100).toFixed(1)}%` : '—';
-                                })()}
+                              <td className="py-3 px-1 text-right"><YoYBadge value={totalImprMoM} /></td>
+                              <td className="py-3 px-2 text-right text-gray-300">
+                                {totalTopShare > 0 ? `${(totalTopShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {(() => {
-                                  const shares = comparisonData.impressionShareByPeriod?.current || {};
-                                  const impr = comparisonData.impressionsByPeriod?.current || {};
-                                  let weightedSum = 0, totalImpr = 0;
-                                  for (const cid of Object.keys(shares)) {
-                                    const w = impr[cid] || 0;
-                                    weightedSum += (shares[cid]?.absTopShare || 0) * w;
-                                    totalImpr += w;
-                                  }
-                                  const avg = totalImpr > 0 ? weightedSum / totalImpr : 0;
-                                  return avg > 0 ? `${(avg * 100).toFixed(1)}%` : '—';
-                                })()}
+                              <td className="py-3 px-1 text-right"><YoYBadge value={totalTopMoM} /></td>
+                              <td className="py-3 px-2 text-right text-gray-300">
+                                {totalAbsTopShare > 0 ? `${(totalAbsTopShare * 100).toFixed(1)}%` : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
+                              <td className="py-3 px-1 text-right"><YoYBadge value={totalAbsTopMoM} /></td>
+                              <td className="py-3 px-2 text-right text-gray-300">
                                 {totalCurrentSpend > 0 ? formatCurrency(totalCurrentSpend) : '—'}
                               </td>
-                              <td className="py-3 px-3 text-right text-purple-400 border-l border-[#2a3e2a]">
-                                {st ? st.jobCount : '—'}
-                              </td>
-                              <td className="py-3 px-3 text-right text-green-400 font-medium">
-                                {st && st.revenue > 0 ? formatCurrency(st.revenue) : '—'}
-                              </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {st && st.avgTicket > 0 ? formatCurrencyDecimal(st.avgTicket) : '—'}
-                              </td>
-                              <td className="py-3 px-3 text-right text-gray-300">
-                                {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
-                              </td>
+                              <td className="py-3 px-1 text-right"><YoYBadge value={totalSpendMoM} /></td>
                             </tr>
                           );
                         })()}
