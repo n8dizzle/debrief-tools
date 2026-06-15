@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getGoogleAdsClient, formatLeadType, formatLeadStatus, getLeadTrade, formatCategoryId, getLSAAccountName } from '@/lib/google-ads';
+import { getGoogleAdsClient, formatLeadType, formatLeadStatus, getLeadTrade, formatCategoryId, getLSAAccountName, LSA_ACCOUNT_NAMES } from '@/lib/google-ads';
 import { hasPermission } from '@/lib/permissions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -238,7 +238,8 @@ function buildResponse(
     },
   };
 
-  // Location breakdown
+  // Location breakdown — seed with ALL known LSA accounts so locations
+  // with 0 leads still appear (user wants to see impression data for all)
   const locationMap = new Map<string, {
     customerId: string;
     customerName: string;
@@ -249,6 +250,19 @@ function buildResponse(
     plumbing: number;
     other: number;
   }>();
+
+  for (const [cid, name] of Object.entries(LSA_ACCOUNT_NAMES)) {
+    locationMap.set(cid, {
+      customerId: cid,
+      customerName: name,
+      total: 0,
+      charged: 0,
+      nonCharged: 0,
+      hvac: 0,
+      plumbing: 0,
+      other: 0,
+    });
+  }
 
   for (const lead of leads) {
     const cid = lead.customerId || 'unknown';
