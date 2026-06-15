@@ -254,10 +254,10 @@ function formatCurrency(value: number): string {
 
 function formatCurrencyCompact(value: number): string {
   if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
+    return `$${(value / 1000000).toFixed(2)}M`;
   }
   if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`;
+    return `$${(value / 1000).toFixed(0)}K`;
   }
   return `$${Math.round(value).toLocaleString()}`;
 }
