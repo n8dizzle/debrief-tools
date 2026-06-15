@@ -36,6 +36,8 @@ export interface LocationData {
   ytdViews?: number;
   ytdClicks?: number;
   ytdDirections?: number;
+  // Previous year YTD (for YoY comparison)
+  prevYtdCalls?: number;
   // ServiceTitan metrics (null if no campaign name configured)
   stCallsBooked?: number | null;
   stCallsTotal?: number | null;
@@ -73,6 +75,11 @@ function formatYoY(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   const sign = value >= 0 ? '+' : '';
   return `${sign}${value.toFixed(0)}%`;
+}
+
+function calcPctInline(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? 100 : null;
+  return ((current - previous) / previous) * 100;
 }
 
 function YoYCell({ value }: { value: number | null | undefined }) {
@@ -137,11 +144,12 @@ export function LocationSummaryTable({
         momPrevClicks: acc.momPrevClicks + (loc.momPrevClicks || 0),
         momPrevDirections: acc.momPrevDirections + (loc.momPrevDirections || 0),
         ytdCalls: acc.ytdCalls + (loc.ytdCalls || 0),
+        prevYtdCalls: acc.prevYtdCalls + (loc.prevYtdCalls || 0),
         stCallsBooked: acc.stCallsBooked + (loc.stCallsBooked || 0),
         stRevenue: acc.stRevenue + (loc.stRevenue || 0),
         stJobCount: acc.stJobCount + (loc.stJobCount || 0),
       }),
-      { views: 0, calls: 0, clicks: 0, directions: 0, prevViews: 0, prevCalls: 0, prevClicks: 0, prevDirections: 0, momPrevViews: 0, momPrevCalls: 0, momPrevClicks: 0, momPrevDirections: 0, ytdCalls: 0, stCallsBooked: 0, stRevenue: 0, stJobCount: 0 }
+      { views: 0, calls: 0, clicks: 0, directions: 0, prevViews: 0, prevCalls: 0, prevClicks: 0, prevDirections: 0, momPrevViews: 0, momPrevCalls: 0, momPrevClicks: 0, momPrevDirections: 0, ytdCalls: 0, prevYtdCalls: 0, stCallsBooked: 0, stRevenue: 0, stJobCount: 0 }
     );
   }, [data]);
 
@@ -380,13 +388,20 @@ export function LocationSummaryTable({
                   </span>
                 </th>
               )}
-              {/* YTD Calls */}
+              {/* YTD Calls + YoY */}
               {hasYtdData && (
-                <th className="text-right py-3 px-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                    YTD Calls
-                  </span>
-                </th>
+                <>
+                  <th className="text-right py-3 px-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                      YTD Calls
+                    </span>
+                  </th>
+                  <th className="text-right py-3 px-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                      YoY
+                    </span>
+                  </th>
+                </>
               )}
               {/* ServiceTitan columns - separated by visual divider */}
               {hasSTData && (
@@ -522,13 +537,25 @@ export function LocationSummaryTable({
                     <YoYCell value={loc.directionsMoM} />
                   </td>
                 )}
-                {/* YTD Calls */}
+                {/* YTD Calls + YoY */}
                 {hasYtdData && (
-                  <td className="py-3.5 px-3 text-right">
-                    <span className="text-base tabular-nums font-medium" style={{ color: '#6B9DB8' }}>
-                      {formatValue(loc.ytdCalls || 0)}
-                    </span>
-                  </td>
+                  <>
+                    <td className="py-3.5 px-3 text-right">
+                      <span className="text-base tabular-nums font-medium" style={{ color: '#6B9DB8' }}>
+                        {formatValue(loc.ytdCalls || 0)}
+                      </span>
+                      {(loc.prevYtdCalls !== undefined && loc.prevYtdCalls > 0) && (
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          was {formatValue(loc.prevYtdCalls)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-2 text-right">
+                      <YoYCell value={loc.prevYtdCalls !== undefined && loc.prevYtdCalls > 0
+                        ? calcPctInline(loc.ytdCalls || 0, loc.prevYtdCalls)
+                        : null} />
+                    </td>
+                  </>
                 )}
                 {/* ServiceTitan columns */}
                 {hasSTData && (
@@ -654,11 +681,21 @@ export function LocationSummaryTable({
                 </td>
               )}
               {hasYtdData && (
-                <td className="py-3.5 px-3 text-right">
-                  <span className="text-base font-bold tabular-nums" style={{ color: '#6B9DB8' }}>
-                    {formatValue(totals.ytdCalls)}
-                  </span>
-                </td>
+                <>
+                  <td className="py-3.5 px-3 text-right">
+                    <span className="text-base font-bold tabular-nums" style={{ color: '#6B9DB8' }}>
+                      {formatValue(totals.ytdCalls)}
+                    </span>
+                    {totals.prevYtdCalls > 0 && (
+                      <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                        was {formatValue(totals.prevYtdCalls)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={totals.prevYtdCalls > 0 ? calcPctInline(totals.ytdCalls, totals.prevYtdCalls) : null} />
+                  </td>
+                </>
               )}
               {/* ServiceTitan totals */}
               {hasSTData && (
