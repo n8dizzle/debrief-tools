@@ -496,8 +496,8 @@ class GoogleAdsClient {
             metrics.cost_micros,
             metrics.phone_calls,
             metrics.all_conversions,
-            metrics.search_top_impression_share,
-            metrics.search_absolute_top_impression_share
+            metrics.top_impression_percentage,
+            metrics.absolute_top_impression_percentage
           FROM campaign
           WHERE campaign.advertising_channel_type = 'LOCAL_SERVICES'
             AND segments.date >= '${startDate}'
@@ -525,8 +525,8 @@ class GoogleAdsClient {
             dailyRows[existingIdx].phoneCalls += Number(row.metrics?.phone_calls || 0);
             dailyRows[existingIdx].allConversions += Number(row.metrics?.all_conversions || 0);
             // Impression share: take the latest non-zero value (not additive)
-            const topShare = Number(row.metrics?.search_top_impression_share || 0);
-            const absTopShare = Number(row.metrics?.search_absolute_top_impression_share || 0);
+            const topShare = Number(row.metrics?.top_impression_percentage || 0);
+            const absTopShare = Number(row.metrics?.absolute_top_impression_percentage || 0);
             if (topShare > 0) dailyRows[existingIdx].searchTopImpressionShare = topShare;
             if (absTopShare > 0) dailyRows[existingIdx].searchAbsTopImpressionShare = absTopShare;
           } else {
@@ -539,8 +539,8 @@ class GoogleAdsClient {
               costMicros: Number(row.metrics?.cost_micros || 0),
               phoneCalls: Number(row.metrics?.phone_calls || 0),
               allConversions: Number(row.metrics?.all_conversions || 0),
-              searchTopImpressionShare: Number(row.metrics?.search_top_impression_share || 0),
-              searchAbsTopImpressionShare: Number(row.metrics?.search_absolute_top_impression_share || 0),
+              searchTopImpressionShare: Number(row.metrics?.top_impression_percentage || 0),
+              searchAbsTopImpressionShare: Number(row.metrics?.absolute_top_impression_percentage || 0),
             });
           }
         }

@@ -10,21 +10,21 @@ const supabase = createClient(
 );
 
 const SPREADSHEET_ID = process.env.HUDDLE_SPREADSHEET_ID || '1w-c6lgPYAGUwtW7biPQoGApIoZcTFgR0usyAGUtWEcw';
-const TARGETS_SHEET = '2026 Targets & Actuals';
+const TARGETS_SHEET = 'Targets';
 const BUSINESS_DAYS_SHEET = 'Business Days';
 
-// Cell ranges from the spreadsheet structure
+// Cell ranges from the spreadsheet structure (Targets tab)
 const CELL_RANGES = {
   // Monthly Revenue by Department (rows 5-9, B-N)
   monthlyRevenue: `'${TARGETS_SHEET}'!B5:N9`,
   // Business Days per month (row 12, B-M)
   businessDays: `'${TARGETS_SHEET}'!B12:M12`,
-  // Daily Revenue targets (rows 16-20, B-N)
-  dailyRevenue: `'${TARGETS_SHEET}'!B16:N20`,
-  // Monthly Jobs by Department (rows 24-28, B-N)
-  monthlyJobs: `'${TARGETS_SHEET}'!B24:N28`,
-  // Daily Jobs targets (rows 39-43, B-N)
-  dailyJobs: `'${TARGETS_SHEET}'!B39:N43`,
+  // Daily Revenue targets (rows 24-28, B-N)
+  dailyRevenue: `'${TARGETS_SHEET}'!B24:N28`,
+  // Monthly Jobs by Department (rows 32-36, C-O; col B is Avg Ticket so skip it)
+  monthlyJobs: `'${TARGETS_SHEET}'!C32:O36`,
+  // Daily Jobs targets (rows 40-44, B-N)
+  dailyJobs: `'${TARGETS_SHEET}'!B40:N44`,
 };
 
 // Department order in the spreadsheet rows
