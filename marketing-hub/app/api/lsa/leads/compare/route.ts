@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getLSAAccountName } from '@/lib/google-ads';
+import { getLSAAccountName, LSA_ACCOUNT_NAMES } from '@/lib/google-ads';
 import { hasPermission } from '@/lib/permissions';
 import { createClient } from '@supabase/supabase-js';
 import { stClient } from '@/lib/servicetitan';
@@ -47,6 +47,21 @@ function aggregateLeads(leads: any[]): {
   totals: { total: number; charged: number; booked: number; hvac: number; plumbing: number };
 } {
   const locationMap = new Map<string, LocationBreakdown>();
+
+  // Seed with all known LSA accounts so locations with 0 leads still appear
+  for (const [cid, name] of Object.entries(LSA_ACCOUNT_NAMES)) {
+    locationMap.set(cid, {
+      customerId: cid,
+      customerName: name,
+      total: 0,
+      charged: 0,
+      nonCharged: 0,
+      booked: 0,
+      hvac: 0,
+      plumbing: 0,
+      other: 0,
+    });
+  }
 
   for (const lead of leads) {
     const cid = lead.customer_id || 'unknown';
