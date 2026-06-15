@@ -132,7 +132,7 @@ async function main() {
     "christmas air conditioning and plumbing|flower mound": "flower mound",
     "christmas air conditioning and plumbing|prosper": "prosper",
     "christmas air conditioning and plumbing|justin": "justin",
-    "christmas air conditioning and plumbing|lewisville": "xmas lewisville",
+    "christmas air conditioning and plumbing|lewisville": "lewisville",
     // Bart's locations
     "bart's heating and air|lewisville": "bart's lewisville",
     "bart's heating & air|lewisville": "bart's lewisville",

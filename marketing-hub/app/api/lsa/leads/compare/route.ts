@@ -288,7 +288,7 @@ export async function GET(request: NextRequest) {
           'Justin': '3704224172',
           'Flower Mound': '6799775782',
           'Lewisville (Barts)': '8265257082',
-          'Lewisville (Xmas)': '5778669762',
+          'Lewisville': '5778669762',
           'Prosper': '6930068549',
           'Denton': '1807327952',
         };

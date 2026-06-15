@@ -80,7 +80,7 @@ export const LSA_ACCOUNT_NAMES: Record<string, string> = {
   '3704224172': 'Justin',
   '6799775782': 'Flower Mound',
   '8265257082': 'Lewisville (Bart\'s)',
-  '5778669762': 'Lewisville (Xmas)',
+  '5778669762': 'Lewisville',
   '6930068549': 'Prosper',
   '1807327952': 'Denton (HVAC)',
   '4070893201': 'Denton (PLMBG)',
