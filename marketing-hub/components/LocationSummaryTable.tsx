@@ -16,6 +16,21 @@ export interface LocationData {
   viewsYoY?: number | null;
   clicksYoY?: number | null;
   directionsYoY?: number | null;
+  // MoM percentage changes (null if no previous data)
+  callsMoM?: number | null;
+  viewsMoM?: number | null;
+  clicksMoM?: number | null;
+  directionsMoM?: number | null;
+  // Previous period raw values (for "was X" display)
+  prevCalls?: number;
+  prevViews?: number;
+  prevClicks?: number;
+  prevDirections?: number;
+  // MoM previous period raw values
+  momPrevCalls?: number;
+  momPrevViews?: number;
+  momPrevClicks?: number;
+  momPrevDirections?: number;
   // YTD totals
   ytdCalls?: number;
   ytdViews?: number;
@@ -36,6 +51,10 @@ type SortDirection = 'asc' | 'desc';
 interface LocationSummaryTableProps {
   data: LocationData[];
   isLoading?: boolean;
+  comparisonPeriods?: {
+    yoy: { start: string; end: string };
+    mom: { start: string; end: string };
+  };
 }
 
 function formatValue(value: number): string {
@@ -76,6 +95,7 @@ function YoYCell({ value }: { value: number | null | undefined }) {
 export function LocationSummaryTable({
   data,
   isLoading = false,
+  comparisonPeriods,
 }: LocationSummaryTableProps) {
   const [sortField, setSortField] = useState<SortField>('phoneCalls');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -108,17 +128,43 @@ export function LocationSummaryTable({
         calls: acc.calls + loc.phoneCalls,
         clicks: acc.clicks + loc.websiteClicks,
         directions: acc.directions + loc.directionRequests,
+        prevViews: acc.prevViews + (loc.prevViews || 0),
+        prevCalls: acc.prevCalls + (loc.prevCalls || 0),
+        prevClicks: acc.prevClicks + (loc.prevClicks || 0),
+        prevDirections: acc.prevDirections + (loc.prevDirections || 0),
+        momPrevViews: acc.momPrevViews + (loc.momPrevViews || 0),
+        momPrevCalls: acc.momPrevCalls + (loc.momPrevCalls || 0),
+        momPrevClicks: acc.momPrevClicks + (loc.momPrevClicks || 0),
+        momPrevDirections: acc.momPrevDirections + (loc.momPrevDirections || 0),
         ytdCalls: acc.ytdCalls + (loc.ytdCalls || 0),
         stCallsBooked: acc.stCallsBooked + (loc.stCallsBooked || 0),
         stRevenue: acc.stRevenue + (loc.stRevenue || 0),
         stJobCount: acc.stJobCount + (loc.stJobCount || 0),
       }),
-      { views: 0, calls: 0, clicks: 0, directions: 0, ytdCalls: 0, stCallsBooked: 0, stRevenue: 0, stJobCount: 0 }
+      { views: 0, calls: 0, clicks: 0, directions: 0, prevViews: 0, prevCalls: 0, prevClicks: 0, prevDirections: 0, momPrevViews: 0, momPrevCalls: 0, momPrevClicks: 0, momPrevDirections: 0, ytdCalls: 0, stCallsBooked: 0, stRevenue: 0, stJobCount: 0 }
     );
   }, [data]);
 
-  // Check if we have YoY data available
+  // Compute total-level YoY and MoM from raw previous values
+  const calcPct = (cur: number, prev: number) => prev === 0 ? null : ((cur - prev) / prev) * 100;
+
+  const totalYoY = useMemo(() => ({
+    calls: calcPct(totals.calls, totals.prevCalls),
+    views: calcPct(totals.views, totals.prevViews),
+    clicks: calcPct(totals.clicks, totals.prevClicks),
+    directions: calcPct(totals.directions, totals.prevDirections),
+  }), [totals]);
+
+  const totalMoM = useMemo(() => ({
+    calls: calcPct(totals.calls, totals.momPrevCalls),
+    views: calcPct(totals.views, totals.momPrevViews),
+    clicks: calcPct(totals.clicks, totals.momPrevClicks),
+    directions: calcPct(totals.directions, totals.momPrevDirections),
+  }), [totals]);
+
+  // Check if we have YoY/MoM data available
   const hasYoYData = data.some(loc => loc.callsYoY !== null && loc.callsYoY !== undefined);
+  const hasMoMData = data.some(loc => loc.callsMoM !== null && loc.callsMoM !== undefined);
   const hasYtdData = data.some(loc => loc.ytdCalls !== undefined && loc.ytdCalls > 0);
   // Check if any location has ST data (campaign name configured)
   const hasSTData = data.some(loc => loc.hasSTCampaign);
@@ -210,6 +256,15 @@ export function LocationSummaryTable({
         Location Summary
       </h2>
 
+      {/* Comparison period labels */}
+      {(hasYoYData || hasMoMData) && comparisonPeriods && (
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+          {hasYoYData && `YoY: vs ${comparisonPeriods.yoy.start} to ${comparisonPeriods.yoy.end}`}
+          {hasYoYData && hasMoMData && ' · '}
+          {hasMoMData && `MoM: vs ${comparisonPeriods.mom.start} to ${comparisonPeriods.mom.end}`}
+        </p>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -243,6 +298,13 @@ export function LocationSummaryTable({
                   </span>
                 </th>
               )}
+              {hasMoMData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    MoM
+                  </span>
+                </th>
+              )}
               {/* Views */}
               <th className="text-right py-3 px-3">
                 <button
@@ -258,6 +320,13 @@ export function LocationSummaryTable({
                 <th className="text-right py-3 px-2 w-16">
                   <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     YoY
+                  </span>
+                </th>
+              )}
+              {hasMoMData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    MoM
                   </span>
                 </th>
               )}
@@ -279,6 +348,13 @@ export function LocationSummaryTable({
                   </span>
                 </th>
               )}
+              {hasMoMData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    MoM
+                  </span>
+                </th>
+              )}
               {/* Directions */}
               <th className="text-right py-3 px-3">
                 <button
@@ -294,6 +370,13 @@ export function LocationSummaryTable({
                 <th className="text-right py-3 px-2 w-16">
                   <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     YoY
+                  </span>
+                </th>
+              )}
+              {hasMoMData && (
+                <th className="text-right py-3 px-2 w-16">
+                  <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    MoM
                   </span>
                 </th>
               )}
@@ -360,10 +443,20 @@ export function LocationSummaryTable({
                   <span className="text-base font-semibold tabular-nums" style={{ color: '#B8956B' }}>
                     {formatValue(loc.phoneCalls)}
                   </span>
+                  {hasYoYData && loc.prevCalls !== undefined && loc.prevCalls > 0 && (
+                    <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                      was {formatValue(loc.prevCalls)}
+                    </div>
+                  )}
                 </td>
                 {hasYoYData && (
                   <td className="py-3.5 px-2 text-right">
                     <YoYCell value={loc.callsYoY} />
+                  </td>
+                )}
+                {hasMoMData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.callsMoM} />
                   </td>
                 )}
                 {/* Views */}
@@ -371,10 +464,20 @@ export function LocationSummaryTable({
                   <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {formatValue(loc.totalViews)}
                   </span>
+                  {hasYoYData && loc.prevViews !== undefined && loc.prevViews > 0 && (
+                    <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                      was {formatValue(loc.prevViews)}
+                    </div>
+                  )}
                 </td>
                 {hasYoYData && (
                   <td className="py-3.5 px-2 text-right">
                     <YoYCell value={loc.viewsYoY} />
+                  </td>
+                )}
+                {hasMoMData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.viewsMoM} />
                   </td>
                 )}
                 {/* Clicks */}
@@ -382,10 +485,20 @@ export function LocationSummaryTable({
                   <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {formatValue(loc.websiteClicks)}
                   </span>
+                  {hasYoYData && loc.prevClicks !== undefined && loc.prevClicks > 0 && (
+                    <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                      was {formatValue(loc.prevClicks)}
+                    </div>
+                  )}
                 </td>
                 {hasYoYData && (
                   <td className="py-3.5 px-2 text-right">
                     <YoYCell value={loc.clicksYoY} />
+                  </td>
+                )}
+                {hasMoMData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.clicksMoM} />
                   </td>
                 )}
                 {/* Directions */}
@@ -393,10 +506,20 @@ export function LocationSummaryTable({
                   <span className="text-base tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {formatValue(loc.directionRequests)}
                   </span>
+                  {hasYoYData && loc.prevDirections !== undefined && loc.prevDirections > 0 && (
+                    <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                      was {formatValue(loc.prevDirections)}
+                    </div>
+                  )}
                 </td>
                 {hasYoYData && (
                   <td className="py-3.5 px-2 text-right">
                     <YoYCell value={loc.directionsYoY} />
+                  </td>
+                )}
+                {hasMoMData && (
+                  <td className="py-3.5 px-2 text-right">
+                    <YoYCell value={loc.directionsMoM} />
                   </td>
                 )}
                 {/* YTD Calls */}
@@ -447,33 +570,89 @@ export function LocationSummaryTable({
             <tr style={{ borderTop: '2px solid var(--border-subtle)' }}>
               <td className="py-3.5 px-3">
                 <span className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>
-                  Total
+                  TOTAL
                 </span>
               </td>
               <td className="py-3.5 px-3 text-right">
                 <span className="text-base font-bold tabular-nums" style={{ color: '#B8956B' }}>
                   {formatValue(totals.calls)}
                 </span>
+                {hasYoYData && totals.prevCalls > 0 && (
+                  <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    was {formatValue(totals.prevCalls)}
+                  </div>
+                )}
               </td>
-              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              {hasYoYData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalYoY.calls} />
+                </td>
+              )}
+              {hasMoMData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalMoM.calls} />
+                </td>
+              )}
               <td className="py-3.5 px-3 text-right">
                 <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.views)}
                 </span>
+                {hasYoYData && totals.prevViews > 0 && (
+                  <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    was {formatValue(totals.prevViews)}
+                  </div>
+                )}
               </td>
-              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              {hasYoYData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalYoY.views} />
+                </td>
+              )}
+              {hasMoMData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalMoM.views} />
+                </td>
+              )}
               <td className="py-3.5 px-3 text-right">
                 <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.clicks)}
                 </span>
+                {hasYoYData && totals.prevClicks > 0 && (
+                  <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    was {formatValue(totals.prevClicks)}
+                  </div>
+                )}
               </td>
-              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              {hasYoYData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalYoY.clicks} />
+                </td>
+              )}
+              {hasMoMData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalMoM.clicks} />
+                </td>
+              )}
               <td className="py-3.5 px-3 text-right">
                 <span className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatValue(totals.directions)}
                 </span>
+                {hasYoYData && totals.prevDirections > 0 && (
+                  <div className="text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    was {formatValue(totals.prevDirections)}
+                  </div>
+                )}
               </td>
-              {hasYoYData && <td className="py-3.5 px-2"></td>}
+              {hasYoYData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalYoY.directions} />
+                </td>
+              )}
+              {hasMoMData && (
+                <td className="py-3.5 px-2 text-right">
+                  <YoYCell value={totalMoM.directions} />
+                </td>
+              )}
               {hasYtdData && (
                 <td className="py-3.5 px-3 text-right">
                   <span className="text-base font-bold tabular-nums" style={{ color: '#6B9DB8' }}>

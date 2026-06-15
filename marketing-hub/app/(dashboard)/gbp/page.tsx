@@ -132,6 +132,10 @@ export default function GBPPerformancePage() {
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [cached, setCached] = useState(false);
+  const [comparisonPeriods, setComparisonPeriods] = useState<{
+    yoy: { start: string; end: string };
+    mom: { start: string; end: string };
+  } | undefined>(undefined);
 
   const fetchInsights = useCallback(async (refresh = false) => {
     setInsightsLoading(true);
@@ -147,6 +151,7 @@ export default function GBPPerformancePage() {
       const data = await res.json();
       setInsights(data.insights);
       setCached(data.cached || false);
+      setComparisonPeriods(data.comparisonPeriods);
     } catch (err) {
       console.error('Failed to fetch insights:', err);
       setInsightsError(err instanceof Error ? err.message : 'Failed to load insights');
@@ -382,6 +387,7 @@ export default function GBPPerformancePage() {
         <LocationSummaryTable
           data={insights?.byLocation || []}
           isLoading={insightsLoading}
+          comparisonPeriods={comparisonPeriods}
         />
       )}
     </div>

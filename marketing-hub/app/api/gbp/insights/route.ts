@@ -128,6 +128,14 @@ export async function GET(request: NextRequest) {
     const yoyStartStr = formatDate(yoyStartDate);
     const yoyEndStr = formatDate(yoyEndDate);
 
+    // Calculate MoM date range (same-length period immediately before current)
+    const momEndDate = new Date(startDateStr + 'T00:00:00');
+    momEndDate.setDate(momEndDate.getDate() - 1);
+    const momStartDate = new Date(momEndDate);
+    momStartDate.setDate(momStartDate.getDate() - periodDays + 1);
+    const momStartStr = formatDate(momStartDate);
+    const momEndStr = formatDate(momEndDate);
+
     // Calculate YTD range (Jan 1 of current year to end date)
     const ytdStart = `${new Date(endDateStr).getFullYear()}-01-01`;
     const ytdEnd = endDateStr;
@@ -150,14 +158,21 @@ export async function GET(request: NextRequest) {
       return allData;
     }
 
-    // Always fetch YoY and YTD data from cache (we have 18 months of history)
-    const [yoyData, ytdData] = await Promise.all([
+    // Always fetch YoY, MoM, and YTD data from cache (we have 18 months of history)
+    const [yoyData, momData, ytdData] = await Promise.all([
       fetchAllRows(() =>
         supabase
           .from('gbp_insights_cache')
           .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
           .gte('date', yoyStartStr)
           .lte('date', yoyEndStr)
+      ),
+      fetchAllRows(() =>
+        supabase
+          .from('gbp_insights_cache')
+          .select('location_id, views_maps, views_search, website_clicks, phone_calls, direction_requests')
+          .gte('date', momStartStr)
+          .lte('date', momEndStr)
       ),
       fetchAllRows(() =>
         supabase
@@ -243,13 +258,14 @@ export async function GET(request: NextRequest) {
       // If we have cached data covering most of the period, use it
       const expectedDays = periodDays * locations.length;
       if (cachedData && cachedData.length >= expectedDays * 0.8) {
-        // Build aggregated response from cache with YoY and YTD
+        // Build aggregated response from cache with YoY, MoM, and YTD
         const insights = buildInsightsFromCache(
           cachedData,
           locations,
           startDateStr,
           endDateStr,
           yoyData,
+          momData,
           ytdData
         );
 
@@ -261,6 +277,10 @@ export async function GET(request: NextRequest) {
           insights: insightsWithST,
           cached: true,
           locationCount: locations.length,
+          comparisonPeriods: {
+            yoy: { start: yoyStartStr, end: yoyEndStr },
+            mom: { start: momStartStr, end: momEndStr },
+          },
         });
       }
     }
@@ -274,8 +294,8 @@ export async function GET(request: NextRequest) {
 
     const freshInsights = await gbClient.getMultiLocationInsights(locationData, periodDays, startDateStr, endDateStr);
 
-    // Merge YoY and YTD data into the fresh insights
-    const insightsWithComparisons = addComparisonData(freshInsights, locations, yoyData, ytdData);
+    // Merge YoY, MoM, and YTD data into the fresh insights
+    const insightsWithComparisons = addComparisonData(freshInsights, locations, yoyData, momData, ytdData);
 
     // Merge ST metrics into the insights
     const stMetrics = await stMetricsPromise;
@@ -327,6 +347,10 @@ export async function GET(request: NextRequest) {
       insights: insightsWithST,
       cached: false,
       locationCount: locations.length,
+      comparisonPeriods: {
+        yoy: { start: yoyStartStr, end: yoyEndStr },
+        mom: { start: momStartStr, end: momEndStr },
+      },
     });
   } catch (error) {
     console.error('Failed to fetch GBP insights:', error);
@@ -370,11 +394,57 @@ function calcYoYChange(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
-// Helper: Add YoY and YTD comparison data to fresh API insights
+// Helper type for aggregated location metrics
+type LocationMetricsTotals = {
+  viewsMaps: number;
+  viewsSearch: number;
+  websiteClicks: number;
+  phoneCalls: number;
+  directionRequests: number;
+};
+
+// Helper: aggregate cached rows by location
+function aggregateByLocation(
+  rows: Array<{
+    location_id: string;
+    views_maps: number;
+    views_search: number;
+    website_clicks: number;
+    phone_calls: number;
+    direction_requests: number;
+  }>,
+  locationIds: string[]
+): Map<string, LocationMetricsTotals> {
+  const map = new Map<string, LocationMetricsTotals>();
+  for (const id of locationIds) {
+    map.set(id, { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 });
+  }
+  for (const row of rows) {
+    const existing = map.get(row.location_id);
+    if (existing) {
+      existing.viewsMaps += row.views_maps || 0;
+      existing.viewsSearch += row.views_search || 0;
+      existing.websiteClicks += row.website_clicks || 0;
+      existing.phoneCalls += row.phone_calls || 0;
+      existing.directionRequests += row.direction_requests || 0;
+    }
+  }
+  return map;
+}
+
+// Helper: Add YoY, MoM, and YTD comparison data to fresh API insights
 function addComparisonData(
   insights: AggregatedInsights,
   locations: Array<{ id: string; name: string; short_name: string }>,
   yoyData: Array<{
+    location_id: string;
+    views_maps: number;
+    views_search: number;
+    website_clicks: number;
+    phone_calls: number;
+    direction_requests: number;
+  }>,
+  momData: Array<{
     location_id: string;
     views_maps: number;
     views_search: number;
@@ -391,81 +461,19 @@ function addComparisonData(
     direction_requests: number;
   }>
 ): AggregatedInsights {
-  // Aggregate YoY data by location
-  const yoyByLocation = new Map<string, {
-    viewsMaps: number;
-    viewsSearch: number;
-    websiteClicks: number;
-    phoneCalls: number;
-    directionRequests: number;
-  }>();
-
-  // Aggregate YTD data by location
-  const ytdByLocation = new Map<string, {
-    viewsMaps: number;
-    viewsSearch: number;
-    websiteClicks: number;
-    phoneCalls: number;
-    directionRequests: number;
-  }>();
-
-  for (const loc of locations) {
-    yoyByLocation.set(loc.id, {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    });
-    ytdByLocation.set(loc.id, {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    });
-  }
-
-  for (const row of yoyData) {
-    const existing = yoyByLocation.get(row.location_id);
-    if (existing) {
-      existing.viewsMaps += row.views_maps || 0;
-      existing.viewsSearch += row.views_search || 0;
-      existing.websiteClicks += row.website_clicks || 0;
-      existing.phoneCalls += row.phone_calls || 0;
-      existing.directionRequests += row.direction_requests || 0;
-    }
-  }
-
-  for (const row of ytdData) {
-    const existing = ytdByLocation.get(row.location_id);
-    if (existing) {
-      existing.viewsMaps += row.views_maps || 0;
-      existing.viewsSearch += row.views_search || 0;
-      existing.websiteClicks += row.website_clicks || 0;
-      existing.phoneCalls += row.phone_calls || 0;
-      existing.directionRequests += row.direction_requests || 0;
-    }
-  }
+  const locationIds = locations.map(l => l.id);
+  const yoyByLocation = aggregateByLocation(yoyData, locationIds);
+  const momByLocation = aggregateByLocation(momData, locationIds);
+  const ytdByLocation = aggregateByLocation(ytdData, locationIds);
 
   // Add comparison data to each location
   const byLocationWithComparisons = insights.byLocation.map(loc => {
-    const yoy = yoyByLocation.get(loc.locationId) || {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    };
-    const ytd = ytdByLocation.get(loc.locationId) || {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    };
+    const yoy = yoyByLocation.get(loc.locationId) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 };
+    const mom = momByLocation.get(loc.locationId) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 };
+    const ytd = ytdByLocation.get(loc.locationId) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 };
 
     const yoyViews = yoy.viewsMaps + yoy.viewsSearch;
+    const momViews = mom.viewsMaps + mom.viewsSearch;
 
     return {
       ...loc,
@@ -473,6 +481,18 @@ function addComparisonData(
       viewsYoY: calcYoYChange(loc.totalViews, yoyViews),
       clicksYoY: calcYoYChange(loc.websiteClicks, yoy.websiteClicks),
       directionsYoY: calcYoYChange(loc.directionRequests, yoy.directionRequests),
+      callsMoM: calcYoYChange(loc.phoneCalls, mom.phoneCalls),
+      viewsMoM: calcYoYChange(loc.totalViews, momViews),
+      clicksMoM: calcYoYChange(loc.websiteClicks, mom.websiteClicks),
+      directionsMoM: calcYoYChange(loc.directionRequests, mom.directionRequests),
+      prevCalls: yoy.phoneCalls,
+      prevViews: yoyViews,
+      prevClicks: yoy.websiteClicks,
+      prevDirections: yoy.directionRequests,
+      momPrevCalls: mom.phoneCalls,
+      momPrevViews: momViews,
+      momPrevClicks: mom.websiteClicks,
+      momPrevDirections: mom.directionRequests,
       ytdCalls: ytd.phoneCalls,
       ytdViews: ytd.viewsMaps + ytd.viewsSearch,
       ytdClicks: ytd.websiteClicks,
@@ -525,6 +545,14 @@ function buildInsightsFromCache(
     phone_calls: number;
     direction_requests: number;
   }>,
+  momData: Array<{
+    location_id: string;
+    views_maps: number;
+    views_search: number;
+    website_clicks: number;
+    phone_calls: number;
+    direction_requests: number;
+  }>,
   ytdData: Array<{
     location_id: string;
     views_maps: number;
@@ -534,7 +562,9 @@ function buildInsightsFromCache(
     direction_requests: number;
   }>
 ): AggregatedInsights {
-  // Group current period by location
+  const locationIds = locations.map(l => l.id);
+
+  // Aggregate current period by location
   const byLocationMap = new Map<string, {
     viewsMaps: number;
     viewsSearch: number;
@@ -544,50 +574,10 @@ function buildInsightsFromCache(
     bookings: number;
   }>();
 
-  // Group YoY data by location
-  const yoyByLocation = new Map<string, {
-    viewsMaps: number;
-    viewsSearch: number;
-    websiteClicks: number;
-    phoneCalls: number;
-    directionRequests: number;
-  }>();
-
-  // Group YTD data by location
-  const ytdByLocation = new Map<string, {
-    viewsMaps: number;
-    viewsSearch: number;
-    websiteClicks: number;
-    phoneCalls: number;
-    directionRequests: number;
-  }>();
-
   for (const loc of locations) {
-    byLocationMap.set(loc.id, {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-      bookings: 0,
-    });
-    yoyByLocation.set(loc.id, {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    });
-    ytdByLocation.set(loc.id, {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    });
+    byLocationMap.set(loc.id, { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0, bookings: 0 });
   }
 
-  // Aggregate current period
   for (const row of cachedData) {
     const existing = byLocationMap.get(row.location_id);
     if (existing) {
@@ -600,56 +590,19 @@ function buildInsightsFromCache(
     }
   }
 
-  // Aggregate YoY data
-  for (const row of yoyData) {
-    const existing = yoyByLocation.get(row.location_id);
-    if (existing) {
-      existing.viewsMaps += row.views_maps || 0;
-      existing.viewsSearch += row.views_search || 0;
-      existing.websiteClicks += row.website_clicks || 0;
-      existing.phoneCalls += row.phone_calls || 0;
-      existing.directionRequests += row.direction_requests || 0;
-    }
-  }
-
-  // Aggregate YTD data
-  for (const row of ytdData) {
-    const existing = ytdByLocation.get(row.location_id);
-    if (existing) {
-      existing.viewsMaps += row.views_maps || 0;
-      existing.viewsSearch += row.views_search || 0;
-      existing.websiteClicks += row.website_clicks || 0;
-      existing.phoneCalls += row.phone_calls || 0;
-      existing.directionRequests += row.direction_requests || 0;
-    }
-  }
+  const yoyByLocation = aggregateByLocation(yoyData, locationIds);
+  const momByLocation = aggregateByLocation(momData, locationIds);
+  const ytdByLocation = aggregateByLocation(ytdData, locationIds);
 
   const byLocation = locations.map(loc => {
-    const data = byLocationMap.get(loc.id) || {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-      bookings: 0,
-    };
-    const yoy = yoyByLocation.get(loc.id) || {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    };
-    const ytd = ytdByLocation.get(loc.id) || {
-      viewsMaps: 0,
-      viewsSearch: 0,
-      websiteClicks: 0,
-      phoneCalls: 0,
-      directionRequests: 0,
-    };
+    const data = byLocationMap.get(loc.id) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0, bookings: 0 };
+    const yoy = yoyByLocation.get(loc.id) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 };
+    const mom = momByLocation.get(loc.id) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 };
+    const ytd = ytdByLocation.get(loc.id) || { viewsMaps: 0, viewsSearch: 0, websiteClicks: 0, phoneCalls: 0, directionRequests: 0 };
 
     const currentViews = data.viewsMaps + data.viewsSearch;
     const yoyViews = yoy.viewsMaps + yoy.viewsSearch;
+    const momViews = mom.viewsMaps + mom.viewsSearch;
 
     return {
       locationId: loc.id,
@@ -667,6 +620,20 @@ function buildInsightsFromCache(
       viewsYoY: calcYoYChange(currentViews, yoyViews),
       clicksYoY: calcYoYChange(data.websiteClicks, yoy.websiteClicks),
       directionsYoY: calcYoYChange(data.directionRequests, yoy.directionRequests),
+      // MoM percentage changes
+      callsMoM: calcYoYChange(data.phoneCalls, mom.phoneCalls),
+      viewsMoM: calcYoYChange(currentViews, momViews),
+      clicksMoM: calcYoYChange(data.websiteClicks, mom.websiteClicks),
+      directionsMoM: calcYoYChange(data.directionRequests, mom.directionRequests),
+      // Previous period raw values (for "was X" display)
+      prevCalls: yoy.phoneCalls,
+      prevViews: yoyViews,
+      prevClicks: yoy.websiteClicks,
+      prevDirections: yoy.directionRequests,
+      momPrevCalls: mom.phoneCalls,
+      momPrevViews: momViews,
+      momPrevClicks: mom.websiteClicks,
+      momPrevDirections: mom.directionRequests,
       // YTD totals
       ytdCalls: ytd.phoneCalls,
       ytdViews: ytd.viewsMaps + ytd.viewsSearch,
@@ -705,7 +672,7 @@ function buildInsightsFromCache(
     period: { start: startDate, end: endDate },
     previousPeriod: { start: '', end: '' },
     current,
-    previous: yoyTotals, // Use YoY data as previous for the stat cards
+    previous: yoyTotals,
     byLocation,
   };
 }
