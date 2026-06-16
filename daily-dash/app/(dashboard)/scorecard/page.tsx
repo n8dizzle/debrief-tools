@@ -565,11 +565,10 @@ export default function ScorecardPage() {
                           <Tooltip content={<ChartTooltip />} />
                           <Bar dataKey={dept.revKey} name={`${year}`} radius={[3, 3, 0, 0]} fillOpacity={0.85}>
                             {yoyChartData.map((d: any, i: number) => (
-                              <Cell key={i} fill={(d[dept.revKey] || 0) >= (d[dept.priorRevKey] || 0) ? dept.color : '#EF4444'} />
+                              <Cell key={i} fill={dept.targetKey && d[dept.targetKey] ? ((d[dept.revKey] || 0) >= (d[dept.targetKey] || 0) ? dept.color : '#EF4444') : ((d[dept.revKey] || 0) >= (d[dept.priorRevKey] || 0) ? dept.color : '#EF4444')} />
                             ))}
                           </Bar>
                           <Line type="monotone" dataKey={dept.priorRevKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                          {dept.targetKey && <Line type="stepAfter" dataKey={dept.targetKey} name="Target" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="6 3" dot={false} />}
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -586,11 +585,10 @@ export default function ScorecardPage() {
                         <Tooltip content={<ChartTooltip />} />
                         <Bar dataKey={dept.salesKey} name={`${year}`} radius={[3, 3, 0, 0]} fillOpacity={0.85}>
                           {yoyChartData.map((d: any, i: number) => (
-                            <Cell key={i} fill={(d[dept.salesKey] || 0) >= (d[dept.priorSalesKey] || 0) ? dept.color : '#EF4444'} />
+                            <Cell key={i} fill={dept.salesTargetKey && d[dept.salesTargetKey] ? ((d[dept.salesKey] || 0) >= (d[dept.salesTargetKey] || 0) ? dept.color : '#EF4444') : ((d[dept.salesKey] || 0) >= (d[dept.priorSalesKey] || 0) ? dept.color : '#EF4444')} />
                           ))}
                         </Bar>
                         <Line type="monotone" dataKey={dept.priorSalesKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                          {dept.salesTargetKey && <Line type="stepAfter" dataKey={dept.salesTargetKey} name="Target" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="6 3" dot={false} />}
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>

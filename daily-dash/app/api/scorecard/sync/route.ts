@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
     existing.non_job_revenue += Number(snap.non_job_revenue) || 0;
     existing.adj_revenue += Number(snap.adj_revenue) || 0;
     existing.sales += Number(snap.sales) || 0;
+    existing.jobs_ran += Number(snap.jobs_ran) || 0;
     aggs.set(key, existing);
   }
 
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
 
   const companyRevenue = hvacTotal.revenue + plumbTotal.revenue;
   const companySales = hvacTotal.sales + plumbTotal.sales;
+  const companyJobsRan = hvacTotal.jobs_ran + plumbTotal.jobs_ran;
 
   rows.push({
     year, week_number: weekNumber, week_ending: sundayStr,
@@ -109,6 +111,8 @@ export async function POST(request: NextRequest) {
     non_job_revenue: hvacTotal.non_job_revenue + plumbTotal.non_job_revenue,
     adj_revenue: hvacTotal.adj_revenue + plumbTotal.adj_revenue,
     sales: companySales,
+    jobs_ran: companyJobsRan,
+    avg_ticket: companyJobsRan > 0 ? Math.round(companyRevenue / companyJobsRan) : 0,
     data_source: 'sync',
   });
 
@@ -121,6 +125,8 @@ export async function POST(request: NextRequest) {
     non_job_revenue: hvacTotal.non_job_revenue,
     adj_revenue: hvacTotal.adj_revenue,
     sales: hvacTotal.sales,
+    jobs_ran: hvacTotal.jobs_ran,
+    avg_ticket: hvacTotal.jobs_ran > 0 ? Math.round(hvacTotal.revenue / hvacTotal.jobs_ran) : 0,
     data_source: 'sync',
   });
 
@@ -136,6 +142,8 @@ export async function POST(request: NextRequest) {
         non_job_revenue: a.non_job_revenue,
         adj_revenue: a.adj_revenue,
         sales: a.sales,
+        jobs_ran: a.jobs_ran,
+        avg_ticket: a.jobs_ran > 0 ? Math.round(a.revenue / a.jobs_ran) : 0,
         data_source: 'sync',
       });
     }
@@ -150,6 +158,8 @@ export async function POST(request: NextRequest) {
     non_job_revenue: plumbTotal.non_job_revenue,
     adj_revenue: plumbTotal.adj_revenue,
     sales: plumbTotal.sales,
+    jobs_ran: plumbTotal.jobs_ran,
+    avg_ticket: plumbTotal.jobs_ran > 0 ? Math.round(plumbTotal.revenue / plumbTotal.jobs_ran) : 0,
     data_source: 'sync',
   });
 

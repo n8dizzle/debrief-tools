@@ -504,11 +504,12 @@ export class ServiceTitanClient {
       nonJobRevenue: number;
       adjRevenue: number;
       sales: number;
+      jobsRan: number;
       departments: {
-        install: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
-        service: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
-        maintenance: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
-        sales: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number };
+        install: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number; jobsRan: number };
+        service: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number; jobsRan: number };
+        maintenance: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number; jobsRan: number };
+        sales: { revenue: number; completedRevenue: number; nonJobRevenue: number; adjRevenue: number; sales: number; jobsRan: number };
       };
     };
     plumbing: {
@@ -517,19 +518,38 @@ export class ServiceTitanClient {
       nonJobRevenue: number;
       adjRevenue: number;
       sales: number;
+      jobsRan: number;
     };
   }> {
     const effectiveEndDate = endDate || startDate;
     const dayAfterEnd = this.getNextDay(effectiveEndDate);
 
-    // Fetch Report 222 (Revenue), Report 234 (Sales), and Sold Estimates in parallel.
+    // Fetch Report 222 (Revenue), Report 234 (Sales), Sold Estimates, completed jobs, and BU list in parallel.
     // Report 234 is the source of truth for sales but drops BUs with small/zero amounts.
     // Sold Estimates API fills in the gaps for BUs that Report 234 misses.
-    const [revenueData, salesReportData, estimates] = await Promise.all([
+    // Completed jobs are counted by BU to get jobs_ran per trade/department.
+    const [revenueData, salesReportData, estimates, completedJobs, businessUnits] = await Promise.all([
       this.getBUDashboardRevenue(startDate, effectiveEndDate),
       this.getBUDashboardSales(startDate, effectiveEndDate),
       this.getSoldEstimates(startDate, dayAfterEnd),
+      this.getCompletedJobs(startDate, dayAfterEnd),
+      this.getBusinessUnits(),
     ]);
+
+    // Build BU ID → BU name mapping for job counting
+    const buIdToName = new Map<number, string>();
+    for (const bu of businessUnits) {
+      buIdToName.set(bu.id, bu.name);
+    }
+
+    // Count completed jobs by BU name
+    const jobCountByBU = new Map<string, number>();
+    for (const job of completedJobs) {
+      const buName = buIdToName.get(job.businessUnitId);
+      if (buName) {
+        jobCountByBU.set(buName, (jobCountByBU.get(buName) || 0) + 1);
+      }
+    }
 
     // Build sales lookup: start with Report 234 (authoritative)
     const salesByBU = new Map<string, number>();
@@ -547,13 +567,13 @@ export class ServiceTitanClient {
     }
 
     // Initialize accumulators
-    const hvac = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 };
-    const plumbing = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 };
+    const hvac = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0, jobsRan: 0 };
+    const plumbing = { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0, jobsRan: 0 };
     const hvacDepts = {
-      install: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
-      service: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
-      maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
-      sales: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0 },
+      install: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0, jobsRan: 0 },
+      service: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0, jobsRan: 0 },
+      maintenance: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0, jobsRan: 0 },
+      sales: { completedRevenue: 0, nonJobRevenue: 0, adjRevenue: 0, revenue: 0, sales: 0, jobsRan: 0 },
     };
 
     // All BU names from revenue + sales (sales may exist for BUs with $0 revenue)
@@ -596,6 +616,7 @@ export class ServiceTitanClient {
       const adjRevenue = rev?.adjRevenue || 0;
       const totalRevenue = rev?.totalRevenue || 0;
       const buSales = buSalesAmt;
+      const buJobsRan = jobCountByBU.get(buName) || 0;
 
       if (isHvac) {
         hvac.completedRevenue += completedRevenue;
@@ -603,6 +624,7 @@ export class ServiceTitanClient {
         hvac.adjRevenue += adjRevenue;
         hvac.revenue += totalRevenue;
         hvac.sales += buSales;
+        hvac.jobsRan += buJobsRan;
 
         const dept = HVAC_DEPT_MAPPING[buName];
         if (dept === 'Install') {
@@ -611,24 +633,28 @@ export class ServiceTitanClient {
           hvacDepts.install.adjRevenue += adjRevenue;
           hvacDepts.install.revenue += totalRevenue;
           hvacDepts.install.sales += buSales;
+          hvacDepts.install.jobsRan += buJobsRan;
         } else if (dept === 'Service') {
           hvacDepts.service.completedRevenue += completedRevenue;
           hvacDepts.service.nonJobRevenue += nonJobRevenue;
           hvacDepts.service.adjRevenue += adjRevenue;
           hvacDepts.service.revenue += totalRevenue;
           hvacDepts.service.sales += buSales;
+          hvacDepts.service.jobsRan += buJobsRan;
         } else if (dept === 'Maintenance') {
           hvacDepts.maintenance.completedRevenue += completedRevenue;
           hvacDepts.maintenance.nonJobRevenue += nonJobRevenue;
           hvacDepts.maintenance.adjRevenue += adjRevenue;
           hvacDepts.maintenance.revenue += totalRevenue;
           hvacDepts.maintenance.sales += buSales;
+          hvacDepts.maintenance.jobsRan += buJobsRan;
         } else if (dept === 'Sales') {
           hvacDepts.sales.completedRevenue += completedRevenue;
           hvacDepts.sales.nonJobRevenue += nonJobRevenue;
           hvacDepts.sales.adjRevenue += adjRevenue;
           hvacDepts.sales.revenue += totalRevenue;
           hvacDepts.sales.sales += buSales;
+          hvacDepts.sales.jobsRan += buJobsRan;
         }
       } else if (isPlumbing) {
         plumbing.completedRevenue += completedRevenue;
@@ -636,6 +662,7 @@ export class ServiceTitanClient {
         plumbing.adjRevenue += adjRevenue;
         plumbing.revenue += totalRevenue;
         plumbing.sales += buSales;
+        plumbing.jobsRan += buJobsRan;
       }
     }
 

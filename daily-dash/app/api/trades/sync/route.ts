@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
             non_job_revenue: metrics.hvac.nonJobRevenue,
             adj_revenue: metrics.hvac.adjRevenue,
             sales: metrics.hvac.sales,
+            jobs_ran: metrics.hvac.jobsRan,
           },
           // HVAC Install
           {
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
             non_job_revenue: metrics.hvac.departments?.install?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.install?.adjRevenue || 0,
             sales: metrics.hvac.departments?.install?.sales || 0,
+            jobs_ran: metrics.hvac.departments?.install?.jobsRan || 0,
           },
           // HVAC Service
           {
@@ -115,6 +117,7 @@ export async function POST(request: NextRequest) {
             non_job_revenue: metrics.hvac.departments?.service?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.service?.adjRevenue || 0,
             sales: metrics.hvac.departments?.service?.sales || 0,
+            jobs_ran: metrics.hvac.departments?.service?.jobsRan || 0,
           },
           // HVAC Maintenance
           {
@@ -126,6 +129,7 @@ export async function POST(request: NextRequest) {
             non_job_revenue: metrics.hvac.departments?.maintenance?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.maintenance?.adjRevenue || 0,
             sales: metrics.hvac.departments?.maintenance?.sales || 0,
+            jobs_ran: metrics.hvac.departments?.maintenance?.jobsRan || 0,
           },
           // HVAC Sales
           {
@@ -137,6 +141,7 @@ export async function POST(request: NextRequest) {
             non_job_revenue: metrics.hvac.departments?.sales?.nonJobRevenue || 0,
             adj_revenue: metrics.hvac.departments?.sales?.adjRevenue || 0,
             sales: metrics.hvac.departments?.sales?.sales || 0,
+            jobs_ran: metrics.hvac.departments?.sales?.jobsRan || 0,
           },
           // Plumbing (no department breakdown)
           {
@@ -148,6 +153,7 @@ export async function POST(request: NextRequest) {
             non_job_revenue: metrics.plumbing.nonJobRevenue,
             adj_revenue: metrics.plumbing.adjRevenue,
             sales: metrics.plumbing.sales,
+            jobs_ran: metrics.plumbing.jobsRan,
           },
         ];
 
