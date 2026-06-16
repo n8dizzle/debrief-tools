@@ -208,7 +208,7 @@ export default function ScorecardPage() {
         rows: [
           { label: 'Revenue', actual: getVal('company', 'revenue'), target: weeklyRevTarget, format: '$', prev: getPrevVal('company', 'revenue'), key: 'revenue', section: 'company' },
           { label: 'Sales', actual: getVal('company', 'sales'), target: companySalesTarget, format: '$', prev: getPrevVal('company', 'sales'), key: 'sales', section: 'company' },
-          { label: 'Avg Ticket', actual: getVal('company', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('company', 'avg_ticket'), key: 'avg_ticket', section: 'company' },
+          { label: 'Avg Ticket', actual: getVal('company', 'avg_ticket'), target: at['TOTAL'] || 0, format: '$', prev: getPrevVal('company', 'avg_ticket'), key: 'avg_ticket', section: 'company' },
           { label: 'Jobs Ran', actual: getVal('company', 'jobs_ran'), target: companyJobsTarget, format: '#', prev: getPrevVal('company', 'jobs_ran'), key: 'jobs_ran', section: 'company' },
         ],
       },
