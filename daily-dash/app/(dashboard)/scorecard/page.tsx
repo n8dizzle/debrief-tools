@@ -6,6 +6,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ComposedChart, ReferenceLine, Cell,
 } from 'recharts';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -87,13 +88,55 @@ function ChartTooltip({ active, payload, label, prefix = '$' }: any) {
   );
 }
 
+// Calculate week number from a date (matches the server-side logic)
+function getWeekFromDate(dateStr: string): { week: number; year: number } {
+  const d = new Date(dateStr + 'T12:00:00');
+  const year = d.getFullYear();
+  const jan1 = new Date(year, 0, 1);
+  const dayOfYear = Math.floor((d.getTime() - jan1.getTime()) / 86400000) + 1;
+  const week = Math.ceil(dayOfYear / 7);
+  return { week, year };
+}
+
+// Get the Sunday ending a given week number
+function getWeekEndingDate(weekNum: number, year: number): string {
+  const jan1 = new Date(year, 0, 1);
+  const dayOfYear = weekNum * 7;
+  const d = new Date(jan1);
+  d.setDate(jan1.getDate() + dayOfYear - 1);
+  // Find the Sunday
+  const dow = d.getDay();
+  if (dow !== 0) d.setDate(d.getDate() + (7 - dow));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function ScorecardPage() {
   const [tab, setTab] = useState<'scorecard' | 'trends' | 'memberships'>('scorecard');
-  // Week navigation state: null = use API default (latest week)
+  // Week navigation via DateRangePicker
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  // Track the latest week/year so we can disable the "next" arrow
-  const latestRef = useRef<{ week: number; year: number } | null>(null);
+
+  // Initialize dateRange to "this week" ending Sunday
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date();
+    const dow = now.getDay();
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() + (dow === 0 ? 0 : 7 - dow));
+    const monday = new Date(sunday);
+    monday.setDate(sunday.getDate() - 6);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { start: fmt(monday), end: fmt(sunday) };
+  });
+
+  const handleDateChange = useCallback((range: DateRange) => {
+    setDateRange(range);
+    const { week, year } = getWeekFromDate(range.end);
+    setSelectedWeek(week);
+    setSelectedYear(year);
+  }, []);
 
   const apiUrl = selectedWeek && selectedYear
     ? `/api/scorecard?week=${selectedWeek}&year=${selectedYear}`
@@ -118,43 +161,16 @@ export default function ScorecardPage() {
     week,
   } = data || {};
 
-  // Capture the latest week/year on first load (when no params are set)
+  // Sync dateRange display when API returns the actual week ending date
   useEffect(() => {
-    if (week && year && !latestRef.current) {
-      latestRef.current = { week, year };
+    if (currentWeek?.week_ending && !selectedWeek) {
+      const we = new Date(currentWeek.week_ending + 'T12:00:00');
+      const ms = new Date(we);
+      ms.setDate(we.getDate() - 6);
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      setDateRange({ start: fmt(ms), end: fmt(we) });
     }
-  }, [week, year]);
-
-  const isLatestWeek = !latestRef.current || (
-    (selectedWeek === null || (selectedWeek === latestRef.current.week && selectedYear === latestRef.current.year))
-  );
-
-  const goToPrevWeek = useCallback(() => {
-    const w = selectedWeek ?? week;
-    const y = selectedYear ?? year;
-    if (!w || !y) return;
-    if (w <= 1) {
-      setSelectedWeek(52);
-      setSelectedYear(y - 1);
-    } else {
-      setSelectedWeek(w - 1);
-      setSelectedYear(y);
-    }
-  }, [selectedWeek, selectedYear, week, year]);
-
-  const goToNextWeek = useCallback(() => {
-    if (isLatestWeek) return;
-    const w = selectedWeek ?? week;
-    const y = selectedYear ?? year;
-    if (!w || !y) return;
-    if (w >= 52) {
-      setSelectedWeek(1);
-      setSelectedYear(y + 1);
-    } else {
-      setSelectedWeek(w + 1);
-      setSelectedYear(y);
-    }
-  }, [selectedWeek, selectedYear, week, year, isLatestWeek]);
+  }, [currentWeek?.week_ending, selectedWeek]);
 
   type ScorecardRow = {
     label: string; actual: number; target: number; format: string;
@@ -419,49 +435,19 @@ export default function ScorecardPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-          Weekly Scorecard
-        </h1>
-        <div className="flex items-center gap-2 mt-1">
-          <button
-            onClick={goToPrevWeek}
-            disabled={isLoading}
-            className="flex items-center justify-center rounded"
-            style={{
-              width: 24,
-              height: 24,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-muted)',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.4 : 1,
-            }}
-            title="Previous week"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2.5L4 6l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            Weekly Scorecard
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             Week {week} (ending {currentWeek?.week_ending}) / {year}
           </p>
-          <button
-            onClick={goToNextWeek}
-            disabled={isLatestWeek || isLoading}
-            className="flex items-center justify-center rounded"
-            style={{
-              width: 24,
-              height: 24,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-muted)',
-              cursor: isLatestWeek || isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLatestWeek || isLoading ? 0.25 : 1,
-            }}
-            title={isLatestWeek ? 'Already viewing latest week' : 'Next week'}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
         </div>
+        <DateRangePicker
+          value={dateRange}
+          onChange={handleDateChange}
+        />
       </div>
 
       {/* Tabs */}
@@ -667,6 +653,7 @@ export default function ScorecardPage() {
                             ))}
                           </Bar>
                           <Line type="monotone" dataKey={dept.priorRevKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                          {dept.targetKey && <Line type="stepAfter" dataKey={dept.targetKey} name="Target" stroke="#EF4444" strokeWidth={0} dot={false} legendType="none" />}
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -687,6 +674,7 @@ export default function ScorecardPage() {
                           ))}
                         </Bar>
                         <Line type="monotone" dataKey={dept.priorSalesKey} name={`${year - 1}`} stroke="var(--christmas-gold)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                        {dept.salesTargetKey && <Line type="stepAfter" dataKey={dept.salesTargetKey} name="Target" stroke="#EF4444" strokeWidth={0} dot={false} legendType="none" />}
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
