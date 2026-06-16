@@ -111,6 +111,15 @@ export async function GET(request: NextRequest) {
     avgTicketTargetsByMonth[target.month][target.department] = Number(target.target_value);
   }
 
+  // Build weekly sales targets (monthly sales / weeks in month)
+  const weeklySalesTargetsByMonth: Record<number, Record<string, number>> = {};
+  for (const target of (allMonthlyTargets || []).filter(t => t.target_type === 'sales')) {
+    const bd = bizDays?.find(b => b.month === target.month);
+    const weeksInMonth = (bd?.total_days || 22) / 5;
+    if (!weeklySalesTargetsByMonth[target.month]) weeklySalesTargetsByMonth[target.month] = {};
+    weeklySalesTargetsByMonth[target.month][target.department] = Math.round(Number(target.target_value) / weeksInMonth);
+  }
+
   // Group data by week for easier consumption
   type WeekData = {
     week_number: number;
@@ -166,6 +175,7 @@ export async function GET(request: NextRequest) {
   const targets = weeklyTargetsByMonth[currentMonth] || {};
   const jobsTargets = weeklyJobsTargetsByMonth[currentMonth] || {};
   const avgTicketTargets = avgTicketTargetsByMonth[currentMonth] || {};
+  const salesTargets = weeklySalesTargetsByMonth[currentMonth] || {};
 
   // Attach per-week targets based on each week's month
   const weeklyTargets = currentWeeks.map(w => {
@@ -222,6 +232,7 @@ export async function GET(request: NextRequest) {
     targets,
     jobsTargets,
     avgTicketTargets,
+    salesTargets,
     weeklyTargets,
     ytd,
     annualRevTarget,

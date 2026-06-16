@@ -109,6 +109,7 @@ export default function ScorecardPage() {
     targets,
     jobsTargets,
     avgTicketTargets,
+    salesTargets,
     weeklyTargets,
     ytd,
     annualRevTarget,
@@ -197,12 +198,16 @@ export default function ScorecardPage() {
     // Avg ticket targets (per-job, not divided by weeks)
     const at = avgTicketTargets || {};
 
+    // Sales targets (weekly)
+    const st = salesTargets || {};
+    const companySalesTarget = st['TOTAL'] || 0;
+
     return [
       {
         section: 'COMPANY',
         rows: [
           { label: 'Revenue', actual: getVal('company', 'revenue'), target: weeklyRevTarget, format: '$', prev: getPrevVal('company', 'revenue'), key: 'revenue', section: 'company' },
-          { label: 'Sales', actual: getVal('company', 'sales'), target: 0, format: '$', prev: getPrevVal('company', 'sales'), key: 'sales', section: 'company' },
+          { label: 'Sales', actual: getVal('company', 'sales'), target: companySalesTarget, format: '$', prev: getPrevVal('company', 'sales'), key: 'sales', section: 'company' },
           { label: 'Avg Ticket', actual: getVal('company', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('company', 'avg_ticket'), key: 'avg_ticket', section: 'company' },
           { label: 'Jobs Ran', actual: getVal('company', 'jobs_ran'), target: companyJobsTarget, format: '#', prev: getPrevVal('company', 'jobs_ran'), key: 'jobs_ran', section: 'company' },
         ],
@@ -219,7 +224,7 @@ export default function ScorecardPage() {
         section: 'HVAC SERVICE',
         rows: [
           { label: 'Revenue', actual: getVal('hvac_service', 'revenue'), target: targets?.['HVAC Service'] || 0, format: '$', prev: getPrevVal('hvac_service', 'revenue'), key: 'revenue', section: 'hvac_service' },
-          { label: 'Sales', actual: getVal('hvac_service', 'sales'), target: 0, format: '$', prev: getPrevVal('hvac_service', 'sales'), key: 'sales', section: 'hvac_service' },
+          { label: 'Sales', actual: getVal('hvac_service', 'sales'), target: st['HVAC Service'] || 0, format: '$', prev: getPrevVal('hvac_service', 'sales'), key: 'sales', section: 'hvac_service' },
           { label: 'Avg Ticket', actual: getVal('hvac_service', 'avg_ticket'), target: at['HVAC Service'] || 0, format: '$', prev: getPrevVal('hvac_service', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_service' },
           { label: 'Jobs Ran', actual: getVal('hvac_service', 'jobs_ran'), target: jt['HVAC Service'] || 0, format: '#', prev: getPrevVal('hvac_service', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_service' },
         ],
@@ -228,7 +233,7 @@ export default function ScorecardPage() {
         section: 'HVAC MAINTENANCE',
         rows: [
           { label: 'Revenue', actual: getVal('hvac_maintenance', 'revenue'), target: targets?.['HVAC Maintenance'] || 0, format: '$', prev: getPrevVal('hvac_maintenance', 'revenue'), key: 'revenue', section: 'hvac_maintenance' },
-          { label: 'Sales', actual: getVal('hvac_maintenance', 'sales'), target: 0, format: '$', prev: getPrevVal('hvac_maintenance', 'sales'), key: 'sales', section: 'hvac_maintenance' },
+          { label: 'Sales', actual: getVal('hvac_maintenance', 'sales'), target: st['HVAC Maintenance'] || 0, format: '$', prev: getPrevVal('hvac_maintenance', 'sales'), key: 'sales', section: 'hvac_maintenance' },
           { label: 'Avg Ticket', actual: getVal('hvac_maintenance', 'avg_ticket'), target: at['HVAC Maintenance'] || 0, format: '$', prev: getPrevVal('hvac_maintenance', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_maintenance' },
           { label: 'Jobs Ran', actual: getVal('hvac_maintenance', 'jobs_ran'), target: jt['HVAC Maintenance'] || 0, format: '#', prev: getPrevVal('hvac_maintenance', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_maintenance' },
         ],
@@ -237,7 +242,7 @@ export default function ScorecardPage() {
         section: 'PLUMBING',
         rows: [
           { label: 'Revenue', actual: getVal('plumbing', 'revenue'), target: plumbingTarget, format: '$', prev: getPrevVal('plumbing', 'revenue'), key: 'revenue', section: 'plumbing' },
-          { label: 'Sales', actual: getVal('plumbing', 'sales'), target: 0, format: '$', prev: getPrevVal('plumbing', 'sales'), key: 'sales', section: 'plumbing' },
+          { label: 'Sales', actual: getVal('plumbing', 'sales'), target: st['Plumbing'] || 0, format: '$', prev: getPrevVal('plumbing', 'sales'), key: 'sales', section: 'plumbing' },
           { label: 'Avg Ticket', actual: getVal('plumbing', 'avg_ticket'), target: at['Plumbing'] || 0, format: '$', prev: getPrevVal('plumbing', 'avg_ticket'), key: 'avg_ticket', section: 'plumbing' },
           { label: 'Jobs Ran', actual: getVal('plumbing', 'jobs_ran'), target: jt['Plumbing'] || 0, format: '#', prev: getPrevVal('plumbing', 'jobs_ran'), key: 'jobs_ran', section: 'plumbing' },
         ],
