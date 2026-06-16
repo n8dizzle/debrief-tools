@@ -72,26 +72,43 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching prior year:', priorError);
   }
 
-  // Fetch weekly targets from dash_monthly_targets
-  // Derive weekly target = monthly target / business weeks in month
-  const { data: monthlyTargets } = await supabase
+  // Fetch all target types from dash_monthly_targets
+  const { data: allMonthlyTargets } = await supabase
     .from('dash_monthly_targets')
-    .select('department, target_value, month')
-    .eq('year', year)
-    .eq('target_type', 'revenue');
+    .select('department, target_value, month, target_type')
+    .eq('year', year);
+
+  // Keep backward-compat alias
+  const monthlyTargets = (allMonthlyTargets || []).filter(t => t.target_type === 'revenue');
 
   const { data: bizDays } = await supabase
     .from('dash_business_days')
     .select('month, total_days')
     .eq('year', year);
 
-  // Build weekly targets per month
+  // Build weekly targets per month for revenue (existing format, backward compat)
   const weeklyTargetsByMonth: Record<number, Record<string, number>> = {};
-  for (const target of monthlyTargets || []) {
+  for (const target of monthlyTargets) {
     const bd = bizDays?.find(b => b.month === target.month);
     const weeksInMonth = (bd?.total_days || 22) / 5;
     if (!weeklyTargetsByMonth[target.month]) weeklyTargetsByMonth[target.month] = {};
     weeklyTargetsByMonth[target.month][target.department] = Math.round(Number(target.target_value) / weeksInMonth);
+  }
+
+  // Build weekly targets for jobs_ran (monthly jobs / weeks in month)
+  const weeklyJobsTargetsByMonth: Record<number, Record<string, number>> = {};
+  for (const target of (allMonthlyTargets || []).filter(t => t.target_type === 'jobs')) {
+    const bd = bizDays?.find(b => b.month === target.month);
+    const weeksInMonth = (bd?.total_days || 22) / 5;
+    if (!weeklyJobsTargetsByMonth[target.month]) weeklyJobsTargetsByMonth[target.month] = {};
+    weeklyJobsTargetsByMonth[target.month][target.department] = Math.round(Number(target.target_value) / weeksInMonth);
+  }
+
+  // Build avg_ticket targets per month (not divided by weeks — it's a per-job metric)
+  const avgTicketTargetsByMonth: Record<number, Record<string, number>> = {};
+  for (const target of (allMonthlyTargets || []).filter(t => t.target_type === 'avg_ticket')) {
+    if (!avgTicketTargetsByMonth[target.month]) avgTicketTargetsByMonth[target.month] = {};
+    avgTicketTargetsByMonth[target.month][target.department] = Number(target.target_value);
   }
 
   // Group data by week for easier consumption
@@ -147,6 +164,8 @@ export async function GET(request: NextRequest) {
   const currentWeekEnding = currentWeek?.week_ending ? new Date(currentWeek.week_ending + 'T12:00:00') : new Date();
   const currentMonth = currentWeekEnding.getMonth() + 1;
   const targets = weeklyTargetsByMonth[currentMonth] || {};
+  const jobsTargets = weeklyJobsTargetsByMonth[currentMonth] || {};
+  const avgTicketTargets = avgTicketTargetsByMonth[currentMonth] || {};
 
   // Attach per-week targets based on each week's month
   const weeklyTargets = currentWeeks.map(w => {
@@ -201,6 +220,8 @@ export async function GET(request: NextRequest) {
     trailing13: currentWeeks,
     priorYear13: priorWeeks,
     targets,
+    jobsTargets,
+    avgTicketTargets,
     weeklyTargets,
     ytd,
     annualRevTarget,

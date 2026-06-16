@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import useSWR from 'swr';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -89,7 +89,17 @@ function ChartTooltip({ active, payload, label, prefix = '$' }: any) {
 
 export default function ScorecardPage() {
   const [tab, setTab] = useState<'scorecard' | 'trends' | 'memberships'>('scorecard');
-  const { data, error, isLoading } = useSWR('/api/scorecard', fetcher);
+  // Week navigation state: null = use API default (latest week)
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  // Track the latest week/year so we can disable the "next" arrow
+  const latestRef = useRef<{ week: number; year: number } | null>(null);
+
+  const apiUrl = selectedWeek && selectedYear
+    ? `/api/scorecard?week=${selectedWeek}&year=${selectedYear}`
+    : '/api/scorecard';
+
+  const { data, error, isLoading } = useSWR(apiUrl, fetcher);
 
   const {
     currentWeek,
@@ -97,6 +107,8 @@ export default function ScorecardPage() {
     trailing13,
     priorYear13,
     targets,
+    jobsTargets,
+    avgTicketTargets,
     weeklyTargets,
     ytd,
     annualRevTarget,
@@ -104,6 +116,44 @@ export default function ScorecardPage() {
     year,
     week,
   } = data || {};
+
+  // Capture the latest week/year on first load (when no params are set)
+  useEffect(() => {
+    if (week && year && !latestRef.current) {
+      latestRef.current = { week, year };
+    }
+  }, [week, year]);
+
+  const isLatestWeek = !latestRef.current || (
+    (selectedWeek === null || (selectedWeek === latestRef.current.week && selectedYear === latestRef.current.year))
+  );
+
+  const goToPrevWeek = useCallback(() => {
+    const w = selectedWeek ?? week;
+    const y = selectedYear ?? year;
+    if (!w || !y) return;
+    if (w <= 1) {
+      setSelectedWeek(52);
+      setSelectedYear(y - 1);
+    } else {
+      setSelectedWeek(w - 1);
+      setSelectedYear(y);
+    }
+  }, [selectedWeek, selectedYear, week, year]);
+
+  const goToNextWeek = useCallback(() => {
+    if (isLatestWeek) return;
+    const w = selectedWeek ?? week;
+    const y = selectedYear ?? year;
+    if (!w || !y) return;
+    if (w >= 52) {
+      setSelectedWeek(1);
+      setSelectedYear(y + 1);
+    } else {
+      setSelectedWeek(w + 1);
+      setSelectedYear(y);
+    }
+  }, [selectedWeek, selectedYear, week, year, isLatestWeek]);
 
   type ScorecardRow = {
     label: string; actual: number; target: number; format: string;
@@ -140,22 +190,29 @@ export default function ScorecardPage() {
     const hvacTarget = (targets?.['HVAC Install'] || 0) + (targets?.['HVAC Service'] || 0) + (targets?.['HVAC Maintenance'] || 0);
     const plumbingTarget = targets?.['Plumbing'] || 0;
 
+    // Jobs ran targets (weekly)
+    const jt = jobsTargets || {};
+    const companyJobsTarget = jt['TOTAL'] || 0;
+
+    // Avg ticket targets (per-job, not divided by weeks)
+    const at = avgTicketTargets || {};
+
     return [
       {
         section: 'COMPANY',
         rows: [
           { label: 'Revenue', actual: getVal('company', 'revenue'), target: weeklyRevTarget, format: '$', prev: getPrevVal('company', 'revenue'), key: 'revenue', section: 'company' },
           { label: 'Sales', actual: getVal('company', 'sales'), target: 0, format: '$', prev: getPrevVal('company', 'sales'), key: 'sales', section: 'company' },
-          { label: 'Avg Ticket', actual: getVal('company', 'avg_ticket'), target: 857, format: '$', prev: getPrevVal('company', 'avg_ticket'), key: 'avg_ticket', section: 'company' },
-          { label: 'Jobs Ran', actual: getVal('company', 'jobs_ran'), target: 0, format: '#', prev: getPrevVal('company', 'jobs_ran'), key: 'jobs_ran', section: 'company' },
+          { label: 'Avg Ticket', actual: getVal('company', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('company', 'avg_ticket'), key: 'avg_ticket', section: 'company' },
+          { label: 'Jobs Ran', actual: getVal('company', 'jobs_ran'), target: companyJobsTarget, format: '#', prev: getPrevVal('company', 'jobs_ran'), key: 'jobs_ran', section: 'company' },
         ],
       },
       {
         section: 'HVAC REPLACEMENTS',
         rows: [
           { label: 'Revenue', actual: getVal('hvac_install', 'revenue'), target: targets?.['HVAC Install'] || 0, format: '$', prev: getPrevVal('hvac_install', 'revenue'), key: 'revenue', section: 'hvac_install' },
-          { label: 'Avg Ticket', actual: getVal('hvac_install', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('hvac_install', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_install' },
-          { label: 'Jobs Ran', actual: getVal('hvac_install', 'jobs_ran'), target: 0, format: '#', prev: getPrevVal('hvac_install', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_install' },
+          { label: 'Avg Ticket', actual: getVal('hvac_install', 'avg_ticket'), target: at['HVAC Install'] || 0, format: '$', prev: getPrevVal('hvac_install', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_install' },
+          { label: 'Jobs Ran', actual: getVal('hvac_install', 'jobs_ran'), target: jt['HVAC Install'] || 0, format: '#', prev: getPrevVal('hvac_install', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_install' },
         ],
       },
       {
@@ -163,8 +220,8 @@ export default function ScorecardPage() {
         rows: [
           { label: 'Revenue', actual: getVal('hvac_service', 'revenue'), target: targets?.['HVAC Service'] || 0, format: '$', prev: getPrevVal('hvac_service', 'revenue'), key: 'revenue', section: 'hvac_service' },
           { label: 'Sales', actual: getVal('hvac_service', 'sales'), target: 0, format: '$', prev: getPrevVal('hvac_service', 'sales'), key: 'sales', section: 'hvac_service' },
-          { label: 'Avg Ticket', actual: getVal('hvac_service', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('hvac_service', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_service' },
-          { label: 'Jobs Ran', actual: getVal('hvac_service', 'jobs_ran'), target: 0, format: '#', prev: getPrevVal('hvac_service', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_service' },
+          { label: 'Avg Ticket', actual: getVal('hvac_service', 'avg_ticket'), target: at['HVAC Service'] || 0, format: '$', prev: getPrevVal('hvac_service', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_service' },
+          { label: 'Jobs Ran', actual: getVal('hvac_service', 'jobs_ran'), target: jt['HVAC Service'] || 0, format: '#', prev: getPrevVal('hvac_service', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_service' },
         ],
       },
       {
@@ -172,8 +229,8 @@ export default function ScorecardPage() {
         rows: [
           { label: 'Revenue', actual: getVal('hvac_maintenance', 'revenue'), target: targets?.['HVAC Maintenance'] || 0, format: '$', prev: getPrevVal('hvac_maintenance', 'revenue'), key: 'revenue', section: 'hvac_maintenance' },
           { label: 'Sales', actual: getVal('hvac_maintenance', 'sales'), target: 0, format: '$', prev: getPrevVal('hvac_maintenance', 'sales'), key: 'sales', section: 'hvac_maintenance' },
-          { label: 'Avg Ticket', actual: getVal('hvac_maintenance', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('hvac_maintenance', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_maintenance' },
-          { label: 'Jobs Ran', actual: getVal('hvac_maintenance', 'jobs_ran'), target: 0, format: '#', prev: getPrevVal('hvac_maintenance', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_maintenance' },
+          { label: 'Avg Ticket', actual: getVal('hvac_maintenance', 'avg_ticket'), target: at['HVAC Maintenance'] || 0, format: '$', prev: getPrevVal('hvac_maintenance', 'avg_ticket'), key: 'avg_ticket', section: 'hvac_maintenance' },
+          { label: 'Jobs Ran', actual: getVal('hvac_maintenance', 'jobs_ran'), target: jt['HVAC Maintenance'] || 0, format: '#', prev: getPrevVal('hvac_maintenance', 'jobs_ran'), key: 'jobs_ran', section: 'hvac_maintenance' },
         ],
       },
       {
@@ -181,8 +238,8 @@ export default function ScorecardPage() {
         rows: [
           { label: 'Revenue', actual: getVal('plumbing', 'revenue'), target: plumbingTarget, format: '$', prev: getPrevVal('plumbing', 'revenue'), key: 'revenue', section: 'plumbing' },
           { label: 'Sales', actual: getVal('plumbing', 'sales'), target: 0, format: '$', prev: getPrevVal('plumbing', 'sales'), key: 'sales', section: 'plumbing' },
-          { label: 'Avg Ticket', actual: getVal('plumbing', 'avg_ticket'), target: 0, format: '$', prev: getPrevVal('plumbing', 'avg_ticket'), key: 'avg_ticket', section: 'plumbing' },
-          { label: 'Jobs Ran', actual: getVal('plumbing', 'jobs_ran'), target: 0, format: '#', prev: getPrevVal('plumbing', 'jobs_ran'), key: 'jobs_ran', section: 'plumbing' },
+          { label: 'Avg Ticket', actual: getVal('plumbing', 'avg_ticket'), target: at['Plumbing'] || 0, format: '$', prev: getPrevVal('plumbing', 'avg_ticket'), key: 'avg_ticket', section: 'plumbing' },
+          { label: 'Jobs Ran', actual: getVal('plumbing', 'jobs_ran'), target: jt['Plumbing'] || 0, format: '#', prev: getPrevVal('plumbing', 'jobs_ran'), key: 'jobs_ran', section: 'plumbing' },
         ],
       },
       {
@@ -361,9 +418,45 @@ export default function ScorecardPage() {
         <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
           Weekly Scorecard
         </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          Week {week} (ending {currentWeek?.week_ending}) / {year}
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            onClick={goToPrevWeek}
+            disabled={isLoading}
+            className="flex items-center justify-center rounded"
+            style={{
+              width: 24,
+              height: 24,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-muted)',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.4 : 1,
+            }}
+            title="Previous week"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2.5L4 6l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Week {week} (ending {currentWeek?.week_ending}) / {year}
+          </p>
+          <button
+            onClick={goToNextWeek}
+            disabled={isLatestWeek || isLoading}
+            className="flex items-center justify-center rounded"
+            style={{
+              width: 24,
+              height: 24,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-muted)',
+              cursor: isLatestWeek || isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLatestWeek || isLoading ? 0.25 : 1,
+            }}
+            title={isLatestWeek ? 'Already viewing latest week' : 'Next week'}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
