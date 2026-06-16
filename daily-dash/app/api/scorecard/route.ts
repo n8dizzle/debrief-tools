@@ -185,31 +185,42 @@ export async function GET(request: NextRequest) {
   });
 
   // Compute YTD totals
-  const { data: ytdData } = await supabase
-    .from('weekly_scorecard')
-    .select('revenue, sales, jobs_ran, reviews_count, memberships_active_end, memberships_sold')
-    .eq('year', year)
-    .eq('trade', 'company')
-    .lte('week_number', week);
+  const startOfYear = `${year}-01-01T00:00:00`;
+  const now = new Date().toISOString();
+
+  const [{ data: ytdData }, { count: ytdReviewCount }, { count: activeMemberCount }] = await Promise.all([
+    supabase
+      .from('weekly_scorecard')
+      .select('revenue, sales, jobs_ran, memberships_sold')
+      .eq('year', year)
+      .eq('trade', 'company')
+      .lte('week_number', week),
+    // YTD reviews: count directly from google_reviews (source of truth)
+    supabase
+      .from('google_reviews')
+      .select('id', { count: 'exact', head: true })
+      .gte('create_time', startOfYear)
+      .lte('create_time', now),
+    // Active memberships: count from mm_memberships (source of truth)
+    supabase
+      .from('mm_memberships')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'Active'),
+  ]);
 
   const ytd = {
     revenue: 0,
     sales: 0,
     jobs_ran: 0,
-    reviews: 0,
-    memberships_active: 0,
+    reviews: ytdReviewCount || 0,
+    memberships_active: activeMemberCount || 0,
     memberships_sold: 0,
   };
   for (const row of ytdData || []) {
     ytd.revenue += Number(row.revenue) || 0;
     ytd.sales += Number(row.sales) || 0;
     ytd.jobs_ran += (row.jobs_ran as number) || 0;
-    ytd.reviews += (row.reviews_count as number) || 0;
     ytd.memberships_sold += (row.memberships_sold as number) || 0;
-  }
-  // Active memberships = latest week's active_end
-  if (currentWeek?.company) {
-    ytd.memberships_active = (currentWeek.company as any).memberships_active_end || 0;
   }
 
   // Annual targets for YTD pacing
@@ -217,10 +228,28 @@ export async function GET(request: NextRequest) {
     .filter(t => t.department === 'TOTAL')
     .reduce((sum, t) => sum + Number(t.target_value), 0);
 
-  // Expected YTD revenue (sum of monthly targets through current month)
+  // Expected YTD revenue (sum of completed months + prorated current month)
+  // Completed months get their full target, current month is prorated by business days elapsed
+  const currentMonthBizDays = bizDays?.find(b => b.month === currentMonth)?.total_days || 22;
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const dayOfMonth = today.getDate();
+  // Approximate business days elapsed: weekdays up to today in this month
+  let bizDaysElapsed = 0;
+  for (let d = 1; d <= dayOfMonth; d++) {
+    const dt = new Date(today.getFullYear(), today.getMonth(), d);
+    const dow = dt.getDay();
+    if (dow === 0) continue; // Sunday
+    if (dow === 6) { bizDaysElapsed += 0.5; continue; } // Saturday = 0.5
+    bizDaysElapsed += 1;
+  }
+  const currentMonthPct = Math.min(bizDaysElapsed / currentMonthBizDays, 1);
+
   const expectedYtdRevenue = (monthlyTargets || [])
     .filter(t => t.department === 'TOTAL' && t.month <= currentMonth)
-    .reduce((sum, t) => sum + Number(t.target_value), 0);
+    .reduce((sum, t) => {
+      const val = Number(t.target_value);
+      return sum + (t.month < currentMonth ? val : val * currentMonthPct);
+    }, 0);
 
   return NextResponse.json({
     year,
