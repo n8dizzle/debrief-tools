@@ -2,75 +2,123 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
-import { hasPEPermission } from '@/lib/pe-utils';
+import { hasPEPermission, formatLocalDate } from '@/lib/pe-utils';
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasPEPermission(session, 'can_view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const supabase = getServerSupabase();
-  const { data: orders, error } = await supabase
-    .from('po_orders')
+  const { searchParams } = new URL(request.url);
+  const type = searchParams.get('type');
+  const status = searchParams.get('status');
+
+  let query = supabase
+    .from('pe_orders')
     .select('*')
-    .order('date_added', { ascending: false });
+    .order('created_at', { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (type) query = query.eq('order_type', type);
+  if (status) query = query.eq('status', status);
 
-  const { data: syncLog } = await supabase
-    .from('po_audit_log')
-    .select('created_at')
-    .eq('event_type', 'sync')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  const { data, error } = await query;
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  return NextResponse.json({ orders: orders || [], lastSync: syncLog?.created_at || null });
+  return NextResponse.json({ orders: data || [] });
 }
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   if (!hasPEPermission(session, 'can_manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const body = await request.json();
-  if (!body.job_id) return NextResponse.json({ error: 'job_id is required' }, { status: 400 });
-
   const supabase = getServerSupabase();
+  const now = formatLocalDate(new Date());
+
+  const newOrder = {
+    date: body.date || now,
+    job: body.job || '',
+    tech: body.tech || '',
+    customer: body.customer || '',
+    order_type: body.order_type || 'service',
+    subtype: body.subtype || '',
+    warranty: body.warranty || 'No',
+    warranty_type: body.warranty_type || '',
+    part: body.part || '',
+    supplier: body.supplier || '',
+    order_num: body.order_num || '',
+    cost: body.cost || '',
+    estimate_cost: body.estimate_cost || '',
+    location: body.location || 'Place Order',
+    owner: body.owner || 'Unassigned',
+    eta: body.eta || null,
+    scheduled_date: body.scheduled_date || null,
+    note_wh: body.note_wh || '',
+    note_cxr: body.note_cxr || '',
+    status: 'open',
+    is_equipment: body.is_equipment || false,
+    cancel_source: '',
+    cancel_reason: '',
+    bo_notified: false,
+    bo_notified_date: null,
+    completed_by: '',
+    completed_at: null,
+    linked_jobs: body.linked_jobs || [],
+    st_url: body.st_url || '',
+    install_team: body.install_team || '',
+    sub_rate: body.sub_rate || '',
+    equip_cost: body.equip_cost || '',
+    sched_date: body.sched_date || null,
+    call_booked: false,
+    job_cost: body.job_cost || '',
+    equip_avail: '',
+    bo_ordered: false,
+    bo_status: '',
+    parts_ordered: false,
+    part_bo: false,
+    bo_informed: false,
+    parts_at_shop: false,
+    two_techs: false,
+    qc_scheduled: false,
+    qc_date: null,
+    tracking: '',
+    tech_type: body.tech_type || '',
+    needs_order: body.needs_order || false,
+    multiple_estimates: body.multiple_estimates || false,
+    estimates: body.estimates || null,
+  };
 
   const { data, error } = await supabase
-    .from('po_orders')
-    .insert({
-      job_id: body.job_id,
-      st_url: body.st_url || null,
-      customer_name: body.customer_name || null,
-      technician: body.technician || null,
-      job_type: body.job_type || null,
-      date_added: body.date_added || null,
-      owner: body.owner || null,
-      location: body.location || null,
-      supplier: body.supplier || null,
-      order_number: body.order_number || null,
-      part_description: body.part_description || null,
-      part_cost: body.part_cost || null,
-      is_equipment: body.is_equipment || false,
-      warranty: body.warranty || 'No',
-      notes_warehouse: body.notes_warehouse || null,
-      notes_cxr: body.notes_cxr || null,
-      status: 'open',
-    })
+    .from('pe_orders')
+    .insert(newOrder)
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  await supabase.from('po_audit_log').insert({
-    job_id: body.job_id,
-    event_type: 'created',
-    action: `Order created manually`,
-    performed_by: session.user.name || session.user.email,
+  // Log audit
+  await supabase.from('pe_audit_log').insert({
+    type: 'create',
+    job_id: data.job,
+    customer: data.customer,
+    action: 'Created order',
+    detail: `Type: ${data.order_type}, Part: ${data.part}`,
+    changed_by: session.user.email || session.user.name || 'Unknown',
   });
 
-  return NextResponse.json(data);
+  return NextResponse.json({ order: data }, { status: 201 });
 }

@@ -1,88 +1,66 @@
-"use client";
-
-import { signIn, useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, Suspense } from "react";
+'use client';
+import { signIn } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 function LoginContent() {
-  const { data: session } = useSession();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const error = searchParams.get("error");
+  const error = searchParams.get('error');
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
-  useEffect(() => {
-    if (session) router.push("/");
-  }, [session, router]);
+  const errorMessages: Record<string, string> = {
+    NotRegistered: 'Your account is not registered. Contact an admin.',
+    AccountInactive: 'Your account has been deactivated. Contact an admin.',
+    OAuthAccountNotLinked: 'This email is linked to a different sign-in method.',
+    default: 'Sign in failed. Please try again.',
+  };
+
+  const errorMessage = error ? (errorMessages[error] || errorMessages.default) : null;
 
   return (
-    <div className="relative max-w-md w-full">
-      <div
-        className="rounded-2xl p-8 shadow-2xl"
-        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
-      >
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="w-20 h-20 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--christmas-green)' }}>
-              <svg className="w-12 h-12" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>Parts & Equipment</h1>
-          <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>Sign in with your company Google account</p>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <span style={{ fontSize: 32 }}>❄️</span>
         </div>
+        <h1 className="login-title">Parts &amp; Equipment</h1>
+        <p className="login-subtitle">Christmas Air Conditioning &amp; Plumbing</p>
 
-        {error && (
-          <div className="mb-6 p-4 rounded-lg" style={{ background: 'rgba(139, 45, 50, 0.15)', border: '1px solid var(--christmas-brown)' }}>
-            <p className="text-sm" style={{ color: '#c97878' }}>
-              {error === "AccessDenied"
-                ? "Access denied. Please use your company email."
-                : error === "NotRegistered"
-                ? "Your account hasn't been set up yet. Contact your manager to request access."
-                : error === "AccountInactive"
-                ? "Your account has been deactivated. Contact your manager for help."
-                : "An error occurred. Please try again."}
-            </p>
-          </div>
+        {errorMessage && (
+          <div className="login-error">{errorMessage}</div>
         )}
 
         <button
-          onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="w-full flex items-center justify-center gap-3 rounded-lg px-6 py-3.5 font-medium transition-all duration-200"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--christmas-cream)' }}
-          onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.borderColor = 'var(--christmas-green-dark)'; }}
-          onMouseOut={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border-default)'; }}
+          className="login-btn"
+          onClick={() => signIn('google', { callbackUrl })}
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+          <svg width="20" height="20" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
+            <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+            <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+            <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
+            <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
           </svg>
           Sign in with Google
         </button>
 
-        <p className="mt-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-          Only @christmasair.com accounts can access this system.
+        <p className="login-footer">
+          Only @christmasair.com accounts are allowed.
         </p>
       </div>
-      <p className="mt-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-        Christmas Air Conditioning & Plumbing
-      </p>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg-primary)' }}>
-      <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.03 }}>
-        <div className="absolute -top-1/4 -right-1/4 w-1/2 h-1/2 rounded-full" style={{ background: 'var(--christmas-green)' }} />
-        <div className="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 rounded-full" style={{ background: 'var(--christmas-green)' }} />
+    <Suspense fallback={
+      <div className="login-page">
+        <div className="login-card">
+          <p style={{ color: 'var(--muted)', textAlign: 'center' }}>Loading...</p>
+        </div>
       </div>
-      <Suspense fallback={<div className="text-center" style={{ color: 'var(--text-muted)' }}>Loading...</div>}>
-        <LoginContent />
-      </Suspense>
-    </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
