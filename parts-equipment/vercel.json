@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/sync",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/sync",
-      "schedule": "0 14,16,18,20,22 * * 1-5"
+      "path": "/api/cron/sync-estimates",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

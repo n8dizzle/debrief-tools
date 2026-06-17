@@ -55,6 +55,7 @@ export interface PEOrder {
   needs_order: boolean;
   multiple_estimates: boolean;
   estimates: string | null;
+  st_estimate_id?: number | null;
   created_at: string;
   updated_at: string;
 }
