@@ -6,18 +6,19 @@ import { hasPEPermission } from '@/lib/pe-utils';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { id } = await params;
   const supabase = getServerSupabase();
   const { data, error } = await supabase
     .from('pe_orders')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (error || !data) {
@@ -29,7 +30,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -39,6 +40,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const { id } = await params;
   const body = await request.json();
   const supabase = getServerSupabase();
 
@@ -46,10 +48,10 @@ export async function PATCH(
   const { data: existing } = await supabase
     .from('pe_orders')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
-  const updates: Record<string, any> = { ...body };
+  const updates: Record<string, unknown> = { ...body };
   if (body.status === 'completed' && !existing?.completed_at) {
     updates.completed_at = new Date().toISOString();
   }
@@ -57,7 +59,7 @@ export async function PATCH(
   const { data, error } = await supabase
     .from('pe_orders')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single();
 
@@ -92,7 +94,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -102,18 +104,19 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const { id } = await params;
   const supabase = getServerSupabase();
 
   const { data: existing } = await supabase
     .from('pe_orders')
     .select('job, customer')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   const { error } = await supabase
     .from('pe_orders')
     .delete()
-    .eq('id', params.id);
+    .eq('id', id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
