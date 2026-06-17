@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import AuthProvider from '@/components/AuthProvider';
-import AppShell from '@/components/AppShell';
+import ClientProviders from '@/components/ClientProviders';
 
 export const metadata: Metadata = {
   title: 'Parts & Equipment — Christmas Air',
@@ -12,9 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <AppShell>{children}</AppShell>
-        </AuthProvider>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );
