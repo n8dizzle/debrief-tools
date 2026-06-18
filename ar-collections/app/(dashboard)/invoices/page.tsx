@@ -131,7 +131,7 @@ function MultiSelectDropdown({
   );
 }
 
-type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'location_address' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'collection_status' | 'payment_type' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'estimate_sold_by' | 'actions';
+type SortField = 'owner' | 'invoice_date' | 'invoice_number' | 'customer_name' | 'location_name' | 'location_address' | 'business_unit_name' | 'balance' | 'days_outstanding' | 'aging_bucket' | 'customer_type' | 'job_status' | 'collection_status' | 'payment_type' | 'late_fee_applied' | 'st_job_type_name' | 'inhouse_financing' | 'is_membership_invoice' | 'booking_payment_type' | 'control_bucket' | 'project_name' | 'st_job_id' | 'estimate_sold_by' | 'actions';
 type SortDirection = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -162,6 +162,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'job_status', label: 'Work Status', sortable: false, minWidth: 100, defaultWidth: 130 },
   { id: 'collection_status', label: 'Collection Status', sortable: false, minWidth: 100, defaultWidth: 140 },
   { id: 'payment_type', label: 'Payment Type', sortable: false, minWidth: 100, defaultWidth: 130 },
+  { id: 'late_fee_applied', label: 'Late Fee', sortable: true, minWidth: 70, defaultWidth: 90 },
   { id: 'control_bucket', label: 'Actionable AR', sortable: true, minWidth: 90, defaultWidth: 110 },
   { id: 'days_outstanding', label: 'Age', sortable: true, minWidth: 50, defaultWidth: 60 },
   { id: 'aging_bucket', label: 'Bucket', sortable: true, minWidth: 70, defaultWidth: 90 },
@@ -740,6 +741,10 @@ export default function InvoicesPage() {
         aVal = (a as any).is_membership_invoice ? 1 : 0;
         bVal = (b as any).is_membership_invoice ? 1 : 0;
         break;
+      case 'late_fee_applied':
+        aVal = a.tracking?.late_fee_applied ? 1 : 0;
+        bVal = b.tracking?.late_fee_applied ? 1 : 0;
+        break;
       case 'booking_payment_type':
         aVal = (a.booking_payment_type || '').toLowerCase();
         bVal = (b.booking_payment_type || '').toLowerCase();
@@ -979,6 +984,24 @@ export default function InvoicesPage() {
             ))}
           </select>
         );
+      case 'late_fee_applied': {
+        const checked = !!invoice.tracking?.late_fee_applied;
+        const date = invoice.tracking?.late_fee_applied_date;
+        return (
+          <label
+            className="flex items-center justify-center cursor-pointer"
+            title={date ? `Applied ${date}` : 'Late fee not applied'}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => updateTracking(invoice.id, 'late_fee_applied', e.target.checked)}
+              disabled={!canUpdateWorkflow}
+              className="h-4 w-4 cursor-pointer"
+            />
+          </label>
+        );
+      }
       case 'control_bucket':
         return (
           <span className={`text-xs badge ${invoice.tracking?.control_bucket === 'ar_not_in_our_control' ? 'badge-30' : 'badge-current'}`}>
