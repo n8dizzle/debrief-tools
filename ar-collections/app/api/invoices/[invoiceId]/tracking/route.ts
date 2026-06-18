@@ -63,6 +63,9 @@ export async function PATCH(
     if (body.certified_letter_sent === true && !body.certified_letter_date) {
       updateData.certified_letter_date = today;
     }
+    if (body.late_fee_applied === true && !body.late_fee_applied_date) {
+      updateData.late_fee_applied_date = today;
+    }
     if (body.closed === true && !body.closed_date) {
       updateData.closed_date = today;
     }

@@ -172,6 +172,8 @@ export interface ARInvoiceTracking {
   day7_etc_date: string | null;
   certified_letter_sent: boolean;
   certified_letter_date: string | null;
+  late_fee_applied: boolean;
+  late_fee_applied_date: string | null;
   closed: boolean;
   closed_date: string | null;
   created_at: string;
