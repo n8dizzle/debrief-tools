@@ -2,7 +2,7 @@ import { getResend, getFromAddress } from "./resend";
 import { renderEmailLayout, escapeHtml } from "./layout";
 import type { Referrer, Charity } from "@/lib/supabase";
 
-const ADMIN_NOTIFY_EMAILS = ["marketing@christmasair.com", "jon@christmasair.com"];
+const ADMIN_NOTIFY_EMAILS = ["janane@christmasair.com", "marketing@christmasair.com", "ethel@christmasair.com"];
 
 interface NotifyNewReferrerOpts {
   referrer: Referrer;

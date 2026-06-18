@@ -6,6 +6,8 @@ interface WelcomeEmailOpts {
   referrer: Referrer;
   charity?: Charity | null;
   dashboardUrl: string;
+  /** True when the referrer was auto-enrolled because they were a referred friend. */
+  autoEnrolled?: boolean;
 }
 
 export async function sendWelcomeEmail(opts: WelcomeEmailOpts): Promise<void> {
@@ -14,14 +16,20 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOpts): Promise<void> {
     return;
   }
 
-  const { referrer, charity, dashboardUrl } = opts;
+  const { referrer, charity, dashboardUrl, autoEnrolled } = opts;
   const tripleWin = !!charity;
 
   const bodyHtml = `
     <h1 style="margin:0 0 16px;color:#415440;font-family:Georgia,serif;font-style:italic;font-size:32px;line-height:1.15;">
       Welcome to the program, ${escapeHtml(referrer.first_name)}.
     </h1>
-    <p>You're in. Here's your personal referral link — share it with anyone who could use a good neighbor:</p>
+    ${autoEnrolled
+      ? `<p style="margin:0 0 16px;">
+           A neighbor referred you to us — now you can do the same. When a friend you refer becomes a customer,
+           you both get a <strong>$50 gift card</strong> and we donate <strong>$50</strong> to a charity of your choice.
+         </p>`
+      : ""}
+    <p>Here's your personal referral link — share it with anyone who could use a good neighbor:</p>
     <p style="margin:24px 0;padding:16px;background:#F5F2DC;border-radius:8px;font-family:monospace;font-size:15px;word-break:break-all;">
       <a href="${escapeHtml(referrer.referral_link)}" style="color:#415440;">${escapeHtml(referrer.referral_link)}</a>
     </p>

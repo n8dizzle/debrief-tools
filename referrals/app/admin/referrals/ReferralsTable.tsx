@@ -6,6 +6,8 @@ import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
 import STLinkBadge from "@/components/STLinkBadge";
 import TagInSTButton from "./TagInSTButton";
 import SimulateCompletionButton from "./SimulateCompletionButton";
+import MarkCompleteButton from "./MarkCompleteButton";
+import LinkSTCustomerCell from "./LinkSTCustomerCell";
 
 type ReferralRow = Referral & {
   referrer: Pick<Referrer, "first_name" | "last_name" | "referral_code">;
@@ -37,10 +39,13 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
     label: "Friend",
     searchValue: (r) => `${r.referred_name} ${r.referred_phone}`,
     render: (r) => (
-      <>
-        {r.referred_name}
-        <div className="text-xs opacity-60">{r.referred_phone}</div>
-      </>
+      <LinkSTCustomerCell
+        referralId={r.id}
+        friendName={r.referred_name}
+        friendPhone={r.referred_phone}
+        friendEmail={r.referred_email}
+        stCustomerId={r.service_titan_customer_id}
+      />
     ),
   },
   {
@@ -110,6 +115,15 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
         <TagInSTButton
           referralId={r.id}
           customerId={r.service_titan_customer_id}
+        />
+        <MarkCompleteButton
+          referralId={r.id}
+          status={r.status}
+          referrerName={`${r.referrer.first_name} ${r.referrer.last_name}`}
+          friendName={r.referred_name}
+          friendEmail={r.referred_email}
+          friendPhone={r.referred_phone}
+          stCustomerId={r.service_titan_customer_id}
         />
         <SimulateCompletionButton referralId={r.id} status={r.status} />
       </div>

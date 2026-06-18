@@ -17,6 +17,194 @@ export default function HelpPage() {
         </p>
       </header>
 
+      {/* ── CSR Quick-Reference Workflow ── */}
+      <section id="csr-workflow" className="scroll-mt-8">
+        <h2
+          className="text-2xl pb-2 mb-4"
+          style={{ color: "var(--ca-dark-green)", borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          0. CSR Quick Reference — Full customer flow
+        </h2>
+        <p className="opacity-75 text-sm mb-6">
+          Everything from the moment a customer joins the program to the moment their
+          referred friend submits a quote. Print this or keep it open on a second monitor.
+        </p>
+
+        <div className="space-y-3">
+          <WorkflowStep
+            number={1}
+            label="Customer enrolls"
+            who="Customer"
+            url="refer.christmasair.com/enroll"
+            color="green"
+          >
+            Customer visits <strong>refer.christmasair.com/enroll</strong> and completes 3 steps:
+            <ol className="list-decimal pl-5 mt-2 space-y-1">
+              <li>Name, email, and phone number</li>
+              <li>Reward preference — gift card (Visa, Amazon, etc.) or donate their share to charity</li>
+              <li>Pick a charity for the Triple Win donation</li>
+            </ol>
+          </WorkflowStep>
+
+          <WorkflowConnector label="System creates their account" />
+
+          <WorkflowStep
+            number={2}
+            label="Referrer gets their unique link"
+            who="System (automatic)"
+            color="green"
+          >
+            The system generates a unique referral code like <code>SARAH-4K2M</code> and a share link at{" "}
+            <code>refer.christmasair.com/refer/SARAH-4K2M</code>.
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>
+                <strong>Dashboard access is instant</strong> — they click "Go to your dashboard" on the
+                confirmation screen. No email round-trip needed.
+              </li>
+              <li>
+                A <strong>welcome email</strong> also goes out with the link for future use on other devices.
+              </li>
+              <li>
+                Their dashboard shows their code, share link, and a tracking list of everyone they've referred.
+              </li>
+            </ul>
+          </WorkflowStep>
+
+          <WorkflowConnector label="Referrer shares their link with a friend" />
+
+          <WorkflowStep
+            number={3}
+            label="Referrer shares the link"
+            who="Customer (referrer)"
+            color="blue"
+          >
+            The referrer copies their link from the dashboard and shares it — by text, email, social media,
+            or however they prefer. The link permanently carries their referral code.
+            <div
+              className="mt-3 p-3 rounded text-sm font-mono"
+              style={{ background: "var(--bg-muted)", wordBreak: "break-all" }}
+            >
+              refer.christmasair.com/refer/SARAH-4K2M
+            </div>
+          </WorkflowStep>
+
+          <WorkflowConnector label="Friend clicks the link" />
+
+          <WorkflowStep
+            number={4}
+            label="Friend lands on the quote form"
+            who="Friend (referred)"
+            url="refer.christmasair.com/refer/[code]"
+            color="blue"
+          >
+            The friend's browser opens a quote request form. <strong>The referral code is already embedded
+            in the URL</strong> — the friend doesn't have to type or know it.
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>Friend enters their name, phone, email, and what service they need</li>
+              <li>They click Submit</li>
+            </ul>
+            <div
+              className="mt-3 p-3 rounded-lg text-sm"
+              style={{ background: "rgba(97,139,96,0.08)", borderLeft: "3px solid var(--ca-green)" }}
+            >
+              <strong>Important:</strong> Submitting the form is a <em>request for a quote</em>, not a
+              booking. No commitment is made yet.
+            </div>
+          </WorkflowStep>
+
+          <WorkflowConnector label="System records the referral and creates a booking in ServiceTitan" />
+
+          <WorkflowStep
+            number={5}
+            label="Referral appears in admin + ServiceTitan"
+            who="System (automatic)"
+            color="green"
+          >
+            Two things happen simultaneously:
+            <ol className="list-decimal pl-5 mt-2 space-y-1">
+              <li>
+                A new referral row is created on the <strong>Referrals</strong> admin page, linked to the
+                referrer, with status <strong>Submitted</strong>.
+              </li>
+              <li>
+                A <strong>booking</strong> (or lead) is pushed into ServiceTitan and lands in{" "}
+                <strong>Follow Up → Bookings</strong>. The referrer's name and code are included in the
+                booking notes so dispatch sees the context.
+              </li>
+            </ol>
+          </WorkflowStep>
+
+          <WorkflowConnector label="CSR reaches out to confirm and schedule" />
+
+          <WorkflowStep
+            number={6}
+            label="CSR books the job — CRITICAL STEP"
+            who="CSR / Dispatcher"
+            color="red"
+          >
+            When you open the booking in ServiceTitan and call the friend to schedule:
+            <ol className="list-decimal pl-5 mt-2 space-y-2">
+              <li>
+                <strong>Ask if they were referred</strong> — confirm the referrer's name.
+              </li>
+              <li>
+                <strong>Set the Referral_Code custom field</strong> on the friend's ServiceTitan customer
+                record. Paste in the referral code (e.g. <code>SARAH-4K2M</code>). This is the single
+                most important step — without it, the reward may silently fail when the invoice is paid.
+              </li>
+              <li>
+                Convert the booking to a scheduled appointment as normal.
+              </li>
+            </ol>
+            <div
+              className="mt-3 p-3 rounded-lg text-sm"
+              style={{ background: "rgba(192,57,43,0.07)", borderLeft: "3px solid #c0392b" }}
+            >
+              <strong>Why this matters:</strong> When the invoice is paid, ServiceTitan sends us a
+              webhook with the customer ID. We trace back from that ID to the referral using the
+              Referral_Code field. If the field isn't set, the reward may not fire automatically and
+              will need manual intervention.
+            </div>
+          </WorkflowStep>
+
+          <WorkflowConnector label="Tech completes the job → invoice is paid in ServiceTitan" />
+
+          <WorkflowStep
+            number={7}
+            label="Rewards issue automatically"
+            who="System (automatic)"
+            color="green"
+          >
+            Once the friend's invoice is marked paid in ServiceTitan, we receive a webhook and:
+            <ol className="list-decimal pl-5 mt-2 space-y-1">
+              <li><strong>Referrer</strong> gets a $50 gift card via email (Tremendous)</li>
+              <li><strong>Friend</strong> gets a $50 gift card via email (Tremendous)</li>
+              <li><strong>Referrer's chosen charity</strong> gets a $50 donation from Christmas Air</li>
+            </ol>
+            Both gift cards are delivered within 24 hours. Recipients pick the brand (Amazon, Visa, Target,
+            etc.) at redemption.
+          </WorkflowStep>
+        </div>
+
+        <div
+          className="mt-6 p-4 rounded-lg text-sm"
+          style={{ background: "var(--bg-muted)", borderRadius: "8px" }}
+        >
+          <p className="font-semibold mb-2" style={{ color: "var(--ca-dark-green)" }}>
+            Quick admin lookup guide
+          </p>
+          <table className="w-full text-sm">
+            <tbody>
+              <QuickLookupRow label="Is this customer enrolled?" where="Referrers page → search by name or email" />
+              <QuickLookupRow label="What's the status of a referral?" where="Referrals page → find by referrer name or friend name" />
+              <QuickLookupRow label="Was a gift card sent?" where="Rewards page → find by referrer name, check Tremendous status" />
+              <QuickLookupRow label="Customer can't log in" where="Send them to refer.christmasair.com/sign-in — magic link, no password" />
+              <QuickLookupRow label="Set Referral_Code in ST" where="Open ST customer record → Custom Fields → Referral_Code → paste code" />
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <Section id="overview" title="1. What the Referrals Program is">
         <p>
           <a href="https://refer.christmasair.com" target="_blank" rel="noreferrer">
@@ -1079,6 +1267,88 @@ function Faq({
         {children}
       </div>
     </details>
+  );
+}
+
+function WorkflowStep({
+  number,
+  label,
+  who,
+  url,
+  color,
+  children,
+}: {
+  number: number;
+  label: string;
+  who: string;
+  url?: string;
+  color: "green" | "blue" | "red";
+  children: React.ReactNode;
+}) {
+  const accent =
+    color === "green" ? "#618B60" :
+    color === "blue"  ? "#3b82f6" :
+    "#c0392b";
+  const bg =
+    color === "green" ? "rgba(97,139,96,0.06)" :
+    color === "blue"  ? "rgba(59,130,246,0.06)" :
+    "rgba(192,57,43,0.06)";
+
+  return (
+    <div
+      className="rounded-lg p-4"
+      style={{ background: bg, border: `1px solid ${accent}30` }}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+          style={{ background: accent, color: "#fff" }}
+        >
+          {number}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mb-2">
+            <p className="font-semibold" style={{ color: accent }}>{label}</p>
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{ background: `${accent}18`, color: accent }}
+            >
+              {who}
+            </span>
+            {url && (
+              <span className="text-xs opacity-60 font-mono">{url}</span>
+            )}
+          </div>
+          <div className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowConnector({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 pl-4">
+      <div className="flex flex-col items-center" style={{ width: "2rem" }}>
+        <div style={{ width: 2, height: 8, background: "var(--border-subtle)" }} />
+        <div style={{ fontSize: "1rem", color: "var(--text-muted)" }}>↓</div>
+        <div style={{ width: 2, height: 8, background: "var(--border-subtle)" }} />
+      </div>
+      <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>{label}</span>
+    </div>
+  );
+}
+
+function QuickLookupRow({ label, where }: { label: string; where: string }) {
+  return (
+    <tr style={{ borderTop: "1px solid var(--border-subtle)" }}>
+      <td className="py-2 pr-4 font-medium text-xs align-top" style={{ width: "40%", color: "var(--ca-dark-green)" }}>
+        {label}
+      </td>
+      <td className="py-2 text-xs opacity-80 align-top">{where}</td>
+    </tr>
   );
 }
 

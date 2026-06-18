@@ -301,6 +301,125 @@ export class ServiceTitanClient {
     return response.data?.[0] || null;
   }
 
+  /**
+   * Find a customer with high confidence by scoring three signals:
+   *   phone match  = 2 pts
+   *   email match  = 2 pts
+   *   first-name match (case-insensitive) = 1 pt
+   *
+   * Requires a score ≥ 3 to auto-link — meaning at least TWO of the three
+   * signals must agree. A single field alone never scores high enough.
+   *
+   * Strategy:
+   *  1. Search by phone (up to 8 results to handle shared/household numbers)
+   *  2. Score each result; pick the highest-scoring candidate if score ≥ 3
+   *  3. If no phone hit reaches threshold, try email search and score the same way
+   *
+   * Returns null if no confident match — no link is better than a wrong one.
+   */
+  async findCustomerByPhoneAndEmail(
+    phone: string,
+    email: string,
+    firstName?: string,
+    lastName?: string
+  ): Promise<STCustomer | null> {
+    const digits = phone.replace(/\D/g, "").slice(-10);
+    const hasPhone = digits.length >= 10;
+    const emailLower = email.toLowerCase();
+    const firstLower = (firstName || "").trim().toLowerCase();
+    const lastLower  = (lastName  || "").trim().toLowerCase();
+
+    const score = (c: STCustomer): number => {
+      let s = 0;
+      const stPhone = (c.phoneNumber || "").replace(/\D/g, "").slice(-10);
+      const stEmail = (c.email || "").toLowerCase();
+      const stParts = (c.name || "").trim().toLowerCase().split(/\s+/);
+      const stFirst = stParts[0] ?? "";
+      const stLast  = stParts.slice(1).join(" ");
+
+      if (hasPhone && stPhone && stPhone === digits) s += 2;
+      if (stEmail && stEmail === emailLower)         s += 2;
+      if (firstLower && stFirst && stFirst === firstLower) s += 1;
+      if (lastLower  && stLast  && stLast  === lastLower)  s += 1;
+      return s;
+    };
+
+    const best = (candidates: STCustomer[]): STCustomer | null => {
+      let top: STCustomer | null = null;
+      let topScore = 0;
+      for (const c of candidates) {
+        const s = score(c);
+        if (s > topScore) { topScore = s; top = c; }
+      }
+      return topScore >= 4 ? top : null;
+    };
+
+    // Try phone search first — more reliable ST filter
+    if (hasPhone) {
+      try {
+        const byPhone = await this.request<STPagedResponse<STCustomer>>(
+          "GET",
+          `crm/v2/tenant/${this.tenantId}/customers`,
+          { params: { phone: digits, pageSize: "8" } }
+        );
+        const hit = best(byPhone.data || []);
+        if (hit) return hit;
+      } catch {
+        // fall through to email search
+      }
+    }
+
+    // Fallback: email search, score the same way
+    try {
+      const byEmail = await this.request<STPagedResponse<STCustomer>>(
+        "GET",
+        `crm/v2/tenant/${this.tenantId}/customers`,
+        { params: { email, pageSize: "8" } }
+      );
+      const hit = best(byEmail.data || []);
+      if (hit) return hit;
+    } catch {
+      // no match
+    }
+
+    return null;
+  }
+
+  /**
+   * Search customers by name, email, or phone.
+   * Detects the query type automatically:
+   *  - Looks like a phone (8+ digits) → phone filter
+   *  - Contains @ → email filter
+   *  - Otherwise → name filter (contains search)
+   * Returns up to 10 results.
+   */
+  async searchCustomers(query: string): Promise<STCustomer[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const digits = trimmed.replace(/\D/g, "");
+    let params: Record<string, string> = { pageSize: "10", active: "true" };
+
+    if (digits.length >= 8) {
+      params.phone = digits;
+    } else if (trimmed.includes("@")) {
+      params.email = trimmed;
+    } else {
+      params.name = trimmed;
+    }
+
+    try {
+      const response = await this.request<STPagedResponse<STCustomer>>(
+        "GET",
+        `crm/v2/tenant/${this.tenantId}/customers`,
+        { params }
+      );
+      return response.data || [];
+    } catch {
+      return [];
+    }
+  }
+
   async getCustomer(customerId: number): Promise<STCustomer | null> {
     try {
       return await this.request<STCustomer>(
@@ -425,6 +544,35 @@ export class ServiceTitanClient {
       { params: { ids: invoiceId.toString(), pageSize: "1" } }
     );
     return response.data?.[0] || null;
+  }
+
+  /**
+   * Fetch the most recent invoices for a customer, ordered newest-first.
+   * Used by the admin mark-complete flow to auto-populate invoice total + category
+   * from ServiceTitan rather than requiring manual entry.
+   */
+  async getInvoicesForCustomer(
+    customerId: number,
+    limit = 10
+  ): Promise<STInvoice[]> {
+    try {
+      const response = await this.request<STPagedResponse<STInvoice>>(
+        "GET",
+        `accounting/v2/tenant/${this.tenantId}/invoices`,
+        {
+          params: {
+            customerId: customerId.toString(),
+            pageSize: limit.toString(),
+            orderBy: "date",
+            orderByDirection: "desc",
+          },
+        }
+      );
+      return response.data || [];
+    } catch (err) {
+      console.error(`Failed to get invoices for customer ${customerId}:`, err);
+      return [];
+    }
   }
 
   // ============================================

@@ -7,6 +7,7 @@ import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { notifyNewReferrerSignup } from "@/lib/email/notify-new-referrer";
 import { issueMagicLinkToken, issueSessionCookie } from "@/lib/customer-auth";
 import { sendMagicLinkEmail } from "@/lib/email/magic-link";
+import { getServiceTitanClient } from "@/lib/servicetitan";
 import type { Charity, Referrer } from "@/lib/supabase";
 
 const EnrollSchema = z.object({
@@ -111,16 +112,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ServiceTitan customer linkage is set MANUALLY by admin after enrollment
-  // (via /admin/referrers). The enrollment-time auto-lookup was removed
-  // because ST's /crm/v2/customers search endpoint silently ignores the
-  // email filter (returns the alphabetically-first customer regardless of
-  // what you pass), producing confident-looking false matches — e.g. every
-  // enrollee whose email wasn't in ST got stamped with the first "I" name
-  // in the tenant. See also: phone search returns noise too. Until ST gives
-  // us a reliable contact-lookup endpoint, no link is safer than a wrong
-  // one, and dispatch can link real customers in seconds from the admin UI.
-  const serviceTitanId: string | null = null;
+  // ServiceTitan customer linkage: require both phone AND email to agree.
+  // ST's email-filter endpoint is unreliable (may return the wrong customer),
+  // and phone-only can hit household/shared numbers. Cross-validating both
+  // gives us high confidence. Non-fatal — proceed without the link; admin
+  // can link manually via the auto-link button or the inline link UI.
+  let serviceTitanId: string | null = null;
+  try {
+    const st = getServiceTitanClient();
+    if (st.isConfigured()) {
+      const stCustomer = await st.findCustomerByPhoneAndEmail(data.phone, email, data.firstName, data.lastName);
+      if (stCustomer) serviceTitanId = String(stCustomer.id);
+    }
+  } catch {
+    // Non-fatal — proceed without the link; admin can link manually
+  }
 
   // Assign A/B config (sticky from this point on)
   const assignedRewardConfigId = await assignRewardConfig();

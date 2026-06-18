@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import AdminTable, { type AdminColumn } from "@/components/AdminTable";
 import type { Referrer } from "@/lib/supabase";
 import STCustomerEdit from "./STCustomerEdit";
@@ -10,6 +11,8 @@ export interface ReferrerRow extends Referrer {
   charity?: { id: string; name: string } | null;
   suggested_charity_name: string | null;
 }
+
+type Filter = "all" | "no_st" | "customers" | "employees";
 
 const COLUMNS: AdminColumn<ReferrerRow>[] = [
   {
@@ -128,14 +131,72 @@ interface Props {
   rows: ReferrerRow[];
 }
 
+const FILTERS: { key: Filter; label: string; count: (rows: ReferrerRow[]) => number }[] = [
+  { key: "all",       label: "All",           count: (r) => r.length },
+  { key: "no_st",     label: "No ST Link",    count: (r) => r.filter((x) => !x.service_titan_id).length },
+  { key: "customers", label: "Customers",     count: (r) => r.filter((x) => x.referrer_type === "CUSTOMER" || !x.referrer_type).length },
+  { key: "employees", label: "Employees",     count: (r) => r.filter((x) => x.referrer_type === "EMPLOYEE").length },
+];
+
 export default function ReferrersTable({ rows }: Props) {
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const filtered = useMemo(() => {
+    if (filter === "all")       return rows;
+    if (filter === "no_st")     return rows.filter((r) => !r.service_titan_id);
+    if (filter === "customers") return rows.filter((r) => r.referrer_type === "CUSTOMER" || !r.referrer_type);
+    if (filter === "employees") return rows.filter((r) => r.referrer_type === "EMPLOYEE");
+    return rows;
+  }, [rows, filter]);
+
+  const linked   = rows.filter((r) => !!r.service_titan_id).length;
+  const unlinked = rows.filter((r) => !r.service_titan_id).length;
+
   return (
-    <AdminTable
-      columns={COLUMNS}
-      rows={rows}
-      rowKey={(r) => r.id}
-      searchPlaceholder="Search by name, email, code, or charity…"
-      emptyMessage="No referrers yet."
-    />
+    <div>
+      {/* Filter chips */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {FILTERS.map(({ key, label, count }) => {
+          const n = count(rows);
+          const active = filter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+              style={{
+                background: active ? "var(--christmas-green)" : "var(--bg-muted)",
+                color: active ? "#fff" : "var(--text-muted)",
+                border: `1px solid ${active ? "var(--christmas-green)" : "var(--border-subtle)"}`,
+              }}
+            >
+              {label}
+              <span
+                className="ml-1.5 opacity-75"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {n}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* ST link summary */}
+        <span
+          className="ml-auto text-xs"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {linked} ST linked · <span style={{ color: unlinked > 0 ? "var(--ca-red, #c0392b)" : "inherit" }}>{unlinked} not linked</span>
+        </span>
+      </div>
+
+      <AdminTable
+        columns={COLUMNS}
+        rows={filtered}
+        rowKey={(r) => r.id}
+        searchPlaceholder="Search by name, email, code, or charity…"
+        emptyMessage={filter === "no_st" ? "All referrers have an ST link! ✅" : "No referrers yet."}
+      />
+    </div>
   );
 }

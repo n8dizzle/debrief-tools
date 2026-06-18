@@ -94,6 +94,7 @@ export async function handleInvoiceCreated(
     actualCategory,
     serviceTitanJobId: jobId ? String(jobId) : null,
     serviceTitanInvoiceId: String(invoiceId),
+    overrideRewardAmount: 50,
   });
 
   return { matched: true, referralId: referral.id };

@@ -44,6 +44,12 @@ export interface FinalizeConversionInput {
    *  logging only — downstream behavior (reward + fulfillment) matches
    *  real conversions so the test actually exercises the same paths. */
   simulated?: boolean;
+  /**
+   * When set, bypasses the tier-based reward calculation and uses this fixed
+   * amount instead. Used by the admin mark-complete flow which always issues
+   * a flat $50 reward regardless of invoice total or service category.
+   */
+  overrideRewardAmount?: number;
 }
 
 export interface FinalizeConversionResult {
@@ -103,7 +109,12 @@ export async function finalizeConversion(
     );
   }
 
-  const rewardAmount = resolved ? calculateReward(invoiceTotal, resolved.tier) : 0;
+  const rewardAmount =
+    input.overrideRewardAmount != null
+      ? input.overrideRewardAmount
+      : resolved
+      ? calculateReward(invoiceTotal, resolved.tier)
+      : 0;
   const charityAmount =
     resolved && referral.triple_win_activated
       ? calculateCharityMatch(rewardAmount, resolved.tier)

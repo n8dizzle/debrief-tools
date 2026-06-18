@@ -4,6 +4,8 @@ import { getServerSupabase } from "@/lib/supabase";
 import { submitReferral } from "@/lib/referrals/submit";
 import { sendReferralConfirmedToFriend } from "@/lib/email/referral-confirmed-friend";
 import { sendReferralSubmittedToReferrer } from "@/lib/email/referral-submitted-to-referrer";
+import { notifyNewReferralSubmitted } from "@/lib/email/notify-new-referral";
+import { autoEnrollFriend } from "@/lib/referrals/auto-enroll-friend";
 import type { Charity, Referrer } from "@/lib/supabase";
 
 const SubmitSchema = z
@@ -151,7 +153,30 @@ export async function POST(req: NextRequest) {
     )
   );
 
+  emailJobs.push(
+    notifyNewReferralSubmitted({
+      referrerName: `${referrer.first_name} ${referrer.last_name}`,
+      friendName: result.referral.referred_name,
+      friendEmail: result.referral.referred_email ?? null,
+      friendPhone: result.referral.referred_phone ?? null,
+      serviceType: data.serviceType,
+      notes: data.notes ?? null,
+    }).catch((err) =>
+      console.error("Admin referral notification email failed:", err)
+    )
+  );
+
   Promise.all(emailJobs).catch(() => {});
+
+  // Auto-enroll the friend as a referrer so they get their own link immediately.
+  // Fire-and-forget — never blocks or affects the referral response.
+  if (result.referral.referred_email) {
+    autoEnrollFriend({
+      referredName: result.referral.referred_name,
+      referredEmail: result.referral.referred_email,
+      referredPhone: result.referral.referred_phone ?? null,
+    }).catch((err) => console.error("autoEnrollFriend failed:", err));
+  }
 
   return NextResponse.json({
     success: true,

@@ -117,12 +117,9 @@ export async function POST(req: NextRequest) {
   // Load existing referrers to detect duplicates
   const { data: existing } = await supabase
     .from("ref_referrers")
-    .select("email, service_titan_id");
+    .select("email");
   const existingEmails = new Set(
     (existing || []).map((r) => r.email?.toLowerCase())
-  );
-  const existingStIds = new Set(
-    (existing || []).filter((r) => r.service_titan_id).map((r) => r.service_titan_id)
   );
 
   let created = 0;
@@ -133,12 +130,6 @@ export async function POST(req: NextRequest) {
   const errors: string[] = [];
 
   for (const person of combined) {
-    // Already enrolled by ST ID
-    if (existingStIds.has(String(person.id))) {
-      skippedExisting++;
-      continue;
-    }
-
     // Blocked by name (team/vendor accounts)
     if (!isPersonName(person.name)) {
       skippedBlocked++;
@@ -168,6 +159,26 @@ export async function POST(req: NextRequest) {
     const { firstName, lastName } = splitName(person.name);
 
     try {
+      // Look up this employee's actual ST *customer* record by cross-validating
+      // phone + email. Technician/employee IDs are a different ID space from CRM
+      // customer IDs — storing the employee ID would link to the wrong record.
+      // ST's email-filter alone is unreliable; requiring both fields avoids
+      // false matches. Null is fine if they're not a customer yet.
+      let stCustomerId: string | null = null;
+      if (person.phoneNumber) {
+        try {
+          const stCustomer = await st.findCustomerByPhoneAndEmail(
+            person.phoneNumber,
+            emailLower,
+            firstName,
+            lastName
+          );
+          if (stCustomer) stCustomerId = String(stCustomer.id);
+        } catch {
+          // Non-fatal — proceed without the customer link
+        }
+      }
+
       const [referralCode, rewardConfigId] = await Promise.all([
         generateReferralCode(firstName),
         assignRewardConfig(),
@@ -180,7 +191,7 @@ export async function POST(req: NextRequest) {
         phone: person.phoneNumber ?? null,
         first_name: firstName,
         last_name: lastName,
-        service_titan_id: String(person.id),
+        service_titan_id: stCustomerId,
         referral_code: referralCode,
         referral_link: referralLink,
         reward_preference: "VISA_GIFT_CARD",
@@ -201,7 +212,6 @@ export async function POST(req: NextRequest) {
 
       // Track within this batch to avoid duplicates
       existingEmails.add(emailLower);
-      existingStIds.add(String(person.id));
       created++;
 
       // Send welcome email fire-and-forget — don't let failures block the batch
@@ -216,7 +226,7 @@ export async function POST(req: NextRequest) {
         reward_preference: "VISA_GIFT_CARD" as const,
         selected_charity_id: defaultCharityId,
         suggested_charity_name: null,
-        service_titan_id: String(person.id),
+        service_titan_id: stCustomerId,
         assigned_reward_config_id: rewardConfigId,
         total_earned: 0,
         total_donated_on_their_behalf: 0,
