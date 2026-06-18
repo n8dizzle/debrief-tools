@@ -40,7 +40,8 @@ export interface TremendousOrderInput {
   currency?: string;
   recipient: {
     name: string;
-    email: string;
+    email?: string;
+    phone?: string;
   };
   /** Specific product (Visa, Amazon, specific charity, etc.). */
   productId?: string;
@@ -49,7 +50,7 @@ export interface TremendousOrderInput {
    * time). Mutually exclusive with productId — pass one or the other.
    */
   campaignId?: string;
-  deliveryMethod?: "EMAIL" | "LINK";
+  deliveryMethod?: "EMAIL" | "LINK" | "PHONE";
   customFields?: Array<{ id: string; value: string }>;
 }
 
