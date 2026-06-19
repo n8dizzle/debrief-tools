@@ -36,6 +36,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
       key: "referrer",
       label: "Referrer",
       sortable: true,
+      width: 220,
       sortValue: (r) =>
         `${r.referrer.first_name} ${r.referrer.last_name}`.toLowerCase(),
       searchValue: (r) =>
@@ -43,7 +44,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
       render: (r) => (
         <>
           {r.referrer.first_name} {r.referrer.last_name}
-          <div className="text-xs opacity-60">{r.referrer.email}</div>
+          <div className="text-xs opacity-60 truncate">{r.referrer.email}</div>
         </>
       ),
     },
@@ -51,6 +52,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
       key: "amount",
       label: "Amount",
       sortable: true,
+      width: 100,
       sortValue: (r) => Number(r.amount),
       className: "text-right font-semibold",
       render: (r) => <>${Number(r.amount).toFixed(0)}</>,
@@ -59,7 +61,10 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
       key: "type",
       label: "Type",
       sortable: true,
+      width: 150,
+      truncate: true,
       sortValue: (r) => r.type,
+      searchValue: (r) => r.type.replace(/_/g, " "),
       render: (r) => (
         <span className="text-xs opacity-80">{r.type.replace(/_/g, " ")}</span>
       ),
@@ -68,6 +73,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
       key: "status",
       label: "Status",
       sortable: true,
+      width: 170,
       sortValue: (r) => r.status,
       render: (r) => (
         <>
@@ -91,6 +97,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
     {
       key: "tremendous",
       label: "Tremendous",
+      width: 140,
       render: (r) => (
         <STLinkBadge
           id={r.tremendous_order_id}
@@ -103,6 +110,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
       key: "created",
       label: "Created",
       sortable: true,
+      width: 115,
       sortValue: (r) => r.created_at,
       render: (r) => (
         <span className="opacity-70 text-xs">
@@ -113,6 +121,7 @@ function buildColumns(tremendousEnv: string): AdminColumn<RewardRow>[] {
     {
       key: "actions",
       label: "Actions",
+      width: 120,
       render: (r) => (
         <>{r.status === "PENDING" && <RewardActions rewardId={r.id} />}</>
       ),
@@ -129,6 +138,7 @@ export default function RewardsTable({ rows, tremendousEnv }: Props) {
   const columns = buildColumns(tremendousEnv);
   return (
     <AdminTable
+      tableId="rewards"
       columns={columns}
       rows={rows}
       rowKey={(r) => r.id}

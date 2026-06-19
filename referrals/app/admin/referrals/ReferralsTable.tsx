@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import AdminTable, { type AdminColumn } from "@/components/AdminTable";
 import type { Referral, Referrer } from "@/lib/supabase";
 import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
@@ -8,6 +9,7 @@ import TagInSTButton from "./TagInSTButton";
 import SimulateCompletionButton from "./SimulateCompletionButton";
 import MarkCompleteButton from "./MarkCompleteButton";
 import LinkSTCustomerCell from "./LinkSTCustomerCell";
+import ActionsMenu from "./ActionsMenu";
 
 type ReferralRow = Referral & {
   referrer: Pick<Referrer, "first_name" | "last_name" | "referral_code">;
@@ -33,10 +35,12 @@ function ReferralStatusBadge({ status }: { status: string }) {
   );
 }
 
-const COLUMNS: AdminColumn<ReferralRow>[] = [
+function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
+  return [
   {
     key: "friend",
     label: "Friend",
+    width: 200,
     searchValue: (r) => `${r.referred_name} ${r.referred_phone}`,
     render: (r) => (
       <LinkSTCustomerCell
@@ -52,6 +56,7 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
     key: "referred_by",
     label: "Referred by",
     sortable: true,
+    width: 180,
     sortValue: (r) =>
       `${r.referrer.first_name} ${r.referrer.last_name}`.toLowerCase(),
     searchValue: (r) =>
@@ -68,50 +73,84 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
   {
     key: "service",
     label: "Service",
+    width: 200,
+    truncate: true,
     searchValue: (r) => r.service_requested ?? "",
     render: (r) => (
-      <span className="opacity-80 text-xs max-w-xs block">{r.service_requested}</span>
+      <span className="opacity-80 text-xs">{r.service_requested}</span>
     ),
   },
   {
     key: "status",
     label: "Status",
     sortable: true,
+    width: 140,
     sortValue: (r) => r.status,
     render: (r) => <ReferralStatusBadge status={r.status} />,
   },
   {
     key: "servicetitan",
     label: "ServiceTitan",
-    render: (r) => (
-      <div className="flex flex-col gap-1.5">
-        {r.service_titan_booking_id ? (
-          <div className="flex flex-col gap-0.5">
-            <STLinkBadge
-              id={r.service_titan_booking_id}
-              href={stBookingUrl(r.service_titan_booking_id)}
-            />
-            <span className="text-[10px] uppercase tracking-wide opacity-60">
-              booking
-            </span>
-          </div>
-        ) : r.service_titan_lead_id ? (
-          <div className="flex flex-col gap-0.5">
-            <STLinkBadge
-              id={r.service_titan_lead_id}
-              href={stLeadUrl(r.service_titan_lead_id)}
-            />
-            <span className="text-[10px] uppercase tracking-wide opacity-60">
-              lead
-            </span>
-          </div>
-        ) : (
+    width: 150,
+    render: (r) =>
+      r.service_titan_booking_id ? (
+        <div className="flex flex-col gap-0.5">
           <STLinkBadge
-            id={null}
-            href={null}
-            emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
+            id={r.service_titan_booking_id}
+            href={stBookingUrl(r.service_titan_booking_id)}
           />
-        )}
+          <span className="text-[10px] uppercase tracking-wide opacity-60">
+            booking
+          </span>
+        </div>
+      ) : r.service_titan_lead_id ? (
+        <div className="flex flex-col gap-0.5">
+          <STLinkBadge
+            id={r.service_titan_lead_id}
+            href={stLeadUrl(r.service_titan_lead_id)}
+          />
+          <span className="text-[10px] uppercase tracking-wide opacity-60">
+            lead
+          </span>
+        </div>
+      ) : (
+        <STLinkBadge
+          id={null}
+          href={null}
+          emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
+        />
+      ),
+  },
+  {
+    key: "invoice",
+    label: "Invoice",
+    sortable: true,
+    width: 105,
+    sortValue: (r) => (r.invoice_total != null ? Number(r.invoice_total) : -1),
+    className: "text-right",
+    render: (r) => (
+      <>{r.invoice_total ? `$${Number(r.invoice_total).toFixed(0)}` : "—"}</>
+    ),
+  },
+  {
+    key: "submitted",
+    label: "Submitted",
+    sortable: true,
+    width: 120,
+    sortValue: (r) => r.submitted_at,
+    render: (r) => (
+      <span className="opacity-70 text-xs">
+        {new Date(r.submitted_at).toLocaleDateString()}
+      </span>
+    ),
+  },
+  {
+    key: "actions",
+    label: "Actions",
+    width: 90,
+    minWidth: 72,
+    render: (r) => (
+      <ActionsMenu>
         <TagInSTButton
           referralId={r.id}
           customerId={r.service_titan_customer_id}
@@ -125,41 +164,26 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
           friendPhone={r.referred_phone}
           stCustomerId={r.service_titan_customer_id}
         />
-        <SimulateCompletionButton referralId={r.id} status={r.status} />
-      </div>
+        {!isProduction && (
+          <SimulateCompletionButton referralId={r.id} status={r.status} />
+        )}
+      </ActionsMenu>
     ),
   },
-  {
-    key: "invoice",
-    label: "Invoice",
-    sortable: true,
-    sortValue: (r) => (r.invoice_total != null ? Number(r.invoice_total) : -1),
-    className: "text-right",
-    render: (r) => (
-      <>{r.invoice_total ? `$${Number(r.invoice_total).toFixed(0)}` : "—"}</>
-    ),
-  },
-  {
-    key: "submitted",
-    label: "Submitted",
-    sortable: true,
-    sortValue: (r) => r.submitted_at,
-    render: (r) => (
-      <span className="opacity-70 text-xs">
-        {new Date(r.submitted_at).toLocaleDateString()}
-      </span>
-    ),
-  },
-];
+  ];
+}
 
 interface Props {
   rows: ReferralRow[];
+  isProduction: boolean;
 }
 
-export default function ReferralsTable({ rows }: Props) {
+export default function ReferralsTable({ rows, isProduction }: Props) {
+  const columns = useMemo(() => buildColumns(isProduction), [isProduction]);
   return (
     <AdminTable
-      columns={COLUMNS}
+      tableId="referrals"
+      columns={columns}
       rows={rows}
       rowKey={(r) => r.id}
       searchPlaceholder="Search by name, phone, code, or service…"
