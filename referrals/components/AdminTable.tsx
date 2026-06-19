@@ -21,7 +21,7 @@ export interface AdminColumn<T> {
 }
 
 interface Props<T> {
-  /** Stable id used to persist column widths in localStorage (one per table). */
+  /** Stable id used to persist column widths + order in localStorage (one per table). */
   tableId: string;
   columns: AdminColumn<T>[];
   rows: T[];
@@ -52,6 +52,18 @@ function sanitizeWidths(raw: string | null): Record<string, number> {
   }
 }
 
+/** Parse a persisted column-order array of string keys. */
+function sanitizeOrder(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((k): k is string => typeof k === "string");
+  } catch {
+    return [];
+  }
+}
+
 export default function AdminTable<T>({
   tableId,
   columns,
@@ -64,16 +76,35 @@ export default function AdminTable<T>({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // ---- Column widths (persisted per table) ----
-  const storageKey = `referrals-admintable-${tableId}-widths`;
+  // ---- Persisted layout (widths + order) ----
+  const widthsKey = `referrals-admintable-${tableId}-widths`;
+  const orderKey = `referrals-admintable-${tableId}-order`;
   const [widths, setWidths] = useState<Record<string, number>>({});
+  const [order, setOrder] = useState<string[]>([]);
   const widthsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
-    const clean = sanitizeWidths(localStorage.getItem(storageKey));
-    widthsRef.current = clean;
-    setWidths(clean);
-  }, [storageKey]);
+    const w = sanitizeWidths(localStorage.getItem(widthsKey));
+    widthsRef.current = w;
+    setWidths(w);
+    setOrder(sanitizeOrder(localStorage.getItem(orderKey)));
+  }, [widthsKey, orderKey]);
+
+  // Apply saved order; append any columns not in the saved order (e.g. newly added).
+  const orderedColumns = useMemo(() => {
+    if (!order.length) return columns;
+    const byKey = new Map(columns.map((c) => [c.key, c]));
+    const result: AdminColumn<T>[] = [];
+    for (const k of order) {
+      const c = byKey.get(k);
+      if (c) {
+        result.push(c);
+        byKey.delete(k);
+      }
+    }
+    for (const c of columns) if (byKey.has(c.key)) result.push(c);
+    return result;
+  }, [columns, order]);
 
   const colWidth = useCallback(
     (col: AdminColumn<T>) => widths[col.key] ?? col.width ?? DEFAULT_WIDTH,
@@ -96,7 +127,6 @@ export default function AdminTable<T>({
 
   useEffect(() => {
     if (!resizingKey) return;
-
     const onMove = (e: MouseEvent) => {
       const ctx = resizeRef.current;
       if (!ctx) return;
@@ -106,36 +136,65 @@ export default function AdminTable<T>({
       widthsRef.current = { ...widthsRef.current, [ctx.key]: next };
       setWidths(widthsRef.current);
     };
-
     const onUp = () => {
       setResizingKey(null);
       resizeRef.current = null;
       try {
-        localStorage.setItem(storageKey, JSON.stringify(widthsRef.current));
+        localStorage.setItem(widthsKey, JSON.stringify(widthsRef.current));
       } catch {
         /* ignore */
       }
     };
-
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
     return () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
-  }, [resizingKey, columns, storageKey]);
+  }, [resizingKey, columns, widthsKey]);
 
-  function resetWidths() {
-    widthsRef.current = {};
-    setWidths({});
+  // ---- Drag to reorder columns ----
+  const [draggedKey, setDraggedKey] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
+  function persistOrder(next: string[]) {
+    setOrder(next);
     try {
-      localStorage.removeItem(storageKey);
+      localStorage.setItem(orderKey, JSON.stringify(next));
     } catch {
       /* ignore */
     }
   }
 
-  const hasCustomWidths = Object.keys(widths).length > 0;
+  function handleDrop(targetKey: string) {
+    if (!draggedKey || draggedKey === targetKey) {
+      setDraggedKey(null);
+      setDragOverKey(null);
+      return;
+    }
+    const keys = orderedColumns.map((c) => c.key);
+    const from = keys.indexOf(draggedKey);
+    const to = keys.indexOf(targetKey);
+    if (from === -1 || to === -1) return;
+    keys.splice(to, 0, keys.splice(from, 1)[0]);
+    persistOrder(keys);
+    setDraggedKey(null);
+    setDragOverKey(null);
+  }
+
+  function resetLayout() {
+    widthsRef.current = {};
+    setWidths({});
+    setOrder([]);
+    try {
+      localStorage.removeItem(widthsKey);
+      localStorage.removeItem(orderKey);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const hasCustomLayout = Object.keys(widths).length > 0 || order.length > 0;
 
   // ---- Search + sort ----
   const filtered = useMemo(() => {
@@ -185,10 +244,10 @@ export default function AdminTable<T>({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {hasCustomWidths && (
+        {hasCustomLayout && (
           <button
             type="button"
-            onClick={resetWidths}
+            onClick={resetLayout}
             className="text-xs underline whitespace-nowrap"
             style={{ color: "var(--text-muted)" }}
           >
@@ -211,19 +270,35 @@ export default function AdminTable<T>({
               style={{ background: "var(--bg-muted)" }}
             >
               <tr>
-                {columns.map((col) => {
+                {orderedColumns.map((col) => {
                   const w = colWidth(col);
                   return (
                     <th
                       key={col.key}
+                      draggable={!resizingKey}
+                      onDragStart={() => setDraggedKey(col.key)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (dragOverKey !== col.key) setDragOverKey(col.key);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedKey(null);
+                        setDragOverKey(null);
+                      }}
+                      onDrop={() => handleDrop(col.key)}
                       className={`relative text-left px-3 py-2.5 text-xs font-semibold uppercase tracking-wide ${col.className ?? ""}`}
                       style={{
                         color: "var(--text-muted)",
-                        cursor: col.sortable ? "pointer" : undefined,
+                        cursor: col.sortable ? "pointer" : "grab",
                         userSelect: "none",
                         whiteSpace: "nowrap",
                         width: w,
                         minWidth: col.minWidth ?? MIN_WIDTH,
+                        opacity: draggedKey === col.key ? 0.4 : 1,
+                        boxShadow:
+                          dragOverKey === col.key && draggedKey !== col.key
+                            ? "inset 2px 0 0 0 var(--ca-dark-green)"
+                            : undefined,
                       }}
                       onClick={
                         col.sortable && !resizingKey
@@ -245,6 +320,7 @@ export default function AdminTable<T>({
                       {/* Resize handle: faint divider always visible, brand green while active */}
                       <span
                         aria-hidden="true"
+                        draggable={false}
                         onMouseDown={(e) => handleResizeStart(e, col)}
                         onClick={(e) => e.stopPropagation()}
                         className="absolute top-0 right-0 h-full flex justify-end"
@@ -272,7 +348,7 @@ export default function AdminTable<T>({
                   key={rowKey(row)}
                   style={{ borderTop: "1px solid var(--border-subtle)" }}
                 >
-                  {columns.map((col) => {
+                  {orderedColumns.map((col) => {
                     const w = colWidth(col);
                     if (col.truncate) {
                       const tip =
@@ -306,7 +382,7 @@ export default function AdminTable<T>({
               {sorted.length === 0 && (
                 <tr>
                   <td
-                    colSpan={columns.length}
+                    colSpan={orderedColumns.length}
                     className="p-8 text-center"
                     style={{ color: "var(--text-muted)" }}
                   >

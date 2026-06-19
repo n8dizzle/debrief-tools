@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { stCustomerUrl } from "@/lib/servicetitan-links";
 
 interface STCustomerResult {
   id: string;
@@ -131,17 +132,30 @@ export default function LinkSTCustomerCell({
         <div className="text-xs opacity-60">{friendPhone}</div>
       )}
 
-      {/* Linked badge + relink option */}
+      {/* Linked badge: open the ST customer page + relink option */}
       {linkedId && (
-        <button
-          type="button"
-          onClick={() => { setOpen((o) => !o); setLinkError(null); }}
-          className="text-[10px] opacity-40 hover:opacity-70 underline self-start"
-          style={{ color: "inherit" }}
-          title={`Linked to ST customer #${linkedId} — click to relink`}
-        >
-          ST #{linkedId}
-        </button>
+        <span className="flex items-center gap-2 self-start text-[10px]">
+          <a
+            href={stCustomerUrl(linkedId) ?? "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="opacity-60 hover:opacity-100 underline inline-flex items-center gap-0.5"
+            style={{ color: "inherit" }}
+            title={`Open ST customer #${linkedId} in ServiceTitan`}
+          >
+            ST #{linkedId}
+            <span aria-hidden="true" style={{ opacity: 0.7 }}>↗</span>
+          </a>
+          <button
+            type="button"
+            onClick={() => { setOpen((o) => !o); setLinkError(null); }}
+            className="opacity-40 hover:opacity-70 underline"
+            style={{ color: "inherit" }}
+            title="Relink to a different ST customer"
+          >
+            relink
+          </button>
+        </span>
       )}
 
       {/* Inline search panel */}

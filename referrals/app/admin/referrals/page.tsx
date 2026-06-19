@@ -9,7 +9,7 @@ const STATUS_FILTERS: { value: ReferralStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
   { value: "SUBMITTED", label: "Submitted" },
   { value: "BOOKED", label: "Booked" },
-  { value: "COMPLETED", label: "Completed" },
+  { value: "COMPLETED", label: "Invoice Paid" },
   { value: "REWARD_ISSUED", label: "Reward issued" },
   { value: "EXPIRED", label: "Expired" },
   { value: "INELIGIBLE", label: "Ineligible" },
