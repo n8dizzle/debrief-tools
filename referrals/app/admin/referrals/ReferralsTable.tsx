@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import AdminTable, { type AdminColumn } from "@/components/AdminTable";
 import type { Referral, Referrer } from "@/lib/supabase";
-import { stCustomerUrl } from "@/lib/servicetitan-links";
 import STLinkBadge from "@/components/STLinkBadge";
 import TagInSTButton from "./TagInSTButton";
 import SimulateCompletionButton from "./SimulateCompletionButton";
@@ -40,8 +39,22 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
   {
     key: "friend",
     label: "Referral",
-    width: 200,
+    width: 190,
     searchValue: (r) => `${r.referred_name} ${r.referred_phone}`,
+    render: (r) => (
+      <div className="flex flex-col gap-0.5">
+        <span className="font-medium">{r.referred_name}</span>
+        {r.referred_phone && (
+          <span className="text-xs opacity-60">{r.referred_phone}</span>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: "st_customer",
+    label: "ST Customer",
+    width: 150,
+    searchValue: (r) => String(r.service_titan_customer_id ?? ""),
     render: (r) => (
       <LinkSTCustomerCell
         referralId={r.id}
@@ -97,9 +110,9 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
         <div className="flex flex-col gap-0.5">
           <STLinkBadge
             id={r.service_titan_booking_id}
-            href={stCustomerUrl(r.service_titan_customer_id)}
+            href={null}
             showIdWhenUnlinked
-            emptyTitle="Booking exists, but no ST customer is linked yet — link one in the Referral column to enable the link"
+            emptyTitle="ServiceTitan booking reference — open the customer via the ST Customer column"
           />
           <span className="text-[10px] uppercase tracking-wide opacity-60">
             booking
@@ -109,9 +122,9 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
         <div className="flex flex-col gap-0.5">
           <STLinkBadge
             id={r.service_titan_lead_id}
-            href={stCustomerUrl(r.service_titan_customer_id)}
+            href={null}
             showIdWhenUnlinked
-            emptyTitle="Lead exists, but no ST customer is linked yet — link one in the Referral column to enable the link"
+            emptyTitle="ServiceTitan lead reference — open the customer via the ST Customer column"
           />
           <span className="text-[10px] uppercase tracking-wide opacity-60">
             lead
