@@ -42,8 +42,10 @@ export default async function ReferralsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const statusFilter = sp.status || "ALL";
   const referrals = await getReferrals(statusFilter);
+  // Default to production (hide the sandbox-only "simulate paid" tool) when the
+  // env var is unset OR empty — fail safe. `||` also catches the empty-string case.
   const isProduction =
-    (process.env.TREMENDOUS_ENV ?? "production").toLowerCase() === "production";
+    (process.env.TREMENDOUS_ENV || "production").toLowerCase() === "production";
 
   return (
     <div>

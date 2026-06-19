@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 interface Props {
@@ -10,12 +10,13 @@ interface Props {
 /**
  * Compact "⋯" actions trigger for a table row. Opens a popover rendered into
  * a portal with position: fixed so it is NOT clipped by the table's
- * overflow-x/y scroll container. Closes on outside click, Escape, or
- * scroll/resize (since the fixed position is computed once on open).
+ * overflow-x/y scroll container.
  *
- * Children are the row's action controls (tag in ST, mark complete, etc.).
- * Each child self-hides when not applicable, so the menu shows only the
- * actions that make sense for that row.
+ * - Closes on outside click or Escape.
+ * - Repositions (rather than closing) when the page/table scrolls or the
+ *   window resizes, so it stays attached to its trigger.
+ * - Scrolls that originate inside the menu itself are ignored, so a tall menu
+ *   can scroll its own contents without dismissing.
  */
 export default function ActionsMenu({ children }: Props) {
   const [open, setOpen] = useState(false);
@@ -24,6 +25,16 @@ export default function ActionsMenu({ children }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const MENU_WIDTH = 280;
+
+  const reposition = useCallback(() => {
+    const el = btnRef.current;
+    if (!el) {
+      setOpen(false);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, left: Math.max(8, r.right - MENU_WIDTH) });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -36,28 +47,29 @@ export default function ActionsMenu({ children }: Props) {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    function onScrollOrResize() {
-      setOpen(false);
+    function onScroll(e: Event) {
+      // Ignore scrolling inside the menu's own scroll area.
+      if (menuRef.current?.contains(e.target as Node)) return;
+      reposition();
+    }
+    function onResize() {
+      reposition();
     }
 
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
-  }, [open]);
+  }, [open, reposition]);
 
   function toggle() {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      const left = Math.max(8, r.right - MENU_WIDTH);
-      setPos({ top: r.bottom + 4, left });
-    }
+    if (!open) reposition();
     setOpen((v) => !v);
   }
 

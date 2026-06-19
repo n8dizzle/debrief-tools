@@ -35,6 +35,23 @@ type SortDir = "asc" | "desc";
 const DEFAULT_WIDTH = 160;
 const MIN_WIDTH = 60;
 
+/** Parse persisted widths defensively: only keep finite, positive numbers. */
+function sanitizeWidths(raw: string | null): Record<string, number> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) out[k] = n;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export default function AdminTable<T>({
   tableId,
   columns,
@@ -50,16 +67,12 @@ export default function AdminTable<T>({
   // ---- Column widths (persisted per table) ----
   const storageKey = `referrals-admintable-${tableId}-widths`;
   const [widths, setWidths] = useState<Record<string, number>>({});
-  const [hydrated, setHydrated] = useState(false);
+  const widthsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) setWidths(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
-    setHydrated(true);
+    const clean = sanitizeWidths(localStorage.getItem(storageKey));
+    widthsRef.current = clean;
+    setWidths(clean);
   }, [storageKey]);
 
   const colWidth = useCallback(
@@ -90,20 +103,18 @@ export default function AdminTable<T>({
       const col = columns.find((c) => c.key === ctx.key);
       const min = col?.minWidth ?? MIN_WIDTH;
       const next = Math.max(min, ctx.startW + (e.clientX - ctx.startX));
-      setWidths((prev) => ({ ...prev, [ctx.key]: next }));
+      widthsRef.current = { ...widthsRef.current, [ctx.key]: next };
+      setWidths(widthsRef.current);
     };
 
     const onUp = () => {
       setResizingKey(null);
       resizeRef.current = null;
-      setWidths((prev) => {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(prev));
-        } catch {
-          /* ignore */
-        }
-        return prev;
-      });
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(widthsRef.current));
+      } catch {
+        /* ignore */
+      }
     };
 
     document.addEventListener("mousemove", onMove);
@@ -115,6 +126,7 @@ export default function AdminTable<T>({
   }, [resizingKey, columns, storageKey]);
 
   function resetWidths() {
+    widthsRef.current = {};
     setWidths({});
     try {
       localStorage.removeItem(storageKey);
@@ -192,7 +204,7 @@ export default function AdminTable<T>({
         >
           <table
             className="text-sm"
-            style={{ minWidth: "max-content", tableLayout: "fixed", borderCollapse: "collapse" }}
+            style={{ minWidth: "max-content", borderCollapse: "collapse" }}
           >
             <thead
               className="sticky top-0 z-10"
@@ -219,7 +231,10 @@ export default function AdminTable<T>({
                           : undefined
                       }
                     >
-                      <span className="truncate inline-block align-middle" style={{ maxWidth: "calc(100% - 14px)" }}>
+                      <span
+                        className="truncate inline-block align-middle"
+                        style={{ maxWidth: "calc(100% - 14px)" }}
+                      >
                         {col.label}
                       </span>
                       {col.sortable && (
@@ -227,23 +242,22 @@ export default function AdminTable<T>({
                           {sortIndicator(col.key)}
                         </span>
                       )}
-                      {/* Resize handle */}
+                      {/* Resize handle: faint divider always visible, brand green while active */}
                       <span
-                        role="separator"
-                        aria-orientation="vertical"
+                        aria-hidden="true"
                         onMouseDown={(e) => handleResizeStart(e, col)}
                         onClick={(e) => e.stopPropagation()}
-                        className="group absolute top-0 right-0 h-full"
-                        style={{ width: 8, cursor: "col-resize" }}
+                        className="absolute top-0 right-0 h-full flex justify-end"
+                        style={{ width: 9, cursor: "col-resize" }}
                       >
                         <span
-                          className="absolute right-0 top-0 h-full"
+                          className="h-full"
                           style={{
                             width: 2,
                             background:
                               resizingKey === col.key
-                                ? "var(--ca-dark-green, #2f5233)"
-                                : "transparent",
+                                ? "var(--ca-dark-green)"
+                                : "var(--border-subtle)",
                           }}
                         />
                       </span>
@@ -269,7 +283,9 @@ export default function AdminTable<T>({
                           className={`px-3 py-2.5 overflow-hidden ${col.className ?? ""}`}
                           style={{ width: w, maxWidth: w }}
                         >
-                          <div className="truncate" title={tip}>
+                          {/* Explicit maxWidth on the inner div makes ellipsis work
+                              regardless of table layout algorithm. */}
+                          <div className="truncate" style={{ maxWidth: w - 24 }} title={tip}>
                             {col.render(row)}
                           </div>
                         </td>

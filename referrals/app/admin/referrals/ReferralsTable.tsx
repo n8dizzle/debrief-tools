@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import AdminTable, { type AdminColumn } from "@/components/AdminTable";
 import type { Referral, Referrer } from "@/lib/supabase";
 import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
@@ -178,7 +179,7 @@ interface Props {
 }
 
 export default function ReferralsTable({ rows, isProduction }: Props) {
-  const columns = buildColumns(isProduction);
+  const columns = useMemo(() => buildColumns(isProduction), [isProduction]);
   return (
     <AdminTable
       tableId="referrals"
