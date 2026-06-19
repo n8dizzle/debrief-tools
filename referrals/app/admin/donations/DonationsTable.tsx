@@ -35,6 +35,8 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
     key: "charity",
     label: "Charity",
     sortable: true,
+    width: 220,
+    truncate: true,
     sortValue: (d) => (d.charity?.name ?? "").toLowerCase(),
     searchValue: (d) => d.charity?.name ?? "",
     render: (d) => <>{d.charity?.name || "—"}</>,
@@ -42,6 +44,10 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
   {
     key: "method",
     label: "Method",
+    width: 150,
+    truncate: true,
+    searchValue: (d) =>
+      (d.charity?.fulfillment_method || "").toLowerCase().replace(/_/g, " "),
     render: (d) => (
       <span className="text-xs opacity-70">
         {(d.charity?.fulfillment_method || "").toLowerCase().replace(/_/g, " ")}
@@ -52,6 +58,8 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
     key: "from_referrer",
     label: "From referrer",
     sortable: true,
+    width: 170,
+    truncate: true,
     sortValue: (d) =>
       `${d.referral?.referrer?.first_name ?? ""} ${d.referral?.referrer?.last_name ?? ""}`.toLowerCase(),
     searchValue: (d) =>
@@ -65,6 +73,8 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
   {
     key: "for_friend",
     label: "For friend",
+    width: 170,
+    truncate: true,
     searchValue: (d) => d.referral?.referred_name ?? "",
     render: (d) => (
       <span className="opacity-80">{d.referral?.referred_name}</span>
@@ -74,6 +84,7 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
     key: "amount",
     label: "Amount",
     sortable: true,
+    width: 100,
     sortValue: (d) => Number(d.amount),
     className: "text-right font-semibold",
     render: (d) => <>${Number(d.amount).toFixed(0)}</>,
@@ -82,6 +93,7 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
     key: "status",
     label: "Status",
     sortable: true,
+    width: 160,
     sortValue: (d) => d.status,
     render: (d) => (
       <>
@@ -100,6 +112,7 @@ const COLUMNS: AdminColumn<DonationRow>[] = [
   {
     key: "actions",
     label: "Actions",
+    width: 120,
     render: (d) => (
       <>{d.status === "PENDING" && <DonationActions donationId={d.id} />}</>
     ),
@@ -113,6 +126,7 @@ interface Props {
 export default function DonationsTable({ rows }: Props) {
   return (
     <AdminTable
+      tableId="donations"
       columns={COLUMNS}
       rows={rows}
       rowKey={(d) => d.id}

@@ -19,6 +19,8 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "name",
     label: "Name",
     sortable: true,
+    width: 180,
+    truncate: true,
     sortValue: (r) => `${r.first_name} ${r.last_name}`.toLowerCase(),
     searchValue: (r) => `${r.first_name} ${r.last_name}`,
     render: (r) => (
@@ -34,6 +36,7 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "type",
     label: "Type",
     sortable: true,
+    width: 130,
     sortValue: (r) => r.referrer_type ?? "",
     searchValue: (r) => r.referrer_type ?? "",
     render: (r) => (
@@ -44,6 +47,8 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "email",
     label: "Email",
     sortable: true,
+    width: 230,
+    truncate: true,
     sortValue: (r) => r.email.toLowerCase(),
     searchValue: (r) => r.email,
     render: (r) => <span className="opacity-70">{r.email}</span>,
@@ -51,12 +56,15 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
   {
     key: "code",
     label: "Code",
+    width: 140,
+    truncate: true,
     searchValue: (r) => r.referral_code,
     render: (r) => <code className="text-xs">{r.referral_code}</code>,
   },
   {
     key: "st_customer",
     label: "ST customer",
+    width: 150,
     render: (r) => (
       <STCustomerEdit referrerId={r.id} initialId={r.service_titan_id} />
     ),
@@ -64,6 +72,8 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
   {
     key: "charity",
     label: "Charity",
+    width: 200,
+    truncate: true,
     searchValue: (r) =>
       r.charity?.name ?? r.suggested_charity_name ?? "",
     render: (r) => (
@@ -84,6 +94,7 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "lifetime",
     label: "Lifetime",
     sortable: true,
+    width: 95,
     sortValue: (r) => r.lifetime_referrals,
     className: "text-right",
     render: (r) => <>{r.lifetime_referrals}</>,
@@ -92,6 +103,7 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "earned",
     label: "Earned",
     sortable: true,
+    width: 95,
     sortValue: (r) => Number(r.total_earned),
     className: "text-right",
     render: (r) => <>${Number(r.total_earned).toFixed(0)}</>,
@@ -100,6 +112,7 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "donated",
     label: "Donated",
     sortable: true,
+    width: 95,
     sortValue: (r) => Number(r.total_donated_on_their_behalf),
     className: "text-right",
     render: (r) => <>${Number(r.total_donated_on_their_behalf).toFixed(0)}</>,
@@ -108,6 +121,7 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
     key: "enrolled",
     label: "Enrolled",
     sortable: true,
+    width: 115,
     sortValue: (r) => r.enrolled_at,
     render: (r) => (
       <span className="opacity-70 text-xs">
@@ -118,6 +132,8 @@ const COLUMNS: AdminColumn<ReferrerRow>[] = [
   {
     key: "actions",
     label: "",
+    width: 70,
+    minWidth: 50,
     render: (r) => (
       <DeleteReferrerButton
         referrerId={r.id}
@@ -191,6 +207,7 @@ export default function ReferrersTable({ rows }: Props) {
       </div>
 
       <AdminTable
+        tableId="referrers"
         columns={COLUMNS}
         rows={filtered}
         rowKey={(r) => r.id}
