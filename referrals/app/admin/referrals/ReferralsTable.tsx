@@ -8,6 +8,7 @@ import TagInSTButton from "./TagInSTButton";
 import SimulateCompletionButton from "./SimulateCompletionButton";
 import MarkCompleteButton from "./MarkCompleteButton";
 import LinkSTCustomerCell from "./LinkSTCustomerCell";
+import ActionsMenu from "./ActionsMenu";
 
 type ReferralRow = Referral & {
   referrer: Pick<Referrer, "first_name" | "last_name" | "referral_code">;
@@ -33,7 +34,8 @@ function ReferralStatusBadge({ status }: { status: string }) {
   );
 }
 
-const COLUMNS: AdminColumn<ReferralRow>[] = [
+function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
+  return [
   {
     key: "friend",
     label: "Friend",
@@ -88,52 +90,35 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
   {
     key: "servicetitan",
     label: "ServiceTitan",
-    width: 190,
-    render: (r) => (
-      <div className="flex flex-col gap-1.5">
-        {r.service_titan_booking_id ? (
-          <div className="flex flex-col gap-0.5">
-            <STLinkBadge
-              id={r.service_titan_booking_id}
-              href={stBookingUrl(r.service_titan_booking_id)}
-            />
-            <span className="text-[10px] uppercase tracking-wide opacity-60">
-              booking
-            </span>
-          </div>
-        ) : r.service_titan_lead_id ? (
-          <div className="flex flex-col gap-0.5">
-            <STLinkBadge
-              id={r.service_titan_lead_id}
-              href={stLeadUrl(r.service_titan_lead_id)}
-            />
-            <span className="text-[10px] uppercase tracking-wide opacity-60">
-              lead
-            </span>
-          </div>
-        ) : (
+    width: 150,
+    render: (r) =>
+      r.service_titan_booking_id ? (
+        <div className="flex flex-col gap-0.5">
           <STLinkBadge
-            id={null}
-            href={null}
-            emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
+            id={r.service_titan_booking_id}
+            href={stBookingUrl(r.service_titan_booking_id)}
           />
-        )}
-        <TagInSTButton
-          referralId={r.id}
-          customerId={r.service_titan_customer_id}
+          <span className="text-[10px] uppercase tracking-wide opacity-60">
+            booking
+          </span>
+        </div>
+      ) : r.service_titan_lead_id ? (
+        <div className="flex flex-col gap-0.5">
+          <STLinkBadge
+            id={r.service_titan_lead_id}
+            href={stLeadUrl(r.service_titan_lead_id)}
+          />
+          <span className="text-[10px] uppercase tracking-wide opacity-60">
+            lead
+          </span>
+        </div>
+      ) : (
+        <STLinkBadge
+          id={null}
+          href={null}
+          emptyTitle="No ServiceTitan booking or lead was created — either neither ID was configured in Settings at submission, or ST was unreachable"
         />
-        <MarkCompleteButton
-          referralId={r.id}
-          status={r.status}
-          referrerName={`${r.referrer.first_name} ${r.referrer.last_name}`}
-          friendName={r.referred_name}
-          friendEmail={r.referred_email}
-          friendPhone={r.referred_phone}
-          stCustomerId={r.service_titan_customer_id}
-        />
-        <SimulateCompletionButton referralId={r.id} status={r.status} />
-      </div>
-    ),
+      ),
   },
   {
     key: "invoice",
@@ -158,17 +143,46 @@ const COLUMNS: AdminColumn<ReferralRow>[] = [
       </span>
     ),
   },
-];
+  {
+    key: "actions",
+    label: "Actions",
+    width: 90,
+    minWidth: 72,
+    render: (r) => (
+      <ActionsMenu>
+        <TagInSTButton
+          referralId={r.id}
+          customerId={r.service_titan_customer_id}
+        />
+        <MarkCompleteButton
+          referralId={r.id}
+          status={r.status}
+          referrerName={`${r.referrer.first_name} ${r.referrer.last_name}`}
+          friendName={r.referred_name}
+          friendEmail={r.referred_email}
+          friendPhone={r.referred_phone}
+          stCustomerId={r.service_titan_customer_id}
+        />
+        {!isProduction && (
+          <SimulateCompletionButton referralId={r.id} status={r.status} />
+        )}
+      </ActionsMenu>
+    ),
+  },
+  ];
+}
 
 interface Props {
   rows: ReferralRow[];
+  isProduction: boolean;
 }
 
-export default function ReferralsTable({ rows }: Props) {
+export default function ReferralsTable({ rows, isProduction }: Props) {
+  const columns = buildColumns(isProduction);
   return (
     <AdminTable
       tableId="referrals"
-      columns={COLUMNS}
+      columns={columns}
       rows={rows}
       rowKey={(r) => r.id}
       searchPlaceholder="Search by name, phone, code, or service…"
