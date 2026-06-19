@@ -112,48 +112,41 @@ export default function LinkSTCustomerCell({
 
   return (
     <div className="flex flex-col gap-0.5">
-      {/* Friend name — clickable if no ST customer linked */}
+      {/* ST customer: linked → open page + relink; unlinked → "— link" action */}
       {linkedId ? (
-        <span className="font-medium">{friendName}</span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => { setOpen((o) => !o); setLinkError(null); }}
-          className="text-left font-medium underline decoration-dotted underline-offset-2 hover:no-underline"
-          style={{ color: "inherit" }}
-          title="Click to search and link a ServiceTitan customer account"
-        >
-          {friendName}
-        </button>
-      )}
-
-      {/* Phone */}
-      {friendPhone && (
-        <div className="text-xs opacity-60">{friendPhone}</div>
-      )}
-
-      {/* Linked badge: open the ST customer page + relink option */}
-      {linkedId && (
-        <span className="flex items-center gap-2 self-start text-[10px]">
+        <span className="flex items-center gap-2 self-start text-xs">
           <a
             href={stCustomerUrl(linkedId) ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="opacity-60 hover:opacity-100 underline inline-flex items-center gap-0.5"
+            className="opacity-80 hover:opacity-100 underline inline-flex items-center gap-0.5"
             style={{ color: "inherit" }}
             title={`Open ST customer #${linkedId} in ServiceTitan`}
           >
-            ST #{linkedId}
+            {linkedId}
             <span aria-hidden="true" style={{ opacity: 0.7 }}>↗</span>
           </a>
           <button
             type="button"
             onClick={() => { setOpen((o) => !o); setLinkError(null); }}
-            className="opacity-40 hover:opacity-70 underline"
+            className="text-[10px] opacity-40 hover:opacity-70 underline"
             style={{ color: "inherit" }}
             title="Relink to a different ST customer"
           >
             relink
+          </button>
+        </span>
+      ) : (
+        <span className="flex items-center gap-2 self-start text-xs">
+          <span className="opacity-50">—</span>
+          <button
+            type="button"
+            onClick={() => { setOpen((o) => !o); setLinkError(null); }}
+            className="opacity-70 hover:opacity-100 underline"
+            style={{ color: "inherit" }}
+            title="Search and link a ServiceTitan customer account"
+          >
+            link
           </button>
         </span>
       )}
