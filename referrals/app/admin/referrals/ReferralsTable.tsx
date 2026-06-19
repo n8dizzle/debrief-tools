@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import AdminTable, { type AdminColumn } from "@/components/AdminTable";
 import type { Referral, Referrer } from "@/lib/supabase";
-import { stLeadUrl, stBookingUrl } from "@/lib/servicetitan-links";
+import { stCustomerUrl } from "@/lib/servicetitan-links";
 import STLinkBadge from "@/components/STLinkBadge";
 import TagInSTButton from "./TagInSTButton";
 import SimulateCompletionButton from "./SimulateCompletionButton";
@@ -19,7 +19,7 @@ function ReferralStatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string; label: string }> = {
     SUBMITTED: { bg: "rgba(184,149,107,0.2)", fg: "#8a6a3a", label: "Submitted" },
     BOOKED: { bg: "rgba(59,130,246,0.15)", fg: "#1e40af", label: "Booked" },
-    COMPLETED: { bg: "rgba(97,139,96,0.15)", fg: "#415440", label: "Completed" },
+    COMPLETED: { bg: "rgba(97,139,96,0.15)", fg: "#415440", label: "Invoice Paid" },
     REWARD_ISSUED: { bg: "rgba(34,197,94,0.15)", fg: "#15803d", label: "Reward issued" },
     EXPIRED: { bg: "rgba(135,76,59,0.1)", fg: "#874c3b", label: "Expired" },
     INELIGIBLE: { bg: "rgba(0,0,0,0.05)", fg: "#6b7280", label: "Ineligible" },
@@ -39,7 +39,7 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
   return [
   {
     key: "friend",
-    label: "Friend",
+    label: "Referral",
     width: 200,
     searchValue: (r) => `${r.referred_name} ${r.referred_phone}`,
     render: (r) => (
@@ -90,14 +90,16 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
   },
   {
     key: "servicetitan",
-    label: "ServiceTitan",
+    label: "Booking",
     width: 150,
     render: (r) =>
       r.service_titan_booking_id ? (
         <div className="flex flex-col gap-0.5">
           <STLinkBadge
             id={r.service_titan_booking_id}
-            href={stBookingUrl(r.service_titan_booking_id)}
+            href={stCustomerUrl(r.service_titan_customer_id)}
+            showIdWhenUnlinked
+            emptyTitle="Booking exists, but no ST customer is linked yet — link one in the Referral column to enable the link"
           />
           <span className="text-[10px] uppercase tracking-wide opacity-60">
             booking
@@ -107,7 +109,9 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
         <div className="flex flex-col gap-0.5">
           <STLinkBadge
             id={r.service_titan_lead_id}
-            href={stLeadUrl(r.service_titan_lead_id)}
+            href={stCustomerUrl(r.service_titan_customer_id)}
+            showIdWhenUnlinked
+            emptyTitle="Lead exists, but no ST customer is linked yet — link one in the Referral column to enable the link"
           />
           <span className="text-[10px] uppercase tracking-wide opacity-60">
             lead

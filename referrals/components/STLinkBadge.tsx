@@ -5,6 +5,10 @@ interface STLinkBadgeProps {
   emptyLabel?: string;
   /** Tooltip on the empty state. */
   emptyTitle?: string;
+  /** When true and an id exists but href is null, show the id as a muted
+   *  (non-clickable) pill instead of the empty label. Useful when the id is
+   *  meaningful (e.g. a Booking number) but its link target isn't available. */
+  showIdWhenUnlinked?: boolean;
 }
 
 /**
@@ -17,8 +21,24 @@ export default function STLinkBadge({
   href,
   emptyLabel = "—",
   emptyTitle,
+  showIdWhenUnlinked = false,
 }: STLinkBadgeProps) {
   if (!id || !href) {
+    if (id && showIdWhenUnlinked) {
+      return (
+        <span
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+          style={{
+            background: "rgba(0,0,0,0.05)",
+            color: "var(--text-muted)",
+            whiteSpace: "nowrap",
+          }}
+          title={emptyTitle || "Not linked to a ServiceTitan customer yet"}
+        >
+          {id}
+        </span>
+      );
+    }
     return (
       <span
         className="text-xs opacity-50"
