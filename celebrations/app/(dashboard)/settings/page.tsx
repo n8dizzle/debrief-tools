@@ -126,6 +126,25 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleMove(fromBoardId: string, configId: string, toBoardId: string) {
+    if (!toBoardId || fromBoardId === toBoardId) return;
+    try {
+      const res = await fetch(`/api/boards/${fromBoardId}/slack`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config_id: configId, new_board_id: toBoardId }),
+      });
+      if (res.ok) {
+        await fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to move channel');
+      }
+    } catch (err) {
+      console.error('Failed to move channel:', err);
+    }
+  }
+
   async function handleBackfill(boardId: string, configId: string, channelId: string) {
     setBackfilling(configId);
     setBackfillResult((prev) => ({ ...prev, [configId]: '' }));
@@ -267,9 +286,29 @@ export default function SettingsPage() {
                             {isExpanded ? '\u25B2' : '\u25BC'} Filters
                           </span>
                         </p>
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          &rarr; {board?.title || 'Unknown board'}
-                          <span className="mx-1">|</span>
+                        <p className="text-xs flex items-center flex-wrap gap-1" style={{ color: 'var(--text-muted)' }}>
+                          <span>&rarr;</span>
+                          <select
+                            value={boardId}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleMove(boardId, config.id, e.target.value);
+                            }}
+                            className="text-xs py-0.5 px-1 rounded cursor-pointer focus:outline-none"
+                            style={{
+                              color: 'var(--text-muted)',
+                              background: 'var(--bg-card)',
+                              border: '1px solid var(--border-subtle)',
+                            }}
+                            title="Move this channel to another board"
+                          >
+                            {!board && <option value={boardId}>Unknown board</option>}
+                            {boards.map((b) => (
+                              <option key={b.id} value={b.id}>{b.title}</option>
+                            ))}
+                          </select>
+                          <span>|</span>
                           <code
                             className="cursor-pointer hover:underline"
                             title="Click to copy"
