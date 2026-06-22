@@ -171,6 +171,7 @@ function buildColumns(isProduction: boolean): AdminColumn<ReferralRow>[] {
         <TagInSTButton
           referralId={r.id}
           customerId={r.service_titan_customer_id}
+          taggedAt={r.tagged_in_st_at}
         />
         <MarkCompleteButton
           referralId={r.id}

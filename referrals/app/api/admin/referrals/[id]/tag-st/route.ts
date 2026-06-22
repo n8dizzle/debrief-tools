@@ -94,6 +94,12 @@ export async function POST(
       fieldId,
       referralCode
     );
+    // Remember it was tagged so the admin UI can show a persisted "done"
+    // state instead of re-prompting on every load.
+    await supabase
+      .from("ref_referrals")
+      .update({ tagged_in_st_at: new Date().toISOString() })
+      .eq("id", referral.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(

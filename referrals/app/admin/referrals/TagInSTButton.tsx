@@ -1,96 +1,126 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Props {
   referralId: string;
   customerId: string | null;
+  /** ISO timestamp of when the Referral Code was last written to ST, or null. */
+  taggedAt: string | null;
 }
 
 /**
- * One-click button that writes the referrer's code to the ST customer's
- * Referral_Code custom field. Only rendered when the referral has a
- * linked ST customer — otherwise the server-side endpoint has nothing to
- * patch. Displays idle / tagging / ✓ tagged / error states.
+ * Writes the referrer's code into the linked ST customer's "Referral Code"
+ * custom field (via /tag-st). Once written, ref_referrals.tagged_in_st_at is
+ * stamped, so this renders a persisted "✓ Referral code set" state with a
+ * small re-set option (ST's PATCH is idempotent, so re-setting is harmless —
+ * handy if the field was cleared in ServiceTitan).
  *
- * Success is indicated but not persisted — hitting the button again writes
- * the same value (ST's PATCH is idempotent on the same typeId). Admin can
- * re-tag without consequence, useful if the ST field was cleared.
+ * Only meaningful when the referral has a linked ST customer.
  */
-export default function TagInSTButton({ referralId, customerId }: Props) {
-  const [state, setState] = useState<"idle" | "tagging" | "done" | "error">(
-    "idle"
-  );
+export default function TagInSTButton({ referralId, customerId, taggedAt }: Props) {
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "busy" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [justSet, setJustSet] = useState(false);
 
   if (!customerId) {
     return (
       <span
         className="text-[10px] opacity-50"
-        title="No ST customer linked to this referral yet — can't tag. The service_titan_customer_id gets stamped automatically after the first matched invoice webhook, or an admin can set it manually."
+        title="No ST customer linked to this referral yet — link one in the ST Customer column first."
       >
         no customer linked
       </span>
     );
   }
 
-  async function tag() {
-    setState("tagging");
+  const isSet = justSet || !!taggedAt;
+
+  async function setCode() {
+    setState("busy");
     setError(null);
     try {
-      const res = await fetch(
-        `/api/admin/referrals/${referralId}/tag-st`,
-        { method: "POST" }
-      );
+      const res = await fetch(`/api/admin/referrals/${referralId}/tag-st`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Tag failed");
+        setError(data.error || "Failed to set Referral Code");
         setState("error");
         return;
       }
-      setState("done");
-      setTimeout(() => setState("idle"), 3000);
+      setJustSet(true);
+      setState("idle");
+      router.refresh();
     } catch {
       setError("Network error");
       setState("error");
     }
   }
 
+  if (isSet) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span
+          className="text-[10px] font-semibold"
+          style={{ color: "var(--ca-green)" }}
+        >
+          ✓ Referral code set
+        </span>
+        <button
+          type="button"
+          onClick={setCode}
+          disabled={state === "busy"}
+          className="text-[10px] opacity-40 hover:opacity-70 underline self-start"
+          style={{ color: "inherit", cursor: state === "busy" ? "wait" : "pointer" }}
+          title="Re-write the Referral Code to this ST customer (in case it was cleared in ServiceTitan)"
+        >
+          {state === "busy" ? "setting…" : "re-set"}
+        </button>
+        {error && (
+          <span
+            className="text-[10px]"
+            style={{ color: "var(--ca-red)", maxWidth: 220 }}
+            title={error}
+          >
+            {error.slice(0, 80)}
+            {error.length > 80 ? "…" : ""}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-0.5">
       <button
         type="button"
-        onClick={tag}
-        disabled={state === "tagging"}
-        className="text-[10px] font-semibold underline"
+        onClick={setCode}
+        disabled={state === "busy"}
+        className="text-[10px] font-semibold underline self-start"
         style={{
-          color:
-            state === "done"
-              ? "var(--ca-green)"
-              : state === "error"
-              ? "var(--ca-red)"
-              : "var(--ca-dark-green)",
-          opacity: state === "tagging" ? 0.6 : 1,
-          cursor: state === "tagging" ? "wait" : "pointer",
+          color: state === "error" ? "var(--ca-red)" : "var(--ca-dark-green)",
+          opacity: state === "busy" ? 0.6 : 1,
+          cursor: state === "busy" ? "wait" : "pointer",
         }}
-        title={`Write the referral code to this ST customer's Referral_Code custom field`}
+        title="Write the referrer's code into this ST customer's Referral Code field"
       >
-        {state === "tagging"
-          ? "tagging…"
-          : state === "done"
-          ? "✓ tagged"
+        {state === "busy"
+          ? "setting…"
           : state === "error"
-          ? "retry tag"
-          : "tag in ST"}
+          ? "retry — Set Referral Code in ST"
+          : "Set Referral Code in ST"}
       </button>
       {error && (
         <span
           className="text-[10px]"
-          style={{ color: "var(--ca-red)", maxWidth: 180 }}
+          style={{ color: "var(--ca-red)", maxWidth: 220 }}
           title={error}
         >
-          {error.slice(0, 60)}
-          {error.length > 60 ? "…" : ""}
+          {error.slice(0, 80)}
+          {error.length > 80 ? "…" : ""}
         </span>
       )}
     </div>
