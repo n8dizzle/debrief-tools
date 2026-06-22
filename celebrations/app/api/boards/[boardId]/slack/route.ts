@@ -98,7 +98,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { config_id, import_filters } = await req.json();
+  const { config_id, import_filters, new_board_id } = await req.json();
 
   if (!config_id) {
     return NextResponse.json({ error: 'config_id required' }, { status: 400 });
@@ -106,9 +106,17 @@ export async function PATCH(
 
   const supabase = getServerSupabase();
 
+  const update: Record<string, unknown> = {};
+  if (import_filters !== undefined) update.import_filters = import_filters || {};
+  if (new_board_id !== undefined) update.board_id = new_board_id;
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  }
+
   const { data, error } = await supabase
     .from('cel_slack_config')
-    .update({ import_filters: import_filters || {} })
+    .update(update)
     .eq('id', config_id)
     .eq('board_id', boardId)
     .select()
