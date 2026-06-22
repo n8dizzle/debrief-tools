@@ -204,6 +204,7 @@ export interface Referral {
   submitted_at: string;
   job_completed_at: string | null;
   reward_issued_at: string | null;
+  tagged_in_st_at: string | null;
 }
 
 export interface Reward {
