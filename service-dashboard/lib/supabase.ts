@@ -161,6 +161,7 @@ export interface LeaderboardEntry {
   reviews: number;
   memberships_sold: number;
   attendance_points: number;
+  recalls_caused: number;
   score: number;
   rank: number;
   score_breakdown: {
@@ -170,5 +171,6 @@ export interface LeaderboardEntry {
     reviews_score: number;
     memberships_score: number;
     attendance_score: number;
+    recalls_caused_score: number;
   };
 }

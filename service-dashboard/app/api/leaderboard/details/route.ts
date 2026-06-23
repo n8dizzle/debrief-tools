@@ -139,6 +139,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ records: matching });
   }
 
+  if (metric === 'recalls_caused') {
+    const { data } = await supabase
+      .from('sd_recalls_caused')
+      .select('st_recall_job_id, st_original_job_id, recall_created_on, business_unit_name, customer_name')
+      .eq('caused_by_tech_id', stTechId)
+      .gte('recall_created_on', startDate)
+      .lte('recall_created_on', endDate)
+      .order('recall_created_on', { ascending: false });
+
+    return NextResponse.json({ records: data || [] });
+  }
+
   if (metric === 'attendance') {
     // Look up the tech's internal id from st_technician_id
     const { data: tech } = await supabase

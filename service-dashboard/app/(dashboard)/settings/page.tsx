@@ -13,6 +13,7 @@ const WEIGHT_LABELS: Record<string, string> = {
   memberships_sold: 'Memberships Sold',
   reviews: 'Google Reviews',
   attendance: 'Attendance',
+  recalls_caused: 'Recalls Caused',
 };
 
 function formatDateTime(iso: string): string {
@@ -40,6 +41,7 @@ export default function SettingsPage() {
     memberships_sold: 0.15,
     reviews: 0.15,
     attendance: 0.15,
+    recalls_caused: 0,
   });
   const [saving, setSaving] = useState(false);
   const [weightsMessage, setWeightsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);

@@ -55,7 +55,7 @@ function SummaryCard({ label, value, icon }: SummaryCardProps) {
 export default function LeaderboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>(getMonthToDateRange);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [totals, setTotals] = useState({ gross_sales: 0, tgls: 0, options_per_opportunity: 0, reviews: 0, memberships_sold: 0, attendance_points: 0 });
+  const [totals, setTotals] = useState({ gross_sales: 0, tgls: 0, options_per_opportunity: 0, reviews: 0, memberships_sold: 0, attendance_points: 0, recalls_caused: 0 });
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +69,7 @@ export default function LeaderboardPage() {
       if (res.ok) {
         const data = await res.json();
         setLeaderboard(data.leaderboard || []);
-        setTotals(data.totals || { gross_sales: 0, tgls: 0, options_per_opportunity: 0, reviews: 0, memberships_sold: 0, attendance_points: 0 });
+        setTotals(data.totals || { gross_sales: 0, tgls: 0, options_per_opportunity: 0, reviews: 0, memberships_sold: 0, attendance_points: 0, recalls_caused: 0 });
         setWeights(data.weights || {});
         setLastSyncAt(data.lastSyncAt || null);
       }
@@ -105,7 +105,7 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
         <SummaryCard
           label="Total Sales"
           value={formatCurrency(totals.gross_sales)}
@@ -148,6 +148,15 @@ export default function LeaderboardPage() {
           icon={
             <svg className="w-6 h-6" style={{ color: 'var(--christmas-green-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          }
+        />
+        <SummaryCard
+          label="Recalls Caused"
+          value={totals.recalls_caused.toString()}
+          icon={
+            <svg className="w-6 h-6" style={{ color: 'var(--christmas-green-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
           }
         />

@@ -18,6 +18,7 @@ async function runSync() {
   let leadsSynced = 0;
   let estimatesSynced = 0;
   let membershipsSynced = 0;
+  let recallsSynced = 0;
 
   // Insert sync log
   await supabase.from('sd_sync_log').insert({
@@ -175,6 +176,75 @@ async function runSync() {
     console.log(`Synced ${jobsSynced} jobs`);
 
     // ============================================
+    // 2b. SYNC RECALLS CAUSED (last 30 days)
+    // Pull recall jobs created in the window (any status — recalls count
+    // when booked, not when completed). For each, attribute to the tech
+    // who did the ORIGINAL job referenced by recallForId.
+    // ============================================
+    console.log('Syncing recalls caused...');
+    const recallJobs = await st.getRecallJobsCreatedInRange(startDate, endDate, serviceBUIds);
+    console.log(`Found ${recallJobs.length} recall jobs in window`);
+
+    if (recallJobs.length > 0) {
+      // Cache of originalJobId -> techId to avoid duplicate ST API calls
+      // when multiple recalls point to the same original (unlikely but cheap).
+      const originalTechCache = new Map<number, number | null>();
+
+      // Pre-load known originals from local sd_completed_jobs to skip the API.
+      const originalIds = Array.from(
+        new Set(recallJobs.map(j => j.recallForId!).filter((id): id is number => id != null))
+      );
+      if (originalIds.length > 0) {
+        const { data: localOriginals } = await supabase
+          .from('sd_completed_jobs')
+          .select('st_job_id, st_technician_id')
+          .in('st_job_id', originalIds);
+        for (const row of (localOriginals || [])) {
+          originalTechCache.set(row.st_job_id, row.st_technician_id);
+        }
+      }
+
+      for (const recall of recallJobs) {
+        const originalId = recall.recallForId!;
+        let causedByTechId = originalTechCache.get(originalId);
+
+        // Fallback: ask ST for the tech on the original job.
+        if (causedByTechId === undefined) {
+          causedByTechId = await st.getTechForJobId(originalId);
+          originalTechCache.set(originalId, causedByTechId);
+        }
+
+        if (causedByTechId == null) {
+          // Can't attribute — skip but don't fail the sync.
+          continue;
+        }
+
+        const recallCreatedOn = recall.createdOn
+          ? formatLocalDate(new Date(recall.createdOn))
+          : endDate;
+        const buName = buMap.get(recall.businessUnitId)?.name || null;
+
+        const { error } = await supabase
+          .from('sd_recalls_caused')
+          .upsert({
+            st_recall_job_id: recall.id,
+            st_original_job_id: originalId,
+            caused_by_tech_id: causedByTechId,
+            recall_created_on: recallCreatedOn,
+            business_unit_name: buName,
+            customer_name: null,
+          }, { onConflict: 'st_recall_job_id' });
+
+        if (error) {
+          errors.push(`Recall ${recall.id}: ${error.message}`);
+        } else {
+          recallsSynced++;
+        }
+      }
+    }
+    console.log(`Synced ${recallsSynced} recalls`);
+
+    // ============================================
     // 3. SYNC TECH-GENERATED LEADS / "Leads Set" (last 30 days)
     // Per ST definition: count unique source jobs where the tech is the
     // Lead Setting Employee. Date filter = source job completion date.
@@ -316,6 +386,7 @@ async function runSync() {
       jobs_synced: jobsSynced,
       leads_synced: leadsSynced,
       memberships_synced: membershipsSynced,
+      recalls_synced: recallsSynced,
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
     };
   } catch (error: any) {

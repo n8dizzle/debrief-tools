@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
   let leadsSynced = 0;
   let estimatesSynced = 0;
   let membershipsSynced = 0;
+  let recallsSynced = 0;
 
   await supabase.from('sd_sync_log').insert({
     id: syncLogId,
@@ -154,6 +155,60 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 2b. SYNC RECALLS CAUSED (last 30 days)
+    // Pull recall jobs created in the window (any status). For each, attribute
+    // to the tech who did the ORIGINAL job referenced by recallForId.
+    const recallJobs = await st.getRecallJobsCreatedInRange(startDate, endDate, serviceBUIds);
+
+    if (recallJobs.length > 0) {
+      const originalTechCache = new Map<number, number | null>();
+
+      const originalIds = Array.from(
+        new Set(recallJobs.map(j => j.recallForId!).filter((id): id is number => id != null))
+      );
+      if (originalIds.length > 0) {
+        const { data: localOriginals } = await supabase
+          .from('sd_completed_jobs')
+          .select('st_job_id, st_technician_id')
+          .in('st_job_id', originalIds);
+        for (const row of (localOriginals || [])) {
+          originalTechCache.set(row.st_job_id, row.st_technician_id);
+        }
+      }
+
+      for (const recall of recallJobs) {
+        const originalId = recall.recallForId!;
+        let causedByTechId = originalTechCache.get(originalId);
+        if (causedByTechId === undefined) {
+          causedByTechId = await st.getTechForJobId(originalId);
+          originalTechCache.set(originalId, causedByTechId);
+        }
+        if (causedByTechId == null) continue;
+
+        const recallCreatedOn = recall.createdOn
+          ? formatLocalDate(new Date(recall.createdOn))
+          : endDate;
+        const buName = buMap.get(recall.businessUnitId)?.name || null;
+
+        const { error } = await supabase
+          .from('sd_recalls_caused')
+          .upsert({
+            st_recall_job_id: recall.id,
+            st_original_job_id: originalId,
+            caused_by_tech_id: causedByTechId,
+            recall_created_on: recallCreatedOn,
+            business_unit_name: buName,
+            customer_name: null,
+          }, { onConflict: 'st_recall_job_id' });
+
+        if (error) {
+          errors.push(`Recall ${recall.id}: ${error.message}`);
+        } else {
+          recallsSynced++;
+        }
+      }
+    }
+
     // 3. SYNC TECH-GENERATED LEADS / "Leads Set" (last 30 days)
     // Per ST definition: count unique source jobs where tech is Lead Setting Employee
     // Date filter = source job completion date
@@ -268,6 +323,7 @@ export async function POST(request: NextRequest) {
       jobs_synced: jobsSynced,
       leads_synced: leadsSynced,
       memberships_synced: membershipsSynced,
+      recalls_synced: recallsSynced,
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
     });
   } catch (error: any) {
