@@ -81,6 +81,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Deactivate techs that exist in our DB but are no longer returned by ST
+    // (e.g. removed from ST entirely, or moved out of a service BU).
+    const stTechIds = new Set(serviceTechs.map(t => t.id));
+    const { data: existingActiveTechs } = await supabase
+      .from('sd_technicians')
+      .select('st_technician_id')
+      .eq('is_active', true);
+
+    const staleTechIds = (existingActiveTechs || [])
+      .map(t => t.st_technician_id)
+      .filter(id => !stTechIds.has(id));
+
+    if (staleTechIds.length > 0) {
+      const { error: deactivateErr } = await supabase
+        .from('sd_technicians')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .in('st_technician_id', staleTechIds);
+      if (deactivateErr) {
+        errors.push(`Deactivate stale techs: ${deactivateErr.message}`);
+      }
+    }
+
     // 2. SYNC COMPLETED JOBS (last 30 days)
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
