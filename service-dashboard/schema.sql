@@ -93,6 +93,22 @@ CREATE TABLE IF NOT EXISTS sd_sync_log (
 
 CREATE INDEX IF NOT EXISTS idx_sd_sync_log_started ON sd_sync_log(started_at DESC);
 
+-- Recalls Caused — tracks each recall job and which tech caused it
+-- (the tech who did the ORIGINAL job that the recall is for, not the tech taking the callback)
+CREATE TABLE IF NOT EXISTS sd_recalls_caused (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  st_recall_job_id INTEGER NOT NULL UNIQUE,
+  st_original_job_id INTEGER NOT NULL,
+  caused_by_tech_id INTEGER NOT NULL,
+  recall_created_on DATE NOT NULL,
+  business_unit_name TEXT,
+  customer_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sd_recalls_caused_tech ON sd_recalls_caused(caused_by_tech_id);
+CREATE INDEX IF NOT EXISTS idx_sd_recalls_caused_date ON sd_recalls_caused(recall_created_on);
+
 -- Scoring config (single row)
 CREATE TABLE IF NOT EXISTS sd_scoring_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

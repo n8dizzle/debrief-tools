@@ -41,6 +41,7 @@ export function computeLeaderboardScores(
     reviews: number;
     memberships_sold: number;
     attendance_points: number;
+    recalls_caused: number;
   }>,
   weights: Record<string, number>
 ): Array<{
@@ -54,6 +55,7 @@ export function computeLeaderboardScores(
   reviews: number;
   memberships_sold: number;
   attendance_points: number;
+  recalls_caused: number;
   score: number;
   rank: number;
   score_breakdown: {
@@ -63,6 +65,7 @@ export function computeLeaderboardScores(
     reviews_score: number;
     memberships_score: number;
     attendance_score: number;
+    recalls_caused_score: number;
   };
 }> {
   const N = techData.length;
@@ -75,10 +78,13 @@ export function computeLeaderboardScores(
     memberships_sold: weights.memberships_sold ?? 0.15,
     reviews: weights.reviews ?? 0.15,
     attendance: weights.attendance ?? 0.15,
+    // Opt-in: defaults to 0 so existing weight configs (which must sum to 1.0)
+    // don't break. Operators enable scoring impact in /settings.
+    recalls_caused: weights.recalls_caused ?? 0,
   };
 
   // Rank helper: sort descending, assign rank (1-based), ties get same rank
-  type RankableKey = 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance_points';
+  type RankableKey = 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance_points' | 'recalls_caused';
   function rankBy(arr: typeof techData, key: RankableKey, ascending = false): Map<string, number> {
     const sorted = [...arr].sort((a, b) => ascending ? a[key] - b[key] : b[key] - a[key]);
     const rankMap = new Map<string, number>();
@@ -97,8 +103,9 @@ export function computeLeaderboardScores(
   const optsRanks = rankBy(techData, 'options_per_opportunity');
   const reviewRanks = rankBy(techData, 'reviews');
   const membershipRanks = rankBy(techData, 'memberships_sold');
-  // Attendance: ascending — fewest points = rank #1 (best)
+  // Attendance + recalls caused: ascending — lower count = rank #1 (best)
   const attendanceRanks = rankBy(techData, 'attendance_points', true);
+  const recallsCausedRanks = rankBy(techData, 'recalls_caused', true);
 
   function percentileScore(rank: number): number {
     return (N - rank + 1) / N;
@@ -111,6 +118,7 @@ export function computeLeaderboardScores(
     const revScore = percentileScore(reviewRanks.get(tech.technician_id)!);
     const memScore = percentileScore(membershipRanks.get(tech.technician_id)!);
     const attScore = percentileScore(attendanceRanks.get(tech.technician_id)!);
+    const rcScore = percentileScore(recallsCausedRanks.get(tech.technician_id)!);
 
     const overall =
       gsScore * w.gross_sales +
@@ -118,7 +126,8 @@ export function computeLeaderboardScores(
       optsScore * w.options_per_opportunity +
       revScore * w.reviews +
       memScore * w.memberships_sold +
-      attScore * w.attendance;
+      attScore * w.attendance +
+      rcScore * w.recalls_caused;
 
     return {
       ...tech,
@@ -131,6 +140,7 @@ export function computeLeaderboardScores(
         reviews_score: Math.round(revScore * 1000) / 1000,
         memberships_score: Math.round(memScore * 1000) / 1000,
         attendance_score: Math.round(attScore * 1000) / 1000,
+        recalls_caused_score: Math.round(rcScore * 1000) / 1000,
       },
     };
   });
@@ -158,4 +168,5 @@ export const DEFAULT_WEIGHTS: Record<string, number> = {
   memberships_sold: 0.15,
   reviews: 0.15,
   attendance: 0.15,
+  recalls_caused: 0,
 };

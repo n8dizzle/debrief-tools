@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   if (!technicians || technicians.length === 0) {
     return NextResponse.json({
       leaderboard: [],
-      totals: { gross_sales: 0, tgls: 0, options_per_opportunity: 0, reviews: 0, memberships_sold: 0 },
+      totals: { gross_sales: 0, tgls: 0, options_per_opportunity: 0, reviews: 0, memberships_sold: 0, recalls_caused: 0 },
       weights,
     });
   }
@@ -177,6 +177,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 7b. Count recalls caused per tech within the date range
+  // Filtered by recall_created_on — matches ST's "Recalls Caused" GUI metric.
+  const { data: recallRecords } = await supabase
+    .from('sd_recalls_caused')
+    .select('caused_by_tech_id')
+    .in('caused_by_tech_id', techIds)
+    .gte('recall_created_on', startDate)
+    .lte('recall_created_on', endDate);
+
+  const recallsByTech = new Map<number, number>();
+  for (const rec of (recallRecords || [])) {
+    recallsByTech.set(rec.caused_by_tech_id, (recallsByTech.get(rec.caused_by_tech_id) || 0) + 1);
+  }
+
   // 8. Assemble tech data and compute scores
   const techData = technicians.map(tech => ({
     technician_id: tech.id,
@@ -189,6 +203,7 @@ export async function GET(request: NextRequest) {
     reviews: reviewsByTech.get(tech.st_technician_id) || 0,
     memberships_sold: membershipsByTech.get(tech.st_technician_id) || 0,
     attendance_points: Math.round((attendanceByTech.get(tech.id) || 0) * 10) / 10,
+    recalls_caused: recallsByTech.get(tech.st_technician_id) || 0,
   }));
 
   const leaderboard = computeLeaderboardScores(techData, weights);
@@ -212,6 +227,7 @@ export async function GET(request: NextRequest) {
     reviews: techData.reduce((sum, t) => sum + t.reviews, 0),
     memberships_sold: techData.reduce((sum, t) => sum + t.memberships_sold, 0),
     attendance_points: techData.reduce((sum, t) => sum + t.attendance_points, 0),
+    recalls_caused: techData.reduce((sum, t) => sum + t.recalls_caused, 0),
   };
 
   return NextResponse.json({

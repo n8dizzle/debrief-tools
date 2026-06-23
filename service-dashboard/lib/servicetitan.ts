@@ -23,7 +23,11 @@ export interface STJob {
   jobStatus: string;
   customerId: number;
   completedOn?: string;
+  createdOn?: string;
   total?: number;
+  // ST sets this when the job is a recall — points back to the original job
+  // whose work caused the callback. Used for "Recalls Caused" attribution.
+  recallForId?: number | null;
 }
 
 export interface STAppointmentAssignment {
@@ -278,6 +282,79 @@ export class ServiceTitanClient {
     }
 
     return all;
+  }
+
+  /**
+   * Fetch jobs created within a date range that are flagged as recalls
+   * (have a non-null recallForId). Includes all statuses — a recall booked
+   * but not yet completed still counts against the tech who caused it.
+   */
+  async getRecallJobsCreatedInRange(
+    startDate: string,
+    endDate: string,
+    businessUnitIds: number[]
+  ): Promise<STJob[]> {
+    // ST's jobs endpoint has no filter for "has recallForId" — we pull all
+    // jobs created in the window and filter client-side. Service-only BUs.
+    const jobs = await this.requestAllPages<STJob>(
+      `jpm/v2/tenant/${this.tenantId}/jobs`,
+      {
+        createdOnOrAfter: `${startDate}T00:00:00`,
+        createdBefore: `${endDate}T23:59:59`,
+      }
+    );
+    const buSet = new Set(businessUnitIds);
+    return jobs.filter(j => j.recallForId != null && buSet.has(j.businessUnitId));
+  }
+
+  /**
+   * Fetch a single job by ID. Used to look up recall originals that fall
+   * outside the local sd_completed_jobs window.
+   * Returns null if the job is not found.
+   */
+  async getJobById(jobId: number): Promise<STJob | null> {
+    try {
+      return await this.request<STJob>(
+        'GET',
+        `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}`,
+      );
+    } catch (error) {
+      console.error(`Failed to fetch job ${jobId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Look up the technician who did a specific job by querying its appointments
+   * and their assignments. Used to attribute recalls to whoever did the
+   * original job, when the original isn't in our local cache.
+   * Returns null if no tech can be resolved.
+   */
+  async getTechForJobId(jobId: number): Promise<number | null> {
+    try {
+      const appts = await this.requestAllPages<{ id: number; jobId: number }>(
+        `jpm/v2/tenant/${this.tenantId}/appointments`,
+        { jobId: jobId.toString() },
+        5
+      );
+      if (appts.length === 0) return null;
+
+      const apptIds = appts.map(a => a.id);
+      const assignments = await this.requestAllPages<STAppointmentAssignment>(
+        `dispatch/v2/tenant/${this.tenantId}/appointment-assignments`,
+        { appointmentIds: apptIds.join(',') },
+        5
+      );
+      if (assignments.length === 0) return null;
+
+      // Prefer the first assignment on the earliest appointment (the original visit).
+      const apptOrder = new Map(appts.map((a, idx) => [a.id, idx]));
+      assignments.sort((a, b) => (apptOrder.get(a.appointmentId) ?? 99) - (apptOrder.get(b.appointmentId) ?? 99));
+      return assignments[0].technicianId;
+    } catch (error) {
+      console.error(`Failed to resolve tech for job ${jobId}:`, error);
+      return null;
+    }
   }
 
   /**

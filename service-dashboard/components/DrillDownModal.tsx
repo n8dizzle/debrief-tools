@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { INFRACTION_CONFIG, type AttendanceInfractionType } from '@/lib/supabase';
 
-type Metric = 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance';
+type Metric = 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance' | 'recalls_caused';
 
 interface Props {
   techName: string;
@@ -108,6 +108,7 @@ const METRIC_LABELS: Record<Metric, string> = {
   reviews: 'Google Reviews',
   memberships_sold: 'Memberships Sold',
   attendance: 'Attendance Records',
+  recalls_caused: 'Recalls Caused',
 };
 
 export default function DrillDownModal({ techName, stTechId, metric, startDate, endDate, onClose }: Props) {
@@ -193,6 +194,8 @@ export default function DrillDownModal({ techName, stTechId, metric, startDate, 
             <ReviewsTable records={records} />
           ) : metric === 'attendance' ? (
             <AttendanceTable records={records} />
+          ) : metric === 'recalls_caused' ? (
+            <RecallsCausedTable records={records} />
           ) : (
             <MembershipsTable records={records} />
           )}
@@ -444,6 +447,32 @@ function AttendanceTable({ records }: { records: any[] }) {
           <td />
         </tr>
       </tfoot>
+    </table>
+  );
+}
+
+function RecallsCausedTable({ records }: { records: any[] }) {
+  const { sorted, sortKey, sortAsc, toggle } = useSort(records, 'recall_created_on');
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr>
+          <SortHeader label="Recall Job #" field="st_recall_job_id" sortKey={sortKey} sortAsc={sortAsc} onSort={toggle} />
+          <SortHeader label="Original Job #" field="st_original_job_id" sortKey={sortKey} sortAsc={sortAsc} onSort={toggle} />
+          <SortHeader label="Recall Booked" field="recall_created_on" sortKey={sortKey} sortAsc={sortAsc} onSort={toggle} />
+          <SortHeader label="Business Unit" field="business_unit_name" sortKey={sortKey} sortAsc={sortAsc} onSort={toggle} />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((r: any, i: number) => (
+          <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <td className="py-2"><STLink type="Job" id={r.st_recall_job_id} /></td>
+            <td className="py-2"><STLink type="Job" id={r.st_original_job_id} /></td>
+            <td className="py-2" style={{ color: 'var(--text-secondary)' }}>{formatDate(r.recall_created_on)}</td>
+            <td className="py-2" style={{ color: 'var(--text-primary)' }}>{r.business_unit_name || '—'}</td>
+          </tr>
+        ))}
+      </tbody>
     </table>
   );
 }

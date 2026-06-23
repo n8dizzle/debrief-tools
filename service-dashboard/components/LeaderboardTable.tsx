@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import type { LeaderboardEntry } from '@/lib/supabase';
 import DrillDownModal from './DrillDownModal';
 
-type SortKey = 'rank' | 'name' | 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance_points' | 'score';
-type Metric = 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance';
+type SortKey = 'rank' | 'name' | 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance_points' | 'recalls_caused' | 'score';
+type Metric = 'gross_sales' | 'tgls' | 'options_per_opportunity' | 'reviews' | 'memberships_sold' | 'attendance' | 'recalls_caused';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -62,6 +62,7 @@ function ScoringInfoPopover({ weights, onClose }: { weights: Record<string, numb
     memberships: Math.round((weights.memberships_sold ?? 0.15) * 100),
     reviews: Math.round((weights.reviews ?? 0.15) * 100),
     attendance: Math.round((weights.attendance ?? 0.15) * 100),
+    recalls_caused: Math.round((weights.recalls_caused ?? 0) * 100),
   };
 
   return (
@@ -96,6 +97,7 @@ function ScoringInfoPopover({ weights, onClose }: { weights: Record<string, numb
           <WeightRow label="Memberships" pct={w.memberships} />
           <WeightRow label="Reviews" pct={w.reviews} />
           <WeightRow label="Attendance" pct={w.attendance} />
+          <WeightRow label="Recalls Caused" pct={w.recalls_caused} />
         </div>
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           Weights are configurable in Settings. Click any row to see the score breakdown.
@@ -238,6 +240,16 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
                       : 'var(--christmas-gold)',
                 }}>{entry.attendance_points}</div>
               </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Recalls</span>
+                <div className="font-mono" style={{
+                  color: entry.recalls_caused === 0
+                    ? 'var(--status-success)'
+                    : entry.recalls_caused >= 2
+                      ? 'var(--status-error)'
+                      : 'var(--christmas-gold)',
+                }}>{entry.recalls_caused}</div>
+              </div>
             </div>
             {expandedRow === entry.technician_id && (
               <div className="mt-3 pt-3 text-sm" style={{ borderTop: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
@@ -266,6 +278,10 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Attendance</span>
                     <div className="font-mono">{(entry.score_breakdown.attendance_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.attendance || 0.15) * 100).toFixed(0)}%</span></div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Recalls Caused</span>
+                    <div className="font-mono">{(entry.score_breakdown.recalls_caused_score * 100).toFixed(1)} <span style={{ color: 'var(--text-muted)' }}>x {((weights.recalls_caused || 0) * 100).toFixed(0)}%</span></div>
                   </div>
                 </div>
               </div>
@@ -303,6 +319,9 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
                 </th>
                 <th onClick={() => handleSort('attendance_points')} className="text-right">
                   Attendance <SortIcon column="attendance_points" />
+                </th>
+                <th onClick={() => handleSort('recalls_caused')} className="text-right" title="Recalls caused by this tech's prior work (lower is better)">
+                  Recalls <SortIcon column="recalls_caused" />
                 </th>
                 <th className="text-right relative">
                   <span className="inline-flex items-center gap-1">
@@ -405,6 +424,22 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
                       </button>
                     </td>
                     <td className="text-right">
+                      <button
+                        onClick={(e) => openDrillDown(entry, 'recalls_caused', e)}
+                        className="font-mono metric-link"
+                        title="View recalls caused"
+                        style={{
+                          color: entry.recalls_caused === 0
+                            ? 'var(--status-success)'
+                            : entry.recalls_caused >= 2
+                              ? 'var(--status-error)'
+                              : 'var(--christmas-gold)',
+                        }}
+                      >
+                        {entry.recalls_caused}
+                      </button>
+                    </td>
+                    <td className="text-right">
                       <span
                         className="font-bold text-lg"
                         style={{ color: 'var(--christmas-green-light)' }}
@@ -415,10 +450,10 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
                   </tr>
                   {expandedRow === entry.technician_id && (
                     <tr key={`${entry.technician_id}-detail`}>
-                      <td colSpan={9} style={{ background: 'var(--bg-secondary)', padding: '1rem 1.5rem' }}>
+                      <td colSpan={10} style={{ background: 'var(--bg-secondary)', padding: '1rem 1.5rem' }}>
                         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                           <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Score Breakdown</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
                             <div>
                               <span style={{ color: 'var(--text-muted)' }}>Sales</span>
                               <div className="flex items-baseline gap-1">
@@ -459,6 +494,13 @@ export default function LeaderboardTable({ data, weights, startDate, endDate }: 
                               <div className="flex items-baseline gap-1">
                                 <span className="font-mono">{(entry.score_breakdown.attendance_score * 100).toFixed(1)}</span>
                                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>x {((weights.attendance || 0.15) * 100).toFixed(0)}%</span>
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>Recalls Caused</span>
+                              <div className="flex items-baseline gap-1">
+                                <span className="font-mono">{(entry.score_breakdown.recalls_caused_score * 100).toFixed(1)}</span>
+                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>x {((weights.recalls_caused || 0) * 100).toFixed(0)}%</span>
                               </div>
                             </div>
                           </div>
