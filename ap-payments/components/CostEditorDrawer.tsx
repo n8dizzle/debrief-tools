@@ -122,6 +122,12 @@ export default function CostEditorDrawer({ row, canEdit, onClose, onChanged }: P
           </div>
         ) : (
           <div className="p-4">
+            {row.cost_status === 'contractor_pending' && (
+              <div className="rounded-lg p-3 mb-4 text-xs" style={{ backgroundColor: 'rgba(210,153,34,0.1)', border: '1px solid #d29922', color: '#d29922' }}>
+                No contractor rate entered yet. The margin below excludes contractor labor and matches
+                ServiceTitan&apos;s (overstated) number. Set the payment amount in the Payment Tracker to price this job.
+              </div>
+            )}
             {/* Cost breakdown */}
             <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
               <Row label="Revenue" value={formatCurrency(row.revenue)} strong />

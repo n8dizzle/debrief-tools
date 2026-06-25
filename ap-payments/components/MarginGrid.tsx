@@ -23,7 +23,7 @@ export interface MarginRow {
   contractor_name: string | null;
   completed_date: string | null;
   group: string;
-  cost_status: 'synced' | 'pending';
+  cost_status: 'synced' | 'pending' | 'contractor_pending';
   revenue: number | null;
   stTotalCost: number | null;
   stGrossMargin: number | null;
@@ -75,6 +75,7 @@ function Cell({ children, right, muted }: { children: React.ReactNode; right?: b
 
 function JobRow({ row, onClick }: { row: MarginRow; onClick: () => void }) {
   const subbed = row.assignment_type === 'contractor' && row.contractorLabor > 0;
+  const unpriced = row.cost_status !== 'synced';
   return (
     <tr
       onClick={onClick}
@@ -91,12 +92,13 @@ function JobRow({ row, onClick }: { row: MarginRow; onClick: () => void }) {
       <Cell>
         {subbed && <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(163,113,247,0.15)', color: '#a371f7' }}>subbed</span>}
         {row.cost_status === 'pending' && <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.15)', color: '#d29922' }}>costs pending</span>}
+        {row.cost_status === 'contractor_pending' && <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.15)', color: '#d29922' }}>rate pending</span>}
       </Cell>
-      <Cell right>{row.cost_status === 'pending' ? '—' : formatCurrency(row.revenue)}</Cell>
-      <Cell right muted>{row.cost_status === 'pending' ? '—' : formatCurrency(row.equipmentCost)}</Cell>
-      <Cell right muted>{row.cost_status === 'pending' ? '—' : formatCurrency(row.materialCost)}</Cell>
+      <Cell right>{unpriced ? '—' : formatCurrency(row.revenue)}</Cell>
+      <Cell right muted>{unpriced ? '—' : formatCurrency(row.equipmentCost)}</Cell>
+      <Cell right muted>{unpriced ? '—' : formatCurrency(row.materialCost)}</Cell>
       <Cell right>
-        {row.cost_status === 'pending' ? '—' : (
+        {unpriced ? '—' : (
           <span style={{ color: 'var(--text-secondary)' }}>
             {formatCurrency(row.laborCost)}
             {row.contractorLabor > 0 && (
@@ -105,10 +107,10 @@ function JobRow({ row, onClick }: { row: MarginRow; onClick: () => void }) {
           </span>
         )}
       </Cell>
-      <Cell right>{row.cost_status === 'pending' ? '—' : formatCurrency(row.adjustedTotalCost)}</Cell>
+      <Cell right>{unpriced ? '—' : formatCurrency(row.adjustedTotalCost)}</Cell>
       <Cell right muted>{pct(row.stGrossMarginPct)}</Cell>
       <td className="px-3 py-2 text-sm text-right tabular-nums font-semibold" style={{ color: marginColor(row.adjustedGrossMarginPct), whiteSpace: 'nowrap' }}>
-        {row.cost_status === 'pending' ? '—' : pct(row.adjustedGrossMarginPct)}
+        {unpriced ? '—' : pct(row.adjustedGrossMarginPct)}
       </td>
     </tr>
   );

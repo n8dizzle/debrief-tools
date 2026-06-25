@@ -77,6 +77,10 @@ export interface MarginResult {
 
   /** The contractor payment portion of laborCost (0 for non-contractor jobs). */
   contractorLabor: number;
+  /** True when the job is assigned to a contractor but no payment_amount is set yet.
+   *  Its margin would be ST's overstated number (no labor correction), so callers should
+   *  treat it as not-yet-priced rather than booking the inflated margin. */
+  contractorCostMissing: boolean;
   /** Sum of all active manual adjustments (signed). */
   manualAdjustmentTotal: number;
 
@@ -106,6 +110,8 @@ export function computeAdjustedMargin(
     active.filter((a) => a.bucket === b).reduce((s, a) => s + num(a.amount), 0);
 
   const contractorLabor = job.assignment_type === 'contractor' ? num(job.payment_amount) : 0;
+  const contractorCostMissing =
+    job.assignment_type === 'contractor' && job.payment_amount == null;
   const manualAdjustmentTotal = active.reduce((s, a) => s + num(a.amount), 0);
 
   const stEquip = num(job.st_equipment_cost);
@@ -135,6 +141,7 @@ export function computeAdjustedMargin(
       overheadCost,
       stOtherCost,
       contractorLabor,
+      contractorCostMissing,
       manualAdjustmentTotal,
       adjustedTotalCost: null,
       adjustedGrossMargin: null,
@@ -160,6 +167,7 @@ export function computeAdjustedMargin(
     overheadCost,
     stOtherCost,
     contractorLabor,
+    contractorCostMissing,
     manualAdjustmentTotal,
     adjustedTotalCost,
     adjustedGrossMargin,

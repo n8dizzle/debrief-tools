@@ -87,6 +87,26 @@ describe('computeAdjustedMargin', () => {
     expect(r.adjustedTotalCost).toBe(5750);
   });
 
+  it('contractor with no payment_amount yet: flagged contractorCostMissing (do not book inflated margin)', () => {
+    const r = computeAdjustedMargin(
+      job({ assignment_type: 'contractor', payment_amount: null, st_labor_cost: 31, st_total_cost: 5031 }),
+      []
+    );
+    expect(r.contractorCostMissing).toBe(true);
+    expect(r.contractorLabor).toBe(0);
+    // hasCostData is still true, but the API uses contractorCostMissing to mark the row
+    // 'contractor_pending' and exclude it from priced totals.
+    expect(r.hasCostData).toBe(true);
+  });
+
+  it('contractor WITH payment_amount: not flagged as missing', () => {
+    const r = computeAdjustedMargin(
+      job({ assignment_type: 'contractor', payment_amount: 4000, st_total_cost: 5031 }),
+      []
+    );
+    expect(r.contractorCostMissing).toBe(false);
+  });
+
   it('zero revenue: GM% is null (no divide-by-zero)', () => {
     const r = computeAdjustedMargin(job({ st_revenue: 0 }), []);
     expect(r.revenue).toBe(0);

@@ -113,6 +113,14 @@ export async function GET(request: NextRequest) {
         costs_synced_at: j.costs_synced_at,
       };
       const m = computeAdjustedMargin(input, adjByJob.get(j.id) || []);
+      // A contractor job with no rate entered would show ST's overstated margin (no labor
+      // correction). Mark it 'contractor_pending' so it drops out of priced totals and the
+      // grid shows "—" instead of a misleading number.
+      const cost_status = !m.hasCostData
+        ? 'pending'
+        : m.contractorCostMissing
+        ? 'contractor_pending'
+        : 'synced';
       return {
         id: j.id,
         job_number: j.job_number,
@@ -123,12 +131,12 @@ export async function GET(request: NextRequest) {
         contractor_name: j.contractor?.name || null,
         completed_date: j.completed_date,
         group: groupKey(j),
-        cost_status: m.hasCostData ? 'synced' : 'pending',
+        cost_status,
         ...m,
         adjustments: adjDetailByJob.get(j.id) || [],
       };
     })
-    .filter((r) => includeZeroRevenue || r.cost_status === 'pending' || (r.revenue ?? 0) > 0);
+    .filter((r) => includeZeroRevenue || r.cost_status !== 'synced' || (r.revenue ?? 0) > 0);
 
   // Summary over rows that actually have cost data + revenue.
   const priced = rows.filter((r) => r.cost_status === 'synced' && (r.revenue ?? 0) > 0);
@@ -139,6 +147,7 @@ export async function GET(request: NextRequest) {
     job_count: rows.length,
     priced_count: priced.length,
     pending_count: rows.filter((r) => r.cost_status === 'pending').length,
+    contractor_pending_count: rows.filter((r) => r.cost_status === 'contractor_pending').length,
     total_revenue: totalRevenue,
     total_adjusted_cost: totalAdjCost,
     total_adjusted_gross_margin: totalAdjGM,
@@ -146,6 +155,13 @@ export async function GET(request: NextRequest) {
   };
 
   if (format === 'csv') {
+    // Quote + escape, and neutralize spreadsheet formula injection (names come from
+    // ServiceTitan — a value like "=cmd|..." would execute when opened in Excel/Sheets).
+    const csvText = (v: string | null | undefined) => {
+      let s = (v ?? '').toString();
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
     const headers = [
       'Job #', 'Customer', 'Trade', 'Job Type', 'Assignment', 'Contractor', 'Completed',
       'Group', 'Revenue', 'Equipment', 'Material', 'Labor', 'Other ST', 'Soft Cost', 'Overhead',
@@ -154,14 +170,14 @@ export async function GET(request: NextRequest) {
     ];
     const csvRows = rows.map((r) =>
       [
-        r.job_number,
-        `"${(r.customer_name || '').replace(/"/g, '""')}"`,
+        csvText(r.job_number),
+        csvText(r.customer_name),
         r.trade,
-        `"${(r.job_type || '').replace(/"/g, '""')}"`,
+        csvText(r.job_type),
         r.assignment_type,
-        `"${(r.contractor_name || '').replace(/"/g, '""')}"`,
+        csvText(r.contractor_name),
         r.completed_date || '',
-        `"${(r.group || '').replace(/"/g, '""')}"`,
+        csvText(r.group),
         r.revenue ?? '',
         r.equipmentCost,
         r.materialCost,

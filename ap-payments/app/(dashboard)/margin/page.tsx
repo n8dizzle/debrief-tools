@@ -12,6 +12,7 @@ interface MarginSummary {
   job_count: number;
   priced_count: number;
   pending_count: number;
+  contractor_pending_count: number;
   total_revenue: number;
   total_adjusted_cost: number;
   total_adjusted_gross_margin: number;
@@ -165,9 +166,14 @@ export default function MarginPage() {
         </div>
       )}
 
-      {summary && summary.pending_count > 0 && (
-        <div className="text-xs mb-3" style={{ color: '#d29922' }}>
-          {summary.pending_count} job{summary.pending_count === 1 ? '' : 's'} awaiting ServiceTitan cost sync — excluded from totals.
+      {summary && (summary.pending_count > 0 || summary.contractor_pending_count > 0) && (
+        <div className="text-xs mb-3 space-y-0.5" style={{ color: '#d29922' }}>
+          {summary.pending_count > 0 && (
+            <div>{summary.pending_count} job{summary.pending_count === 1 ? '' : 's'} awaiting ServiceTitan cost sync — excluded from totals.</div>
+          )}
+          {summary.contractor_pending_count > 0 && (
+            <div>{summary.contractor_pending_count} contractor job{summary.contractor_pending_count === 1 ? '' : 's'} with no rate entered yet — excluded from totals until the payment amount is set.</div>
+          )}
         </div>
       )}
 
