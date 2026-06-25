@@ -117,6 +117,18 @@ export interface STGrossPayItem {
   amount: number;
 }
 
+/** One job's aggregated cost buckets from ST report 33240339. Dollar amounts; pct is a fraction. */
+export interface STJobMarginRow {
+  jobNumber: string;
+  revenue: number;
+  equipmentCost: number;
+  materialCost: number;
+  laborCost: number;
+  totalCost: number;
+  grossMargin: number;
+  grossMarginPct: number | null;
+}
+
 interface STPagedResponse<T> {
   data: T[];
   page: number;
@@ -883,9 +895,128 @@ export class ServiceTitanClient {
     return map;
   }
 
+  /**
+   * Pull per-job cost buckets + gross margin from ST report 33240339 ("Job Gross Margin Report",
+   * operations category). Same POST /data mechanism as getInvoiceReport (Report 246).
+   *
+   * The report keys rows by "InvoiceNumber" — but in this tenant that field actually carries the
+   * JOB NUMBER (verified: report 178391695 → ap_install_jobs.job_number 178391695, while the real
+   * st_invoice_id is a different value). So we key the returned map by job_number.
+   *
+   * Multiple rows can share a job_number (adjustment invoices, change orders, split invoices), so
+   * we SUM the dollar buckets per job and recompute the margin % from the aggregated totals.
+   *
+   * Returns Map<job_number, MarginReportRow>.
+   */
+  async getJobMarginReport(
+    from: string, // 'YYYY-MM-DD'
+    to: string, // 'YYYY-MM-DD'
+    businessUnitIds?: number[]
+  ): Promise<Map<string, STJobMarginRow>> {
+    const REPORT_ID = '33240339';
+    const CATEGORY = 'operations';
+
+    type Agg = {
+      revenue: number;
+      equipmentCost: number;
+      materialCost: number;
+      laborCost: number;
+      totalCost: number;
+      grossMargin: number;
+    };
+    const agg = new Map<string, Agg>();
+
+    let page = 1;
+    let hasMore = true;
+    const idx: Record<string, number> = {};
+
+    while (hasMore && page <= 50) {
+      const parameters: { name: string; value: unknown }[] = [
+        { name: 'DateType', value: 1 }, // 1 = completion date (job-date-filter-type)
+        { name: 'From', value: from },
+        { name: 'To', value: to },
+      ];
+      if (businessUnitIds && businessUnitIds.length > 0) {
+        parameters.push({ name: 'BusinessUnitId', value: businessUnitIds });
+      }
+
+      const response = await this.request<{
+        fields: { name: string; label: string }[];
+        data: any[][];
+        hasMore: boolean;
+        page: number;
+        pageSize: number;
+      }>(
+        'POST',
+        `reporting/v2/tenant/${this.tenantId}/report-category/${CATEGORY}/reports/${REPORT_ID}/data`,
+        { body: { parameters, pageSize: 2000, page } }
+      );
+
+      if (page === 1) {
+        (response.fields || []).forEach((f, i) => {
+          idx[f.name] = i;
+        });
+        console.log(`Margin Report 33240339 fields: ${(response.fields || []).map((f) => f.name).join(', ')}`);
+      }
+
+      const get = (row: any[], name: string): number => {
+        const i = idx[name];
+        if (i == null) return 0;
+        const v = parseFloat(row[i]);
+        return isFinite(v) ? v : 0;
+      };
+
+      for (const row of response.data || []) {
+        const jobNumber = idx.InvoiceNumber != null ? String(row[idx.InvoiceNumber] ?? '').trim() : '';
+        if (!jobNumber) continue;
+
+        const existing = agg.get(jobNumber) || {
+          revenue: 0,
+          equipmentCost: 0,
+          materialCost: 0,
+          laborCost: 0,
+          totalCost: 0,
+          grossMargin: 0,
+        };
+        existing.revenue += get(row, 'TotalRevenue');
+        existing.equipmentCost += get(row, 'EquipmentCosts');
+        existing.materialCost += get(row, 'MaterialTotals');
+        existing.laborCost += get(row, 'LaborPay');
+        existing.totalCost += get(row, 'TotalCosts');
+        existing.grossMargin += get(row, 'GrossMargin');
+        agg.set(jobNumber, existing);
+      }
+
+      hasMore = response.hasMore === true;
+      page++;
+    }
+
+    // Recompute margin % from aggregated totals (can't sum per-row percentages).
+    const result = new Map<string, STJobMarginRow>();
+    for (const [jobNumber, a] of agg) {
+      result.set(jobNumber, {
+        jobNumber,
+        revenue: round2(a.revenue),
+        equipmentCost: round2(a.equipmentCost),
+        materialCost: round2(a.materialCost),
+        laborCost: round2(a.laborCost),
+        totalCost: round2(a.totalCost),
+        grossMargin: round2(a.grossMargin),
+        grossMarginPct: a.revenue > 0 ? a.grossMargin / a.revenue : null,
+      });
+    }
+
+    console.log(`Margin Report: ${result.size} jobs (${from} → ${to})`);
+    return result;
+  }
+
   isConfigured(): boolean {
     return !!(this.clientId && this.clientSecret && this.tenantId && this.appKey);
   }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 let _client: ServiceTitanClient | null = null;
