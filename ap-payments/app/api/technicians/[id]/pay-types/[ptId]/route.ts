@@ -14,18 +14,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { ptId } = await params;
   const body = await request.json();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.hourly_rate !== undefined) updates.hourly_rate = body.hourly_rate === null ? null : Number(body.hourly_rate);
-  if (body.percent !== undefined) updates.percent = body.percent === null ? null : Number(body.percent);
-  if (body.flat_amount !== undefined) updates.flat_amount = body.flat_amount === null ? null : Number(body.flat_amount);
-  if (body.default_job_types !== undefined) updates.default_job_types = Array.isArray(body.default_job_types) ? body.default_job_types : [];
+  if (body.hourly_rate !== undefined) updates.hourly_rate = body.hourly_rate === null || body.hourly_rate === '' ? null : Number(body.hourly_rate);
 
   const supabase = getServerSupabase();
   const { data, error } = await supabase
     .from('ap_technician_pay_types')
     .update(updates)
     .eq('id', ptId)
-    .select(`id, technician_id, pay_type_id, hourly_rate, percent, flat_amount, default_job_types,
-             pay_type:ap_pay_types(id, name, method)`)
+    .select(`id, technician_id, pay_type_id, hourly_rate,
+             pay_type:ap_pay_types(id, name, method, percent, flat_amount, default_job_types)`)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

@@ -15,8 +15,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const supabase = getServerSupabase();
   const { data, error } = await supabase
     .from('ap_technician_pay_types')
-    .select(`id, technician_id, pay_type_id, hourly_rate, percent, flat_amount, default_job_types,
-             pay_type:ap_pay_types(id, name, method)`)
+    .select(`id, technician_id, pay_type_id, hourly_rate,
+             pay_type:ap_pay_types(id, name, method, percent, flat_amount, default_job_types)`)
     .eq('technician_id', id)
     .order('created_at', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   const { id } = await params;
   const body = await request.json();
-  const { pay_type_id, hourly_rate, percent, flat_amount, default_job_types } = body;
+  const { pay_type_id, hourly_rate } = body;
   if (!pay_type_id) return NextResponse.json({ error: 'pay_type_id required' }, { status: 400 });
 
   const supabase = getServerSupabase();
@@ -42,12 +42,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       technician_id: id,
       pay_type_id,
       hourly_rate: hourly_rate != null ? Number(hourly_rate) : null,
-      percent: percent != null ? Number(percent) : null,
-      flat_amount: flat_amount != null ? Number(flat_amount) : null,
-      default_job_types: Array.isArray(default_job_types) ? default_job_types : [],
     })
-    .select(`id, technician_id, pay_type_id, hourly_rate, percent, flat_amount, default_job_types,
-             pay_type:ap_pay_types(id, name, method)`)
+    .select(`id, technician_id, pay_type_id, hourly_rate,
+             pay_type:ap_pay_types(id, name, method, percent, flat_amount, default_job_types)`)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 201 });
