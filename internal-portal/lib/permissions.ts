@@ -80,6 +80,7 @@ export interface APPaymentsPermissions {
   can_issue_payments?: boolean;
   can_manage_contractors?: boolean;
   can_sync_data?: boolean;
+  can_view_margin?: boolean;
 }
 
 export interface MembershipManagerPermissions {
@@ -422,6 +423,11 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Manually trigger ServiceTitan sync',
+      },
+      {
+        key: 'can_view_margin',
+        label: 'View gross margin',
+        description: 'View the Gross Margin report (revenue, costs, true margin per job)',
       },
     ],
   },

@@ -410,7 +410,7 @@ can_view_invoices, can_update_invoices, can_log_communications, can_view_reports
 can_view_trackers, can_manage_trackers, can_manage_templates, can_sync_data
 
 // ap_payments
-can_view_jobs, can_manage_assignments, can_manage_payments, can_manage_contractors, can_sync_data
+can_view_jobs, can_manage_assignments, can_manage_payments, can_manage_contractors, can_sync_data, can_view_margin
 
 // membership_manager
 can_view_memberships, can_manage_notes, can_view_reports, can_sync_data
