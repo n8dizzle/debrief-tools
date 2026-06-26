@@ -8,7 +8,7 @@ interface PayType {
   percent: number | null; flat_amount: number | null; default_job_types: string[];
 }
 interface TechPay {
-  id: string; pay_type_id: string; hourly_rate: number | null;
+  id: string; technician_id: string; pay_type_id: string; hourly_rate: number | null;
   pay_type: PayType;
 }
 interface Tech { id: string; name: string; trade?: string | null; }
@@ -69,11 +69,21 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
   const [err, setErr] = useState<string | null>(null);
 
   const loadBase = useCallback(async () => {
-    const [pt, tk, jt] = await Promise.all([fetch('/api/pay-types'), fetch('/api/technicians'), fetch('/api/job-types')]);
+    const [pt, tk, jt, all] = await Promise.all([
+      fetch('/api/pay-types'), fetch('/api/technicians'), fetch('/api/job-types'), fetch('/api/technician-pay-types'),
+    ]);
     setPayTypes(pt.ok ? await pt.json() : []);
     const tks = tk.ok ? await tk.json() : [];
     setTechs((tks || []).map((t: any) => ({ id: t.id, name: t.name, trade: t.trade })));
     setJobTypes(jt.ok ? await jt.json() : []);
+    // Pre-load every tech's pay configs so the tags show without expanding each row.
+    if (all.ok) {
+      const rows: TechPay[] = await all.json();
+      const map: Record<string, TechPay[]> = {};
+      for (const t of (tks || [])) map[t.id] = [];
+      for (const r of rows) (map[r.technician_id] = map[r.technician_id] || []).push(r);
+      setConfigs(map);
+    }
   }, []);
   useEffect(() => { loadBase(); }, [loadBase]);
 
@@ -85,7 +95,6 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
   const toggleTech = (techId: string) => {
     if (expanded === techId) { setExpanded(null); return; }
     setExpanded(techId);
-    if (!configs[techId]) loadConfigs(techId);
   };
 
   // --- Pay type library ---
@@ -199,10 +208,11 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
               <div key={t.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 <div onClick={() => toggleTech(t.id)} className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/5">
                   <div className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.name} <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t.trade || ''}</span></div>
-                  <div className="flex items-center gap-2">
-                    {!open && cfgs.length > 0 && cfgs.slice(0, 3).map(c => (
+                  <div className="flex items-center gap-2 flex-wrap justify-end" style={{ maxWidth: '70%' }}>
+                    {!open && cfgs.length > 0 && cfgs.slice(0, 4).map(c => (
                       <span key={c.id} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>{c.pay_type.name} <b style={{ color: 'var(--text-primary)' }}>{configSummary(c)}</b></span>
                     ))}
+                    {!open && cfgs.length > 4 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>+{cfgs.length - 4}</span>}
                     {!open && configs[t.id] && cfgs.length === 0 && <span className="text-xs" style={{ color: '#d29922' }}>No pay type set</span>}
                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{open ? '▴' : 'Edit ▾'}</span>
                   </div>
