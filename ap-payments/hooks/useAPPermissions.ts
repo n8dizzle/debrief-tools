@@ -25,6 +25,7 @@ export function useAPPermissions() {
   const canIssuePayments = isOwner || !!permissions.can_issue_payments;
   const canManageContractors = isOwner || !!permissions.can_manage_contractors;
   const canSyncData = isOwner || !!permissions.can_sync_data;
+  const canViewMargin = isOwner || !!permissions.can_view_margin;
 
   const userId = user?.id;
 
@@ -44,5 +45,6 @@ export function useAPPermissions() {
     canIssuePayments,
     canManageContractors,
     canSyncData,
+    canViewMargin,
   };
 }
