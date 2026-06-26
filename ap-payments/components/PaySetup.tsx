@@ -102,6 +102,14 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
     const res = await fetch(`/api/pay-types/${id}`, { method: 'DELETE' });
     if (res.ok) setPayTypes(p => p.filter(x => x.id !== id)); else setErr((await res.json()).error);
   };
+  const movePayType = async (index: number, dir: -1 | 1) => {
+    const j = index + dir;
+    if (j < 0 || j >= payTypes.length) return;
+    const next = [...payTypes];
+    [next[index], next[j]] = [next[j], next[index]];
+    setPayTypes(next);
+    await fetch('/api/pay-types/reorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: next.map(p => p.id) }) });
+  };
 
   // --- Per-tech ---
   const addConfig = async (techId: string, payTypeId: string) => {
@@ -129,7 +137,7 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Set the % of revenue, flat amount, and which ST job types each pay type is the default for. (Hourly rate is per technician, below.)</div>
         </div>
         <div>
-          {payTypes.map(pt => (
+          {payTypes.map((pt, i) => (
             <div key={pt.id} className="px-4 py-3 flex items-center gap-3 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
               <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)', minWidth: 150 }}>
                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: methodColor[pt.method] }} />{pt.name}
@@ -147,7 +155,15 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
               )}
               {pt.method === 'hourly' && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>rate set per technician</span>}
               <JobTypePicker all={jobTypes} selected={pt.default_job_types || []} onChange={v => patchPayType(pt, { default_job_types: v })} />
-              {canManage && <button onClick={() => delPayType(pt.id)} className="ml-auto text-sm" style={{ color: 'var(--text-muted)' }}>✕</button>}
+              {canManage && (
+                <div className="ml-auto flex items-center gap-1">
+                  <button onClick={() => movePayType(i, -1)} disabled={i === 0} title="Move up"
+                    className="px-1.5 py-0.5 rounded text-xs" style={{ color: i === 0 ? 'var(--border-subtle)' : 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>▲</button>
+                  <button onClick={() => movePayType(i, 1)} disabled={i === payTypes.length - 1} title="Move down"
+                    className="px-1.5 py-0.5 rounded text-xs" style={{ color: i === payTypes.length - 1 ? 'var(--border-subtle)' : 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>▼</button>
+                  <button onClick={() => delPayType(pt.id)} className="px-1.5 py-0.5 text-sm" style={{ color: 'var(--text-muted)' }} title="Remove">✕</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
