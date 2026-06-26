@@ -17,6 +17,7 @@ export async function GET() {
     .from('ap_technicians')
     .select('*')
     .eq('business_unit_id', 610)
+    .eq('is_active', true)
     .order('name');
 
   if (error) {
@@ -70,7 +71,22 @@ export async function POST(request: NextRequest) {
       if (!error) synced++;
     }
 
-    return NextResponse.json({ success: true, synced, total: stTechnicians.length });
+    // Reconcile: ServiceTitan's technicians endpoint only returns ACTIVE techs, so anyone
+    // deactivated/terminated drops out of the response. Flag any tech not in the active set
+    // as inactive so they stop showing in the list.
+    let deactivated = 0;
+    const activeIds = stTechnicians.map((t) => t.id).filter((id) => id != null);
+    if (activeIds.length > 0) {
+      const { data: deact } = await supabase
+        .from('ap_technicians')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('is_active', true)
+        .not('st_technician_id', 'in', `(${activeIds.join(',')})`)
+        .select('id');
+      deactivated = deact?.length || 0;
+    }
+
+    return NextResponse.json({ success: true, synced, deactivated, total: stTechnicians.length });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
