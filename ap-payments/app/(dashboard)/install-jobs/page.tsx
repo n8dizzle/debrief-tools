@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
-import { formatDate } from '@/lib/ap-utils';
+import { formatDate, formatCurrency } from '@/lib/ap-utils';
 import CrewDrawer, { InstallJobRow } from '@/components/CrewDrawer';
 
 function monthToDate(): DateRange {
@@ -21,10 +21,8 @@ type AssignFilter = 'all' | 'unassigned' | 'assigned';
 export default function InstallJobsPage() {
   const perms = useAPPermissions();
   const [range, setRange] = useState<DateRange>(monthToDate());
-  const [trade, setTrade] = useState<'all' | 'hvac' | 'plumbing'>('all');
   const [assignFilter, setAssignFilter] = useState<AssignFilter>('all');
   const [search, setSearch] = useState('');
-  const [businessUnit, setBusinessUnit] = useState('');
   const [rows, setRows] = useState<InstallJobRow[]>([]);
   const [technicians, setTechnicians] = useState<{ id: string; name: string }[]>([]);
   const [contractors, setContractors] = useState<{ id: string; name: string }[]>([]);
@@ -36,7 +34,6 @@ export default function InstallJobsPage() {
     setLoading(true); setError(null);
     try {
       const p = new URLSearchParams({ start: range.start, end: range.end });
-      if (trade !== 'all') p.set('trade', trade);
       const [jobsRes, techRes, conRes] = await Promise.all([
         fetch(`/api/install-jobs?${p.toString()}`),
         fetch('/api/technicians'),
@@ -52,7 +49,7 @@ export default function InstallJobsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load install jobs');
     } finally { setLoading(false); }
-  }, [range, trade]);
+  }, [range]);
 
   useEffect(() => { if (!perms.isLoading) load(); }, [load, perms.isLoading]);
 
@@ -63,21 +60,15 @@ export default function InstallJobsPage() {
     if (updated && updated !== drawerJob) setDrawerJob(updated);
   }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const buOptions = useMemo(
-    () => Array.from(new Set(rows.map(r => r.business_unit).filter(Boolean))).sort() as string[],
-    [rows]
-  );
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
       if (q && !(`${r.job_number}`.toLowerCase().includes(q) || (r.customer_name || '').toLowerCase().includes(q))) return false;
-      if (businessUnit && r.business_unit !== businessUnit) return false;
       if (assignFilter === 'unassigned' && r.assignments.length > 0) return false;
       if (assignFilter === 'assigned' && r.assignments.length === 0) return false;
       return true;
     });
-  }, [rows, search, businessUnit, assignFilter]);
+  }, [rows, search, assignFilter]);
 
   const unassignedCount = useMemo(() => filtered.filter(r => r.assignments.length === 0).length, [filtered]);
 
@@ -89,8 +80,13 @@ export default function InstallJobsPage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">
-      <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Install Jobs</h1>
-      <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Assign technicians and subcontractors to install jobs from ServiceTitan.</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Install Jobs</h1>
+        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install only</span>
+      </div>
+      <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+        Assign technicians and subcontractors to HVAC Install jobs from ServiceTitan. (Scoped to the HVAC&nbsp;-&nbsp;Install business unit.)
+      </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-4">
         <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" />
@@ -104,20 +100,6 @@ export default function InstallJobsPage() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-          {(['all', 'hvac', 'plumbing'] as const).map(t => (
-            <button key={t} onClick={() => setTrade(t)} className="px-3 py-1 rounded text-sm capitalize"
-              style={{ backgroundColor: trade === t ? 'var(--christmas-green)' : 'transparent', color: trade === t ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
-              {t === 'all' ? 'All' : t}
-            </button>
-          ))}
-        </div>
-        {buOptions.length > 0 && (
-          <select value={businessUnit} onChange={e => setBusinessUnit(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={selectStyle}>
-            <option value="">All business units</option>
-            {buOptions.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-        )}
       </div>
 
       <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -136,9 +118,13 @@ export default function InstallJobsPage() {
           <table className="w-full min-w-[760px]">
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                {['Job #', 'Customer', 'Type', 'Completed', 'Assigned To', ''].map((h, i) => (
-                  <th key={i} className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-left"
-                    style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap', width: i === 4 ? '38%' : undefined }}>{h}</th>
+                {([
+                  { l: 'Job #', a: 'left' }, { l: 'Customer', a: 'left' }, { l: 'Type', a: 'left' },
+                  { l: 'Completed', a: 'left' }, { l: 'Invoice $', a: 'right' },
+                  { l: 'Assigned To', a: 'left', w: '34%' }, { l: '', a: 'right' },
+                ] as { l: string; a: 'left' | 'right'; w?: string }[]).map((h, i) => (
+                  <th key={i} className="px-3 py-2 text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap', textAlign: h.a, width: h.w }}>{h.l}</th>
                 ))}
               </tr>
             </thead>
@@ -154,6 +140,9 @@ export default function InstallJobsPage() {
                   <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{r.customer_name || '—'}</td>
                   <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.job_type || '—'}</td>
                   <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.completed_date ? formatDate(r.completed_date) : '—'}</td>
+                  <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                    {r.invoice_amount != null ? formatCurrency(r.invoice_amount) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                  </td>
                   <td className="px-3 py-2.5">
                     {r.assignments.length === 0 ? (
                       <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.13)', color: '#d29922' }}>Unassigned</span>

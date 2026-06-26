@@ -19,6 +19,7 @@ export interface InstallJobRow {
   job_type: string | null;
   business_unit: string | null;
   completed_date: string | null;
+  invoice_amount: number | null;
   assignments: Assignment[];
 }
 interface Opt { id: string; name: string }
