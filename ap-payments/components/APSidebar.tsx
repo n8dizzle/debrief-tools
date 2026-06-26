@@ -9,6 +9,7 @@ const mainLinks = [
   { href: '/', label: 'Dashboard', icon: 'home' },
   { href: '/board', label: 'Payment Board', icon: 'board' },
   { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase' },
+  { href: '/install-jobs', label: 'Install Jobs', icon: 'clipboard' },
   { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const },
   { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const },
   { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const },
@@ -53,6 +54,11 @@ function NavIcon({ type }: { type: string }) {
     chart: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3v18h18M7 14l4-4 3 3 5-6" />
+      </svg>
+    ),
+    clipboard: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
       </svg>
     ),
     arrow: (
