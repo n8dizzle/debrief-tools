@@ -72,7 +72,21 @@ export async function POST(request: NextRequest) {
             { onConflict: 'st_technician_id', ignoreDuplicates: false }
           );
       }
-      console.log(`Synced ${stTechnicians.length} technicians`);
+      // Reconcile: ST only returns ACTIVE techs, so deactivated/terminated ones drop out of
+      // the response and would otherwise stay is_active=true forever. Flag anyone not in the
+      // active set as inactive so they auto-disappear from the technicians list.
+      const activeIds = stTechnicians.map(t => t.id).filter(id => id != null);
+      if (activeIds.length > 0) {
+        const { data: deact } = await supabase
+          .from('ap_technicians')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq('is_active', true)
+          .not('st_technician_id', 'in', `(${activeIds.join(',')})`)
+          .select('id');
+        console.log(`Synced ${stTechnicians.length} technicians, deactivated ${deact?.length || 0}`);
+      } else {
+        console.log(`Synced ${stTechnicians.length} technicians`);
+      }
     }
 
     // Build technician lookup: st_technician_id → { id, hourly_rate }
