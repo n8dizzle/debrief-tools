@@ -5,6 +5,7 @@ import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatTimestamp, formatCurrency } from '@/lib/ap-utils';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VARIABLES } from '@/lib/notification-templates';
 import type { APTechnician } from '@/lib/supabase';
+import PaySetup from '@/components/PaySetup';
 
 function TestSMSForm() {
   const [phone, setPhone] = useState('');
@@ -270,10 +271,10 @@ function detectTrade(buName: string): 'hvac' | 'plumbing' {
   return buName.toLowerCase().includes('plumb') ? 'plumbing' : 'hvac';
 }
 
-type SettingsTab = 'sync' | 'technicians' | 'trade-mapping' | 'notifications';
+type SettingsTab = 'sync' | 'technicians' | 'pay' | 'trade-mapping' | 'notifications';
 
 export default function SettingsPage() {
-  const { isManager, isOwner, canSyncData } = useAPPermissions();
+  const { isManager, isOwner, canSyncData, canManageContractors } = useAPPermissions();
   const [activeTab, setActiveTab] = useState<SettingsTab>('sync');
 
   // BU → Trade mapping state
@@ -847,6 +848,7 @@ export default function SettingsPage() {
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: 'sync', label: 'Data Sync' },
     { id: 'technicians', label: 'Technicians' },
+    { id: 'pay', label: 'Technician Pay' },
     { id: 'trade-mapping', label: 'Trade Mapping' },
     { id: 'notifications', label: 'Notifications' },
   ];
@@ -879,6 +881,9 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {/* Technician Pay Tab */}
+      {activeTab === 'pay' && <PaySetup canManage={canManageContractors} />}
 
       {/* Data Sync Tab */}
       {activeTab === 'sync' && (
