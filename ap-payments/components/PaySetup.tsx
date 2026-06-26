@@ -139,8 +139,15 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
         <div>
           {payTypes.map((pt, i) => (
             <div key={pt.id} className="px-4 py-3 flex items-center gap-3 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)', minWidth: 150 }}>
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: methodColor[pt.method] }} />{pt.name}
+              <span className="inline-flex items-center gap-2 text-sm" style={{ minWidth: 150 }}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: methodColor[pt.method] }} />
+                {canManage ? (
+                  <input defaultValue={pt.name}
+                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== pt.name) patchPayType(pt, { name: v } as any); }}
+                    className="rounded px-2 py-1 text-sm font-medium" style={{ ...ctl, width: 150 }} title="Rename pay type" />
+                ) : (
+                  <span style={{ color: 'var(--text-primary)' }}>{pt.name}</span>
+                )}
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{methodLabel[pt.method]}</span>
               </span>
               {usesPercent(pt.method) && (
