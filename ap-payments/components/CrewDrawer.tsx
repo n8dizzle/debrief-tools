@@ -251,6 +251,10 @@ export default function CrewDrawer({
                 const configs = configsFor(a);
                 const cfg = configs.find(c => c.pay_type_id === st.payTypeId);
                 const frozen = a.pay_type_id != null && a.pay_amount != null;
+                // Stale = the saved amount no longer matches what current rates/revenue would produce.
+                // (Rate edited in Settings, or ST revenue settled after the invoice.) Opt-in only.
+                const recalcAmt = frozen && cfg ? calc(cfg, st.hours) : '';
+                const stale = frozen && recalcAmt !== '' && recalcAmt !== String(a.pay_amount);
                 return (
                   <div key={a.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between">
@@ -297,6 +301,17 @@ export default function CrewDrawer({
                             </span>
                           )}
                         </div>
+                        {stale && canEdit && (
+                          <div className="flex items-center justify-between rounded-md px-2 py-1.5" style={{ backgroundColor: 'rgba(210,153,34,0.12)' }}>
+                            <span className="text-[11px]" style={{ color: '#d29922' }}>
+                              Rates changed: {formatCurrency(a.pay_amount)} → <span className="font-semibold">{formatCurrency(Number(recalcAmt))}</span>
+                            </span>
+                            <button onClick={() => setPay(p => ({ ...p, [a.id]: { ...p[a.id], amount: recalcAmt } }))} disabled={busy}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.22)', color: '#d29922' }}>
+                              Recalculate
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
