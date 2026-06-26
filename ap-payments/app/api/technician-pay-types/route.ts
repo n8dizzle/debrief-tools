@@ -11,7 +11,11 @@ import { hasAPPermission } from '@/lib/ap-utils';
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!hasAPPermission(session, 'can_manage_contractors')) {
+  // Used by both the Pay setup (manage contractors) and the Install Jobs drawer (assigners
+  // who pick a pay type per tech). Viewing comp config is fine for anyone who can manage jobs.
+  if (!hasAPPermission(session, 'can_manage_contractors') &&
+      !hasAPPermission(session, 'can_manage_assignments') &&
+      !hasAPPermission(session, 'can_view_jobs')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const supabase = getServerSupabase();

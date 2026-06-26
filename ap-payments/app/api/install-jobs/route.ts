@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { data: assignments } = await supabase
       .from('ap_job_assignments')
       .select(`
-        id, job_id, assignee_type, technician_id, contractor_id, pay_amount,
+        id, job_id, assignee_type, technician_id, contractor_id, pay_amount, pay_type_id, pay_basis,
         technician:ap_technicians(name), contractor:ap_contractors(name)
       `)
       .in('job_id', jobIds)
@@ -66,6 +66,8 @@ export async function GET(request: NextRequest) {
         contractor_id: a.contractor_id,
         name: a.assignee_type === 'technician' ? a.technician?.name : a.contractor?.name,
         pay_amount: a.pay_amount,
+        pay_type_id: a.pay_type_id,
+        pay_basis: a.pay_basis,
       });
       byJob.set(a.job_id, list);
     }

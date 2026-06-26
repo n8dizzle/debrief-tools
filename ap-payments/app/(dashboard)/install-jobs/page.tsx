@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatDate, formatCurrency } from '@/lib/ap-utils';
-import CrewDrawer, { InstallJobRow } from '@/components/CrewDrawer';
+import CrewDrawer, { InstallJobRow, TechPayConfig } from '@/components/CrewDrawer';
 
 function monthToDate(): DateRange {
   const now = new Date();
@@ -26,6 +26,7 @@ export default function InstallJobsPage() {
   const [rows, setRows] = useState<InstallJobRow[]>([]);
   const [technicians, setTechnicians] = useState<{ id: string; name: string }[]>([]);
   const [contractors, setContractors] = useState<{ id: string; name: string }[]>([]);
+  const [payConfigsByTech, setPayConfigsByTech] = useState<Record<string, TechPayConfig[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerJob, setDrawerJob] = useState<InstallJobRow | null>(null);
@@ -34,10 +35,11 @@ export default function InstallJobsPage() {
     setLoading(true); setError(null);
     try {
       const p = new URLSearchParams({ start: range.start, end: range.end });
-      const [jobsRes, techRes, conRes] = await Promise.all([
+      const [jobsRes, techRes, conRes, payRes] = await Promise.all([
         fetch(`/api/install-jobs?${p.toString()}`),
         fetch('/api/technicians'),
         fetch('/api/contractors'),
+        fetch('/api/technician-pay-types'),
       ]);
       if (!jobsRes.ok) { const j = await jobsRes.json().catch(() => ({})); throw new Error(j.error || `Failed (${jobsRes.status})`); }
       const jobs = await jobsRes.json();
@@ -46,6 +48,22 @@ export default function InstallJobsPage() {
       setTechnicians((techs || []).map((t: any) => ({ id: t.id, name: t.name })));
       const cons = conRes.ok ? await conRes.json() : [];
       setContractors((cons || []).filter((c: any) => c.is_active !== false).map((c: any) => ({ id: c.id, name: c.name })));
+      const payCfgs = payRes.ok ? await payRes.json() : [];
+      const byTech: Record<string, TechPayConfig[]> = {};
+      for (const c of (payCfgs || []) as any[]) {
+        const pt = Array.isArray(c.pay_type) ? c.pay_type[0] : c.pay_type;
+        if (!pt) continue;
+        (byTech[c.technician_id] ||= []).push({
+          pay_type_id: pt.id,
+          name: pt.name,
+          method: pt.method,
+          percent: pt.percent,
+          flat_amount: pt.flat_amount,
+          default_job_types: pt.default_job_types || [],
+          hourly_rate: c.hourly_rate,
+        });
+      }
+      setPayConfigsByTech(byTech);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load install jobs');
     } finally { setLoading(false); }
@@ -156,9 +174,18 @@ export default function InstallJobsPage() {
                               <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold"
                                 style={{ backgroundColor: isTech ? 'rgba(58,143,87,.3)' : 'rgba(163,113,247,.3)' }}>{initials(a.name)}</span>
                               {a.name || '—'}
+                              {a.pay_amount != null && (
+                                <span className="tabular-nums font-semibold" style={{ opacity: 0.85 }}>· {formatCurrency(a.pay_amount)}</span>
+                              )}
                             </span>
                           );
                         })}
+                        {(() => {
+                          const paid = r.assignments.filter(a => a.pay_amount != null);
+                          if (paid.length < 2) return null;
+                          const total = paid.reduce((s, a) => s + (a.pay_amount || 0), 0);
+                          return <span className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Crew pay: <span className="tabular-nums font-semibold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(total)}</span></span>;
+                        })()}
                       </div>
                     )}
                   </td>
@@ -178,6 +205,7 @@ export default function InstallJobsPage() {
       )}
 
       <CrewDrawer job={drawerJob} technicians={technicians} contractors={contractors}
+        payConfigsByTech={payConfigsByTech}
         canEdit={perms.canManageAssignments} onClose={() => setDrawerJob(null)} onChanged={load} />
     </div>
   );
