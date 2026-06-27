@@ -155,7 +155,7 @@ export default function InstallJobsPage() {
       render: r => {
         const l = laborOf(r);
         if (l == null || !r.invoice_amount || r.invoice_amount <= 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
-        return <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{Math.round((l / r.invoice_amount) * 100)}%</span>;
+        return <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{((l / r.invoice_amount) * 100).toFixed(1)}%</span>;
       },
     },
     {
