@@ -13,6 +13,7 @@ const mainLinks = [
   { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const },
   { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const },
   { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const },
+  { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const },
   { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canSyncData' as const },
 ];
 
