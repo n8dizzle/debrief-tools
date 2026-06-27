@@ -5,6 +5,13 @@ import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatDate, formatCurrency } from '@/lib/ap-utils';
 import CrewDrawer, { InstallJobRow, TechPayConfig, SubRate } from '@/components/CrewDrawer';
+import AdminTable, { AdminColumn } from '@/components/AdminTable';
+
+/** Sum of confirmed pay across a job's crew, or null if nobody is paid yet. */
+function laborOf(r: InstallJobRow): number | null {
+  const paid = r.assignments.filter(a => a.pay_amount != null);
+  return paid.length ? paid.reduce((s, a) => s + (a.pay_amount || 0), 0) : null;
+}
 
 function monthToDate(): DateRange {
   const now = new Date();
@@ -101,6 +108,87 @@ export default function InstallJobsPage() {
 
   const unassignedCount = useMemo(() => filtered.filter(r => r.assignments.length === 0).length, [filtered]);
 
+  const columns = useMemo<AdminColumn<InstallJobRow>[]>(() => [
+    {
+      key: 'job_number', label: 'Job #', sortable: true, width: 95,
+      sortValue: r => { const n = Number(r.job_number); return isNaN(n) ? r.job_number : n; },
+      searchValue: r => r.job_number,
+      render: r => r.st_job_id ? (
+        <a href={`https://go.servicetitan.com/#/Job/Index/${r.st_job_id}`} target="_blank" rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()} className="hover:underline font-semibold" style={{ color: 'var(--christmas-green)', whiteSpace: 'nowrap' }}>{r.job_number}</a>
+      ) : <span style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>{r.job_number}</span>,
+    },
+    {
+      key: 'customer', label: 'Customer', sortable: true, width: 170,
+      sortValue: r => (r.customer_name || '').toLowerCase(),
+      searchValue: r => r.customer_name || '',
+      render: r => <span className="truncate block" style={{ color: 'var(--text-primary)' }} title={r.customer_name || ''}>{r.customer_name || '—'}</span>,
+    },
+    {
+      key: 'job_type', label: 'Type', sortable: true, width: 150,
+      sortValue: r => (r.job_type || '').toLowerCase(),
+      searchValue: r => r.job_type || '',
+      render: r => <span className="truncate block" style={{ color: 'var(--text-secondary)' }} title={r.job_type || ''}>{r.job_type || '—'}</span>,
+    },
+    {
+      key: 'completed', label: 'Completed', sortable: true, width: 110,
+      sortValue: r => r.completed_date || '',
+      render: r => <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.completed_date ? formatDate(r.completed_date) : '—'}</span>,
+    },
+    {
+      key: 'invoice', label: 'Invoice $', sortable: true, align: 'right', width: 110,
+      sortValue: r => r.invoice_amount ?? -1,
+      render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.invoice_amount != null ? formatCurrency(r.invoice_amount) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
+    },
+    {
+      key: 'labor', label: 'Labor Cost', sortable: true, align: 'right', width: 120,
+      sortValue: r => laborOf(r) ?? -1,
+      render: r => {
+        const labor = laborOf(r);
+        if (labor == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        const pct = r.invoice_amount && r.invoice_amount > 0 ? (labor / r.invoice_amount) * 100 : null;
+        return (
+          <div className="flex flex-col items-end">
+            <span className="tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(labor)}</span>
+            {pct != null && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{Math.round(pct)}% of inv</span>}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'assigned', label: 'Assigned To', width: 280,
+      render: r => r.assignments.length === 0 ? (
+        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.13)', color: '#d29922' }}>Unassigned</span>
+      ) : (
+        <div className="flex flex-col gap-1.5 items-start">
+          {r.assignments.map(a => {
+            const isTech = a.type === 'technician';
+            return (
+              <span key={a.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs"
+                style={{ backgroundColor: isTech ? 'rgba(58,143,87,.16)' : 'rgba(163,113,247,.16)', color: isTech ? '#6fd394' : '#a371f7', maxWidth: '100%' }}>
+                <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                  style={{ backgroundColor: isTech ? 'rgba(58,143,87,.3)' : 'rgba(163,113,247,.3)' }}>{initials(a.name)}</span>
+                <span className="truncate">{a.name || '—'}</span>
+                {a.pay_amount != null && <span className="tabular-nums font-semibold flex-shrink-0" style={{ opacity: 0.85 }}>· {formatCurrency(a.pay_amount)}</span>}
+              </span>
+            );
+          })}
+        </div>
+      ),
+    },
+    {
+      key: 'actions', label: '', align: 'right', width: 90, minWidth: 80,
+      render: r => (
+        <button onClick={e => { e.stopPropagation(); setDrawerJob(r); }} className="rounded-lg px-3 py-1.5 text-xs font-medium"
+          style={r.assignments.length === 0
+            ? { backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }
+            : { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+          {r.assignments.length === 0 ? '+ Assign' : 'Edit'}
+        </button>
+      ),
+    },
+  ], []);
+
   if (!perms.isLoading && !perms.canViewJobs) {
     return <div className="p-8 text-sm" style={{ color: 'var(--text-muted)' }}>You don&apos;t have permission to view install jobs.</div>;
   }
@@ -140,80 +228,20 @@ export default function InstallJobsPage() {
 
       {loading ? (
         <div className="rounded-lg p-8 text-center text-sm" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>Loading…</div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-lg p-8 text-center text-sm" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>No install jobs match these filters.</div>
       ) : (
-        <div className="rounded-lg overflow-x-auto" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-          <table className="w-full min-w-[760px]">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                {([
-                  { l: 'Job #', a: 'left' }, { l: 'Customer', a: 'left' }, { l: 'Type', a: 'left' },
-                  { l: 'Completed', a: 'left' }, { l: 'Invoice $', a: 'right' },
-                  { l: 'Assigned To', a: 'left', w: '34%' }, { l: '', a: 'right' },
-                ] as { l: string; a: 'left' | 'right'; w?: string }[]).map((h, i) => (
-                  <th key={i} className="px-3 py-2 text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap', textAlign: h.a, width: h.w }}>{h.l}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => (
-                <tr key={r.id} onClick={() => setDrawerJob(r)} className="cursor-pointer hover:bg-white/5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <td className="px-3 py-2.5 text-sm" style={{ whiteSpace: 'nowrap' }}>
-                    {r.st_job_id ? (
-                      <a href={`https://go.servicetitan.com/#/Job/Index/${r.st_job_id}`} target="_blank" rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()} className="hover:underline font-semibold" style={{ color: 'var(--christmas-green)' }}>{r.job_number}</a>
-                    ) : <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{r.job_number}</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{r.customer_name || '—'}</td>
-                  <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.job_type || '—'}</td>
-                  <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.completed_date ? formatDate(r.completed_date) : '—'}</td>
-                  <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                    {r.invoice_amount != null ? formatCurrency(r.invoice_amount) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {r.assignments.length === 0 ? (
-                      <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.13)', color: '#d29922' }}>Unassigned</span>
-                    ) : (
-                      <div className="flex flex-col gap-1.5 items-start">
-                        {r.assignments.map(a => {
-                          const isTech = a.type === 'technician';
-                          return (
-                            <span key={a.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs"
-                              style={{ backgroundColor: isTech ? 'rgba(58,143,87,.16)' : 'rgba(163,113,247,.16)', color: isTech ? '#6fd394' : '#a371f7' }}>
-                              <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold"
-                                style={{ backgroundColor: isTech ? 'rgba(58,143,87,.3)' : 'rgba(163,113,247,.3)' }}>{initials(a.name)}</span>
-                              {a.name || '—'}
-                              {a.pay_amount != null && (
-                                <span className="tabular-nums font-semibold" style={{ opacity: 0.85 }}>· {formatCurrency(a.pay_amount)}</span>
-                              )}
-                            </span>
-                          );
-                        })}
-                        {(() => {
-                          const paid = r.assignments.filter(a => a.pay_amount != null);
-                          if (paid.length < 2) return null;
-                          const total = paid.reduce((s, a) => s + (a.pay_amount || 0), 0);
-                          return <span className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Crew pay: <span className="tabular-nums font-semibold" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(total)}</span></span>;
-                        })()}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right" style={{ whiteSpace: 'nowrap' }}>
-                    <button onClick={e => { e.stopPropagation(); setDrawerJob(r); }} className="rounded-lg px-3 py-1.5 text-xs font-medium"
-                      style={r.assignments.length === 0
-                        ? { backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }
-                        : { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                      {r.assignments.length === 0 ? '+ Assign' : 'Edit'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable<InstallJobRow>
+          tableId="install-jobs"
+          columns={columns}
+          rows={filtered}
+          rowKey={r => r.id}
+          onRowClick={r => setDrawerJob(r)}
+          showSearch={false}
+          emptyMessage="No install jobs match these filters."
+        />
       )}
+      <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
+        Drag a column header to reorder · drag its right edge to resize · click a sortable header to sort.
+      </p>
 
       <CrewDrawer job={drawerJob} technicians={technicians} contractors={contractors}
         payConfigsByTech={payConfigsByTech} subRatesByContractor={subRatesByContractor}
