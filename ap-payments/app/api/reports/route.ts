@@ -42,17 +42,17 @@ export async function GET(request: NextRequest) {
       payment_paid_at,
       payment_paid_by,
       invoice_source,
-      completed_on,
+      completed_date,
       contractor:ap_contractors(name),
       approver:portal_users!ap_install_jobs_payment_approved_by_fkey(name, email),
       payer:portal_users!ap_install_jobs_payment_paid_by_fkey(name, email)
     `)
     .in('assignment_type', ['contractor'])
     .not('payment_status', 'eq', 'none')
-    .order('completed_on', { ascending: false });
+    .order('completed_date', { ascending: false });
 
-  if (startDate) query = query.gte('completed_on', startDate);
-  if (endDate) query = query.lte('completed_on', endDate);
+  if (startDate) query = query.gte('completed_date', startDate);
+  if (endDate) query = query.lte('completed_date', endDate);
   if (contractorId) query = query.eq('contractor_id', contractorId);
   if (paymentStatus) query = query.eq('payment_status', paymentStatus);
   if (trade) query = query.eq('trade', trade);
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     payment_amount: row.payment_amount,
     invoice_source: row.invoice_source,
     payment_notes: row.payment_notes || '',
-    completed_on: row.completed_on,
+    completed_on: row.completed_date,
     approved_by: row.approver?.name || row.approver?.email || '',
     approved_at: row.payment_approved_at || '',
     paid_by: row.payer?.name || row.payer?.email || '',
