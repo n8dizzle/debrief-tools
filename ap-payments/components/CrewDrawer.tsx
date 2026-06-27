@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { computeTechPay, payBasisLabel, PayMethod, TechPayInput } from '@/lib/techpay';
+import { computeTechPay, payBasisLabel, PayMethod, findSubRate, subRateToInput, moneySame } from '@/lib/techpay';
 import { formatCurrency } from '@/lib/ap-utils';
 
 export interface Assignment {
@@ -49,9 +49,6 @@ function initials(name: string | null): string {
   const p = name.trim().split(/\s+/);
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || name[0].toUpperCase();
 }
-function sameCI(a: string | null | undefined, b: string | null | undefined): boolean {
-  return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
-}
 function cfgHint(c: TechPayConfig): string {
   switch (c.method) {
     case 'percent': return c.percent != null ? `${c.percent}%` : '% — not set';
@@ -64,20 +61,6 @@ function cfgHint(c: TechPayConfig): string {
 function needsHours(method: PayMethod | undefined): boolean {
   return method === 'hourly' || method === 'combo';
 }
-// Find a sub's rate: prefer an exact job-type rate, else fall back to the trade-wide
-// default ('*'). Lets a sub have one "12% on all HVAC jobs" rate plus per-type overrides.
-function findSubRate(rates: SubRate[], trade: string | null, jobType: string | null): SubRate | undefined {
-  const tradeRates = rates.filter(r => sameCI(r.trade, trade));
-  return tradeRates.find(r => r.job_type_name !== '*' && sameCI(r.job_type_name, jobType))
-      || tradeRates.find(r => r.job_type_name === '*');
-}
-// A subcontractor rate maps onto the same compute fn as a percent/flat pay type.
-function rateToInput(r: SubRate, revenue: number | null): TechPayInput {
-  return r.rate_type === 'percent'
-    ? { method: 'percent', percent: r.rate_amount, flat_amount: null, hourly_rate: null, hours: null, revenue }
-    : { method: 'flat', percent: null, flat_amount: r.rate_amount, hourly_rate: null, hours: null, revenue };
-}
-
 export default function CrewDrawer({
   job, technicians, contractors, payConfigsByTech, subRatesByContractor, canEdit, onClose, onChanged,
 }: {
@@ -129,7 +112,7 @@ export default function CrewDrawer({
           } else {
             const rates = subRatesByContractor[a.contractor_id || ''] || [];
             const r = findSubRate(rates, job.trade, job.job_type);
-            const res = r ? computeTechPay(rateToInput(r, job.invoice_amount)) : { amount: null };
+            const res = r ? computeTechPay(subRateToInput(r, job.invoice_amount)) : { amount: null };
             next[a.id] = { payTypeId: '', hours: '', amount: res.amount != null ? String(res.amount) : '' };
           }
         }
@@ -160,7 +143,7 @@ export default function CrewDrawer({
     findSubRate(subRatesByContractor[a.contractor_id || ''] || [], theJob.trade, theJob.job_type);
   const subCalc = (r: SubRate | undefined): string => {
     if (!r) return '';
-    const res = computeTechPay(rateToInput(r, theJob.invoice_amount));
+    const res = computeTechPay(subRateToInput(r, theJob.invoice_amount));
     return res.amount != null ? String(res.amount) : '';
   };
 
@@ -215,7 +198,7 @@ export default function CrewDrawer({
   const rowDirty = (a: Assignment): boolean => {
     const st = pay[a.id]; if (!st) return false;
     const typeChanged = a.type === 'technician' && (a.pay_type_id ?? '') !== (st.payTypeId ?? '');
-    const amountChanged = String(a.pay_amount ?? '') !== (st.amount ?? '');
+    const amountChanged = !moneySame(st.amount, a.pay_amount);
     return typeChanged || amountChanged;
   };
   const dirty = theJob.assignments.some(rowDirty);
@@ -316,7 +299,7 @@ export default function CrewDrawer({
                 const cfg = configs.find(c => c.pay_type_id === st.payTypeId);
                 const frozen = a.pay_type_id != null && a.pay_amount != null;
                 const recalcAmt = frozen && cfg ? calc(cfg, st.hours) : '';
-                const stale = frozen && recalcAmt !== '' && recalcAmt !== String(a.pay_amount);
+                const stale = frozen && recalcAmt !== '' && !moneySame(recalcAmt, a.pay_amount);
                 return (
                   <div key={a.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between">
@@ -376,7 +359,7 @@ export default function CrewDrawer({
                 const rate = matchSubRate(a);
                 const frozen = a.pay_amount != null;
                 const recalcAmt = frozen && rate ? subCalc(rate) : '';
-                const stale = frozen && recalcAmt !== '' && recalcAmt !== String(a.pay_amount);
+                const stale = frozen && recalcAmt !== '' && !moneySame(recalcAmt, a.pay_amount);
                 return (
                   <div key={a.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between">

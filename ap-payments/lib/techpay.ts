@@ -74,6 +74,52 @@ export function computeTechPay(input: TechPayInput): TechPayResult {
   }
 }
 
+/** A contractor rate-card row, reduced to what pay computation needs. */
+export interface SubRateInput {
+  trade: string;
+  job_type_name: string;
+  rate_amount: number;
+  rate_type: 'flat' | 'percent';
+}
+
+/** Case-insensitive, trim-tolerant string compare (ServiceTitan trade/type casing varies). */
+export function sameCI(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+}
+
+/**
+ * Find a sub's rate for a job: prefer an exact job-type match, else fall back to the
+ * trade-wide default ('*'). Lets a sub have one "12% on all HVAC jobs" rate plus
+ * per-type overrides. Generic so callers can pass their fuller rate shape.
+ */
+export function findSubRate<T extends { trade: string; job_type_name: string }>(
+  rates: T[], trade: string | null, jobType: string | null
+): T | undefined {
+  const tradeRates = rates.filter(r => sameCI(r.trade, trade));
+  return tradeRates.find(r => r.job_type_name !== '*' && sameCI(r.job_type_name, jobType))
+      || tradeRates.find(r => r.job_type_name === '*');
+}
+
+/**
+ * Compare a money input string against a stored number, to the cent. Treats '' and
+ * null as "empty" (equal to each other). Avoids string-equality foot-guns when the
+ * DB serializes numeric as "500.00" vs the input's "500".
+ */
+export function moneySame(amountStr: string | null | undefined, saved: number | null | undefined): boolean {
+  const aEmpty = amountStr === '' || amountStr == null;
+  const bEmpty = saved == null;
+  if (aEmpty && bEmpty) return true;
+  if (aEmpty !== bEmpty) return false;
+  return Math.round(Number(amountStr) * 100) === Math.round(Number(saved) * 100);
+}
+
+/** A subcontractor rate maps onto the same compute fn as a percent/flat pay type. */
+export function subRateToInput(r: SubRateInput, revenue: number | null): TechPayInput {
+  return r.rate_type === 'percent'
+    ? { method: 'percent', percent: r.rate_amount, flat_amount: null, hourly_rate: null, hours: null, revenue }
+    : { method: 'flat', percent: null, flat_amount: r.rate_amount, hourly_rate: null, hours: null, revenue };
+}
+
 /** Human-readable one-liner for how a suggestion was derived, shown under the input. */
 export function payBasisLabel(input: TechPayInput): string {
   const { method, percent, hourly_rate, hours, revenue, flat_amount } = input;
