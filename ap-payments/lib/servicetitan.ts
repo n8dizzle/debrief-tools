@@ -57,6 +57,7 @@ export interface STTechnician {
   name: string;
   active: boolean;
   businessUnitId?: number;
+  team?: string; // free-text team; set even when businessUnitId is null
 }
 
 export interface STAppointment {

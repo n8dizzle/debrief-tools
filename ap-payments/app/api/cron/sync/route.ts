@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
               name: tech.name,
               is_active: tech.active,
               business_unit_id: tech.businessUnitId || null,
-              business_unit_name: buName,
+              // Fall back to ST's free-text team when no business unit (so the labor
+              // report shows a real home team instead of "No team").
+              business_unit_name: buName || tech.team || null,
+              team: tech.team || null,
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'st_technician_id', ignoreDuplicates: false }
