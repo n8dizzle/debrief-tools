@@ -55,6 +55,10 @@ function JobTypeFilter({ all, selected, onChange }: { all: string[]; selected: s
               );
             })}
             <div className="flex gap-2 mt-2">
+              <button onClick={() => onChange(shown.every(t => selected.includes(t)) ? selected.filter(t => !shown.includes(t)) : Array.from(new Set([...selected, ...shown])))}
+                className="text-xs flex-1 rounded py-1.5" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                {shown.length > 0 && shown.every(t => selected.includes(t)) ? 'Deselect all' : 'Select all'}
+              </button>
               <button onClick={() => onChange([])} className="text-xs flex-1 rounded py-1.5" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>Clear</button>
               <button onClick={() => setOpen(false)} className="text-xs flex-1 rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>Done</button>
             </div>
