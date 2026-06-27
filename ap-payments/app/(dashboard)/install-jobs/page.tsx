@@ -113,6 +113,7 @@ export default function InstallJobsPage() {
       key: 'job_number', label: 'Job #', sortable: true, width: 95,
       sortValue: r => { const n = Number(r.job_number); return isNaN(n) ? r.job_number : n; },
       searchValue: r => r.job_number,
+      footer: rows => <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Totals · {rows.length}</span>,
       render: r => r.st_job_id ? (
         <a href={`https://go.servicetitan.com/#/Job/Index/${r.st_job_id}`} target="_blank" rel="noopener noreferrer"
           onClick={e => e.stopPropagation()} className="hover:underline font-semibold" style={{ color: 'var(--christmas-green)', whiteSpace: 'nowrap' }}>{r.job_number}</a>
@@ -139,6 +140,7 @@ export default function InstallJobsPage() {
       key: 'invoice', label: 'Invoice $', sortable: true, align: 'right', width: 110,
       sortValue: r => r.invoice_amount ?? -1,
       render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.invoice_amount != null ? formatCurrency(r.invoice_amount) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + (r.invoice_amount || 0), 0)),
     },
     {
       key: 'labor', label: 'Labor $', sortable: true, align: 'right', width: 110,
@@ -148,6 +150,7 @@ export default function InstallJobsPage() {
         if (labor == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
         return <span className="tabular-nums font-semibold" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{formatCurrency(labor)}</span>;
       },
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + (laborOf(r) || 0), 0)),
     },
     {
       key: 'labor_pct', label: 'Labor %', sortable: true, align: 'right', width: 100,
@@ -156,6 +159,11 @@ export default function InstallJobsPage() {
         const l = laborOf(r);
         if (l == null || !r.invoice_amount || r.invoice_amount <= 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
         return <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{((l / r.invoice_amount) * 100).toFixed(1)}%</span>;
+      },
+      footer: rows => {
+        const ti = rows.reduce((s, r) => s + (r.invoice_amount || 0), 0);
+        const tl = rows.reduce((s, r) => s + (laborOf(r) || 0), 0);
+        return ti > 0 ? `${((tl / ti) * 100).toFixed(1)}%` : '—';
       },
     },
     {
