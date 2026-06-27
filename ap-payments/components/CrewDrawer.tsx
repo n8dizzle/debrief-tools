@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { computeTechPay, payBasisLabel, PayMethod } from '@/lib/techpay';
+import { computeTechPay, payBasisLabel, PayMethod, TechPayInput } from '@/lib/techpay';
 import { formatCurrency } from '@/lib/ap-utils';
 
 export interface Assignment {
@@ -23,6 +23,12 @@ export interface TechPayConfig {
   default_job_types: string[];
   hourly_rate: number | null;
 }
+export interface SubRate {
+  trade: string;
+  job_type_name: string;
+  rate_amount: number;
+  rate_type: 'flat' | 'percent';
+}
 export interface InstallJobRow {
   id: string;
   st_job_id: number | null;
@@ -43,6 +49,9 @@ function initials(name: string | null): string {
   const p = name.trim().split(/\s+/);
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || name[0].toUpperCase();
 }
+function sameCI(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+}
 function cfgHint(c: TechPayConfig): string {
   switch (c.method) {
     case 'percent': return c.percent != null ? `${c.percent}%` : '% — not set';
@@ -55,14 +64,21 @@ function cfgHint(c: TechPayConfig): string {
 function needsHours(method: PayMethod | undefined): boolean {
   return method === 'hourly' || method === 'combo';
 }
+// A subcontractor rate maps onto the same compute fn as a percent/flat pay type.
+function rateToInput(r: SubRate, revenue: number | null): TechPayInput {
+  return r.rate_type === 'percent'
+    ? { method: 'percent', percent: r.rate_amount, flat_amount: null, hourly_rate: null, hours: null, revenue }
+    : { method: 'flat', percent: null, flat_amount: r.rate_amount, hourly_rate: null, hours: null, revenue };
+}
 
 export default function CrewDrawer({
-  job, technicians, contractors, payConfigsByTech, canEdit, onClose, onChanged,
+  job, technicians, contractors, payConfigsByTech, subRatesByContractor, canEdit, onClose, onChanged,
 }: {
   job: InstallJobRow | null;
   technicians: Opt[];
   contractors: Opt[];
   payConfigsByTech: Record<string, TechPayConfig[]>;
+  subRatesByContractor: Record<string, SubRate[]>;
   canEdit: boolean;
   onClose: () => void;
   onChanged: () => void;
@@ -80,31 +96,40 @@ export default function CrewDrawer({
     setPay(prev => {
       const next: Record<string, PayState> = {};
       for (const a of job.assignments) {
-        if (a.type !== 'technician') continue;
         if (prev[a.id]) { next[a.id] = prev[a.id]; continue; }
-        const configs = payConfigsByTech[a.technician_id || ''] || [];
-        if (a.pay_type_id) {
-          // Frozen pay from a prior Save — show as-is, never recompute.
-          next[a.id] = {
-            payTypeId: a.pay_type_id,
-            hours: a.pay_basis?.hours != null ? String(a.pay_basis.hours) : '',
-            amount: a.pay_amount != null ? String(a.pay_amount) : '',
-          };
+        if (a.type === 'technician') {
+          const configs = payConfigsByTech[a.technician_id || ''] || [];
+          if (a.pay_type_id) {
+            next[a.id] = {
+              payTypeId: a.pay_type_id,
+              hours: a.pay_basis?.hours != null ? String(a.pay_basis.hours) : '',
+              amount: a.pay_amount != null ? String(a.pay_amount) : '',
+            };
+          } else {
+            const def = configs.find(c => job.job_type && c.default_job_types.includes(job.job_type));
+            const chosen = def || (configs.length === 1 ? configs[0] : null);
+            if (!chosen) { next[a.id] = { payTypeId: '', hours: '', amount: '' }; continue; }
+            const res = computeTechPay({
+              method: chosen.method, percent: chosen.percent, flat_amount: chosen.flat_amount,
+              hourly_rate: chosen.hourly_rate, hours: null, revenue: job.invoice_amount,
+            });
+            next[a.id] = { payTypeId: chosen.pay_type_id, hours: '', amount: res.amount != null ? String(res.amount) : '' };
+          }
         } else {
-          // Auto-pick the pay type whose "Default for" includes this job's type.
-          const def = configs.find(c => job.job_type && c.default_job_types.includes(job.job_type));
-          const chosen = def || (configs.length === 1 ? configs[0] : null);
-          if (!chosen) { next[a.id] = { payTypeId: '', hours: '', amount: '' }; continue; }
-          const res = computeTechPay({
-            method: chosen.method, percent: chosen.percent, flat_amount: chosen.flat_amount,
-            hourly_rate: chosen.hourly_rate, hours: null, revenue: job.invoice_amount,
-          });
-          next[a.id] = { payTypeId: chosen.pay_type_id, hours: '', amount: res.amount != null ? String(res.amount) : '' };
+          // Subcontractor — match rate card by trade + job type.
+          if (a.pay_amount != null) {
+            next[a.id] = { payTypeId: '', hours: '', amount: String(a.pay_amount) };
+          } else {
+            const rates = subRatesByContractor[a.contractor_id || ''] || [];
+            const r = rates.find(x => sameCI(x.trade, job.trade) && sameCI(x.job_type_name, job.job_type));
+            const res = r ? computeTechPay(rateToInput(r, job.invoice_amount)) : { amount: null };
+            next[a.id] = { payTypeId: '', hours: '', amount: res.amount != null ? String(res.amount) : '' };
+          }
         }
       }
       return next;
     });
-  }, [job, payConfigsByTech]);
+  }, [job, payConfigsByTech, subRatesByContractor]);
 
   if (!job) return null;
   const theJob = job;
@@ -124,6 +149,13 @@ export default function CrewDrawer({
     return res.amount != null ? String(res.amount) : '';
   };
   const configsFor = (a: Assignment) => payConfigsByTech[a.technician_id || ''] || [];
+  const matchSubRate = (a: Assignment): SubRate | undefined =>
+    (subRatesByContractor[a.contractor_id || ''] || []).find(r => sameCI(r.trade, theJob.trade) && sameCI(r.job_type_name, theJob.job_type));
+  const subCalc = (r: SubRate | undefined): string => {
+    if (!r) return '';
+    const res = computeTechPay(rateToInput(r, theJob.invoice_amount));
+    return res.amount != null ? String(res.amount) : '';
+  };
 
   const onPickType = (a: Assignment, payTypeId: string) => {
     const cfg = configsFor(a).find(c => c.pay_type_id === payTypeId);
@@ -134,6 +166,8 @@ export default function CrewDrawer({
     setPay(p => ({ ...p, [a.id]: { ...p[a.id], hours, amount: calc(cfg, hours) } }));
   };
   const onAmount = (a: Assignment, amount: string) =>
+    setPay(p => ({ ...p, [a.id]: { ...p[a.id], amount } }));
+  const setAmount = (a: Assignment, amount: string) =>
     setPay(p => ({ ...p, [a.id]: { ...p[a.id], amount } }));
 
   const add = async (assignee_type: 'technician' | 'subcontractor', personId: string) => {
@@ -171,13 +205,14 @@ export default function CrewDrawer({
   const techRows = theJob.assignments.filter(a => a.type === 'technician');
   const subRows = theJob.assignments.filter(a => a.type === 'subcontractor');
 
-  // Dirty = any tech row whose chosen type or amount differs from what's saved.
-  const dirty = techRows.some(a => {
+  const rowDirty = (a: Assignment): boolean => {
     const st = pay[a.id]; if (!st) return false;
-    return (a.pay_type_id ?? '') !== (st.payTypeId ?? '')
-      || String(a.pay_amount ?? '') !== (st.amount ?? '');
-  });
-  const crewTotal = techRows.reduce((s, a) => {
+    const typeChanged = a.type === 'technician' && (a.pay_type_id ?? '') !== (st.payTypeId ?? '');
+    const amountChanged = String(a.pay_amount ?? '') !== (st.amount ?? '');
+    return typeChanged || amountChanged;
+  };
+  const dirty = theJob.assignments.some(rowDirty);
+  const crewTotal = theJob.assignments.reduce((s, a) => {
     const n = parseFloat(pay[a.id]?.amount || '');
     return s + (isNaN(n) ? 0 : n);
   }, 0);
@@ -185,26 +220,31 @@ export default function CrewDrawer({
   const savePay = async () => {
     setBusy(true); setError(null);
     try {
-      for (const a of techRows) {
-        const st = pay[a.id]; if (!st) continue;
-        const typeChanged = (a.pay_type_id ?? '') !== (st.payTypeId ?? '');
-        const amountChanged = String(a.pay_amount ?? '') !== (st.amount ?? '');
-        if (!typeChanged && !amountChanged) continue;
-        const cfg = configsFor(a).find(c => c.pay_type_id === st.payTypeId);
-        const h = parseFloat(st.hours);
-        const basis = cfg ? {
-          method: cfg.method, percent: cfg.percent, flat_amount: cfg.flat_amount,
-          hourly_rate: cfg.hourly_rate, hours: isNaN(h) ? null : h,
-          revenue: theJob.invoice_amount, computed_at: new Date().toISOString(),
-        } : null;
+      for (const a of theJob.assignments) {
+        const st = pay[a.id]; if (!st || !rowDirty(a)) continue;
+        let payTypeId: string | null = null;
+        let basis: Record<string, unknown> | null = null;
+        if (a.type === 'technician') {
+          const cfg = configsFor(a).find(c => c.pay_type_id === st.payTypeId);
+          const h = parseFloat(st.hours);
+          payTypeId = st.payTypeId || null;
+          basis = cfg ? {
+            method: cfg.method, percent: cfg.percent, flat_amount: cfg.flat_amount,
+            hourly_rate: cfg.hourly_rate, hours: isNaN(h) ? null : h,
+            revenue: theJob.invoice_amount, computed_at: new Date().toISOString(),
+          } : null;
+        } else {
+          const r = matchSubRate(a);
+          basis = r ? {
+            source: 'rate_card', rate_type: r.rate_type, rate_amount: r.rate_amount,
+            job_type_name: r.job_type_name, trade: r.trade,
+            revenue: theJob.invoice_amount, computed_at: new Date().toISOString(),
+          } : { source: 'manual', revenue: theJob.invoice_amount, computed_at: new Date().toISOString() };
+        }
         const res = await fetch(`/api/install-jobs/${theJob.id}/assignments/${a.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pay_type_id: st.payTypeId || null,
-            pay_amount: st.amount === '' ? null : Number(st.amount),
-            pay_basis: basis,
-          }),
+          body: JSON.stringify({ pay_type_id: payTypeId, pay_amount: st.amount === '' ? null : Number(st.amount), pay_basis: basis }),
         });
         if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Failed to save pay'); }
       }
@@ -216,6 +256,23 @@ export default function CrewDrawer({
 
   const selectStyle = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' };
   const inputStyle = { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' };
+
+  const removeBtn = (a: Assignment) => canEdit && (
+    <button onClick={() => remove(a.id)} disabled={busy} className="p-0.5 rounded hover:bg-white/10" style={{ color: 'var(--text-muted)' }} title="Remove">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+    </button>
+  );
+  const staleBanner = (a: Assignment, saved: number | null | undefined, recalcAmt: string) => (
+    <div className="flex items-center justify-between rounded-md px-2 py-1.5" style={{ backgroundColor: 'rgba(210,153,34,0.12)' }}>
+      <span className="text-[11px]" style={{ color: '#d29922' }}>
+        Rates changed: {formatCurrency(saved)} → <span className="font-semibold">{formatCurrency(Number(recalcAmt))}</span>
+      </span>
+      <button onClick={() => setAmount(a, recalcAmt)} disabled={busy}
+        className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.22)', color: '#d29922' }}>
+        Recalculate
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -243,7 +300,7 @@ export default function CrewDrawer({
             <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>No one assigned yet.</div>
           )}
 
-          {/* Technicians — pay editing */}
+          {/* Technicians */}
           {techRows.length > 0 && (
             <div className="flex flex-col gap-2.5 mb-4">
               {techRows.map(a => {
@@ -251,8 +308,6 @@ export default function CrewDrawer({
                 const configs = configsFor(a);
                 const cfg = configs.find(c => c.pay_type_id === st.payTypeId);
                 const frozen = a.pay_type_id != null && a.pay_amount != null;
-                // Stale = the saved amount no longer matches what current rates/revenue would produce.
-                // (Rate edited in Settings, or ST revenue settled after the invoice.) Opt-in only.
                 const recalcAmt = frozen && cfg ? calc(cfg, st.hours) : '';
                 const stale = frozen && recalcAmt !== '' && recalcAmt !== String(a.pay_amount);
                 return (
@@ -264,11 +319,7 @@ export default function CrewDrawer({
                         {a.name || '—'}
                         {frozen && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>saved</span>}
                       </span>
-                      {canEdit && (
-                        <button onClick={() => remove(a.id)} disabled={busy} className="p-0.5 rounded hover:bg-white/10" style={{ color: 'var(--text-muted)' }} title="Remove">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      )}
+                      {removeBtn(a)}
                     </div>
 
                     {configs.length === 0 ? (
@@ -301,17 +352,7 @@ export default function CrewDrawer({
                             </span>
                           )}
                         </div>
-                        {stale && canEdit && (
-                          <div className="flex items-center justify-between rounded-md px-2 py-1.5" style={{ backgroundColor: 'rgba(210,153,34,0.12)' }}>
-                            <span className="text-[11px]" style={{ color: '#d29922' }}>
-                              Rates changed: {formatCurrency(a.pay_amount)} → <span className="font-semibold">{formatCurrency(Number(recalcAmt))}</span>
-                            </span>
-                            <button onClick={() => setPay(p => ({ ...p, [a.id]: { ...p[a.id], amount: recalcAmt } }))} disabled={busy}
-                              className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(210,153,34,0.22)', color: '#d29922' }}>
-                              Recalculate
-                            </button>
-                          </div>
-                        )}
+                        {stale && canEdit && staleBanner(a, a.pay_amount, recalcAmt)}
                       </div>
                     )}
                   </div>
@@ -320,26 +361,51 @@ export default function CrewDrawer({
             </div>
           )}
 
-          {/* Subcontractors — pay via rate cards (Slice 3) */}
+          {/* Subcontractors */}
           {subRows.length > 0 && (
-            <div className="flex flex-col gap-2 mb-4">
-              {subRows.map(a => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg px-3 py-2"
-                  style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                  <span className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                      style={{ backgroundColor: 'rgba(163,113,247,.22)', color: '#a371f7' }}>{initials(a.name)}</span>
-                    {a.name || '—'}
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>Subcontractor</span>
-                  </span>
-                  {canEdit && (
-                    <button onClick={() => remove(a.id)} disabled={busy} className="p-0.5 rounded hover:bg-white/10" style={{ color: 'var(--text-muted)' }} title="Remove">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-              <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Subcontractor pay comes from rate cards (coming soon).</div>
+            <div className="flex flex-col gap-2.5 mb-4">
+              {subRows.map(a => {
+                const st = pay[a.id] || { payTypeId: '', hours: '', amount: '' };
+                const rate = matchSubRate(a);
+                const frozen = a.pay_amount != null;
+                const recalcAmt = frozen && rate ? subCalc(rate) : '';
+                const stale = frozen && recalcAmt !== '' && recalcAmt !== String(a.pay_amount);
+                return (
+                  <div key={a.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                          style={{ backgroundColor: 'rgba(163,113,247,.22)', color: '#a371f7' }}>{initials(a.name)}</span>
+                        {a.name || '—'}
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>Subcontractor</span>
+                        {frozen && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(163,113,247,.16)', color: '#a371f7' }}>saved</span>}
+                      </span>
+                      {removeBtn(a)}
+                    </div>
+
+                    <div className="mt-2 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Pay $</span>
+                        <input type="number" inputMode="decimal" placeholder="0.00" value={st.amount}
+                          disabled={!canEdit || busy} onChange={e => onAmount(a, e.target.value)}
+                          className="w-28 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums font-semibold" style={inputStyle} />
+                        {rate ? (
+                          <span className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                            {rate.rate_type === 'percent'
+                              ? `${rate.rate_amount}% of ${formatCurrency(theJob.invoice_amount)}`
+                              : `Flat ${formatCurrency(rate.rate_amount)}`} · {rate.job_type_name}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] truncate" style={{ color: '#d29922' }}>
+                            No rate-card match — enter manually
+                          </span>
+                        )}
+                      </div>
+                      {stale && canEdit && staleBanner(a, a.pay_amount, recalcAmt)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -366,7 +432,7 @@ export default function CrewDrawer({
         </div>
 
         {/* Footer — crew total + Save */}
-        {techRows.length > 0 && (
+        {theJob.assignments.length > 0 && (
           <div className="p-4 border-t sticky bottom-0" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-secondary)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Crew pay total</span>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
-import { hasAPPermission } from '@/lib/ap-utils';
+import { hasAPPermission, formatLocalDate } from '@/lib/ap-utils';
 
 export async function GET(
   request: NextRequest,
@@ -152,7 +152,7 @@ export async function PATCH(
       new_amount: rate_amount,
       change_type: 'updated',
       changed_by: session.user.id || null,
-      effective_date: new Date().toISOString().split('T')[0],
+      effective_date: formatLocalDate(new Date()),
     });
   }
 

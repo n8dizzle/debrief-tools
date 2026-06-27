@@ -63,7 +63,7 @@ export interface APContractorRate {
   trade: 'hvac' | 'plumbing';
   job_type_name: string;
   rate_amount: number;
-  rate_type: 'flat' | 'percentage';
+  rate_type: 'flat' | 'percent';
   created_at: string;
   updated_at: string;
 }

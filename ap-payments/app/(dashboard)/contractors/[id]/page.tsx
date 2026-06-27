@@ -80,7 +80,9 @@ export default function ContractorDetailPage() {
   const [rateTrade, setRateTrade] = useState<'hvac' | 'plumbing'>('hvac');
   const [rateJobType, setRateJobType] = useState('');
   const [rateAmount, setRateAmount] = useState('');
+  const [rateType, setRateType] = useState<'flat' | 'percent'>('flat');
   const [savingRate, setSavingRate] = useState(false);
+  const [jobTypeOptions, setJobTypeOptions] = useState<string[]>([]);
 
   // History
   const [historyTab, setHistoryTab] = useState<HistoryTab>('payments');
@@ -142,6 +144,7 @@ export default function ContractorDetailPage() {
   useEffect(() => {
     loadContractor();
     loadHistory();
+    fetch('/api/job-types').then(r => r.ok ? r.json() : []).then(setJobTypeOptions).catch(() => {});
   }, [loadContractor, loadHistory]);
 
   const handleSave = async () => {
@@ -264,12 +267,14 @@ export default function ContractorDetailPage() {
           trade: rateTrade,
           job_type_name: rateJobType.trim(),
           rate_amount: parseFloat(rateAmount),
+          rate_type: rateType,
         }),
       });
 
       if (res.ok) {
         setRateJobType('');
         setRateAmount('');
+        setRateType('flat');
         setShowRateForm(false);
         await loadContractor();
         await loadHistory();
@@ -969,19 +974,35 @@ export default function ContractorDetailPage() {
                     <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Job Type</label>
                     <input
                       className="input"
-                      placeholder="e.g. Full System Replacement"
+                      list="rate-job-types"
+                      placeholder="Pick or type a ServiceTitan job type"
                       value={rateJobType}
                       onChange={(e) => setRateJobType(e.target.value)}
                       required
                     />
+                    <datalist id="rate-job-types">
+                      {jobTypeOptions.map((jt) => <option key={jt} value={jt} />)}
+                    </datalist>
+                    <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                      Match the ServiceTitan job type so pay auto-fills when this sub is assigned.
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Rate ($)</label>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Rate Type</label>
+                    <select className="select" value={rateType} onChange={(e) => setRateType(e.target.value as 'flat' | 'percent')}>
+                      <option value="flat">Flat ($ per job)</option>
+                      <option value="percent">% of revenue</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                      {rateType === 'percent' ? 'Rate (%)' : 'Rate ($)'}
+                    </label>
                     <input
                       type="number"
                       className="input"
-                      placeholder="0.00"
-                      step="0.01"
+                      placeholder={rateType === 'percent' ? 'e.g. 60' : '0.00'}
+                      step={rateType === 'percent' ? '0.1' : '0.01'}
                       min="0"
                       value={rateAmount}
                       onChange={(e) => setRateAmount(e.target.value)}
@@ -1014,7 +1035,7 @@ export default function ContractorDetailPage() {
                         {rate.job_type_name}
                       </span>
                       <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                        {formatCurrency(rate.rate_amount)}
+                        {formatRateValue(rate)}
                       </span>
                     </div>
                   ))}
@@ -1039,7 +1060,7 @@ export default function ContractorDetailPage() {
                         {rate.job_type_name}
                       </span>
                       <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
-                        {formatCurrency(rate.rate_amount)}
+                        {formatRateValue(rate)}
                       </span>
                     </div>
                   ))}
@@ -1057,6 +1078,10 @@ export default function ContractorDetailPage() {
       </div>
     </div>
   );
+}
+
+function formatRateValue(rate: APContractorRate): string {
+  return rate.rate_type === 'percent' ? `${rate.rate_amount}% of revenue` : formatCurrency(rate.rate_amount);
 }
 
 function getExpirationStatus(date: string | null): { label: string; color: string; bg: string } {

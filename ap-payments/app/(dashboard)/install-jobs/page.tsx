@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatDate, formatCurrency } from '@/lib/ap-utils';
-import CrewDrawer, { InstallJobRow, TechPayConfig } from '@/components/CrewDrawer';
+import CrewDrawer, { InstallJobRow, TechPayConfig, SubRate } from '@/components/CrewDrawer';
 
 function monthToDate(): DateRange {
   const now = new Date();
@@ -27,6 +27,7 @@ export default function InstallJobsPage() {
   const [technicians, setTechnicians] = useState<{ id: string; name: string }[]>([]);
   const [contractors, setContractors] = useState<{ id: string; name: string }[]>([]);
   const [payConfigsByTech, setPayConfigsByTech] = useState<Record<string, TechPayConfig[]>>({});
+  const [subRatesByContractor, setSubRatesByContractor] = useState<Record<string, SubRate[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerJob, setDrawerJob] = useState<InstallJobRow | null>(null);
@@ -35,11 +36,12 @@ export default function InstallJobsPage() {
     setLoading(true); setError(null);
     try {
       const p = new URLSearchParams({ start: range.start, end: range.end });
-      const [jobsRes, techRes, conRes, payRes] = await Promise.all([
+      const [jobsRes, techRes, conRes, payRes, rateRes] = await Promise.all([
         fetch(`/api/install-jobs?${p.toString()}`),
         fetch('/api/technicians'),
         fetch('/api/contractors'),
         fetch('/api/technician-pay-types'),
+        fetch('/api/contractor-rates'),
       ]);
       if (!jobsRes.ok) { const j = await jobsRes.json().catch(() => ({})); throw new Error(j.error || `Failed (${jobsRes.status})`); }
       const jobs = await jobsRes.json();
@@ -64,6 +66,15 @@ export default function InstallJobsPage() {
         });
       }
       setPayConfigsByTech(byTech);
+      const rates = rateRes.ok ? await rateRes.json() : [];
+      const byCon: Record<string, SubRate[]> = {};
+      for (const r of (rates || []) as any[]) {
+        (byCon[r.contractor_id] ||= []).push({
+          trade: r.trade, job_type_name: r.job_type_name,
+          rate_amount: r.rate_amount, rate_type: r.rate_type,
+        });
+      }
+      setSubRatesByContractor(byCon);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load install jobs');
     } finally { setLoading(false); }
@@ -205,7 +216,7 @@ export default function InstallJobsPage() {
       )}
 
       <CrewDrawer job={drawerJob} technicians={technicians} contractors={contractors}
-        payConfigsByTech={payConfigsByTech}
+        payConfigsByTech={payConfigsByTech} subRatesByContractor={subRatesByContractor}
         canEdit={perms.canManageAssignments} onClose={() => setDrawerJob(null)} onChanged={load} />
     </div>
   );
