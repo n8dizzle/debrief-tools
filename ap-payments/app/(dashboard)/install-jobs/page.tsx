@@ -278,16 +278,7 @@ export default function InstallJobsPage() {
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-4">
-        <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" />
-        {payPeriods.length > 0 && (
-          <select
-            value={payPeriods.find(p => p.start === range.start && p.end === range.end) ? `${range.start}|${range.end}` : ''}
-            onChange={e => { if (!e.target.value) return; const [s, en] = e.target.value.split('|'); setRange({ start: s, end: en }); }}
-            className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, maxWidth: 230 }} title="Jump to a ServiceTitan pay cycle">
-            <option value="">Pay period…</option>
-            {payPeriods.map(p => <option key={`${p.start}|${p.end}`} value={`${p.start}|${p.end}`}>{formatDate(p.start)} – {formatDate(p.end)}</option>)}
-          </select>
-        )}
+        <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" payPeriods={payPeriods} />
         <input type="text" placeholder="Search job #, customer…" value={search} onChange={e => setSearch(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 210 }} />
         <JobTypeFilter all={jobTypeOptions} selected={jobTypeFilter} onChange={setJobTypeFilter} />
