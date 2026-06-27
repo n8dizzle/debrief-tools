@@ -120,6 +120,25 @@ export function subRateToInput(r: SubRateInput, revenue: number | null): TechPay
     : { method: 'flat', percent: null, flat_amount: r.rate_amount, hourly_rate: null, hours: null, revenue };
 }
 
+/** Combine an hours field and a minutes field into decimal hours (null if both blank). */
+export function toDecimalHours(hoursStr: string | null | undefined, minsStr: string | null | undefined): number | null {
+  const h = parseFloat(hoursStr ?? '');
+  const m = parseFloat(minsStr ?? '');
+  const hasH = !isNaN(h);
+  const hasM = !isNaN(m);
+  if (!hasH && !hasM) return null;
+  return (hasH ? h : 0) + (hasM ? m : 0) / 60;
+}
+
+/** Split decimal hours back into whole-hours + minutes strings for the two inputs. */
+export function fromDecimalHours(dec: number | null | undefined): { hours: string; mins: string } {
+  if (dec == null || isNaN(dec)) return { hours: '', mins: '' };
+  const totalMin = Math.round(dec * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return { hours: h ? String(h) : (m ? '0' : ''), mins: m ? String(m) : '' };
+}
+
 /** Human-readable one-liner for how a suggestion was derived, shown under the input. */
 export function payBasisLabel(input: TechPayInput): string {
   const { method, percent, hourly_rate, hours, revenue, flat_amount } = input;

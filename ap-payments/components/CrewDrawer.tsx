@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { computeTechPay, payBasisLabel, PayMethod, findSubRate, subRateToInput, moneySame } from '@/lib/techpay';
+import { computeTechPay, payBasisLabel, PayMethod, findSubRate, subRateToInput, moneySame, toDecimalHours, fromDecimalHours } from '@/lib/techpay';
 import { formatCurrency } from '@/lib/ap-utils';
 
 export interface Assignment {
@@ -42,7 +42,7 @@ export interface InstallJobRow {
   assignments: Assignment[];
 }
 interface Opt { id: string; name: string }
-type PayState = { payTypeId: string; hours: string; amount: string };
+type PayState = { payTypeId: string; hours: string; mins: string; amount: string };
 
 function initials(name: string | null): string {
   if (!name) return '?';
@@ -90,30 +90,30 @@ export default function CrewDrawer({
         if (a.type === 'technician') {
           const configs = payConfigsByTech[a.technician_id || ''] || [];
           if (a.pay_type_id) {
+            const { hours, mins } = fromDecimalHours(a.pay_basis?.hours ?? null);
             next[a.id] = {
-              payTypeId: a.pay_type_id,
-              hours: a.pay_basis?.hours != null ? String(a.pay_basis.hours) : '',
+              payTypeId: a.pay_type_id, hours, mins,
               amount: a.pay_amount != null ? String(a.pay_amount) : '',
             };
           } else {
             const def = configs.find(c => job.job_type && c.default_job_types.includes(job.job_type));
             const chosen = def || (configs.length === 1 ? configs[0] : null);
-            if (!chosen) { next[a.id] = { payTypeId: '', hours: '', amount: '' }; continue; }
+            if (!chosen) { next[a.id] = { payTypeId: '', hours: '', mins: '', amount: '' }; continue; }
             const res = computeTechPay({
               method: chosen.method, percent: chosen.percent, flat_amount: chosen.flat_amount,
               hourly_rate: chosen.hourly_rate, hours: null, revenue: job.invoice_amount,
             });
-            next[a.id] = { payTypeId: chosen.pay_type_id, hours: '', amount: res.amount != null ? String(res.amount) : '' };
+            next[a.id] = { payTypeId: chosen.pay_type_id, hours: '', mins: '', amount: res.amount != null ? String(res.amount) : '' };
           }
         } else {
           // Subcontractor — match rate card by trade + job type.
           if (a.pay_amount != null) {
-            next[a.id] = { payTypeId: '', hours: '', amount: String(a.pay_amount) };
+            next[a.id] = { payTypeId: '', hours: '', mins: '', amount: String(a.pay_amount) };
           } else {
             const rates = subRatesByContractor[a.contractor_id || ''] || [];
             const r = findSubRate(rates, job.trade, job.job_type);
             const res = r ? computeTechPay(subRateToInput(r, job.invoice_amount)) : { amount: null };
-            next[a.id] = { payTypeId: '', hours: '', amount: res.amount != null ? String(res.amount) : '' };
+            next[a.id] = { payTypeId: '', hours: '', mins: '', amount: res.amount != null ? String(res.amount) : '' };
           }
         }
       }
@@ -129,12 +129,11 @@ export default function CrewDrawer({
   const availTechs = technicians.filter(t => !assignedTechIds.has(t.id));
   const availSubs = contractors.filter(c => !assignedSubIds.has(c.id));
 
-  const calc = (cfg: TechPayConfig | undefined, hoursStr: string): string => {
+  const calc = (cfg: TechPayConfig | undefined, hoursStr: string, minsStr: string): string => {
     if (!cfg) return '';
-    const h = parseFloat(hoursStr);
     const res = computeTechPay({
       method: cfg.method, percent: cfg.percent, flat_amount: cfg.flat_amount,
-      hourly_rate: cfg.hourly_rate, hours: isNaN(h) ? null : h, revenue: theJob.invoice_amount,
+      hourly_rate: cfg.hourly_rate, hours: toDecimalHours(hoursStr, minsStr), revenue: theJob.invoice_amount,
     });
     return res.amount != null ? String(res.amount) : '';
   };
@@ -149,11 +148,15 @@ export default function CrewDrawer({
 
   const onPickType = (a: Assignment, payTypeId: string) => {
     const cfg = configsFor(a).find(c => c.pay_type_id === payTypeId);
-    setPay(p => ({ ...p, [a.id]: { ...p[a.id], payTypeId, amount: calc(cfg, p[a.id]?.hours || '') } }));
+    setPay(p => ({ ...p, [a.id]: { ...p[a.id], payTypeId, amount: calc(cfg, p[a.id]?.hours || '', p[a.id]?.mins || '') } }));
   };
   const onHours = (a: Assignment, hours: string) => {
     const cfg = configsFor(a).find(c => c.pay_type_id === pay[a.id]?.payTypeId);
-    setPay(p => ({ ...p, [a.id]: { ...p[a.id], hours, amount: calc(cfg, hours) } }));
+    setPay(p => ({ ...p, [a.id]: { ...p[a.id], hours, amount: calc(cfg, hours, p[a.id]?.mins || '') } }));
+  };
+  const onMins = (a: Assignment, mins: string) => {
+    const cfg = configsFor(a).find(c => c.pay_type_id === pay[a.id]?.payTypeId);
+    setPay(p => ({ ...p, [a.id]: { ...p[a.id], mins, amount: calc(cfg, p[a.id]?.hours || '', mins) } }));
   };
   const onAmount = (a: Assignment, amount: string) =>
     setPay(p => ({ ...p, [a.id]: { ...p[a.id], amount } }));
@@ -216,11 +219,10 @@ export default function CrewDrawer({
         let basis: Record<string, unknown> | null = null;
         if (a.type === 'technician') {
           const cfg = configsFor(a).find(c => c.pay_type_id === st.payTypeId);
-          const h = parseFloat(st.hours);
           payTypeId = st.payTypeId || null;
           basis = cfg ? {
             method: cfg.method, percent: cfg.percent, flat_amount: cfg.flat_amount,
-            hourly_rate: cfg.hourly_rate, hours: isNaN(h) ? null : h,
+            hourly_rate: cfg.hourly_rate, hours: toDecimalHours(st.hours, st.mins),
             revenue: theJob.invoice_amount, computed_at: new Date().toISOString(),
           } : null;
         } else {
@@ -294,11 +296,11 @@ export default function CrewDrawer({
           {techRows.length > 0 && (
             <div className="flex flex-col gap-2.5 mb-4">
               {techRows.map(a => {
-                const st = pay[a.id] || { payTypeId: '', hours: '', amount: '' };
+                const st = pay[a.id] || { payTypeId: '', hours: '', mins: '', amount: '' };
                 const configs = configsFor(a);
                 const cfg = configs.find(c => c.pay_type_id === st.payTypeId);
                 const frozen = a.pay_type_id != null && a.pay_amount != null;
-                const recalcAmt = frozen && cfg ? calc(cfg, st.hours) : '';
+                const recalcAmt = frozen && cfg ? calc(cfg, st.hours, st.mins) : '';
                 const stale = frozen && recalcAmt !== '' && !moneySame(recalcAmt, a.pay_amount);
                 return (
                   <div key={a.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
@@ -318,19 +320,25 @@ export default function CrewDrawer({
                       </div>
                     ) : (
                       <div className="mt-2 flex flex-col gap-2">
-                        <div className="flex gap-2">
-                          <select value={st.payTypeId} disabled={!canEdit || busy}
-                            onChange={e => onPickType(a, e.target.value)}
-                            className="flex-1 rounded-lg px-2 py-1.5 text-sm" style={selectStyle}>
-                            <option value="">Pick pay type…</option>
-                            {configs.map(c => <option key={c.pay_type_id} value={c.pay_type_id}>{c.name} · {cfgHint(c)}</option>)}
-                          </select>
-                          {needsHours(cfg?.method) && (
-                            <input type="number" inputMode="decimal" placeholder="hrs" value={st.hours}
+                        <select value={st.payTypeId} disabled={!canEdit || busy}
+                          onChange={e => onPickType(a, e.target.value)}
+                          className="w-full rounded-lg px-2 py-1.5 text-sm" style={selectStyle}>
+                          <option value="">Pick pay type…</option>
+                          {configs.map(c => <option key={c.pay_type_id} value={c.pay_type_id}>{c.name} · {cfgHint(c)}</option>)}
+                        </select>
+                        {needsHours(cfg?.method) && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs w-9" style={{ color: 'var(--text-muted)' }}>Time</span>
+                            <input type="number" inputMode="numeric" min="0" placeholder="0" value={st.hours}
                               disabled={!canEdit || busy} onChange={e => onHours(a, e.target.value)}
-                              className="w-16 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums" style={inputStyle} />
-                          )}
-                        </div>
+                              className="w-14 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums" style={inputStyle} />
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>h</span>
+                            <input type="number" inputMode="numeric" min="0" max="59" placeholder="0" value={st.mins}
+                              disabled={!canEdit || busy} onChange={e => onMins(a, e.target.value)}
+                              className="w-14 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums" style={inputStyle} />
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>m</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Pay $</span>
                           <input type="number" inputMode="decimal" placeholder="0.00" value={st.amount}
@@ -338,7 +346,7 @@ export default function CrewDrawer({
                             className="w-28 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums font-semibold" style={inputStyle} />
                           {cfg && st.payTypeId && (
                             <span className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
-                              {payBasisLabel({ method: cfg.method, percent: cfg.percent, flat_amount: cfg.flat_amount, hourly_rate: cfg.hourly_rate, hours: parseFloat(st.hours) || null, revenue: theJob.invoice_amount })}
+                              {payBasisLabel({ method: cfg.method, percent: cfg.percent, flat_amount: cfg.flat_amount, hourly_rate: cfg.hourly_rate, hours: toDecimalHours(st.hours, st.mins), revenue: theJob.invoice_amount })}
                             </span>
                           )}
                         </div>
@@ -355,7 +363,7 @@ export default function CrewDrawer({
           {subRows.length > 0 && (
             <div className="flex flex-col gap-2.5 mb-4">
               {subRows.map(a => {
-                const st = pay[a.id] || { payTypeId: '', hours: '', amount: '' };
+                const st = pay[a.id] || { payTypeId: '', hours: '', mins: '', amount: '' };
                 const rate = matchSubRate(a);
                 const frozen = a.pay_amount != null;
                 const recalcAmt = frozen && rate ? subCalc(rate) : '';
