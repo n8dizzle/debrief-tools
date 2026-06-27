@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTechPay, TechPayInput, findSubRate, subRateToInput, sameCI, moneySame, SubRateInput } from './techpay';
+import { computeTechPay, TechPayInput, findSubRate, subRateToInput, sameCI, moneySame, toDecimalHours, fromDecimalHours, SubRateInput } from './techpay';
 
 function input(overrides: Partial<TechPayInput> = {}): TechPayInput {
   return {
@@ -160,6 +160,34 @@ describe('moneySame (dirty / stale comparison)', () => {
   });
   it('a value vs null saved = changed (newly set)', () => {
     expect(moneySame('500', null)).toBe(false);
+  });
+});
+
+describe('toDecimalHours / fromDecimalHours', () => {
+  it('combines hours and minutes', () => {
+    expect(toDecimalHours('7', '30')).toBe(7.5);
+    expect(toDecimalHours('8', '0')).toBe(8);
+    expect(toDecimalHours('0', '15')).toBe(0.25);
+  });
+  it('handles one side blank', () => {
+    expect(toDecimalHours('7', '')).toBe(7);
+    expect(toDecimalHours('', '30')).toBe(0.5);
+  });
+  it('both blank = null (unresolved, not 0)', () => {
+    expect(toDecimalHours('', '')).toBeNull();
+    expect(toDecimalHours(null, undefined)).toBeNull();
+  });
+  it('round-trips through fromDecimalHours', () => {
+    expect(fromDecimalHours(7.5)).toEqual({ hours: '7', mins: '30' });
+    expect(fromDecimalHours(8)).toEqual({ hours: '8', mins: '' });
+    expect(fromDecimalHours(0.5)).toEqual({ hours: '0', mins: '30' });
+    expect(fromDecimalHours(null)).toEqual({ hours: '', mins: '' });
+  });
+  it('hourly pay from h:m matches the decimal', () => {
+    // 7h30m × $20/hr = $150
+    const dec = toDecimalHours('7', '30');
+    const r = computeTechPay({ method: 'hourly', percent: null, flat_amount: null, hourly_rate: 20, hours: dec, revenue: null });
+    expect(r.amount).toBe(150);
   });
 });
 
