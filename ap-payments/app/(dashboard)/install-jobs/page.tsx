@@ -13,10 +13,11 @@ function laborOf(r: InstallJobRow): number | null {
   return paid.length ? paid.reduce((s, a) => s + (a.pay_amount || 0), 0) : null;
 }
 
-function monthToDate(): DateRange {
-  const now = new Date();
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { start: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), end: fmt(now) };
+function yesterday(): DateRange {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { start: s, end: s };
 }
 function initials(name: string | null): string {
   if (!name) return '?';
@@ -71,7 +72,7 @@ function JobTypeFilter({ all, selected, onChange }: { all: string[]; selected: s
 
 export default function InstallJobsPage() {
   const perms = useAPPermissions();
-  const [range, setRange] = useState<DateRange>(monthToDate());
+  const [range, setRange] = useState<DateRange>(yesterday());
   const [assignFilter, setAssignFilter] = useState<AssignFilter>('all');
   const [jobTypeFilter, setJobTypeFilter] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -278,7 +279,7 @@ export default function InstallJobsPage() {
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-4">
-        <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" payPeriods={payPeriods} />
+        <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="yesterday" payPeriods={payPeriods} />
         <input type="text" placeholder="Search job #, customer…" value={search} onChange={e => setSearch(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 210 }} />
         <JobTypeFilter all={jobTypeOptions} selected={jobTypeFilter} onChange={setJobTypeFilter} />
