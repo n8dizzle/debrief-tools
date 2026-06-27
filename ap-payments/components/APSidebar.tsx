@@ -83,7 +83,11 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
-    return pathname.startsWith(href);
+    if (pathname === href) return true;
+    if (!pathname.startsWith(href + '/')) return false;
+    // Don't highlight a parent (e.g. /reports) when a more specific link (/reports/labor) matches.
+    return !mainLinks.some(l => l.href !== href && l.href.startsWith(href + '/') &&
+      (pathname === l.href || pathname.startsWith(l.href + '/')));
   };
 
   const filteredLinks = mainLinks.filter(
