@@ -382,7 +382,7 @@ export default function ContractorDetailPage() {
         <div className="card">
           <div className="text-xs font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Avg % of Invoice</div>
           <div className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
-            {avgInvoicePct != null ? `${Math.round(avgInvoicePct)}%` : '—'}
+            {avgInvoicePct != null ? `${avgInvoicePct.toFixed(1)}%` : '—'}
           </div>
         </div>
       </div>
