@@ -266,9 +266,6 @@ export default function InstallJobsPage() {
           emptyMessage="No install jobs match these filters."
         />
       )}
-      <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
-        Drag a column header to reorder · drag its right edge to resize · click a sortable header to sort.
-      </p>
 
       <CrewDrawer job={drawerJob} technicians={technicians} contractors={contractors}
         payConfigsByTech={payConfigsByTech} subRatesByContractor={subRatesByContractor}

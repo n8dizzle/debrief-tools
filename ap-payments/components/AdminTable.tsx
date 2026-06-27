@@ -212,17 +212,11 @@ export default function AdminTable<T>({
 
   return (
     <div>
-      {(showSearch || hasCustomLayout) && (
+      {showSearch && (
         <div className="mb-3 flex items-center gap-3">
-          {showSearch && (
-            <input type="search" className="rounded-lg px-3 py-2 text-sm w-full max-w-sm"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
-              placeholder={searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
-          )}
-          {hasCustomLayout && (
-            <button type="button" onClick={resetLayout} className="text-xs underline whitespace-nowrap"
-              style={{ color: "var(--text-muted)" }}>Reset columns</button>
-          )}
+          <input type="search" className="rounded-lg px-3 py-2 text-sm w-full max-w-sm"
+            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+            placeholder={searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       )}
 
@@ -313,6 +307,13 @@ export default function AdminTable<T>({
           </table>
         </div>
       </div>
+
+      {hasCustomLayout && (
+        <div className="mt-2">
+          <button type="button" onClick={resetLayout} className="text-xs underline whitespace-nowrap"
+            style={{ color: "var(--text-muted)" }}>Reset columns</button>
+        </div>
+      )}
     </div>
   );
 }
