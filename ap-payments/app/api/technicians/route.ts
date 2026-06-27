@@ -5,20 +5,26 @@ import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
 import { hasAPPermission } from '@/lib/ap-utils';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ?all=1 → every active technician (Settings management view).
+  // default → only those flagged to show in the Install Jobs picker.
+  const all = new URL(request.url).searchParams.get('all') === '1';
+
   const supabase = getServerSupabase();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('ap_technicians')
     .select('*')
-    .eq('business_unit_id', 610)
     .eq('is_active', true)
     .order('name');
+  if (!all) query = query.eq('show_in_install', true);
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

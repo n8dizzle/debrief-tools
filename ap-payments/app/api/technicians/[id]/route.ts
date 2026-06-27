@@ -13,7 +13,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!hasAPPermission(session, 'can_sync_data')) {
+  if (!hasAPPermission(session, 'can_sync_data') && !hasAPPermission(session, 'can_manage_contractors')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -26,6 +26,9 @@ export async function PATCH(
   }
   if (body.trade !== undefined) {
     updates.trade = body.trade;
+  }
+  if (body.show_in_install !== undefined) {
+    updates.show_in_install = !!body.show_in_install;
   }
 
   const supabase = getServerSupabase();

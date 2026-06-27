@@ -11,7 +11,7 @@ interface TechPay {
   id: string; technician_id: string; pay_type_id: string; hourly_rate: number | null;
   pay_type: PayType;
 }
-interface Tech { id: string; name: string; trade?: string | null; }
+interface Tech { id: string; name: string; trade?: string | null; business_unit_name?: string | null; show_in_install: boolean; }
 
 const methodColor: Record<string, string> = { percent: '#3a8f57', hourly: '#5aa9e6', combo: '#d29922', flat: '#a371f7' };
 const methodLabel: Record<string, string> = { percent: '% of Revenue', hourly: 'Hourly', combo: 'Hourly + %', flat: 'Flat' };
@@ -67,14 +67,16 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
   const [newPtName, setNewPtName] = useState('');
   const [newPtMethod, setNewPtMethod] = useState<Method>('percent');
   const [err, setErr] = useState<string | null>(null);
+  const [techSearch, setTechSearch] = useState('');
+  const [techFilter, setTechFilter] = useState<'all' | 'shown' | 'hidden'>('all');
 
   const loadBase = useCallback(async () => {
     const [pt, tk, jt, all] = await Promise.all([
-      fetch('/api/pay-types'), fetch('/api/technicians'), fetch('/api/job-types'), fetch('/api/technician-pay-types'),
+      fetch('/api/pay-types'), fetch('/api/technicians?all=1'), fetch('/api/job-types'), fetch('/api/technician-pay-types'),
     ]);
     setPayTypes(pt.ok ? await pt.json() : []);
     const tks = tk.ok ? await tk.json() : [];
-    setTechs((tks || []).map((t: any) => ({ id: t.id, name: t.name, trade: t.trade })));
+    setTechs((tks || []).map((t: any) => ({ id: t.id, name: t.name, trade: t.trade, business_unit_name: t.business_unit_name, show_in_install: !!t.show_in_install })));
     setJobTypes(jt.ok ? await jt.json() : []);
     // Pre-load every tech's pay configs so the tags show without expanding each row.
     if (all.ok) {
@@ -96,6 +98,21 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
     if (expanded === techId) { setExpanded(null); return; }
     setExpanded(techId);
   };
+
+  const toggleVisible = async (t: Tech) => {
+    const next = !t.show_in_install;
+    setTechs(prev => prev.map(x => x.id === t.id ? { ...x, show_in_install: next } : x));
+    const res = await fetch(`/api/technicians/${t.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show_in_install: next }) });
+    if (!res.ok) { setTechs(prev => prev.map(x => x.id === t.id ? { ...x, show_in_install: !next } : x)); setErr('Could not update visibility'); }
+  };
+
+  const shownTechs = techs.filter(t => {
+    if (techFilter === 'shown' && !t.show_in_install) return false;
+    if (techFilter === 'hidden' && t.show_in_install) return false;
+    const q = techSearch.trim().toLowerCase();
+    return !q || t.name.toLowerCase().includes(q);
+  });
+  const visibleCount = techs.filter(t => t.show_in_install).length;
 
   // --- Pay type library ---
   const addPayType = async () => {
@@ -198,17 +215,41 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
       <div className="rounded-lg" style={card}>
         <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Technicians</div>
-          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Attach pay types to each technician. Set their hourly rate where the pay type uses one.</div>
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Toggle who appears in the Install Jobs &ldquo;Add technician&rdquo; picker, attach pay types, and set hourly rates. <span style={{ color: 'var(--text-secondary)' }}>{visibleCount} of {techs.length} shown in Install Jobs.</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            <input value={techSearch} onChange={e => setTechSearch(e.target.value)} placeholder="Search technicians…" className="rounded-lg px-2 py-1.5 text-sm" style={{ ...ctl, minWidth: 200 }} />
+            <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+              {(['all', 'shown', 'hidden'] as const).map(f => (
+                <button key={f} onClick={() => setTechFilter(f)} className="px-2.5 py-1 rounded text-xs capitalize"
+                  style={{ backgroundColor: techFilter === f ? 'var(--christmas-green)' : 'transparent', color: techFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                  {f === 'shown' ? 'In Install' : f}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div>
-          {techs.map(t => {
+          {shownTechs.length === 0 && <div className="px-4 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>No technicians match.</div>}
+          {shownTechs.map(t => {
             const open = expanded === t.id;
             const cfgs = configs[t.id] || [];
             return (
               <div key={t.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 <div onClick={() => toggleTech(t.id)} className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/5">
-                  <div className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.name} <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t.trade || ''}</span></div>
-                  <div className="flex items-center gap-2 flex-wrap justify-end" style={{ maxWidth: '70%' }}>
+                  <div className="flex items-center gap-2">
+                    <button onClick={e => { e.stopPropagation(); if (canManage) toggleVisible(t); }} disabled={!canManage}
+                      title={t.show_in_install ? 'Showing in Install Jobs — click to hide' : 'Hidden from Install Jobs — click to show'}
+                      className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={t.show_in_install
+                        ? { backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394', border: '1px solid rgba(58,143,87,.4)' }
+                        : { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                      {t.show_in_install ? 'In Install ✓' : 'Hidden'}
+                    </button>
+                    <div className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.name} <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t.business_unit_name || t.trade || ''}</span></div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap justify-end" style={{ maxWidth: '60%' }}>
                     {!open && cfgs.length > 0 && cfgs.slice(0, 4).map(c => (
                       <span key={c.id} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>{c.pay_type.name} <b style={{ color: 'var(--text-primary)' }}>{configSummary(c)}</b></span>
                     ))}
