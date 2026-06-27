@@ -26,11 +26,50 @@ function initials(name: string | null): string {
 type AssignFilter = 'all' | 'unassigned' | 'in_house' | 'contractor';
 const FILTER_LABELS: Record<AssignFilter, string> = { all: 'All', unassigned: 'Unassigned', in_house: 'In-House', contractor: 'Contractor' };
 
+const ddCtl = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' } as const;
+
+function JobTypeFilter({ all, selected, onChange }: { all: string[]; selected: string[]; onChange: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const shown = all.filter(t => t.toLowerCase().includes(q.toLowerCase()));
+  const label = selected.length === 0 ? 'All job types' : `${selected.length} job type${selected.length === 1 ? '' : 's'}`;
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(o => !o)} className="rounded-lg px-3 py-2 text-sm text-left" style={{ ...ddCtl, minWidth: 150 }}>
+        {label} ▾
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute z-30 mt-1 rounded-lg p-2 w-72 max-h-80 overflow-auto" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search job types…"
+              className="w-full rounded px-2 py-1.5 text-xs mb-2" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+            {shown.length === 0 && <div className="text-xs px-1 py-1" style={{ color: 'var(--text-muted)' }}>No matches.</div>}
+            {shown.map(t => {
+              const on = selected.includes(t);
+              return (
+                <label key={t} className="flex items-center gap-2 px-1.5 py-1 rounded text-xs cursor-pointer hover:bg-white/5" style={{ color: 'var(--text-secondary)' }}>
+                  <input type="checkbox" checked={on} onChange={() => onChange(on ? selected.filter(x => x !== t) : [...selected, t])} />
+                  {t}
+                </label>
+              );
+            })}
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => onChange([])} className="text-xs flex-1 rounded py-1.5" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>Clear</button>
+              <button onClick={() => setOpen(false)} className="text-xs flex-1 rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>Done</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function InstallJobsPage() {
   const perms = useAPPermissions();
   const [range, setRange] = useState<DateRange>(monthToDate());
   const [assignFilter, setAssignFilter] = useState<AssignFilter>('all');
-  const [jobTypeFilter, setJobTypeFilter] = useState('');
+  const [jobTypeFilter, setJobTypeFilter] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<InstallJobRow[]>([]);
   const [technicians, setTechnicians] = useState<{ id: string; name: string }[]>([]);
@@ -107,7 +146,7 @@ export default function InstallJobsPage() {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
       if (q && !(`${r.job_number}`.toLowerCase().includes(q) || (r.customer_name || '').toLowerCase().includes(q))) return false;
-      if (jobTypeFilter && r.job_type !== jobTypeFilter) return false;
+      if (jobTypeFilter.length > 0 && !(r.job_type && jobTypeFilter.includes(r.job_type))) return false;
       const hasTech = r.assignments.some(a => a.type === 'technician');
       const hasSub = r.assignments.some(a => a.type === 'subcontractor');
       if (assignFilter === 'unassigned' && r.assignments.length > 0) return false;
@@ -231,11 +270,7 @@ export default function InstallJobsPage() {
         <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" />
         <input type="text" placeholder="Search job #, customer…" value={search} onChange={e => setSearch(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 210 }} />
-        <select value={jobTypeFilter} onChange={e => setJobTypeFilter(e.target.value)}
-          className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, maxWidth: 220 }}>
-          <option value="">All job types</option>
-          {jobTypeOptions.map(jt => <option key={jt} value={jt}>{jt}</option>)}
-        </select>
+        <JobTypeFilter all={jobTypeOptions} selected={jobTypeFilter} onChange={setJobTypeFilter} />
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {(['all', 'unassigned', 'in_house', 'contractor'] as const).map(f => (
             <button key={f} onClick={() => setAssignFilter(f)} className="px-3 py-1 rounded text-sm"
