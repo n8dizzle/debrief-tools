@@ -26,6 +26,7 @@ interface PaymentJob {
   payment_paid_at: string | null;
   completed_date: string | null;
   scheduled_date: string | null;
+  invoice_amount: number | null;
 }
 
 interface PaymentAvg {
@@ -89,6 +90,7 @@ export default function ContractorDetailPage() {
   const [payments, setPayments] = useState<PaymentJob[]>([]);
   const [rateHistory, setRateHistory] = useState<APContractorRateHistory[]>([]);
   const [averages, setAverages] = useState<PaymentAvg[]>([]);
+  const [avgInvoicePct, setAvgInvoicePct] = useState<number | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
   const loadContractor = useCallback(async () => {
@@ -133,6 +135,7 @@ export default function ContractorDetailPage() {
         setPayments(data.payments || []);
         setRateHistory(data.rateHistory || []);
         setAverages(data.averages || []);
+        setAvgInvoicePct(data.avgInvoicePct ?? null);
       }
     } catch (err) {
       console.error('Failed to load history:', err);
@@ -357,7 +360,7 @@ export default function ContractorDetailPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="card">
           <div className="text-xs font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Total Jobs</div>
           <div className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
@@ -374,6 +377,12 @@ export default function ContractorDetailPage() {
           <div className="text-xs font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Outstanding</div>
           <div className="text-xl font-bold mt-1" style={{ color: contractor.total_outstanding > 0 ? 'var(--status-warning)' : 'var(--text-primary)' }}>
             {formatCurrency(contractor.total_outstanding)}
+          </div>
+        </div>
+        <div className="card">
+          <div className="text-xs font-medium uppercase" style={{ color: 'var(--text-muted)' }}>Avg % of Invoice</div>
+          <div className="text-xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
+            {avgInvoicePct != null ? `${Math.round(avgInvoicePct)}%` : '—'}
           </div>
         </div>
       </div>
@@ -853,6 +862,8 @@ export default function ContractorDetailPage() {
                         <th className="text-left py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Customer</th>
                         <th className="text-left py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Type</th>
                         <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Amount</th>
+                        <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Invoice</th>
+                        <th className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>% of Inv</th>
                         <th className="text-left py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
                         <th className="text-left py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Date</th>
                       </tr>
@@ -882,6 +893,14 @@ export default function ContractorDetailPage() {
                           </td>
                           <td className="py-2 px-2 text-right font-medium" style={{ color: 'var(--christmas-cream)' }}>
                             {p.payment_amount ? formatCurrency(p.payment_amount) : '—'}
+                          </td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>
+                            {p.invoice_amount != null ? formatCurrency(p.invoice_amount) : '—'}
+                          </td>
+                          <td className="py-2 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>
+                            {p.payment_amount != null && p.invoice_amount != null && p.invoice_amount > 0
+                              ? `${Math.round((p.payment_amount / p.invoice_amount) * 100)}%`
+                              : '—'}
                           </td>
                           <td className="py-2 px-2">
                             <PaymentStatusPill status={p.payment_status} />
