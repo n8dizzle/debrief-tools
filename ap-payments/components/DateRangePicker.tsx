@@ -14,6 +14,7 @@ interface DateRangePickerProps {
   onChange: (range: DateRange, preset?: DateRangePreset) => void;
   dataDelay?: number; // Days of data delay (for display)
   defaultPreset?: DateRangePreset; // Restore active preset on mount
+  payPeriods?: { start: string; end: string }[]; // ServiceTitan pay cycles, shown as a preset group
 }
 
 type PresetKey = DateRangePreset;
@@ -35,7 +36,7 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function DateRangePicker({ value, onChange, dataDelay = 0, defaultPreset }: DateRangePickerProps) {
+export function DateRangePicker({ value, onChange, dataDelay = 0, defaultPreset, payPeriods = [] }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activePreset, setActivePreset] = useState<PresetKey>(defaultPreset || 'mtd');
   const [customStart, setCustomStart] = useState(value.start);
@@ -218,6 +219,14 @@ export function DateRangePicker({ value, onChange, dataDelay = 0, defaultPreset 
     setIsOpen(false);
   };
 
+  const handlePayPeriodSelect = (p: { start: string; end: string }) => {
+    setActivePreset('custom');
+    setCustomStart(p.start);
+    setCustomEnd(p.end);
+    onChange({ start: p.start, end: p.end }, 'custom');
+    setIsOpen(false);
+  };
+
   const formatDisplayDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -280,6 +289,29 @@ export function DateRangePicker({ value, onChange, dataDelay = 0, defaultPreset 
               ))}
             </div>
           </div>
+
+          {/* Pay Periods (ServiceTitan cycles) */}
+          {payPeriods.length > 0 && (
+            <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="text-xs font-medium uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-muted)' }}>
+                Pay Periods
+              </div>
+              <div className="max-h-44 overflow-y-auto flex flex-col gap-1">
+                {payPeriods.map((p) => {
+                  const active = value.start === p.start && value.end === p.end;
+                  return (
+                    <button
+                      key={`${p.start}|${p.end}`}
+                      onClick={() => handlePayPeriodSelect(p)}
+                      className={`px-3 py-2 text-sm rounded-md transition-colors text-left ${active ? 'bg-[#346643] text-white' : 'hover:bg-white/5 text-gray-300'}`}
+                    >
+                      {formatDisplayDate(p.start)} – {formatDisplayDate(p.end)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Custom Range */}
           <div className="p-3">
