@@ -73,6 +73,25 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ServiceTitan actual crew + clocked hours per job (for auto-listing pay rows).
+  const stCrewByJob = new Map<string, any[]>();
+  if (jobIds.length > 0) {
+    const { data: crew } = await supabase
+      .from('ap_job_st_labor')
+      .select('job_id, st_technician_id, technician_id, technician_name, hours')
+      .in('job_id', jobIds);
+    for (const c of (crew || []) as any[]) {
+      const list = stCrewByJob.get(c.job_id) || [];
+      list.push({
+        st_technician_id: c.st_technician_id,
+        technician_id: c.technician_id,
+        name: c.technician_name,
+        hours: c.hours == null ? null : Number(c.hours),
+      });
+      stCrewByJob.set(c.job_id, list);
+    }
+  }
+
   const rows = jobRows.map((j: any) => ({
     id: j.id,
     st_job_id: j.st_job_id,
@@ -85,6 +104,7 @@ export async function GET(request: NextRequest) {
     // Invoice amount = ServiceTitan report revenue (st_revenue); fall back to job_total when present.
     invoice_amount: j.st_revenue != null ? Number(j.st_revenue) : (j.job_total != null && Number(j.job_total) > 0 ? Number(j.job_total) : null),
     assignments: byJob.get(j.id) || [],
+    st_crew: stCrewByJob.get(j.id) || [],
   }));
 
   return NextResponse.json({ rows });

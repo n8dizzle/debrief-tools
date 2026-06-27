@@ -13,6 +13,14 @@ export interface Assignment {
   pay_amount?: number | null;
   pay_type_id?: string | null;
   pay_basis?: { hours?: number | null; [k: string]: unknown } | null;
+  __draft?: boolean;       // synthetic row from ST crew, not yet a saved assignment
+  __stHours?: number | null; // ST clocked hours for this person on this job
+}
+export interface StCrewMember {
+  st_technician_id: number;
+  technician_id: string | null;
+  name: string | null;
+  hours: number | null;
 }
 export interface TechPayConfig {
   pay_type_id: string;
@@ -40,6 +48,7 @@ export interface InstallJobRow {
   completed_date: string | null;
   invoice_amount: number | null;
   assignments: Assignment[];
+  st_crew?: StCrewMember[];
 }
 interface Opt { id: string; name: string }
 type PayState = { payTypeId: string; hours: string; mins: string; amount: string };
@@ -85,7 +94,13 @@ export default function CrewDrawer({
     if (!job) { setPay({}); return; }
     setPay(prev => {
       const next: Record<string, PayState> = {};
-      for (const a of job.assignments) {
+      // ST clocked hours per matched technician, and draft rows for ST crew not yet assigned.
+      const stHoursByTech = new Map((job.st_crew || []).filter(c => c.technician_id).map(c => [c.technician_id as string, c.hours]));
+      const realTechIds = new Set(job.assignments.filter(a => a.type === 'technician').map(a => a.technician_id));
+      const drafts: Assignment[] = (job.st_crew || [])
+        .filter(c => c.technician_id && !realTechIds.has(c.technician_id))
+        .map(c => ({ id: `st:${c.st_technician_id}`, type: 'technician', technician_id: c.technician_id, contractor_id: null, name: c.name, pay_amount: null, pay_type_id: null, __draft: true, __stHours: c.hours }));
+      for (const a of [...job.assignments, ...drafts]) {
         if (prev[a.id]) { next[a.id] = prev[a.id]; continue; }
         if (a.type === 'technician') {
           const configs = payConfigsByTech[a.technician_id || ''] || [];
@@ -96,14 +111,17 @@ export default function CrewDrawer({
               amount: a.pay_amount != null ? String(a.pay_amount) : '',
             };
           } else {
+            // Pre-fill hours from ST clocked time (used by hourly/combo; ignored by %/flat).
+            const stH = a.technician_id ? stHoursByTech.get(a.technician_id) : null;
+            const { hours, mins } = fromDecimalHours(stH ?? null);
             const def = configs.find(c => job.job_type && c.default_job_types.includes(job.job_type));
             const chosen = def || (configs.length === 1 ? configs[0] : null);
-            if (!chosen) { next[a.id] = { payTypeId: '', hours: '', mins: '', amount: '' }; continue; }
+            if (!chosen) { next[a.id] = { payTypeId: '', hours, mins, amount: '' }; continue; }
             const res = computeTechPay({
               method: chosen.method, percent: chosen.percent, flat_amount: chosen.flat_amount,
-              hourly_rate: chosen.hourly_rate, hours: null, revenue: job.invoice_amount,
+              hourly_rate: chosen.hourly_rate, hours: toDecimalHours(hours, mins), revenue: job.invoice_amount,
             });
-            next[a.id] = { payTypeId: chosen.pay_type_id, hours: '', mins: '', amount: res.amount != null ? String(res.amount) : '' };
+            next[a.id] = { payTypeId: chosen.pay_type_id, hours, mins, amount: res.amount != null ? String(res.amount) : '' };
           }
         } else {
           // Subcontractor — match rate card by trade + job type.
@@ -195,17 +213,26 @@ export default function CrewDrawer({
     } finally { setBusy(false); }
   };
 
-  const techRows = theJob.assignments.filter(a => a.type === 'technician');
+  // Real technician assignments + draft rows auto-listed from ST's actual crew.
+  const realTechAssignments = theJob.assignments.filter(a => a.type === 'technician');
+  const realTechIds = new Set(realTechAssignments.map(a => a.technician_id));
+  const draftAssignments: Assignment[] = (theJob.st_crew || [])
+    .filter(c => c.technician_id && !realTechIds.has(c.technician_id))
+    .map(c => ({ id: `st:${c.st_technician_id}`, type: 'technician', technician_id: c.technician_id, contractor_id: null, name: c.name, pay_amount: null, pay_type_id: null, __draft: true, __stHours: c.hours }));
+  const techRows = [...realTechAssignments, ...draftAssignments];
   const subRows = theJob.assignments.filter(a => a.type === 'subcontractor');
+  const unmatchedCrew = (theJob.st_crew || []).filter(c => !c.technician_id);
 
   const rowDirty = (a: Assignment): boolean => {
     const st = pay[a.id]; if (!st) return false;
+    if (a.__draft) return !!st.payTypeId || st.amount !== ''; // a draft worth saving
     const typeChanged = a.type === 'technician' && (a.pay_type_id ?? '') !== (st.payTypeId ?? '');
     const amountChanged = !moneySame(st.amount, a.pay_amount);
     return typeChanged || amountChanged;
   };
-  const dirty = theJob.assignments.some(rowDirty);
-  const crewTotal = theJob.assignments.reduce((s, a) => {
+  const allRows = [...techRows, ...subRows];
+  const dirty = allRows.some(rowDirty);
+  const crewTotal = allRows.reduce((s, a) => {
     const n = parseFloat(pay[a.id]?.amount || '');
     return s + (isNaN(n) ? 0 : n);
   }, 0);
@@ -213,7 +240,7 @@ export default function CrewDrawer({
   const savePay = async () => {
     setBusy(true); setError(null);
     try {
-      for (const a of theJob.assignments) {
+      for (const a of allRows) {
         const st = pay[a.id]; if (!st || !rowDirty(a)) continue;
         let payTypeId: string | null = null;
         let basis: Record<string, unknown> | null = null;
@@ -233,10 +260,24 @@ export default function CrewDrawer({
             revenue: theJob.invoice_amount, computed_at: new Date().toISOString(),
           } : { source: 'manual', revenue: theJob.invoice_amount, computed_at: new Date().toISOString() };
         }
-        const res = await fetch(`/api/install-jobs/${theJob.id}/assignments/${a.id}`, {
+        const payload = { pay_amount: st.amount === '' ? null : Number(st.amount), pay_basis: basis };
+
+        let assignmentId = a.id;
+        if (a.__draft) {
+          // Create the assignment first (ST crew member becoming a pay row), then set pay.
+          const createRes = await fetch(`/api/install-jobs/${theJob.id}/assignments`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignee_type: 'technician', technician_id: a.technician_id }),
+          });
+          if (!createRes.ok) { const j = await createRes.json().catch(() => ({})); throw new Error(j.error || 'Failed to add crew member'); }
+          const created = await createRes.json();
+          assignmentId = created.id;
+        }
+
+        const res = await fetch(`/api/install-jobs/${theJob.id}/assignments/${assignmentId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pay_type_id: payTypeId, pay_amount: st.amount === '' ? null : Number(st.amount), pay_basis: basis }),
+          body: JSON.stringify({ pay_type_id: payTypeId, ...payload }),
         });
         if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Failed to save pay'); }
       }
@@ -285,10 +326,10 @@ export default function CrewDrawer({
 
         <div className="p-4 flex-1">
           <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-            Crew — {theJob.assignments.length} assigned
+            Crew — {theJob.assignments.length} assigned{draftAssignments.length > 0 ? ` · ${draftAssignments.length} from ServiceTitan` : ''}
           </div>
 
-          {theJob.assignments.length === 0 && (
+          {allRows.length === 0 && (
             <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>No one assigned yet.</div>
           )}
 
@@ -310,8 +351,9 @@ export default function CrewDrawer({
                           style={{ backgroundColor: 'rgba(58,143,87,.25)', color: '#6fd394' }}>{initials(a.name)}</span>
                         {a.name || '—'}
                         {frozen && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>saved</span>}
+                        {a.__draft && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(90,169,230,.16)', color: '#5aa9e6' }}>from ST{a.__stHours != null ? ` · ${a.__stHours}h` : ''}</span>}
                       </span>
-                      {removeBtn(a)}
+                      {!a.__draft && removeBtn(a)}
                     </div>
 
                     {configs.length === 0 ? (
@@ -407,6 +449,12 @@ export default function CrewDrawer({
             </div>
           )}
 
+          {unmatchedCrew.length > 0 && (
+            <div className="mb-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              On ServiceTitan but not a payable tech: {unmatchedCrew.map(c => `${c.name || '?'}${c.hours != null ? ` (${c.hours}h)` : ''}`).join(', ')}
+            </div>
+          )}
+
           {canEdit && (
             <>
               <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-2" style={{ color: 'var(--text-muted)' }}>Add to crew</div>
@@ -430,7 +478,7 @@ export default function CrewDrawer({
         </div>
 
         {/* Footer — crew total + Save */}
-        {theJob.assignments.length > 0 && (
+        {allRows.length > 0 && (
           <div className="p-4 border-t sticky bottom-0" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-secondary)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Crew pay total</span>
