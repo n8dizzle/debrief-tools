@@ -256,7 +256,7 @@ export default function ContractorDetailPage() {
 
   const handleAddRate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rateJobType.trim() || !rateAmount) return;
+    if (!rateAmount) return;
 
     setSavingRate(true);
     try {
@@ -971,20 +971,19 @@ export default function ContractorDetailPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Job Type</label>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Job Type <span style={{ opacity: 0.7 }}>(optional)</span></label>
                     <input
                       className="input"
                       list="rate-job-types"
-                      placeholder="Pick or type a ServiceTitan job type"
+                      placeholder="Leave blank to apply to all jobs"
                       value={rateJobType}
                       onChange={(e) => setRateJobType(e.target.value)}
-                      required
                     />
                     <datalist id="rate-job-types">
                       {jobTypeOptions.map((jt) => <option key={jt} value={jt} />)}
                     </datalist>
                     <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                      Match the ServiceTitan job type so pay auto-fills when this sub is assigned.
+                      Blank = the default rate for all {rateTrade.toUpperCase()} jobs. Set a job type only when one pays differently.
                     </div>
                   </div>
                   <div>
@@ -1031,8 +1030,8 @@ export default function ContractorDetailPage() {
                       className="flex items-center justify-between py-2 px-3 rounded-lg"
                       style={{ background: 'var(--bg-primary)' }}
                     >
-                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                        {rate.job_type_name}
+                      <span className="text-sm" style={{ color: rate.job_type_name === '*' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+                        {rate.job_type_name === '*' ? 'All jobs (default)' : rate.job_type_name}
                       </span>
                       <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
                         {formatRateValue(rate)}
@@ -1056,8 +1055,8 @@ export default function ContractorDetailPage() {
                       className="flex items-center justify-between py-2 px-3 rounded-lg"
                       style={{ background: 'var(--bg-primary)' }}
                     >
-                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                        {rate.job_type_name}
+                      <span className="text-sm" style={{ color: rate.job_type_name === '*' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+                        {rate.job_type_name === '*' ? 'All jobs (default)' : rate.job_type_name}
                       </span>
                       <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
                         {formatRateValue(rate)}
