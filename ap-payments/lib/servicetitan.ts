@@ -117,6 +117,16 @@ export interface STGrossPayItem {
   amount: number;
 }
 
+/** A clock in/out segment on a job. Available immediately (before payroll posts). */
+export interface STJobTimesheet {
+  id: number;
+  employeeId: number;
+  employeeType?: string;
+  jobId?: number;
+  startedOn: string;
+  endedOn?: string;
+}
+
 /** One job's aggregated cost buckets from ST report 33240339. Dollar amounts; pct is a fraction. */
 export interface STJobMarginRow {
   jobNumber: string;
@@ -878,6 +888,34 @@ export class ServiceTitanClient {
       console.error('Failed to fetch payroll periods:', error);
       return [];
     }
+  }
+
+  /**
+   * Fetch job timesheets (clock in/out on jobs). Available immediately, before payroll
+   * processes gross-pay-items. Returns jobId → Map(employeeId → summed worked hours).
+   */
+  async getJobTimesheetHours(startDate: string, endDate: string): Promise<Map<number, Map<number, number>>> {
+    const map = new Map<number, Map<number, number>>();
+    try {
+      const items = await this.requestAllPages<STJobTimesheet>(
+        `payroll/v2/tenant/${this.tenantId}/job-timesheets`,
+        { modifiedOnOrAfter: `${startDate}T00:00:00` }
+      );
+      for (const ts of items) {
+        if (!ts.jobId || !ts.startedOn || !ts.endedOn) continue;
+        const d = ts.startedOn.slice(0, 10);
+        if (d < startDate || d > endDate) continue;
+        const hours = (new Date(ts.endedOn).getTime() - new Date(ts.startedOn).getTime()) / 3_600_000;
+        if (!(hours > 0)) continue;
+        const byEmp = map.get(ts.jobId) || new Map<number, number>();
+        byEmp.set(ts.employeeId, (byEmp.get(ts.employeeId) || 0) + hours);
+        map.set(ts.jobId, byEmp);
+      }
+      console.log(`Fetched job timesheets for ${map.size} jobs (${startDate} to ${endDate})`);
+    } catch (error) {
+      console.error('Failed to fetch job timesheets:', error);
+    }
+    return map;
   }
 
   /**

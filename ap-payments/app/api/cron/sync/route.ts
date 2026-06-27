@@ -117,11 +117,12 @@ export async function POST(request: NextRequest) {
     const grossPayStart = formatLocalDate(past14);
     const grossPayEnd = formatLocalDate(today);
 
-    const [upcomingResult, recentJobs, recentApptResult, grossPayMap] = await Promise.all([
+    const [upcomingResult, recentJobs, recentApptResult, grossPayMap, jobTsMap] = await Promise.all([
       st.getUpcomingInstallJobs(30),
       st.getRecentInstallJobs(7),
       st.getRecentAppointments(14),
       st.getGrossPayItems(grossPayStart, grossPayEnd),
+      st.getJobTimesheetHours(grossPayStart, grossPayEnd),
     ]);
 
     const { jobs: upcomingJobs, appointmentMap, appointmentDetails } = upcomingResult;
@@ -405,7 +406,7 @@ export async function POST(request: NextRequest) {
     try {
       const jobIdsWithCrew = allJobs
         .map(j => j.id)
-        .filter(id => (grossPayMap.get(id)?.length || 0) > 0 || (jobTechMap.get(id)?.length || 0) > 0);
+        .filter(id => (grossPayMap.get(id)?.length || 0) > 0 || (jobTsMap.get(id)?.size || 0) > 0 || (jobTechMap.get(id)?.length || 0) > 0);
       if (jobIdsWithCrew.length > 0) {
         const { data: dbJobRows } = await supabase
           .from('ap_install_jobs')
@@ -417,7 +418,8 @@ export async function POST(request: NextRequest) {
           const dbJobId = stToDbJob.get(stJobId);
           if (!dbJobId) continue;
 
-          // Clocked hours from gross-pay-items, summed per employee on this job.
+          // Hours per employee. Prefer payroll gross-pay (authoritative); fall back to job
+          // timesheet clock-in/out (available before payroll posts); else dispatched-only.
           const byEmp = new Map<number, { hours: number | null; cost: number | null; source: string }>();
           for (const it of (grossPayMap.get(stJobId) || [])) {
             const cur = byEmp.get(it.employeeId) || { hours: 0, cost: 0, source: 'gross_pay' };
@@ -425,7 +427,11 @@ export async function POST(request: NextRequest) {
             cur.cost = (cur.cost || 0) + (it.amount || 0);
             byEmp.set(it.employeeId, cur);
           }
-          // Dispatched techs without timesheet data yet.
+          // Timesheet hours for employees not already covered by gross-pay.
+          for (const [empId, hrs] of (jobTsMap.get(stJobId) || new Map<number, number>())) {
+            if (!byEmp.has(empId)) byEmp.set(empId, { hours: Math.round(hrs * 100) / 100, cost: null, source: 'timesheet' });
+          }
+          // Dispatched techs with no time data at all yet.
           for (const tid of (jobTechMap.get(stJobId) || [])) {
             if (!byEmp.has(tid)) byEmp.set(tid, { hours: null, cost: null, source: 'dispatch' });
           }
