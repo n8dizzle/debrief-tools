@@ -89,12 +89,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build technician lookup: st_technician_id → { id, hourly_rate }
+    // Build technician lookup: st_technician_id → { id, hourly_rate, name }
     const { data: dbTechs } = await supabase
       .from('ap_technicians')
-      .select('id, st_technician_id, hourly_rate');
+      .select('id, st_technician_id, hourly_rate, name');
     const techLookup = new Map(
-      (dbTechs || []).map(t => [t.st_technician_id, { id: t.id, hourly_rate: t.hourly_rate }])
+      (dbTechs || []).map(t => [t.st_technician_id, { id: t.id, hourly_rate: t.hourly_rate, name: t.name }])
     );
 
     // Load BU → trade mapping and allowed BUs
@@ -398,6 +398,59 @@ export async function POST(request: NextRequest) {
         console.error(msg);
         errors.push(msg);
       }
+    }
+
+    // Populate ST crew + per-tech hours (who actually worked the job + clocked time)
+    // so the pay drawer can auto-list everyone. Only touch jobs we have fresh data for.
+    try {
+      const jobIdsWithCrew = allJobs
+        .map(j => j.id)
+        .filter(id => (grossPayMap.get(id)?.length || 0) > 0 || (jobTechMap.get(id)?.length || 0) > 0);
+      if (jobIdsWithCrew.length > 0) {
+        const { data: dbJobRows } = await supabase
+          .from('ap_install_jobs')
+          .select('id, st_job_id')
+          .in('st_job_id', jobIdsWithCrew);
+        const stToDbJob = new Map((dbJobRows || []).map(r => [r.st_job_id, r.id]));
+
+        for (const stJobId of jobIdsWithCrew) {
+          const dbJobId = stToDbJob.get(stJobId);
+          if (!dbJobId) continue;
+
+          // Clocked hours from gross-pay-items, summed per employee on this job.
+          const byEmp = new Map<number, { hours: number | null; cost: number | null; source: string }>();
+          for (const it of (grossPayMap.get(stJobId) || [])) {
+            const cur = byEmp.get(it.employeeId) || { hours: 0, cost: 0, source: 'gross_pay' };
+            cur.hours = (cur.hours || 0) + (it.paidDurationHours || 0);
+            cur.cost = (cur.cost || 0) + (it.amount || 0);
+            byEmp.set(it.employeeId, cur);
+          }
+          // Dispatched techs without timesheet data yet.
+          for (const tid of (jobTechMap.get(stJobId) || [])) {
+            if (!byEmp.has(tid)) byEmp.set(tid, { hours: null, cost: null, source: 'dispatch' });
+          }
+
+          const rows = Array.from(byEmp.entries()).map(([stTechId, v]) => {
+            const info = techLookup.get(stTechId);
+            return {
+              job_id: dbJobId,
+              st_technician_id: stTechId,
+              technician_id: info?.id || null,
+              technician_name: info?.name || null,
+              hours: v.hours == null ? null : Math.round(v.hours * 100) / 100,
+              cost: v.cost == null ? null : Math.round(v.cost * 100) / 100,
+              source: v.source,
+              synced_at: new Date().toISOString(),
+            };
+          });
+
+          // Replace this job's crew (handles crew changes within the active window).
+          await supabase.from('ap_job_st_labor').delete().eq('job_id', dbJobId);
+          if (rows.length > 0) await supabase.from('ap_job_st_labor').insert(rows);
+        }
+      }
+    } catch (err) {
+      console.error('ST crew population failed:', err);
     }
 
     // Enrich new jobs with customer/location details (best-effort, 10s timeout)
