@@ -20,12 +20,18 @@ export async function GET(
   const supabase = getServerSupabase();
 
   // Fetch completed/paid jobs for this contractor (actual payment history)
-  const { data: paymentJobs } = await supabase
+  const { data: paymentJobsRaw } = await supabase
     .from('ap_install_jobs')
-    .select('id, job_number, trade, job_type_name, business_unit_name, customer_name, payment_amount, payment_status, payment_paid_at, completed_date, scheduled_date')
+    .select('id, job_number, trade, job_type_name, business_unit_name, customer_name, payment_amount, payment_status, payment_paid_at, completed_date, scheduled_date, st_revenue, job_total')
     .eq('contractor_id', id)
     .neq('assignment_type', 'unassigned')
     .order('completed_date', { ascending: false, nullsFirst: false });
+
+  // Invoice amount = ServiceTitan report revenue (st_revenue); fall back to job_total.
+  const paymentJobs = (paymentJobsRaw || []).map((j: any) => ({
+    ...j,
+    invoice_amount: j.st_revenue != null ? Number(j.st_revenue) : (j.job_total != null && Number(j.job_total) > 0 ? Number(j.job_total) : null),
+  }));
 
   // Fetch rate change history
   const { data: rateHistory } = await supabase
@@ -52,9 +58,16 @@ export async function GET(
     avgByType[key].avg = avgByType[key].total / avgByType[key].count;
   }
 
+  // Average "% of invoice" across jobs that have both a payment and an invoice amount.
+  const withBoth = jobs.filter(j => j.payment_amount != null && j.invoice_amount != null && j.invoice_amount > 0);
+  const avgInvoicePct = withBoth.length
+    ? withBoth.reduce((s, j) => s + (j.payment_amount / j.invoice_amount) * 100, 0) / withBoth.length
+    : null;
+
   return NextResponse.json({
     payments: jobs,
     rateHistory: rateHistory || [],
     averages: Object.values(avgByType),
+    avgInvoicePct,
   });
 }
