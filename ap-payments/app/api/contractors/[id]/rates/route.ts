@@ -45,10 +45,14 @@ export async function POST(
 
   const { id } = await params;
   const body = await request.json();
-  const { trade, job_type_name, rate_amount, rate_type } = body;
+  const { trade, rate_amount, rate_type } = body;
+  // Job type is optional: blank means a trade-wide default. Stored as '*' so the
+  // existing NOT NULL column + unique(contractor_id,trade,job_type_name) enforce
+  // one default per trade.
+  const job_type_name = (body.job_type_name && String(body.job_type_name).trim()) || '*';
 
-  if (!trade || !job_type_name || rate_amount == null) {
-    return NextResponse.json({ error: 'trade, job_type_name, and rate_amount are required' }, { status: 400 });
+  if (!trade || rate_amount == null) {
+    return NextResponse.json({ error: 'trade and rate_amount are required' }, { status: 400 });
   }
 
   const supabase = getServerSupabase();

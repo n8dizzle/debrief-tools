@@ -64,6 +64,13 @@ function cfgHint(c: TechPayConfig): string {
 function needsHours(method: PayMethod | undefined): boolean {
   return method === 'hourly' || method === 'combo';
 }
+// Find a sub's rate: prefer an exact job-type rate, else fall back to the trade-wide
+// default ('*'). Lets a sub have one "12% on all HVAC jobs" rate plus per-type overrides.
+function findSubRate(rates: SubRate[], trade: string | null, jobType: string | null): SubRate | undefined {
+  const tradeRates = rates.filter(r => sameCI(r.trade, trade));
+  return tradeRates.find(r => r.job_type_name !== '*' && sameCI(r.job_type_name, jobType))
+      || tradeRates.find(r => r.job_type_name === '*');
+}
 // A subcontractor rate maps onto the same compute fn as a percent/flat pay type.
 function rateToInput(r: SubRate, revenue: number | null): TechPayInput {
   return r.rate_type === 'percent'
@@ -121,7 +128,7 @@ export default function CrewDrawer({
             next[a.id] = { payTypeId: '', hours: '', amount: String(a.pay_amount) };
           } else {
             const rates = subRatesByContractor[a.contractor_id || ''] || [];
-            const r = rates.find(x => sameCI(x.trade, job.trade) && sameCI(x.job_type_name, job.job_type));
+            const r = findSubRate(rates, job.trade, job.job_type);
             const res = r ? computeTechPay(rateToInput(r, job.invoice_amount)) : { amount: null };
             next[a.id] = { payTypeId: '', hours: '', amount: res.amount != null ? String(res.amount) : '' };
           }
@@ -150,7 +157,7 @@ export default function CrewDrawer({
   };
   const configsFor = (a: Assignment) => payConfigsByTech[a.technician_id || ''] || [];
   const matchSubRate = (a: Assignment): SubRate | undefined =>
-    (subRatesByContractor[a.contractor_id || ''] || []).find(r => sameCI(r.trade, theJob.trade) && sameCI(r.job_type_name, theJob.job_type));
+    findSubRate(subRatesByContractor[a.contractor_id || ''] || [], theJob.trade, theJob.job_type);
   const subCalc = (r: SubRate | undefined): string => {
     if (!r) return '';
     const res = computeTechPay(rateToInput(r, theJob.invoice_amount));
@@ -393,7 +400,7 @@ export default function CrewDrawer({
                           <span className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
                             {rate.rate_type === 'percent'
                               ? `${rate.rate_amount}% of ${formatCurrency(theJob.invoice_amount)}`
-                              : `Flat ${formatCurrency(rate.rate_amount)}`} · {rate.job_type_name}
+                              : `Flat ${formatCurrency(rate.rate_amount)}`} · {rate.job_type_name === '*' ? 'all jobs' : rate.job_type_name}
                           </span>
                         ) : (
                           <span className="text-[11px] truncate" style={{ color: '#d29922' }}>
