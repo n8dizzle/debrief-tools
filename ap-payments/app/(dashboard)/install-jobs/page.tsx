@@ -80,6 +80,7 @@ export default function InstallJobsPage() {
   const [contractors, setContractors] = useState<{ id: string; name: string }[]>([]);
   const [payConfigsByTech, setPayConfigsByTech] = useState<Record<string, TechPayConfig[]>>({});
   const [subRatesByContractor, setSubRatesByContractor] = useState<Record<string, SubRate[]>>({});
+  const [payPeriods, setPayPeriods] = useState<{ start: string; end: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerJob, setDrawerJob] = useState<InstallJobRow | null>(null);
@@ -133,6 +134,12 @@ export default function InstallJobsPage() {
   }, [range]);
 
   useEffect(() => { if (!perms.isLoading) load(); }, [load, perms.isLoading]);
+
+  // ServiceTitan pay cycles (for the Pay Period filter) — fetch once.
+  useEffect(() => {
+    if (perms.isLoading) return;
+    fetch('/api/payroll-periods').then(r => r.ok ? r.json() : []).then(setPayPeriods).catch(() => {});
+  }, [perms.isLoading]);
 
   // keep the open drawer in sync after add/remove
   useEffect(() => {
@@ -272,6 +279,15 @@ export default function InstallJobsPage() {
 
       <div className="flex items-center flex-wrap gap-2 mb-4">
         <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" />
+        {payPeriods.length > 0 && (
+          <select
+            value={payPeriods.find(p => p.start === range.start && p.end === range.end) ? `${range.start}|${range.end}` : ''}
+            onChange={e => { if (!e.target.value) return; const [s, en] = e.target.value.split('|'); setRange({ start: s, end: en }); }}
+            className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, maxWidth: 230 }} title="Jump to a ServiceTitan pay cycle">
+            <option value="">Pay period…</option>
+            {payPeriods.map(p => <option key={`${p.start}|${p.end}`} value={`${p.start}|${p.end}`}>{formatDate(p.start)} – {formatDate(p.end)}</option>)}
+          </select>
+        )}
         <input type="text" placeholder="Search job #, customer…" value={search} onChange={e => setSearch(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 210 }} />
         <JobTypeFilter all={jobTypeOptions} selected={jobTypeFilter} onChange={setJobTypeFilter} />

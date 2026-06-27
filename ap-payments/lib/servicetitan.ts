@@ -863,6 +863,24 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Fetch ServiceTitan payroll records. One row per employee per cycle, so the same
+   * pay period repeats — callers dedupe by startedOn/endedOn to get distinct cycles.
+   */
+  async getPayrollPeriods(modifiedOnOrAfter?: string): Promise<{ startedOn: string; endedOn: string }[]> {
+    try {
+      const params: Record<string, string> = {};
+      if (modifiedOnOrAfter) params.modifiedOnOrAfter = `${modifiedOnOrAfter}T00:00:00`;
+      return await this.requestAllPages<{ startedOn: string; endedOn: string }>(
+        `payroll/v2/tenant/${this.tenantId}/payrolls`,
+        params
+      );
+    } catch (error) {
+      console.error('Failed to fetch payroll periods:', error);
+      return [];
+    }
+  }
+
+  /**
    * Fetch gross pay items (timesheet data) from the Payroll API.
    * Returns a Map of jobId → array of pay items (multiple entries per job — one per tech per time type).
    * This gives actual hours worked, not scheduled appointment windows.
