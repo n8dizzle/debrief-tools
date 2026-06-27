@@ -9,6 +9,8 @@ export interface AdminColumn<T> {
   sortValue?: (row: T) => string | number;
   searchValue?: (row: T) => string;
   render: (row: T) => React.ReactNode;
+  /** Optional totals-row cell, given the currently-displayed rows. */
+  footer?: (rows: T[]) => React.ReactNode;
   className?: string;
   align?: "left" | "right";
   /** Default column width in px. Falls back to DEFAULT_WIDTH. */
@@ -292,6 +294,22 @@ export default function AdminTable<T>({
                 </tr>
               )}
             </tbody>
+            {columns.some((c) => c.footer) && sorted.length > 0 && (
+              <tfoot className="sticky bottom-0 z-10" style={{ background: "var(--bg-secondary)" }}>
+                <tr>
+                  {orderedColumns.map((col) => {
+                    const w = colWidth(col);
+                    return (
+                      <td key={col.key}
+                        className="px-3 py-2.5 font-semibold tabular-nums"
+                        style={{ width: w, maxWidth: w, textAlign: col.align ?? "left", whiteSpace: "nowrap", borderTop: "2px solid var(--border-subtle)", color: "var(--text-primary)" }}>
+                        {col.footer ? col.footer(sorted) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
