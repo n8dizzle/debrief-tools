@@ -7,18 +7,19 @@ import { useAPPermissions } from '@/hooks/useAPPermissions';
 
 const mainLinks = [
   { href: '/', label: 'Dashboard', icon: 'home', section: 'payments' },
-  { href: '/board', label: 'Payment Board', icon: 'board', section: 'payments' },
   { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase', section: 'payments' },
   { href: '/install-jobs', label: 'Install Jobs', icon: 'clipboard', section: 'payments' },
   { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const, section: 'payments' },
-  { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const, section: 'reports' },
+  { href: '/board', label: 'Payment Board', icon: 'board', section: 'wip' },
+  { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const, section: 'wip' },
   { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const, section: 'reports' },
   { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const, section: 'reports' },
   { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canSyncData' as const, section: 'manage' },
 ];
 
-const SECTIONS: { key: string; heading: string | null }[] = [
+const SECTIONS: { key: string; heading: string | null; wip?: boolean }[] = [
   { key: 'payments', heading: 'Payments' },
+  { key: 'wip', heading: 'Work In Progress', wip: true },
   { key: 'reports', heading: 'Reports' },
   { key: 'manage', heading: null },
 ];
@@ -165,30 +166,38 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
               <div key={section.key} className="mb-6">
                 {section.heading && (
                   <div
-                    className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="text-xs font-semibold uppercase tracking-wider mb-2 px-3 flex items-center gap-1.5"
+                    style={{ color: section.wip ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
                   >
                     {section.heading}
+                    {section.wip && <span aria-hidden>🚧</span>}
                   </div>
                 )}
                 <div className="space-y-1">
-                  {links.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={handleLinkClick}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-                      style={{
-                        backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                        color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                      }}
-                    >
-                      <NavIcon type={link.icon} />
-                      <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
-                        {link.label}
-                      </span>
-                    </Link>
-                  ))}
+                  {links.map((link) => {
+                    const active = isActive(link.href);
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={handleLinkClick}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                        style={{
+                          backgroundColor: active ? 'var(--christmas-green)' : 'transparent',
+                          color: active ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                          opacity: section.wip && !active ? 0.6 : 1,
+                        }}
+                      >
+                        <NavIcon type={link.icon} />
+                        <span
+                          className={`text-sm ${active ? 'font-medium' : ''} ${section.wip ? 'italic' : ''}`}
+                          style={section.wip ? { fontWeight: 300 } : undefined}
+                        >
+                          {link.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             );
