@@ -6,15 +6,21 @@ import { usePathname } from 'next/navigation';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 
 const mainLinks = [
-  { href: '/', label: 'Dashboard', icon: 'home' },
-  { href: '/board', label: 'Payment Board', icon: 'board' },
-  { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase' },
-  { href: '/install-jobs', label: 'Install Jobs', icon: 'clipboard' },
-  { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const },
-  { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const },
-  { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const },
-  { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const },
-  { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canSyncData' as const },
+  { href: '/', label: 'Dashboard', icon: 'home', section: 'payments' },
+  { href: '/board', label: 'Payment Board', icon: 'board', section: 'payments' },
+  { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase', section: 'payments' },
+  { href: '/install-jobs', label: 'Install Jobs', icon: 'clipboard', section: 'payments' },
+  { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const, section: 'payments' },
+  { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const, section: 'reports' },
+  { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const, section: 'reports' },
+  { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const, section: 'reports' },
+  { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canSyncData' as const, section: 'manage' },
+];
+
+const SECTIONS: { key: string; heading: string | null }[] = [
+  { key: 'payments', heading: 'Payments' },
+  { key: 'reports', heading: 'Reports' },
+  { key: 'manage', heading: null },
 ];
 
 function NavIcon({ type }: { type: string }) {
@@ -152,33 +158,41 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">
-          <div className="mb-6">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Payments
-            </div>
-            <div className="space-y-1">
-              {filteredLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={handleLinkClick}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                    color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-                  }}
-                >
-                  <NavIcon type={link.icon} />
-                  <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
-                    {link.label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
+          {SECTIONS.map((section) => {
+            const links = filteredLinks.filter((l) => l.section === section.key);
+            if (links.length === 0) return null;
+            return (
+              <div key={section.key} className="mb-6">
+                {section.heading && (
+                  <div
+                    className="text-xs font-semibold uppercase tracking-wider mb-2 px-3"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {section.heading}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  {links.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={handleLinkClick}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                      style={{
+                        backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
+                        color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <NavIcon type={link.icon} />
+                      <span className={`text-sm ${isActive(link.href) ? 'font-medium' : ''}`}>
+                        {link.label}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Back to Portal */}
