@@ -23,12 +23,14 @@ function initials(name: string | null): string {
   const p = name.trim().split(/\s+/);
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || name[0].toUpperCase();
 }
-type AssignFilter = 'all' | 'unassigned' | 'assigned';
+type AssignFilter = 'all' | 'unassigned' | 'in_house' | 'contractor';
+const FILTER_LABELS: Record<AssignFilter, string> = { all: 'All', unassigned: 'Unassigned', in_house: 'In-House', contractor: 'Contractor' };
 
 export default function InstallJobsPage() {
   const perms = useAPPermissions();
   const [range, setRange] = useState<DateRange>(monthToDate());
   const [assignFilter, setAssignFilter] = useState<AssignFilter>('all');
+  const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<InstallJobRow[]>([]);
   const [technicians, setTechnicians] = useState<{ id: string; name: string }[]>([]);
@@ -96,15 +98,24 @@ export default function InstallJobsPage() {
     if (updated && updated !== drawerJob) setDrawerJob(updated);
   }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const jobTypeOptions = useMemo(
+    () => Array.from(new Set(rows.map(r => r.job_type).filter(Boolean) as string[])).sort(),
+    [rows]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
       if (q && !(`${r.job_number}`.toLowerCase().includes(q) || (r.customer_name || '').toLowerCase().includes(q))) return false;
+      if (jobTypeFilter && r.job_type !== jobTypeFilter) return false;
+      const hasTech = r.assignments.some(a => a.type === 'technician');
+      const hasSub = r.assignments.some(a => a.type === 'subcontractor');
       if (assignFilter === 'unassigned' && r.assignments.length > 0) return false;
-      if (assignFilter === 'assigned' && r.assignments.length === 0) return false;
+      if (assignFilter === 'in_house' && !hasTech) return false;
+      if (assignFilter === 'contractor' && !hasSub) return false;
       return true;
     });
-  }, [rows, search, assignFilter]);
+  }, [rows, search, assignFilter, jobTypeFilter]);
 
   const unassignedCount = useMemo(() => filtered.filter(r => r.assignments.length === 0).length, [filtered]);
 
@@ -220,11 +231,16 @@ export default function InstallJobsPage() {
         <DateRangePicker value={range} onChange={r => setRange(r)} defaultPreset="mtd" />
         <input type="text" placeholder="Search job #, customer…" value={search} onChange={e => setSearch(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 210 }} />
+        <select value={jobTypeFilter} onChange={e => setJobTypeFilter(e.target.value)}
+          className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, maxWidth: 220 }}>
+          <option value="">All job types</option>
+          {jobTypeOptions.map(jt => <option key={jt} value={jt}>{jt}</option>)}
+        </select>
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-          {(['all', 'unassigned', 'assigned'] as const).map(f => (
-            <button key={f} onClick={() => setAssignFilter(f)} className="px-3 py-1 rounded text-sm capitalize"
+          {(['all', 'unassigned', 'in_house', 'contractor'] as const).map(f => (
+            <button key={f} onClick={() => setAssignFilter(f)} className="px-3 py-1 rounded text-sm"
               style={{ backgroundColor: assignFilter === f ? 'var(--christmas-green)' : 'transparent', color: assignFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
-              {f}
+              {FILTER_LABELS[f]}
             </button>
           ))}
         </div>
