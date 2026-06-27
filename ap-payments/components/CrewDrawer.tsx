@@ -329,12 +329,12 @@ export default function CrewDrawer({
                         {needsHours(cfg?.method) && (
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs w-9" style={{ color: 'var(--text-muted)' }}>Time</span>
-                            <input type="number" inputMode="numeric" min="0" placeholder="0" value={st.hours}
-                              disabled={!canEdit || busy} onChange={e => onHours(a, e.target.value)}
+                            <input type="text" inputMode="numeric" placeholder="0" value={st.hours}
+                              disabled={!canEdit || busy} onChange={e => onHours(a, e.target.value.replace(/[^0-9.]/g, ''))}
                               className="w-14 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums" style={inputStyle} />
                             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>h</span>
-                            <input type="number" inputMode="numeric" min="0" max="59" placeholder="0" value={st.mins}
-                              disabled={!canEdit || busy} onChange={e => onMins(a, e.target.value)}
+                            <input type="text" inputMode="numeric" placeholder="0" value={st.mins}
+                              disabled={!canEdit || busy} onChange={e => onMins(a, e.target.value.replace(/[^0-9]/g, ''))}
                               className="w-14 rounded-lg px-2 py-1.5 text-sm text-right tabular-nums" style={inputStyle} />
                             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>m</span>
                           </div>
