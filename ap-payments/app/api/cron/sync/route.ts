@@ -431,9 +431,16 @@ export async function POST(request: NextRequest) {
           for (const [empId, hrs] of (jobTsMap.get(stJobId) || new Map<number, number>())) {
             if (!byEmp.has(empId)) byEmp.set(empId, { hours: Math.round(hrs * 100) / 100, cost: null, source: 'timesheet' });
           }
-          // Dispatched techs with no time data at all yet.
+          // Last resort for dispatched techs with no payroll/timesheet rows yet: the
+          // appointment's worked window (start→end), which matches ST's on-job timer.
+          const appt = appointmentDetails.get(stJobId);
+          let apptHours: number | null = null;
+          if (appt?.start && appt?.end) {
+            const h = (new Date(appt.end).getTime() - new Date(appt.start).getTime()) / 3_600_000;
+            if (h > 0) apptHours = Math.round(h * 100) / 100;
+          }
           for (const tid of (jobTechMap.get(stJobId) || [])) {
-            if (!byEmp.has(tid)) byEmp.set(tid, { hours: null, cost: null, source: 'dispatch' });
+            if (!byEmp.has(tid)) byEmp.set(tid, { hours: apptHours, cost: null, source: apptHours != null ? 'appointment' : 'dispatch' });
           }
 
           const rows = Array.from(byEmp.entries()).map(([stTechId, v]) => {
