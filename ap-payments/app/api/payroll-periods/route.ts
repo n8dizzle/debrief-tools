@@ -23,12 +23,22 @@ export async function GET() {
   const since = formatLocalDate(new Date(Date.now() - 183 * 24 * 60 * 60 * 1000));
   const rows = await st.getPayrollPeriods(since);
 
+  // ST's endedOn is EXCLUSIVE — it equals the next period's start (so Jun 15→Jun 22
+  // means Jun 15 through Jun 21). Step back one day to the real last day so periods
+  // don't overlap and a job never lands in two cycles.
+  const prevDay = (dateStr: string): string => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    return formatLocalDate(d);
+  };
+
   // Dedupe by date-only start|end (ST values are its own period boundaries — slice, don't convert).
   const seen = new Map<string, { start: string; end: string }>();
   for (const r of rows) {
     if (!r.startedOn || !r.endedOn) continue;
     const start = r.startedOn.slice(0, 10);
-    const end = r.endedOn.slice(0, 10);
+    const end = prevDay(r.endedOn.slice(0, 10));
+    if (end < start) continue; // guard against degenerate/single-day rows
     seen.set(`${start}|${end}`, { start, end });
   }
 

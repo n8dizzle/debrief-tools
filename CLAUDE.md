@@ -492,7 +492,7 @@ All Vercel crons use UTC. Times shown are Central Time (CT). During daylight sav
 | Endpoint | Schedule | CT Time | Purpose |
 |----------|----------|---------|---------|
 | `/api/cron/sync` | `0 12 * * *` | 6am daily | Full sync of install jobs from ServiceTitan |
-| `/api/cron/sync` | `0 14,16,18,20,22 * * 1-5` | 8am-4pm Mon-Fri every 2hrs | Intraday install job sync |
+| `/api/cron/sync` | `0 14,16,18,20,22 * * *` | 8am-4pm every 2hrs, all week | Intraday install job sync (incl. weekends for Sat completions) |
 
 ### Membership Manager (`membership-manager/vercel.json`)
 
