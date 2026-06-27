@@ -141,18 +141,21 @@ export default function InstallJobsPage() {
       render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.invoice_amount != null ? formatCurrency(r.invoice_amount) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
     },
     {
-      key: 'labor', label: 'Labor Cost', sortable: true, align: 'right', width: 120,
+      key: 'labor', label: 'Labor Cost', sortable: true, align: 'right', width: 110,
       sortValue: r => laborOf(r) ?? -1,
       render: r => {
         const labor = laborOf(r);
         if (labor == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
-        const pct = r.invoice_amount && r.invoice_amount > 0 ? (labor / r.invoice_amount) * 100 : null;
-        return (
-          <div className="flex flex-col items-end">
-            <span className="tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(labor)}</span>
-            {pct != null && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{Math.round(pct)}% of inv</span>}
-          </div>
-        );
+        return <span className="tabular-nums font-semibold" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{formatCurrency(labor)}</span>;
+      },
+    },
+    {
+      key: 'labor_pct', label: 'Labor % of Inv', sortable: true, align: 'right', width: 100,
+      sortValue: r => { const l = laborOf(r); return l != null && r.invoice_amount && r.invoice_amount > 0 ? (l / r.invoice_amount) * 100 : -1; },
+      render: r => {
+        const l = laborOf(r);
+        if (l == null || !r.invoice_amount || r.invoice_amount <= 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        return <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{Math.round((l / r.invoice_amount) * 100)}%</span>;
       },
     },
     {
