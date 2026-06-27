@@ -351,7 +351,7 @@ export default function CrewDrawer({
                           style={{ backgroundColor: 'rgba(58,143,87,.25)', color: '#6fd394' }}>{initials(a.name)}</span>
                         {a.name || '—'}
                         {frozen && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>saved</span>}
-                        {a.__draft && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(90,169,230,.16)', color: '#5aa9e6' }}>from ST{a.__stHours != null ? ` · ${a.__stHours}h` : ''}</span>}
+                        {a.__draft && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(90,169,230,.16)', color: '#5aa9e6' }}>from ST{a.__stHours != null ? ` · ${a.__stHours}h` : ' · hrs not posted yet'}</span>}
                       </span>
                       {!a.__draft && removeBtn(a)}
                     </div>
