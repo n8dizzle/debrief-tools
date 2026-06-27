@@ -141,7 +141,7 @@ export default function InstallJobsPage() {
       render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.invoice_amount != null ? formatCurrency(r.invoice_amount) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
     },
     {
-      key: 'labor', label: 'Labor Cost', sortable: true, align: 'right', width: 110,
+      key: 'labor', label: 'Labor $', sortable: true, align: 'right', width: 110,
       sortValue: r => laborOf(r) ?? -1,
       render: r => {
         const labor = laborOf(r);
@@ -150,7 +150,7 @@ export default function InstallJobsPage() {
       },
     },
     {
-      key: 'labor_pct', label: 'Labor % of Inv', sortable: true, align: 'right', width: 100,
+      key: 'labor_pct', label: 'Labor %', sortable: true, align: 'right', width: 100,
       sortValue: r => { const l = laborOf(r); return l != null && r.invoice_amount && r.invoice_amount > 0 ? (l / r.invoice_amount) * 100 : -1; },
       render: r => {
         const l = laborOf(r);
