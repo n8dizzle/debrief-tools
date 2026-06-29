@@ -68,6 +68,7 @@ export default function JobCostsPage() {
   const [jobTypeFilter, setJobTypeFilter] = useState<string[]>([]);
   const [costFilter, setCostFilter] = useState<CostFilter>('all');
   const [nonZeroOnly, setNonZeroOnly] = useState(true);
+  const [hasEquipOnly, setHasEquipOnly] = useState(true);
   const [advisorFilter, setAdvisorFilter] = useState('');
   const [unresolved, setUnresolved] = useState(0);
   const [resolving, setResolving] = useState(false);
@@ -129,11 +130,12 @@ export default function JobCostsPage() {
       if (jobTypeFilter.length > 0 && !(r.job_type && jobTypeFilter.includes(r.job_type))) return false;
       if (advisorFilter && r.sold_by !== advisorFilter) return false;
       if (nonZeroOnly && !(r.invoice && r.invoice > 0)) return false;
+      if (hasEquipOnly && !(effEquip(r) > 0)) return false;
       if (costFilter === 'costed' && !hasCost(r)) return false;
       if (costFilter === 'uncosted' && hasCost(r)) return false;
       return true;
     });
-  }, [rows, search, jobTypeFilter, advisorFilter, nonZeroOnly, costFilter, amounts]);
+  }, [rows, search, jobTypeFilter, advisorFilter, nonZeroOnly, hasEquipOnly, costFilter, amounts]);
 
   const onAmt = (id: string, field: 'equipment' | 'material' | 'labor', v: string) =>
     setAmounts(a => ({ ...a, [id]: { ...a[id], [field]: v.replace(/[^0-9.]/g, '') } }));
@@ -231,6 +233,9 @@ export default function JobCostsPage() {
         <button onClick={() => setNonZeroOnly(v => !v)} className="px-3 py-2 rounded-lg text-sm"
           style={{ backgroundColor: nonZeroOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: nonZeroOnly ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}
           title="Show only jobs with an invoice over $0">Invoice &gt; $0</button>
+        <button onClick={() => setHasEquipOnly(v => !v)} className="px-3 py-2 rounded-lg text-sm"
+          style={{ backgroundColor: hasEquipOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: hasEquipOnly ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}
+          title="Show only jobs with equipment pulled from Shearer (so the Equip % total reflects just those)">Has Equip</button>
         {(unresolved > 0 || resolving) && (
           <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
             style={{ backgroundColor: 'var(--christmas-green)', border: '1px solid var(--border-subtle)', color: 'var(--christmas-cream)' }}>
