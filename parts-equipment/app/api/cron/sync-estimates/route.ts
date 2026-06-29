@@ -37,73 +37,98 @@ export async function GET(request: Request) {
   const sinceStr = sinceParam || formatLocalDateTime(new Date(Date.now() - 2 * 60 * 60 * 1000));
 
   try {
-    const estimates = await st.getSoldEstimates(sinceStr);
-
-    if (estimates.length === 0) {
-      return NextResponse.json({ ok: true, scanned: 0, created: 0 });
-    }
-
-    // Fetch existing estimate IDs to dedup
-    const { data: existing } = await supabase
+    // --- Part A: close out open orders whose jobs are now complete ---
+    let closed = 0;
+    const { data: openOrders } = await supabase
       .from('pe_orders')
-      .select('st_estimate_id')
+      .select('id, st_estimate_id, job')
+      .eq('status', 'open')
       .not('st_estimate_id', 'is', null);
 
-    const existingIds = new Set((existing || []).map((r: { st_estimate_id: number }) => r.st_estimate_id));
-    const newEstimates = estimates.filter(e => !existingIds.has(e.id));
-
-    let created = 0;
-    for (const estimate of newEstimates) {
-      try {
-        const job = estimate.jobId ? await st.getJob(estimate.jobId) : null;
-
-        // Skip estimates whose jobs are already completed/cancelled — these don't appear
-        // in ServiceTitan's "Follow Up > Sold Estimates" tab
-        if (isJobTerminal(job)) continue;
-
-        const customer = job?.customerId ? await st.getCustomer(job.customerId) : null;
-
-        const buName = (job?.businessUnitName || '').toLowerCase();
-        const orderType = buName.includes('install') ? 'install' : 'service';
-
-        const materials = (estimate.items || [])
-          .filter(i => i.type === 'Material' || i.type === 'Equipment')
-          .map(i => i.skuName || i.displayName || i.description || '')
-          .filter(Boolean);
-
-        // soldOn comes from ST as UTC; split on T to get the date portion
-        const soldDate = estimate.soldOn
-          ? estimate.soldOn.split('T')[0]
-          : formatLocalDate(new Date());
-
-        const { error } = await supabase.from('pe_orders').insert({
-          st_estimate_id: estimate.id,
-          date: soldDate,
-          job: job?.jobNumber || '',
-          customer: customer?.name || '',
-          order_type: orderType,
-          part: materials.join(', '),
-          estimate_cost: estimate.total != null ? String(estimate.total) : '',
-          note_wh: estimate.name || estimate.summary || '',
-          st_url: job ? `https://go.servicetitan.com/#/Job/Index/${job.id}` : '',
-          status: 'open',
-          needs_order: true,
-          location: 'Place Order',
-          owner: 'Unassigned',
-        });
-
-        if (error) {
-          console.error(`Failed to insert estimate ${estimate.id}:`, error.message);
-        } else {
-          created++;
+    if (openOrders && openOrders.length > 0) {
+      for (const order of openOrders) {
+        try {
+          // We need the job ID — parse it from the job number or look up via estimate
+          const jobIdNum = order.job ? parseInt(String(order.job), 10) : null;
+          if (!jobIdNum || isNaN(jobIdNum)) continue;
+          const job = await st.getJob(jobIdNum);
+          if (isJobTerminal(job)) {
+            await supabase
+              .from('pe_orders')
+              .update({ status: 'completed', completed_at: new Date().toISOString() })
+              .eq('id', order.id);
+            closed++;
+          }
+        } catch {
+          // Skip if job lookup fails
         }
-      } catch (err) {
-        console.error(`Error processing estimate ${estimate.id}:`, err);
       }
     }
 
-    console.log(`Estimate sync: scanned=${estimates.length} new=${newEstimates.length} created=${created}`);
-    return NextResponse.json({ ok: true, scanned: estimates.length, newFound: newEstimates.length, created });
+    // --- Part B: add new estimates sold since `sinceStr` ---
+    const estimates = await st.getSoldEstimates(sinceStr);
+    let created = 0;
+
+    if (estimates.length > 0) {
+      // Fetch existing estimate IDs to dedup
+      const { data: existing } = await supabase
+        .from('pe_orders')
+        .select('st_estimate_id')
+        .not('st_estimate_id', 'is', null);
+
+      const existingIds = new Set((existing || []).map((r: { st_estimate_id: number }) => r.st_estimate_id));
+      const newEstimates = estimates.filter(e => !existingIds.has(e.id));
+
+      for (const estimate of newEstimates) {
+        try {
+          const job = estimate.jobId ? await st.getJob(estimate.jobId) : null;
+
+          // Skip estimates whose jobs are already completed/cancelled
+          if (isJobTerminal(job)) continue;
+
+          const customer = job?.customerId ? await st.getCustomer(job.customerId) : null;
+
+          const buName = (job?.businessUnitName || '').toLowerCase();
+          const orderType = buName.includes('install') ? 'install' : 'service';
+
+          const materials = (estimate.items || [])
+            .filter(i => i.type === 'Material' || i.type === 'Equipment')
+            .map(i => i.skuName || i.displayName || i.description || '')
+            .filter(Boolean);
+
+          const soldDate = estimate.soldOn
+            ? estimate.soldOn.split('T')[0]
+            : formatLocalDate(new Date());
+
+          const { error } = await supabase.from('pe_orders').insert({
+            st_estimate_id: estimate.id,
+            date: soldDate,
+            job: job?.jobNumber || '',
+            customer: customer?.name || '',
+            order_type: orderType,
+            part: materials.join(', '),
+            estimate_cost: estimate.total != null ? String(estimate.total) : '',
+            note_wh: estimate.name || estimate.summary || '',
+            st_url: job ? `https://go.servicetitan.com/#/Job/Index/${job.id}` : '',
+            status: 'open',
+            needs_order: true,
+            location: 'Place Order',
+            owner: 'Unassigned',
+          });
+
+          if (error) {
+            console.error(`Failed to insert estimate ${estimate.id}:`, error.message);
+          } else {
+            created++;
+          }
+        } catch (err) {
+          console.error(`Error processing estimate ${estimate.id}:`, err);
+        }
+      }
+    }
+
+    console.log(`Estimate sync: scanned=${estimates.length} created=${created} closed=${closed}`);
+    return NextResponse.json({ ok: true, scanned: estimates.length, created, closed });
   } catch (err) {
     console.error('Estimate sync failed:', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

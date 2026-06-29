@@ -12,5 +12,10 @@
       "path": "/api/cron/sync-estimates",
       "schedule": "0 * * * 0,6"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/cron/sync-estimates/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }
