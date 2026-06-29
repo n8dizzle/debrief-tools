@@ -885,15 +885,17 @@ export class ServiceTitanClient {
     lines: { sku: string; name: string; qty: number; unit_cost: number; total_cost: number; total_sell: number }[];
   }>> {
     const out = new Map<string, any>();
-    for (const jobNo of Array.from(new Set(jobNumbers.filter(Boolean)))) {
+    const jobs = Array.from(new Set(jobNumbers.filter(Boolean)));
+    const statusName = (e: any) => (e.status && typeof e.status === 'object' ? e.status.name : e.status) || null;
+
+    const fetchOne = async (jobNo: string) => {
       try {
         const ests = await this.requestAllPages<any>(
           `sales/v2/tenant/${this.tenantId}/estimates`,
           { jobId: jobNo }
         );
-        if (!ests.length) continue;
+        if (!ests.length) return;
         // Prefer Sold; else most recently modified.
-        const statusName = (e: any) => (e.status && typeof e.status === 'object' ? e.status.name : e.status) || null;
         const sold = ests.filter(e => statusName(e) === 'Sold');
         const pick = (sold.length ? sold : ests).sort((a, b) =>
           (b.modifiedOn || '').localeCompare(a.modifiedOn || ''))[0];
@@ -916,7 +918,14 @@ export class ServiceTitanClient {
       } catch (err) {
         console.error(`Estimate fetch failed for job ${jobNo}:`, err);
       }
-    }
+    };
+
+    // ST allows only one jobId per estimates call, so run them through a small
+    // concurrency pool instead of sequentially (keeps a large batch from timing out).
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < jobs.length) { const my = idx++; await fetchOne(jobs[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, () => worker()));
     return out;
   }
 
