@@ -40,6 +40,20 @@ export async function GET(request: NextRequest) {
 
   const jobRows = jobs || [];
   const ids = jobRows.map((j: any) => j.id);
+  const jobNos = jobRows.map((j: any) => j.job_number);
+
+  // Shearer equipment $ linked to each job (same figure as the Equipment by Job report).
+  const shearerByJob = new Map<string, number>();
+  if (jobNos.length) {
+    const { data: invs } = await supabase
+      .from('ap_supplier_invoices')
+      .select('linked_install_job_number, lines:ap_supplier_invoice_lines(net_amount)')
+      .in('linked_install_job_number', jobNos);
+    for (const inv of (invs || []) as any[]) {
+      const sum = (inv.lines || []).reduce((s: number, l: any) => s + Number(l.net_amount || 0), 0);
+      shearerByJob.set(inv.linked_install_job_number, (shearerByJob.get(inv.linked_install_job_number) || 0) + sum);
+    }
+  }
 
   // Saved manual cost inputs.
   const inputsByJob = new Map<string, any>();
@@ -73,6 +87,7 @@ export async function GET(request: NextRequest) {
       job_type: j.job_type_name,
       completed_date: j.completed_date,
       invoice,
+      shearer_equipment: shearerByJob.has(j.job_number) ? Math.round(shearerByJob.get(j.job_number)! * 100) / 100 : null,
       equipment_amount: inp?.equipment_amount != null ? Number(inp.equipment_amount) : null,
       material_amount: inp?.material_amount != null ? Number(inp.material_amount) : null,
       labor_amount: inp?.labor_amount != null ? Number(inp.labor_amount) : null,
