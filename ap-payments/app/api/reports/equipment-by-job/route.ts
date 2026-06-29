@@ -22,26 +22,28 @@ export async function GET(request: NextRequest) {
   const end = searchParams.get('end');
   const supabase = getServerSupabase();
 
-  // Linked supplier invoices (have an install job #) + their line costs.
-  const { data: invoices, error } = await supabase
+  // Linked supplier invoices (have an install job #) + their line costs, filtered by
+  // INVOICE date — install jobs are often still in progress (null completed_date), so
+  // we scope by when the equipment was invoiced rather than job completion.
+  let iq = supabase
     .from('ap_supplier_invoices')
-    .select(`id, vendor, invoice_number, linked_install_job_number, merchandise,
+    .select(`id, vendor, invoice_number, invoice_date, linked_install_job_number, merchandise,
              lines:ap_supplier_invoice_lines(net_amount)`)
     .not('linked_install_job_number', 'is', null);
+  if (start) iq = iq.gte('invoice_date', start);
+  if (end) iq = iq.lte('invoice_date', end);
+  const { data: invoices, error } = await iq;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const jobNos = Array.from(new Set((invoices || []).map((i: any) => i.linked_install_job_number)));
   if (jobNos.length === 0) return NextResponse.json({ rows: [], unresolved: 0 });
 
-  // Install jobs in range (by completed_date), HVAC-Install.
-  let jq = supabase
+  // The linked install jobs (no date filter — they may be in progress).
+  const { data: jobs } = await supabase
     .from('ap_install_jobs')
     .select('job_number, customer_name, completed_date, st_revenue, job_total')
     .in('job_number', jobNos)
     .eq('business_unit_name', 'HVAC - Install');
-  if (start) jq = jq.gte('completed_date', start);
-  if (end) jq = jq.lte('completed_date', end);
-  const { data: jobs } = await jq;
   const jobMap = new Map((jobs || []).map((j: any) => [j.job_number, j]));
 
   // How many job-linked invoices still need resolving (for a UI nudge).
