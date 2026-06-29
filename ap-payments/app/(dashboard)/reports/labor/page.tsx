@@ -13,6 +13,8 @@ interface TechRow {
   jobs: number;
   hours: number;
   pay_set: number;
+  commission: number;
+  hourly: number;
 }
 type TeamFilter = 'all' | 'install' | 'other';
 interface JobRow {
@@ -95,15 +97,17 @@ export default function LaborByTechPage() {
 
   const installRows = filtered.filter(r => r.is_install);
   const otherRows = filtered.filter(r => !r.is_install);
-  const sum = (rs: TechRow[], k: 'hours' | 'pay_set') => rs.reduce((s, r) => s + (r[k] || 0), 0);
+  const sum = (rs: TechRow[], k: 'hours' | 'pay_set' | 'commission' | 'hourly') => rs.reduce((s, r) => s + (r[k] || 0), 0);
   const totalHours = sum(filtered, 'hours');
   const otherHours = sum(otherRows, 'hours');
   const totalPay = sum(filtered, 'pay_set');
+  const totalHourly = sum(filtered, 'hourly');
+  const totalCommission = sum(filtered, 'commission');
   const otherPct = totalHours > 0 ? Math.round((otherHours / totalHours) * 100) : 0;
 
   const exportCsv = () => {
-    const header = ['Technician', 'Home Team', 'On Install Team', 'Jobs', 'ST Hours', 'Pay Set'];
-    const lines = filtered.map(r => [r.name, r.home_team || '', r.is_install ? 'yes' : 'no', r.jobs, r.hours, r.pay_set].join(','));
+    const header = ['Technician', 'Home Team', 'On Install Team', 'Jobs', 'ST Hours', 'Hourly', 'Commission', 'Pay'];
+    const lines = filtered.map(r => [r.name, r.home_team || '', r.is_install ? 'yes' : 'no', r.jobs, r.hours, r.hourly, r.commission, r.pay_set].join(','));
     const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -147,11 +151,13 @@ export default function LaborByTechPage() {
           <td className="px-3 py-2.5">{teamTag(r)}</td>
           <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.jobs}</td>
           <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.hours.toFixed(1)}</td>
+          <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: r.hourly > 0 ? 'var(--text-secondary)' : 'var(--text-muted)' }}>{r.hourly > 0 ? formatCurrency(r.hourly) : '—'}</td>
+          <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: r.commission > 0 ? '#6fd394' : 'var(--text-muted)' }}>{r.commission > 0 ? formatCurrency(r.commission) : '—'}</td>
           <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: r.pay_set > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{r.pay_set > 0 ? formatCurrency(r.pay_set) : '$0'}</td>
         </tr>
         {open && (
           <tr>
-            <td colSpan={5} className="px-3 pb-3 pt-0" style={{ backgroundColor: 'rgba(58,143,87,.04)' }}>
+            <td colSpan={7} className="px-3 pb-3 pt-0" style={{ backgroundColor: 'rgba(58,143,87,.04)' }}>
               {detail === 'loading' || detail === undefined ? (
                 <div className="text-xs py-3" style={{ color: 'var(--text-muted)' }}>Loading jobs…</div>
               ) : detail.length === 0 ? (
@@ -160,7 +166,7 @@ export default function LaborByTechPage() {
                 <table className="w-full mt-1" style={{ backgroundColor: 'var(--bg-card)', borderRadius: 8 }}>
                   <thead>
                     <tr style={{ color: 'var(--text-muted)' }}>
-                      {([['Job #', 'left'], ['Customer', 'left'], ['Completed', 'left'], ['ST Hours', 'right'], ['Pay Type', 'left'], ['Commission', 'right'], ['Pay', 'right']] as [string, string][]).map(([l, a], i) => (
+                      {([['Job #', 'left'], ['Customer', 'left'], ['Completed', 'left'], ['ST Hours', 'right'], ['Pay Type', 'left'], ['Hourly', 'right'], ['Commission', 'right'], ['Pay', 'right']] as [string, string][]).map(([l, a], i) => (
                         <th key={i} className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ textAlign: a as any }}>{l}</th>
                       ))}
                     </tr>
@@ -177,6 +183,7 @@ export default function LaborByTechPage() {
                         <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.completed_date ? formatDate(j.completed_date) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{j.hours != null ? j.hours.toFixed(2) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.pay_type || <span style={{ color: '#d29922' }}>not set</span>}</td>
+                        <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: j.hourly ? 'var(--text-secondary)' : 'var(--text-muted)' }}>{j.hourly ? formatCurrency(j.hourly) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: j.commission ? '#6fd394' : 'var(--text-muted)' }}>{j.commission ? formatCurrency(j.commission) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs text-right tabular-nums font-semibold" style={{ color: j.pay_amount != null ? 'var(--text-primary)' : 'var(--text-muted)' }}>{j.pay_amount != null ? formatCurrency(j.pay_amount) : '—'}</td>
                       </tr>
@@ -191,7 +198,7 @@ export default function LaborByTechPage() {
     );
   };
   const groupHeader = (label: string, hrs: number, other?: boolean) => (
-    <tr><td colSpan={5} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider"
+    <tr><td colSpan={7} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider"
       style={{ backgroundColor: 'rgba(255,255,255,.02)', color: other ? '#d29922' : 'var(--text-muted)' }}>{label} — {hrs.toFixed(1)} h</td></tr>
   );
 
@@ -256,7 +263,7 @@ export default function LaborByTechPage() {
           <table className="w-full">
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                {([['Technician', 'left'], ['Home Team', 'left'], ['Jobs', 'right'], ['ST Hours', 'right'], ['Pay Set', 'right']] as [string, string][]).map(([l, a], i) => (
+                {([['Technician', 'left'], ['Home Team', 'left'], ['Jobs', 'right'], ['ST Hours', 'right'], ['Hourly', 'right'], ['Commission', 'right'], ['Pay', 'right']] as [string, string][]).map(([l, a], i) => (
                   <th key={i} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)', textAlign: a as any, whiteSpace: 'nowrap' }}>{l}</th>
                 ))}
               </tr>
@@ -273,6 +280,8 @@ export default function LaborByTechPage() {
                 <td></td>
                 <td className="px-3 py-2.5 text-sm text-right font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{filtered.reduce((s, r) => s + r.jobs, 0)}</td>
                 <td className="px-3 py-2.5 text-sm text-right font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{totalHours.toFixed(1)}</td>
+                <td className="px-3 py-2.5 text-sm text-right font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalHourly)}</td>
+                <td className="px-3 py-2.5 text-sm text-right font-bold tabular-nums" style={{ color: '#6fd394' }}>{formatCurrency(totalCommission)}</td>
                 <td className="px-3 py-2.5 text-sm text-right font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalPay)}</td>
               </tr>
             </tfoot>
