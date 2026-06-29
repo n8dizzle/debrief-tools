@@ -23,21 +23,6 @@ export function MarketedLeadEntryView() {
       if (assignmentResult) {
         setResult(assignmentResult);
         setShowConfirmation(true);
-
-        // Trigger Slack notification (fire and forget)
-        try {
-          await fetch('/api/slack/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              lead: assignmentResult.lead,
-              advisor: assignmentResult.advisor,
-            }),
-          });
-        } catch (error) {
-          // Silently fail - Slack notification is not critical
-          console.warn('Failed to send Slack notification:', error);
-        }
       }
     } finally {
       setIsSubmitting(false);

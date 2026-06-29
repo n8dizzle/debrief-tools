@@ -15,7 +15,6 @@ import {
   getTeams,
   authenticateServiceTitan,
 } from '@/lib/serviceTitan';
-import { isSlackConfigured, sendLeadAssignmentDM } from '@/lib/slack';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { ServiceTitanConfig } from '@/types';
 
@@ -843,128 +842,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (action === 'testSlack') {
-      try {
-        if (!isSlackConfigured()) {
-          return NextResponse.json({
-            success: false,
-            error: 'Slack not configured. Set SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN in environment variables.',
-          });
-        }
-
-        // Get a real lead from the database to use for testing
-        const supabase = createServerSupabaseClient();
-        const { data: leads } = await supabase
-          .from('leads')
-          .select('*, advisor:comfort_advisors(name, phone, email, marketed_queue_position)')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        const testLead = leads?.[0];
-
-        // Get advisors in queue order
-        const { data: advisors } = await supabase
-          .from('comfort_advisors')
-          .select('*')
-          .eq('active', true)
-          .eq('in_queue', true)
-          .not('marketed_queue_position', 'is', null)
-          .order('marketed_queue_position', { ascending: true });
-
-        // Current first in line gets this lead, next in line is shown at bottom
-        const currentAdvisor = advisors?.[0];
-        const nextAdvisor = advisors && advisors.length > 1 ? advisors[1] : null;
-
-        // Send a test DM notification
-        const result = await sendLeadAssignmentDM({
-          jobId: testLead?.service_titan_id || 'TEST-123',
-          jobNumber: testLead?.service_titan_id || 'TEST-123',
-          leadType: 'Marketed',
-          customerName: testLead?.client_name || 'Test Customer',
-          customerPhone: testLead?.phone || '(555) 123-4567',
-          customerAddress: testLead?.address || '123 Test Street, Dallas, TX 75201',
-          scheduledDate: new Date().toISOString(),
-          leadId: testLead?.id,
-          advisor: {
-            name: currentAdvisor?.name || 'Test Advisor',
-            email: currentAdvisor?.email || 'test@example.com',
-            phone: currentAdvisor?.phone || '(555) 987-6543',
-          },
-        });
-
-        return NextResponse.json({
-          success: result.ok,
-          message: result.ok ? 'Test MARKETED DM sent!' : 'Failed to send DM',
-          error: result.error,
-          testLeadUsed: testLead?.client_name || 'Test Customer',
-          assignedTo: currentAdvisor?.name || 'None',
-          method: 'DM (not channel)',
-        });
-      } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message });
-      }
-    }
-
-    if (action === 'testTGLSlack') {
-      try {
-        if (!isSlackConfigured()) {
-          return NextResponse.json({
-            success: false,
-            error: 'Slack not configured. Set SLACK_TGL_WEBHOOK_URL in environment variables.',
-          });
-        }
-
-        const supabase = createServerSupabaseClient();
-
-        // Get advisors for TGL queue
-        const { data: advisors } = await supabase
-          .from('comfort_advisors')
-          .select('*')
-          .eq('active', true)
-          .eq('in_queue', true)
-          .not('tgl_queue_position', 'is', null)
-          .order('tgl_queue_position', { ascending: true });
-
-        const currentAdvisor = advisors?.[0];
-        const nextAdvisor = advisors && advisors.length > 1 ? advisors[1] : advisors?.[0];
-
-        const result = await sendLeadAssignmentDM({
-          jobId: 'TGL-TEST-123',
-          jobNumber: 'TGL-TEST-123',
-          leadType: 'TGL',
-          customerName: 'Test TGL Customer',
-          customerPhone: '(555) 123-4567',
-          customerAddress: '123 Test Street, Dallas, TX 75201',
-          scheduledDate: new Date().toISOString(),
-          techName: 'Test Technician',
-          advisor: {
-            name: currentAdvisor?.name || 'Test Advisor',
-            email: currentAdvisor?.email || 'test@example.com',
-            phone: currentAdvisor?.phone || '(555) 987-6543',
-          },
-        });
-
-        return NextResponse.json({
-          success: result.ok,
-          message: result.ok ? 'Test TGL DM sent!' : 'Failed to send DM',
-          error: result.error,
-          assignedTo: currentAdvisor?.name || 'Test Advisor',
-          method: 'DM (not channel)',
-        });
-      } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message });
-      }
-    }
-
-    if (action === 'slackStatus') {
-      return NextResponse.json({
-        success: true,
-        configured: isSlackConfigured(),
-        webhookConfigured: !!process.env.SLACK_WEBHOOK_URL,
-        botTokenConfigured: !!process.env.SLACK_BOT_TOKEN,
-      });
-    }
-
     if (action === 'getTags') {
       const token = await authenticateServiceTitan(config);
 
@@ -1023,7 +900,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: 'Invalid action. Supported actions: test, sync, syncSales, syncAdvisors, create, status, testSlack, slackStatus, checkWebhooks, getJobTypes, getUnassignedJobs, getForms' },
+      { success: false, error: 'Invalid action. Supported actions: test, sync, syncSales, syncAdvisors, create, status, checkWebhooks, getJobTypes, getUnassignedJobs, getForms' },
       { status: 400 }
     );
   } catch (error: any) {
@@ -1058,8 +935,7 @@ export async function GET() {
   return NextResponse.json({
     message: 'Service Titan API endpoint',
     configured: isServiceTitanConfigured(),
-    slackConfigured: isSlackConfigured(),
-    actions: ['test', 'sync', 'syncSales', 'create', 'status', 'testSlack', 'slackStatus'],
+    actions: ['test', 'sync', 'syncSales', 'create', 'status'],
     documentation: 'POST with { action } to interact with Service Titan. Config is loaded from environment variables.',
   });
 }
