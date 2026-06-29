@@ -12,6 +12,7 @@ interface TokenResponse {
 export interface STJob {
   id: number;
   jobNumber: string;
+  projectId?: number;
   businessUnitId: number;
   businessUnitName?: string;
   jobTypeId: number;
@@ -881,6 +882,7 @@ export class ServiceTitanClient {
    */
   async getEstimateEquipmentByJob(jobNumbers: string[]): Promise<Map<string, {
     estimate_id: number; status: string | null; sold_on: string | null; subtotal: number | null;
+    project_id: number | null; customer_id: number | null; location_id: number | null;
     equipment_cost: number; equipment_sell: number;
     lines: { sku: string; name: string; qty: number; unit_cost: number; total_cost: number; total_sell: number }[];
   }>> {
@@ -911,6 +913,9 @@ export class ServiceTitanClient {
           status: statusName(pick),
           sold_on: pick.soldOn || null,
           subtotal: pick.subtotal ?? null,
+          project_id: pick.projectId ?? null,
+          customer_id: pick.customerId ?? null,
+          location_id: pick.locationId ?? null,
           equipment_cost: Math.round(lines.reduce((s: number, l: any) => s + l.total_cost, 0) * 100) / 100,
           equipment_sell: Math.round(lines.reduce((s: number, l: any) => s + l.total_sell, 0) * 100) / 100,
           lines,
@@ -926,6 +931,33 @@ export class ServiceTitanClient {
     let idx = 0;
     const worker = async () => { while (idx < jobs.length) { const my = idx++; await fetchOne(jobs[my]); } };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, () => worker()));
+    return out;
+  }
+
+  /**
+   * For each ServiceTitan project, find its HVAC-Install (BU 610) job number. Used to
+   * link a Shearer PO (sales estimate) to the install job in the same project.
+   * Returns projectId → install job number.
+   */
+  async getInstallJobByProject(projectIds: number[], installBuId = 610): Promise<Map<number, string>> {
+    const out = new Map<number, string>();
+    const ids = Array.from(new Set(projectIds.filter(Boolean)));
+    const fetchOne = async (pid: number) => {
+      try {
+        const jobs = await this.requestAllPages<STJob>(
+          `jpm/v2/tenant/${this.tenantId}/jobs`,
+          { projectId: String(pid) }
+        );
+        const install = jobs.find(j => j.businessUnitId === installBuId);
+        if (install) out.set(pid, install.jobNumber);
+      } catch (err) {
+        console.error(`Project jobs fetch failed for ${pid}:`, err);
+      }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
     return out;
   }
 

@@ -15,6 +15,7 @@ const mainLinks = [
   { href: '/equipment', label: 'Equipment', icon: 'box', permission: 'canManagePayments' as const, section: 'wip' },
   { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const, section: 'reports' },
   { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const, section: 'reports' },
+  { href: '/reports/equipment', label: 'Equipment by Job', icon: 'box', permission: 'canManagePayments' as const, section: 'reports' },
   { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canSyncData' as const, section: 'manage' },
 ];
 
