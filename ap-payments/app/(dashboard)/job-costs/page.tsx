@@ -10,7 +10,7 @@ interface Row {
   id: string; st_job_id: number | null; job_number: string; estimate_job_number: string | null;
   sold_by: string | null; sold_on: string | null;
   customer_name: string | null; job_type: string | null; completed_date: string | null;
-  invoice: number | null;
+  invoice: number | null; shearer_equipment: number | null;
   equipment_amount: number | null; material_amount: number | null; labor_amount: number | null;
 }
 type Amounts = Record<string, { equipment: string; material: string; labor: string }>;
@@ -172,6 +172,9 @@ export default function JobCostsPage() {
     { key: 'invoice', label: 'Invoice $', sortable: true, align: 'right', width: 110, sortValue: r => r.invoice ?? -1,
       render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.invoice != null ? formatCurrency(r.invoice) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
       footer: rows => formatCurrency(rows.reduce((s, r) => s + (r.invoice || 0), 0)) },
+    { key: 'shearer_equip', label: 'Shearer Equip $', sortable: true, align: 'right', width: 120, sortValue: r => r.shearer_equipment ?? -1,
+      render: r => r.shearer_equipment != null ? <span className="tabular-nums" style={{ color: '#6fd394' }}>{formatCurrency(r.shearer_equipment)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>,
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + (r.shearer_equipment || 0), 0)) },
     { key: 'equipment', label: 'Equipment $', align: 'right', width: 110, render: r => moneyInput(r, 'equipment'),
       footer: rows => formatCurrency(rows.reduce((s, r) => s + numOf(amounts[r.id]?.equipment), 0)) },
     { key: 'equip_pct', label: 'Equip %', sortable: true, align: 'right', width: 80, sortValue: r => pct(numOf(amounts[r.id]?.equipment), r.invoice) ?? -1,
