@@ -2,7 +2,15 @@
   "crons": [
     {
       "path": "/api/cron/sync-estimates",
-      "schedule": "0 * * * *"
+      "schedule": "*/15 14-23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/sync-estimates",
+      "schedule": "0 0-13 * * 1-5"
+    },
+    {
+      "path": "/api/cron/sync-estimates",
+      "schedule": "0 * * * 0,6"
     }
   ]
 }
