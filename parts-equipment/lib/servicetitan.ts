@@ -119,11 +119,18 @@ class ServiceTitanClient {
     return all;
   }
 
-  async getSoldEstimates(soldOnOrAfter: string): Promise<STEstimate[]> {
-    return this.requestAllPages<STEstimate>(
+  async getSoldEstimates(soldAfter: string): Promise<STEstimate[]> {
+    const all = await this.requestAllPages<STEstimate>(
       `sales/v2/tenant/${this.tenantId}/estimates`,
-      { status: 'Sold', soldOnOrAfter }
+      { soldAfter }
     );
+    // ST returns status as an object { name: 'Sold' } — filter client-side
+    return all.filter(e => {
+      const status = e.status as unknown as { name?: string } | string | undefined;
+      if (typeof status === 'string') return status === 'Sold';
+      if (typeof status === 'object' && status !== null) return status.name === 'Sold';
+      return false;
+    });
   }
 
   async getJob(jobId: number): Promise<STJob | null> {
