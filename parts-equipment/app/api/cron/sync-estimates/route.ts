@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getServiceTitanClient } from '@/lib/servicetitan';
+import { getServiceTitanClient, isJobTerminal } from '@/lib/servicetitan';
 
 function formatLocalDate(date: Date): string {
   const y = date.getFullYear();
@@ -31,9 +31,10 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Look back 2 hours — cron runs every 30 min, 2h window gives safe overlap
-  const since = new Date(Date.now() - 2 * 60 * 60 * 1000);
-  const sinceStr = formatLocalDateTime(since);
+  // Optional ?since=YYYY-MM-DDTHH:MM:SS for manual backfill; defaults to 2h ago
+  const url = new URL(request.url);
+  const sinceParam = url.searchParams.get('since');
+  const sinceStr = sinceParam || formatLocalDateTime(new Date(Date.now() - 2 * 60 * 60 * 1000));
 
   try {
     const estimates = await st.getSoldEstimates(sinceStr);
@@ -55,6 +56,11 @@ export async function GET(request: Request) {
     for (const estimate of newEstimates) {
       try {
         const job = estimate.jobId ? await st.getJob(estimate.jobId) : null;
+
+        // Skip estimates whose jobs are already completed/cancelled — these don't appear
+        // in ServiceTitan's "Follow Up > Sold Estimates" tab
+        if (isJobTerminal(job)) continue;
+
         const customer = job?.customerId ? await st.getCustomer(job.customerId) : null;
 
         const buName = (job?.businessUnitName || '').toLowerCase();

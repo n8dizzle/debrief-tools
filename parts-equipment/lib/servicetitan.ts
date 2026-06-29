@@ -35,11 +35,19 @@ export interface STEstimate {
 
 export interface STJob {
   id: number;
-  jobNumber: string;
+  jobNumber: string | number;
   businessUnitId?: number;
   businessUnitName?: string;
   customerId?: number;
   summary?: string;
+  jobStatus?: string;
+}
+
+export function isJobTerminal(job: STJob | null): boolean {
+  if (!job) return false;
+  const s = (job.jobStatus || '').toLowerCase();
+  return s === 'completed' || s === 'canceled' || s === 'cancelled' ||
+    s === 'void' || s === 'done' || s === 'complete';
 }
 
 export interface STCustomer {
