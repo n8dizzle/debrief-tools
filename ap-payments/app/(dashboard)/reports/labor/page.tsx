@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
-import { formatCurrency } from '@/lib/ap-utils';
+import { formatCurrency, formatDate } from '@/lib/ap-utils';
 
 interface TechRow {
   technician_id: string;
@@ -15,6 +15,11 @@ interface TechRow {
   pay_set: number;
 }
 type TeamFilter = 'all' | 'install' | 'other';
+interface JobRow {
+  job_id: string; st_job_id: number | null; job_number: string; customer_name: string | null;
+  completed_date: string | null; invoice_amount: number | null; hours: number | null;
+  pay_type: string | null; pay_amount: number | null;
+}
 
 function monthToDate(): DateRange {
   const now = new Date();
@@ -36,6 +41,8 @@ export default function LaborByTechPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [jobsByTech, setJobsByTech] = useState<Record<string, JobRow[] | 'loading'>>({});
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -56,6 +63,25 @@ export default function LaborByTechPage() {
     if (perms.isLoading) return;
     fetch('/api/payroll-periods').then(r => r.ok ? r.json() : []).then(setPayPeriods).catch(() => {});
   }, [perms.isLoading]);
+
+  // Changing the date range invalidates cached per-tech job detail.
+  useEffect(() => { setExpanded(null); setJobsByTech({}); }, [range.start, range.end]);
+
+  const toggleExpand = async (technicianId: string) => {
+    if (expanded === technicianId) { setExpanded(null); return; }
+    setExpanded(technicianId);
+    if (!jobsByTech[technicianId]) {
+      setJobsByTech(s => ({ ...s, [technicianId]: 'loading' }));
+      try {
+        const p = new URLSearchParams({ start: range.start, end: range.end });
+        const res = await fetch(`/api/reports/labor-by-tech/${technicianId}?${p.toString()}`);
+        const data = res.ok ? await res.json() : { jobs: [] };
+        setJobsByTech(s => ({ ...s, [technicianId]: data.jobs || [] }));
+      } catch {
+        setJobsByTech(s => ({ ...s, [technicianId]: [] }));
+      }
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,15 +132,63 @@ export default function LaborByTechPage() {
     </span>
   );
 
-  const row = (r: TechRow) => (
-    <tr key={r.technician_id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-      <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>{techCell(r)}</td>
-      <td className="px-3 py-2.5">{teamTag(r)}</td>
-      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.jobs}</td>
-      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.hours.toFixed(1)}</td>
-      <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: r.pay_set > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{r.pay_set > 0 ? formatCurrency(r.pay_set) : '$0'}</td>
-    </tr>
-  );
+  const row = (r: TechRow) => {
+    const open = expanded === r.technician_id;
+    const detail = jobsByTech[r.technician_id];
+    return (
+      <Fragment key={r.technician_id}>
+        <tr onClick={() => toggleExpand(r.technician_id)} className="cursor-pointer hover:bg-white/5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>
+            <span className="inline-flex items-center gap-1.5">
+              <span style={{ color: 'var(--text-muted)', fontSize: 10, width: 10, display: 'inline-block' }}>{open ? '▾' : '▸'}</span>
+              {techCell(r)}
+            </span>
+          </td>
+          <td className="px-3 py-2.5">{teamTag(r)}</td>
+          <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.jobs}</td>
+          <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.hours.toFixed(1)}</td>
+          <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: r.pay_set > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{r.pay_set > 0 ? formatCurrency(r.pay_set) : '$0'}</td>
+        </tr>
+        {open && (
+          <tr>
+            <td colSpan={5} className="px-3 pb-3 pt-0" style={{ backgroundColor: 'rgba(58,143,87,.04)' }}>
+              {detail === 'loading' || detail === undefined ? (
+                <div className="text-xs py-3" style={{ color: 'var(--text-muted)' }}>Loading jobs…</div>
+              ) : detail.length === 0 ? (
+                <div className="text-xs py-3" style={{ color: 'var(--text-muted)' }}>No jobs for {r.name} in this period.</div>
+              ) : (
+                <table className="w-full mt-1" style={{ backgroundColor: 'var(--bg-card)', borderRadius: 8 }}>
+                  <thead>
+                    <tr style={{ color: 'var(--text-muted)' }}>
+                      {([['Job #', 'left'], ['Customer', 'left'], ['Completed', 'left'], ['ST Hours', 'right'], ['Pay Type', 'left'], ['Pay', 'right']] as [string, string][]).map(([l, a], i) => (
+                        <th key={i} className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ textAlign: a as any }}>{l}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.map(j => (
+                      <tr key={j.job_id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <td className="px-2.5 py-1.5 text-xs">
+                          {j.st_job_id
+                            ? <a href={`https://go.servicetitan.com/#/Job/Index/${j.st_job_id}`} target="_blank" rel="noopener noreferrer" className="hover:underline font-semibold" style={{ color: 'var(--christmas-green)' }}>{j.job_number}</a>
+                            : <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{j.job_number}</span>}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-primary)' }}>{j.customer_name || '—'}</td>
+                        <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.completed_date ? formatDate(j.completed_date) : '—'}</td>
+                        <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{j.hours != null ? j.hours.toFixed(2) : '—'}</td>
+                        <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.pay_type || <span style={{ color: '#d29922' }}>not set</span>}</td>
+                        <td className="px-2.5 py-1.5 text-xs text-right tabular-nums font-semibold" style={{ color: j.pay_amount != null ? 'var(--text-primary)' : 'var(--text-muted)' }}>{j.pay_amount != null ? formatCurrency(j.pay_amount) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  };
   const groupHeader = (label: string, hrs: number, other?: boolean) => (
     <tr><td colSpan={5} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider"
       style={{ backgroundColor: 'rgba(255,255,255,.02)', color: other ? '#d29922' : 'var(--text-muted)' }}>{label} — {hrs.toFixed(1)} h</td></tr>
@@ -127,7 +201,7 @@ export default function LaborByTechPage() {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install jobs</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Who worked install jobs and how much labor they represent — including help from other teams. ServiceTitan clocked hours.
+        Who worked install jobs and how much labor they represent — including help from other teams. ServiceTitan clocked hours. Click a technician to see each job.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
