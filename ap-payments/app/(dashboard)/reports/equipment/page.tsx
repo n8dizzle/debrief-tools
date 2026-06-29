@@ -122,7 +122,7 @@ export default function EquipmentByJobPage() {
           </button>
         )}
       </div>
-      <div className="text-[11px] mb-4" style={{ color: 'var(--text-muted)' }}>Date filter = install job completed date. Links Shearer PO → estimate project → install job.</div>
+      <div className="text-[11px] mb-4" style={{ color: 'var(--text-muted)' }}>Date filter = Shearer invoice date (install jobs are often still in progress). Links Shearer PO → estimate project → install job.</div>
 
       {resolveMsg && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(58,143,87,0.12)', border: '1px solid var(--christmas-green)', color: '#6fd394' }}>{resolveMsg}</div>}
       {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>{error}</div>}
