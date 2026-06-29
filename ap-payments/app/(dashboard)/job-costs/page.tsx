@@ -197,7 +197,7 @@ export default function JobCostsPage() {
   return (
     <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">
       <div className="flex items-center gap-2 flex-wrap">
-        <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Job Costing</h1>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Deal Margin</h1>
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
