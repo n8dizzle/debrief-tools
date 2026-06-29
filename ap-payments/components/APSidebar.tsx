@@ -13,6 +13,7 @@ const mainLinks = [
   { href: '/board', label: 'Payment Board', icon: 'board', section: 'wip' },
   { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const, section: 'wip' },
   { href: '/equipment', label: 'Equipment', icon: 'box', permission: 'canManagePayments' as const, section: 'wip' },
+  { href: '/job-costs', label: 'Job Costing', icon: 'chart', permission: 'canManagePayments' as const, section: 'wip' },
   { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const, section: 'reports' },
   { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const, section: 'reports' },
   { href: '/reports/equipment', label: 'Equipment by Job', icon: 'box', permission: 'canManagePayments' as const, section: 'reports' },
