@@ -12,6 +12,7 @@ interface TechRow {
   is_install: boolean;
   jobs: number;
   hours: number;
+  hourly_hours: number;
   pay_set: number;
   commission: number;
   hourly: number;
@@ -97,8 +98,9 @@ export default function LaborByTechPage() {
 
   const installRows = filtered.filter(r => r.is_install);
   const otherRows = filtered.filter(r => !r.is_install);
-  const sum = (rs: TechRow[], k: 'hours' | 'pay_set' | 'commission' | 'hourly') => rs.reduce((s, r) => s + (r[k] || 0), 0);
+  const sum = (rs: TechRow[], k: 'hours' | 'hourly_hours' | 'pay_set' | 'commission' | 'hourly') => rs.reduce((s, r) => s + (r[k] || 0), 0);
   const totalHours = sum(filtered, 'hours');
+  const hourlyHours = sum(filtered, 'hourly_hours');
   const otherHours = sum(otherRows, 'hours');
   const totalPay = sum(filtered, 'pay_set');
   const totalHourly = sum(filtered, 'hourly');
@@ -231,11 +233,16 @@ export default function LaborByTechPage() {
       {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>{error}</div>}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <div className="rounded-xl p-4" style={cardStyle}>
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Install Labor</div>
           <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--text-primary)' }}>{totalHours.toFixed(1)} h</div>
           <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{filtered.length} techs · {jobCount} jobs</div>
+        </div>
+        <div className="rounded-xl p-4" style={cardStyle}>
+          <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Hourly-Paid Hours</div>
+          <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--text-primary)' }}>{hourlyHours.toFixed(1)} h</div>
+          <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>excludes pure commission &amp; flat</div>
         </div>
         <div className="rounded-xl p-4" style={cardStyle}>
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>From Other Teams</div>
