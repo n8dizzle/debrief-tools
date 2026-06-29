@@ -874,6 +874,53 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Fetch the equipment line items from a job's ServiceTitan estimate(s), for validating
+   * supplier (Shearer) invoices against ST's listed equipment cost. Keyed by job number
+   * (= the estimate's job, which the ordering team uses as the supplier PO). Prefers the
+   * Sold estimate; falls back to the most recently modified.
+   */
+  async getEstimateEquipmentByJob(jobNumbers: string[]): Promise<Map<string, {
+    estimate_id: number; status: string | null; sold_on: string | null; subtotal: number | null;
+    equipment_cost: number; equipment_sell: number;
+    lines: { sku: string; name: string; qty: number; unit_cost: number; total_cost: number; total_sell: number }[];
+  }>> {
+    const out = new Map<string, any>();
+    for (const jobNo of Array.from(new Set(jobNumbers.filter(Boolean)))) {
+      try {
+        const ests = await this.requestAllPages<any>(
+          `sales/v2/tenant/${this.tenantId}/estimates`,
+          { jobId: jobNo }
+        );
+        if (!ests.length) continue;
+        // Prefer Sold; else most recently modified.
+        const statusName = (e: any) => (e.status && typeof e.status === 'object' ? e.status.name : e.status) || null;
+        const sold = ests.filter(e => statusName(e) === 'Sold');
+        const pick = (sold.length ? sold : ests).sort((a, b) =>
+          (b.modifiedOn || '').localeCompare(a.modifiedOn || ''))[0];
+        const items = (pick.items || []).filter((i: any) => (i.sku?.type || '').toLowerCase() === 'equipment');
+        const lines = items.map((i: any) => ({
+          sku: i.sku?.name || '', name: i.sku?.displayName || i.description || '',
+          qty: Number(i.qty || 0),
+          unit_cost: Number(i.unitCost || 0), total_cost: Number(i.totalCost || 0),
+          total_sell: Number(i.total || 0),
+        }));
+        out.set(jobNo, {
+          estimate_id: pick.id,
+          status: statusName(pick),
+          sold_on: pick.soldOn || null,
+          subtotal: pick.subtotal ?? null,
+          equipment_cost: Math.round(lines.reduce((s: number, l: any) => s + l.total_cost, 0) * 100) / 100,
+          equipment_sell: Math.round(lines.reduce((s: number, l: any) => s + l.total_sell, 0) * 100) / 100,
+          lines,
+        });
+      } catch (err) {
+        console.error(`Estimate fetch failed for job ${jobNo}:`, err);
+      }
+    }
+    return out;
+  }
+
+  /**
    * Fetch ServiceTitan payroll records. One row per employee per cycle, so the same
    * pay period repeats — callers dedupe by startedOn/endedOn to get distinct cycles.
    */

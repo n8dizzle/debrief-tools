@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCsv, parseShearerCsv } from './shearer-csv';
+import { parseCsv, parseShearerCsv, skuMatch } from './shearer-csv';
 
 const HEADER = '"DOC_TYPE","SHIPPING_ADDRESS","ACCOUNT_NUMBER","ORDER_DATE","ORDER_NUMBER","ORDER_BY","PO_NUMBER","SHIP_VIA","SALESPERSON","INVOICE_NUMBER","INVOICE_DATE","SHIP_DATE","SHIPPING_DESC","JOB_NUMBER","TERMS","FOOTER_MESSAGE","MERCHANDISE","FREIGHT","SERVICE_CHARGE","SUBTOTAL","TAXABLE_AMT","SALES_TAX","TAX_NUMBER","TOTAL_DUE","DUE_DATE","WRITER","DISCOUNT_AMOUNT","LINE_COL","QTY_ORDER_COL","QTY_SHIP_COL","QTY_BO_COL","PRODUCT_COL","DESC_COL","UOM_COL","UNIT_PRICE_COL","NET_AMOUNT_COL","MESSAGE_COL","CMT_USER_DEFINE1_COL","TRACKING_NUM_COL","PAYMENT_DESC_COL","PAYMENT_AMT_COL"';
 
@@ -13,6 +13,24 @@ describe('parseCsv', () => {
     const rows = parseCsv('"a","b, c","d""e"\n"1","2","3"');
     expect(rows[0]).toEqual(['a', 'b, c', 'd"e']);
     expect(rows[1]).toEqual(['1', '2', '3']);
+  });
+});
+
+describe('skuMatch', () => {
+  it('matches ST base SKU to Shearer SKU with model suffix', () => {
+    expect(skuMatch('5A7A4036A1000A', '5A7A4036A')).toBe(true); // Shearer vs ST
+  });
+  it('matches exact', () => {
+    expect(skuMatch('S8X1A040M3PSAA', 's8x1a040m3psaa')).toBe(true);
+  });
+  it('does not match different products', () => {
+    expect(skuMatch('5A7A4036A1000A', '5TXCB004AS3HCA')).toBe(false);
+  });
+  it('does not match on a too-short common prefix', () => {
+    expect(skuMatch('5A7A11', '5A7A99')).toBe(false);
+  });
+  it('handles empty', () => {
+    expect(skuMatch('', '5A7A4036A')).toBe(false);
   });
 });
 
