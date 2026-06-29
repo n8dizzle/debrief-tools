@@ -221,10 +221,12 @@ export default function JobCostsPage() {
               style={{ backgroundColor: costFilter === f ? 'var(--christmas-green)' : 'transparent', color: costFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
-        <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
-          style={{ backgroundColor: unresolved > 0 ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: unresolved > 0 ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
-          {resolving ? 'Resolving…' : unresolved > 0 ? `Resolve ${unresolved} advisor${unresolved === 1 ? '' : 's'}` : 'Re-resolve advisors'}
-        </button>
+        {(unresolved > 0 || resolving) && (
+          <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
+            style={{ backgroundColor: 'var(--christmas-green)', border: '1px solid var(--border-subtle)', color: 'var(--christmas-cream)' }}>
+            {resolving ? 'Resolving…' : `Resolve ${unresolved} advisor${unresolved === 1 ? '' : 's'}`}
+          </button>
+        )}
       </div>
       <div className="text-[11px] mb-4" style={{ color: 'var(--text-muted)' }}>Date filter = completed date. Costs save as you type (on blur). &ldquo;Sold By&rdquo; = comfort advisor who sold the estimate.</div>
 
