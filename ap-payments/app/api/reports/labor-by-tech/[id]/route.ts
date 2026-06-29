@@ -59,11 +59,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const payByJob = new Map<string, any>();
   for (const a of assigns) {
     const pb = a.pay_basis || {};
-    // Commission $ = percent of revenue (combo/percent); hourly $ = hours × rate.
-    const commission = pb.percent != null && pb.revenue != null ? r2(Number(pb.revenue) * Number(pb.percent) / 100) : null;
-    const hourly = pb.hourly_rate != null && pb.hours != null ? r2(Number(pb.hours) * Number(pb.hourly_rate)) : null;
+    const pay = a.pay_amount == null ? null : Number(a.pay_amount);
+    // Commission $ = percent of revenue; hourly = the rest (pay - commission) so the two
+    // always sum to pay (matches the per-tech summary; flats/overrides land in hourly).
+    const commission = pb.percent != null && pb.revenue != null ? r2(Number(pb.revenue) * Number(pb.percent) / 100) : (pay != null ? 0 : null);
+    const hourly = pay != null ? r2(pay - (commission || 0)) : null;
     payByJob.set(a.job_id, {
-      pay_amount: a.pay_amount == null ? null : Number(a.pay_amount),
+      pay_amount: pay,
       pay_type: ptName.get(a.pay_type_id) || null,
       commission, hourly,
     });

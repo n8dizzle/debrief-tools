@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       .in('job_id', jobIds)
       .not('technician_id', 'is', null),
     supabase.from('ap_job_assignments')
-      .select('job_id, technician_id, pay_amount')
+      .select('job_id, technician_id, pay_amount, pay_basis')
       .in('job_id', jobIds)
       .eq('assignee_type', 'technician')
       .not('pay_amount', 'is', null),
@@ -61,10 +61,20 @@ export async function GET(request: NextRequest) {
     : { data: [] as any[] };
   const techMap = new Map((techRows || []).map((t: any) => [t.id, t]));
 
-  // Pay set per technician (summed across these jobs).
-  const payByTech = new Map<string, number>();
+  // Pay per technician, split into commission ($ = percent of revenue from pay_basis)
+  // and hourly (= everything else: pay_amount - commission). By construction the two
+  // always sum to pay_set, so flats/overrides land in the hourly bucket.
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const payByTech = new Map<string, { pay: number; commission: number; hourly: number }>();
   for (const a of assigns) {
-    payByTech.set(a.technician_id, (payByTech.get(a.technician_id) || 0) + Number(a.pay_amount || 0));
+    const pay = Number(a.pay_amount || 0);
+    const pb = a.pay_basis || {};
+    const commission = pb.percent != null && pb.revenue != null ? Number(pb.revenue) * Number(pb.percent) / 100 : 0;
+    const cur = payByTech.get(a.technician_id) || { pay: 0, commission: 0, hourly: 0 };
+    cur.pay += pay;
+    cur.commission += commission;
+    cur.hourly += pay - commission;
+    payByTech.set(a.technician_id, cur);
   }
 
   // Aggregate crew per technician.
@@ -81,6 +91,7 @@ export async function GET(request: NextRequest) {
     .map(([technician_id, v]) => {
       const t = techMap.get(technician_id);
       const name = t?.name || v.name || '—';
+      const p = payByTech.get(technician_id) || { pay: 0, commission: 0, hourly: 0 };
       return {
         technician_id,
         name,
@@ -88,7 +99,9 @@ export async function GET(request: NextRequest) {
         is_install: t?.business_unit_id === INSTALL_BU_ID,
         jobs: v.jobs.size,
         hours: Math.round(v.hours * 100) / 100,
-        pay_set: Math.round((payByTech.get(technician_id) || 0) * 100) / 100,
+        pay_set: r2(p.pay),
+        commission: r2(p.commission),
+        hourly: r2(p.hourly),
       };
     })
     .filter(t => t.name !== 'Install Team')
