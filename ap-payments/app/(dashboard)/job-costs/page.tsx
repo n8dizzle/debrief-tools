@@ -8,6 +8,7 @@ import AdminTable, { AdminColumn } from '@/components/AdminTable';
 
 interface Row {
   id: string; st_job_id: number | null; job_number: string; estimate_job_number: string | null;
+  sold_by: string | null; sold_on: string | null;
   customer_name: string | null; job_type: string | null; completed_date: string | null;
   invoice: number | null;
   equipment_amount: number | null; material_amount: number | null; labor_amount: number | null;
@@ -66,6 +67,10 @@ export default function JobCostsPage() {
   const [search, setSearch] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState<string[]>([]);
   const [costFilter, setCostFilter] = useState<CostFilter>('all');
+  const [advisorFilter, setAdvisorFilter] = useState('');
+  const [unresolved, setUnresolved] = useState(0);
+  const [resolving, setResolving] = useState(false);
+  const [resolveMsg, setResolveMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -76,6 +81,7 @@ export default function JobCostsPage() {
       const data = await res.json();
       const rs: Row[] = data.rows || [];
       setRows(rs);
+      setUnresolved(data.unresolved || 0);
       const a: Amounts = {};
       for (const r of rs) a[r.id] = {
         equipment: r.equipment_amount != null ? String(r.equipment_amount) : '',
@@ -94,7 +100,22 @@ export default function JobCostsPage() {
     fetch('/api/payroll-periods').then(r => r.ok ? r.json() : []).then(setPayPeriods).catch(() => {});
   }, [perms.isLoading]);
 
+  const resolveAdvisors = async () => {
+    setResolving(true); setResolveMsg(null); setError(null);
+    try {
+      const p = new URLSearchParams({ start: range.start, end: range.end });
+      const res = await fetch(`/api/job-costs/resolve-sales?${p.toString()}`, { method: 'POST' });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || 'Resolve failed');
+      setResolveMsg(`Resolved ${j.resolved} job${j.resolved === 1 ? '' : 's'} → ${j.with_advisor} with a comfort advisor.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Resolve failed');
+    } finally { setResolving(false); }
+  };
+
   const jobTypeOptions = useMemo(() => Array.from(new Set(rows.map(r => r.job_type).filter(Boolean) as string[])).sort(), [rows]);
+  const advisorOptions = useMemo(() => Array.from(new Set(rows.map(r => r.sold_by).filter(Boolean) as string[])).sort(), [rows]);
   const numOf = (s: string | undefined) => { const n = parseFloat(s || ''); return isNaN(n) ? 0 : n; };
   const hasCost = (id: string) => { const a = amounts[id]; return !!a && (a.equipment !== '' || a.material !== '' || a.labor !== ''); };
 
@@ -103,11 +124,12 @@ export default function JobCostsPage() {
     return rows.filter(r => {
       if (q && !(`${r.job_number}`.toLowerCase().includes(q) || (r.customer_name || '').toLowerCase().includes(q) || (r.estimate_job_number || '').includes(q))) return false;
       if (jobTypeFilter.length > 0 && !(r.job_type && jobTypeFilter.includes(r.job_type))) return false;
+      if (advisorFilter && r.sold_by !== advisorFilter) return false;
       if (costFilter === 'costed' && !hasCost(r.id)) return false;
       if (costFilter === 'uncosted' && hasCost(r.id)) return false;
       return true;
     });
-  }, [rows, search, jobTypeFilter, costFilter, amounts]);
+  }, [rows, search, jobTypeFilter, advisorFilter, costFilter, amounts]);
 
   const onAmt = (id: string, field: 'equipment' | 'material' | 'labor', v: string) =>
     setAmounts(a => ({ ...a, [id]: { ...a[id], [field]: v.replace(/[^0-9.]/g, '') } }));
@@ -139,6 +161,8 @@ export default function JobCostsPage() {
       footer: rows => <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Totals · {rows.length}</span> },
     { key: 'estimate', label: 'Estimate #', sortable: true, width: 100, sortValue: r => r.estimate_job_number || '',
       render: r => r.estimate_job_number ? <span className="tabular-nums" style={{ color: '#6fd394' }}>{r.estimate_job_number}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span> },
+    { key: 'sold_by', label: 'Sold By', sortable: true, width: 140, sortValue: r => (r.sold_by || '').toLowerCase(),
+      render: r => r.sold_by ? <span style={{ color: 'var(--text-primary)' }}>{r.sold_by}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span> },
     { key: 'customer', label: 'Customer', sortable: true, width: 160, sortValue: r => (r.customer_name || '').toLowerCase(),
       render: r => <span className="truncate block" style={{ color: 'var(--text-primary)' }} title={r.customer_name || ''}>{r.customer_name || '—'}</span> },
     { key: 'type', label: 'Type', sortable: true, width: 150, sortValue: r => (r.job_type || '').toLowerCase(),
@@ -185,15 +209,26 @@ export default function JobCostsPage() {
         <input type="text" placeholder="Search job #, customer, estimate…" value={search} onChange={e => setSearch(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 220 }} />
         <JobTypeFilter all={jobTypeOptions} selected={jobTypeFilter} onChange={setJobTypeFilter} />
+        {advisorOptions.length > 0 && (
+          <select value={advisorFilter} onChange={e => setAdvisorFilter(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={selectStyle}>
+            <option value="">All advisors</option>
+            {advisorOptions.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {([['all', 'All'], ['costed', 'Costed'], ['uncosted', 'Uncosted']] as [CostFilter, string][]).map(([f, label]) => (
             <button key={f} onClick={() => setCostFilter(f)} className="px-3 py-1 rounded text-sm"
               style={{ backgroundColor: costFilter === f ? 'var(--christmas-green)' : 'transparent', color: costFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
+        <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
+          style={{ backgroundColor: unresolved > 0 ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: unresolved > 0 ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+          {resolving ? 'Resolving…' : unresolved > 0 ? `Resolve ${unresolved} advisor${unresolved === 1 ? '' : 's'}` : 'Re-resolve advisors'}
+        </button>
       </div>
-      <div className="text-[11px] mb-4" style={{ color: 'var(--text-muted)' }}>Date filter = completed date. Costs save as you type (on blur).</div>
+      <div className="text-[11px] mb-4" style={{ color: 'var(--text-muted)' }}>Date filter = completed date. Costs save as you type (on blur). &ldquo;Sold By&rdquo; = comfort advisor who sold the estimate.</div>
 
+      {resolveMsg && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(58,143,87,0.12)', border: '1px solid var(--christmas-green)', color: '#6fd394' }}>{resolveMsg}</div>}
       {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>{error}</div>}
 
       {loading ? (
