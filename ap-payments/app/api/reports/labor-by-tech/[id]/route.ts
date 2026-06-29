@@ -39,16 +39,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const [labRes, assignRes] = await Promise.all([
     supabase.from('ap_job_st_labor').select('job_id, hours').eq('technician_id', technicianId).in('job_id', jobIds),
+    // No FK between ap_job_assignments.pay_type_id and ap_pay_types, so we can't embed —
+    // fetch pay_type_id and resolve names in a separate lookup below.
     supabase.from('ap_job_assignments')
-      .select('job_id, pay_amount, pay_basis, pay_type:ap_pay_types(name)')
+      .select('job_id, pay_amount, pay_type_id, pay_basis')
       .eq('technician_id', technicianId).eq('assignee_type', 'technician').in('job_id', jobIds),
   ]);
   const hoursByJob = new Map<string, number>();
   for (const l of (labRes.data || []) as any[]) hoursByJob.set(l.job_id, l.hours == null ? 0 : Number(l.hours));
+
+  const assigns = (assignRes.data || []) as any[];
+  const ptIds = Array.from(new Set(assigns.map(a => a.pay_type_id).filter(Boolean)));
+  const { data: ptRows } = ptIds.length
+    ? await supabase.from('ap_pay_types').select('id, name').in('id', ptIds)
+    : { data: [] as any[] };
+  const ptName = new Map((ptRows || []).map((p: any) => [p.id, p.name]));
+
+  const r2 = (n: number) => Math.round(n * 100) / 100;
   const payByJob = new Map<string, any>();
-  for (const a of (assignRes.data || []) as any[]) {
-    const pt = Array.isArray(a.pay_type) ? a.pay_type[0] : a.pay_type;
-    payByJob.set(a.job_id, { pay_amount: a.pay_amount == null ? null : Number(a.pay_amount), pay_type: pt?.name || null });
+  for (const a of assigns) {
+    const pb = a.pay_basis || {};
+    // Commission $ = percent of revenue (combo/percent); hourly $ = hours × rate.
+    const commission = pb.percent != null && pb.revenue != null ? r2(Number(pb.revenue) * Number(pb.percent) / 100) : null;
+    const hourly = pb.hourly_rate != null && pb.hours != null ? r2(Number(pb.hours) * Number(pb.hourly_rate)) : null;
+    payByJob.set(a.job_id, {
+      pay_amount: a.pay_amount == null ? null : Number(a.pay_amount),
+      pay_type: ptName.get(a.pay_type_id) || null,
+      commission, hourly,
+    });
   }
 
   // Union of jobs the tech touched (labor or pay).
@@ -67,6 +85,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       hours: hoursByJob.has(jid) ? hoursByJob.get(jid)! : null,
       pay_type: pay?.pay_type ?? null,
       pay_amount: pay?.pay_amount ?? null,
+      commission: pay?.commission ?? null,
+      hourly: pay?.hourly ?? null,
     };
   }).sort((a, b) => (b.completed_date || '').localeCompare(a.completed_date || ''));
 
