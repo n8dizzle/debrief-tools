@@ -201,7 +201,7 @@ export default function JobCostsPage() {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Enter Equipment / Material / Labor $ per install job; each shows as a % of the invoice total. Estimate # matches via resolved Shearer PO links.
+        Comfort-advisor deals (Brett, Luke). Enter Equipment / Material / Labor $ per install job; each shows as a % of the invoice total.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -224,7 +224,7 @@ export default function JobCostsPage() {
         {(unresolved > 0 || resolving) && (
           <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
             style={{ backgroundColor: 'var(--christmas-green)', border: '1px solid var(--border-subtle)', color: 'var(--christmas-cream)' }}>
-            {resolving ? 'Resolving…' : `Resolve ${unresolved} advisor${unresolved === 1 ? '' : 's'}`}
+            {resolving ? 'Resolving…' : `Resolve ${unresolved} job${unresolved === 1 ? '' : 's'}`}
           </button>
         )}
       </div>

@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Comfort advisors we track for commission. Scope the tab to their deals only (drops
+  // all non-advisor / unsold noise). Extend this list to add an advisor.
+  const COMFORT_ADVISOR_TECH_IDS = [135560302, 37214486]; // Brett Sutherland, Luke Sage
+
   const { searchParams } = new URL(request.url);
   const start = searchParams.get('start');
   const end = searchParams.get('end');
@@ -27,6 +31,7 @@ export async function GET(request: NextRequest) {
     .eq('business_unit_name', 'HVAC - Install')
     .neq('job_status', 'Canceled')
     .or('is_ignored.is.null,is_ignored.eq.false')
+    .in('sold_by_st_technician_id', COMFORT_ADVISOR_TECH_IDS)
     .order('completed_date', { ascending: false, nullsFirst: false });
   if (start) q = q.gte('completed_date', start);
   if (end) q = q.lte('completed_date', end);
