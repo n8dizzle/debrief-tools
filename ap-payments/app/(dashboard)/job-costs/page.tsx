@@ -118,7 +118,9 @@ export default function JobCostsPage() {
   const jobTypeOptions = useMemo(() => Array.from(new Set(rows.map(r => r.job_type).filter(Boolean) as string[])).sort(), [rows]);
   const advisorOptions = useMemo(() => Array.from(new Set(rows.map(r => r.sold_by).filter(Boolean) as string[])).sort(), [rows]);
   const numOf = (s: string | undefined) => { const n = parseFloat(s || ''); return isNaN(n) ? 0 : n; };
-  const hasCost = (id: string) => { const a = amounts[id]; return !!a && (a.equipment !== '' || a.material !== '' || a.labor !== ''); };
+  // Equipment = Shearer-linked actual when present, else the manual entry.
+  const effEquip = (r: Row) => r.shearer_equipment != null ? r.shearer_equipment : numOf(amounts[r.id]?.equipment);
+  const hasCost = (r: Row) => { const a = amounts[r.id]; return (r.shearer_equipment != null && r.shearer_equipment !== 0) || (!!a && (a.equipment !== '' || a.material !== '' || a.labor !== '')); };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -127,8 +129,8 @@ export default function JobCostsPage() {
       if (jobTypeFilter.length > 0 && !(r.job_type && jobTypeFilter.includes(r.job_type))) return false;
       if (advisorFilter && r.sold_by !== advisorFilter) return false;
       if (nonZeroOnly && !(r.invoice && r.invoice > 0)) return false;
-      if (costFilter === 'costed' && !hasCost(r.id)) return false;
-      if (costFilter === 'uncosted' && hasCost(r.id)) return false;
+      if (costFilter === 'costed' && !hasCost(r)) return false;
+      if (costFilter === 'uncosted' && hasCost(r)) return false;
       return true;
     });
   }, [rows, search, jobTypeFilter, advisorFilter, nonZeroOnly, costFilter, amounts]);
@@ -174,14 +176,14 @@ export default function JobCostsPage() {
     { key: 'invoice', label: 'Invoice $', sortable: true, align: 'right', width: 110, sortValue: r => r.invoice ?? -1,
       render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.invoice != null ? formatCurrency(r.invoice) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
       footer: rows => formatCurrency(rows.reduce((s, r) => s + (r.invoice || 0), 0)) },
-    { key: 'shearer_equip', label: 'Shearer Equip $', sortable: true, align: 'right', width: 120, sortValue: r => r.shearer_equipment ?? -1,
-      render: r => r.shearer_equipment != null ? <span className="tabular-nums" style={{ color: '#6fd394' }}>{formatCurrency(r.shearer_equipment)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>,
-      footer: rows => formatCurrency(rows.reduce((s, r) => s + (r.shearer_equipment || 0), 0)) },
-    { key: 'equipment', label: 'Equipment $', align: 'right', width: 110, render: r => moneyInput(r, 'equipment'),
-      footer: rows => formatCurrency(rows.reduce((s, r) => s + numOf(amounts[r.id]?.equipment), 0)) },
-    { key: 'equip_pct', label: 'Equip %', sortable: true, align: 'right', width: 80, sortValue: r => pct(numOf(amounts[r.id]?.equipment), r.invoice) ?? -1,
-      render: r => pctCell(r, 'equipment', '#d29922'),
-      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const e = rows.reduce((s, r) => s + numOf(amounts[r.id]?.equipment), 0); return inv > 0 ? `${(e / inv * 100).toFixed(1)}%` : '—'; } },
+    { key: 'equipment', label: 'Equipment $', sortable: true, align: 'right', width: 120, sortValue: r => effEquip(r),
+      render: r => r.shearer_equipment != null
+        ? <span className="tabular-nums" style={{ color: '#6fd394' }} title="From Shearer invoices">{formatCurrency(r.shearer_equipment)}</span>
+        : moneyInput(r, 'equipment'),
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + effEquip(r), 0)) },
+    { key: 'equip_pct', label: 'Equip %', sortable: true, align: 'right', width: 80, sortValue: r => pct(effEquip(r), r.invoice) ?? -1,
+      render: r => { const p = pct(effEquip(r), r.invoice); return p != null && effEquip(r) > 0 ? <span className="tabular-nums" style={{ color: '#d29922' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
+      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const e = rows.reduce((s, r) => s + effEquip(r), 0); return inv > 0 ? `${(e / inv * 100).toFixed(1)}%` : '—'; } },
     { key: 'material', label: 'Material $', align: 'right', width: 110, render: r => moneyInput(r, 'material'),
       footer: rows => formatCurrency(rows.reduce((s, r) => s + numOf(amounts[r.id]?.material), 0)) },
     { key: 'mat_pct', label: 'Mat %', sortable: true, align: 'right', width: 80, sortValue: r => pct(numOf(amounts[r.id]?.material), r.invoice) ?? -1,
@@ -206,7 +208,7 @@ export default function JobCostsPage() {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Comfort-advisor deals (Brett, Luke). Enter Equipment / Material / Labor $ per install job; each shows as a % of the invoice total.
+        Comfort-advisor deals (Brett, Luke). Equipment $ auto-fills from linked Shearer invoices (green); enter it manually when blank. Material / Labor are manual. Each shows as a % of invoice.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
