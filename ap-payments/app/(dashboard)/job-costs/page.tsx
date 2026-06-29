@@ -166,7 +166,9 @@ export default function JobCostsPage() {
       render: r => r.st_job_id ? <a href={`https://go.servicetitan.com/#/Job/Index/${r.st_job_id}`} target="_blank" rel="noopener noreferrer" className="hover:underline font-semibold" style={{ color: 'var(--christmas-green)', whiteSpace: 'nowrap' }}>{r.job_number}</a> : <span style={{ fontWeight: 600 }}>{r.job_number}</span>,
       footer: rows => <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Totals · {rows.length}</span> },
     { key: 'estimate', label: 'Estimate #', sortable: true, width: 100, sortValue: r => r.estimate_job_number || '',
-      render: r => r.estimate_job_number ? <span className="tabular-nums" style={{ color: '#6fd394' }}>{r.estimate_job_number}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span> },
+      render: r => r.estimate_job_number
+        ? <a href={`https://go.servicetitan.com/#/Job/Index/${r.estimate_job_number}`} target="_blank" rel="noopener noreferrer" className="hover:underline tabular-nums font-semibold" style={{ color: '#6fd394' }}>{r.estimate_job_number}</a>
+        : <span style={{ color: 'var(--text-muted)' }}>—</span> },
     { key: 'sold_by', label: 'Sold By', sortable: true, width: 140, sortValue: r => (r.sold_by || '').toLowerCase(),
       render: r => r.sold_by ? <span style={{ color: 'var(--text-primary)' }}>{r.sold_by}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span> },
     { key: 'customer', label: 'Customer', sortable: true, width: 160, sortValue: r => (r.customer_name || '').toLowerCase(),
