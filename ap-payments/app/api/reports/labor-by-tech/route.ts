@@ -66,6 +66,9 @@ export async function GET(request: NextRequest) {
   // always sum to pay_set, so flats/overrides land in the hourly bucket.
   const r2 = (n: number) => Math.round(n * 100) / 100;
   const payByTech = new Map<string, { pay: number; commission: number; hourly: number }>();
+  // (tech|job) pairs whose pay type actually uses hours (Hourly or Hourly+Commission),
+  // so we can total ST hours on hourly-paid work only (excludes pure commission + flat).
+  const hourlyPairs = new Set<string>();
   for (const a of assigns) {
     const pay = Number(a.pay_amount || 0);
     const pb = a.pay_basis || {};
@@ -75,14 +78,17 @@ export async function GET(request: NextRequest) {
     cur.commission += commission;
     cur.hourly += pay - commission;
     payByTech.set(a.technician_id, cur);
+    if (pb.hourly_rate != null) hourlyPairs.add(`${a.technician_id}|${a.job_id}`);
   }
 
   // Aggregate crew per technician.
-  const agg = new Map<string, { jobs: Set<string>; hours: number; name: string }>();
+  const agg = new Map<string, { jobs: Set<string>; hours: number; hourly_hours: number; name: string }>();
   for (const c of crew) {
-    const cur = agg.get(c.technician_id) || { jobs: new Set<string>(), hours: 0, name: c.technician_name || '' };
+    const cur = agg.get(c.technician_id) || { jobs: new Set<string>(), hours: 0, hourly_hours: 0, name: c.technician_name || '' };
     cur.jobs.add(c.job_id);
-    cur.hours += Number(c.hours || 0);
+    const h = Number(c.hours || 0);
+    cur.hours += h;
+    if (hourlyPairs.has(`${c.technician_id}|${c.job_id}`)) cur.hourly_hours += h;
     if (!cur.name && c.technician_name) cur.name = c.technician_name;
     agg.set(c.technician_id, cur);
   }
@@ -99,6 +105,7 @@ export async function GET(request: NextRequest) {
         is_install: t?.business_unit_id === INSTALL_BU_ID,
         jobs: v.jobs.size,
         hours: Math.round(v.hours * 100) / 100,
+        hourly_hours: r2(v.hourly_hours),
         pay_set: r2(p.pay),
         commission: r2(p.commission),
         hourly: r2(p.hourly),
