@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   let q = supabase
     .from('ap_install_jobs')
-    .select('id, st_job_id, job_number, customer_name, job_type_name, completed_date, st_revenue, job_total')
+    .select('id, st_job_id, job_number, customer_name, job_type_name, completed_date, st_revenue, job_total, sold_by_name, sold_estimate_job_number, sold_on, sales_resolved_at')
     .eq('business_unit_name', 'HVAC - Install')
     .neq('job_status', 'Canceled')
     .or('is_ignored.is.null,is_ignored.eq.false')
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
 
   const jobRows = jobs || [];
   const ids = jobRows.map((j: any) => j.id);
-  const jobNos = jobRows.map((j: any) => j.job_number);
 
   // Saved manual cost inputs.
   const inputsByJob = new Map<string, any>();
@@ -47,16 +46,12 @@ export async function GET(request: NextRequest) {
     for (const r of (inputs || []) as any[]) inputsByJob.set(r.job_id, r);
   }
 
-  // Matched estimate job # (reverse of resolved Shearer PO links).
-  const estByJobNo = new Map<string, string>();
-  if (jobNos.length) {
-    const { data: links } = await supabase
-      .from('ap_supplier_invoices')
-      .select('estimate_job_number, linked_install_job_number')
-      .in('linked_install_job_number', jobNos)
-      .not('estimate_job_number', 'is', null);
-    for (const r of (links || []) as any[]) estByJobNo.set(r.linked_install_job_number, r.estimate_job_number);
-  }
+  // How many in this range still need their comfort advisor resolved (UI nudge).
+  let uq = supabase.from('ap_install_jobs').select('id', { count: 'exact', head: true })
+    .eq('business_unit_name', 'HVAC - Install').neq('job_status', 'Canceled').is('sales_resolved_at', null);
+  if (start) uq = uq.gte('completed_date', start);
+  if (end) uq = uq.lte('completed_date', end);
+  const { count: unresolved } = await uq;
 
   const rows = jobRows.map((j: any) => {
     const inp = inputsByJob.get(j.id);
@@ -66,7 +61,9 @@ export async function GET(request: NextRequest) {
       id: j.id,
       st_job_id: j.st_job_id,
       job_number: j.job_number,
-      estimate_job_number: estByJobNo.get(j.job_number) || null,
+      estimate_job_number: j.sold_estimate_job_number || null,
+      sold_by: j.sold_by_name || null,
+      sold_on: j.sold_on || null,
       customer_name: j.customer_name,
       job_type: j.job_type_name,
       completed_date: j.completed_date,
@@ -77,5 +74,5 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  return NextResponse.json({ rows });
+  return NextResponse.json({ rows, unresolved: unresolved || 0 });
 }

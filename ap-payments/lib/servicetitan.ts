@@ -934,6 +934,55 @@ export class ServiceTitanClient {
     return out;
   }
 
+  /** Fetch projectId for a set of ST jobs (by id). Used to backfill st_project_id. */
+  async getProjectIdsForJobs(stJobIds: number[]): Promise<Map<number, number>> {
+    const out = new Map<number, number>();
+    const ids = Array.from(new Set(stJobIds.filter(Boolean)));
+    const fetchOne = async (jid: number) => {
+      try {
+        const j = await this.request<any>('GET', `jpm/v2/tenant/${this.tenantId}/jobs/${jid}`, {});
+        if (j?.projectId) out.set(jid, j.projectId);
+      } catch (err) { console.error(`Job projectId fetch failed for ${jid}:`, err); }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+    return out;
+  }
+
+  /**
+   * Who sold each project: the Sold estimate's soldBy (comfort advisor tech id), the
+   * estimate job #, and sold date. Returns projectId → {sold_by_st_id, estimate_job_number, sold_on}.
+   */
+  async getSalesInfoByProject(projectIds: number[]): Promise<Map<number, {
+    sold_by_st_id: number | null; estimate_job_number: string | null; sold_on: string | null;
+  }>> {
+    const out = new Map<number, any>();
+    const ids = Array.from(new Set(projectIds.filter(Boolean)));
+    const statusName = (e: any) => (e.status && typeof e.status === 'object' ? e.status.name : e.status) || null;
+    const fetchOne = async (pid: number) => {
+      try {
+        const ests = await this.requestAllPages<any>(
+          `sales/v2/tenant/${this.tenantId}/estimates`, { projectId: String(pid) }
+        );
+        if (!ests.length) return;
+        const sold = ests.filter(e => statusName(e) === 'Sold');
+        const pick = (sold.length ? sold : ests).sort((a, b) => (b.soldOn || b.modifiedOn || '').localeCompare(a.soldOn || a.modifiedOn || ''))[0];
+        out.set(pid, {
+          sold_by_st_id: pick.soldBy ?? null,
+          estimate_job_number: pick.jobNumber ?? (pick.jobId != null ? String(pick.jobId) : null),
+          sold_on: pick.soldOn ? pick.soldOn.slice(0, 10) : null,
+        });
+      } catch (err) { console.error(`Sales info fetch failed for project ${pid}:`, err); }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+    return out;
+  }
+
   /**
    * For each ServiceTitan project, find its HVAC-Install (BU 610) job number. Used to
    * link a Shearer PO (sales estimate) to the install job in the same project.
