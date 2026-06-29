@@ -18,7 +18,7 @@ type TeamFilter = 'all' | 'install' | 'other';
 interface JobRow {
   job_id: string; st_job_id: number | null; job_number: string; customer_name: string | null;
   completed_date: string | null; invoice_amount: number | null; hours: number | null;
-  pay_type: string | null; pay_amount: number | null;
+  pay_type: string | null; pay_amount: number | null; commission: number | null; hourly: number | null;
 }
 
 function monthToDate(): DateRange {
@@ -160,7 +160,7 @@ export default function LaborByTechPage() {
                 <table className="w-full mt-1" style={{ backgroundColor: 'var(--bg-card)', borderRadius: 8 }}>
                   <thead>
                     <tr style={{ color: 'var(--text-muted)' }}>
-                      {([['Job #', 'left'], ['Customer', 'left'], ['Completed', 'left'], ['ST Hours', 'right'], ['Pay Type', 'left'], ['Pay', 'right']] as [string, string][]).map(([l, a], i) => (
+                      {([['Job #', 'left'], ['Customer', 'left'], ['Completed', 'left'], ['ST Hours', 'right'], ['Pay Type', 'left'], ['Commission', 'right'], ['Pay', 'right']] as [string, string][]).map(([l, a], i) => (
                         <th key={i} className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ textAlign: a as any }}>{l}</th>
                       ))}
                     </tr>
@@ -177,6 +177,7 @@ export default function LaborByTechPage() {
                         <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.completed_date ? formatDate(j.completed_date) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{j.hours != null ? j.hours.toFixed(2) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.pay_type || <span style={{ color: '#d29922' }}>not set</span>}</td>
+                        <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: j.commission ? '#6fd394' : 'var(--text-muted)' }}>{j.commission ? formatCurrency(j.commission) : '—'}</td>
                         <td className="px-2.5 py-1.5 text-xs text-right tabular-nums font-semibold" style={{ color: j.pay_amount != null ? 'var(--text-primary)' : 'var(--text-muted)' }}>{j.pay_amount != null ? formatCurrency(j.pay_amount) : '—'}</td>
                       </tr>
                     ))}
