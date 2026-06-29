@@ -67,6 +67,7 @@ export default function JobCostsPage() {
   const [search, setSearch] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState<string[]>([]);
   const [costFilter, setCostFilter] = useState<CostFilter>('all');
+  const [nonZeroOnly, setNonZeroOnly] = useState(true);
   const [advisorFilter, setAdvisorFilter] = useState('');
   const [unresolved, setUnresolved] = useState(0);
   const [resolving, setResolving] = useState(false);
@@ -125,11 +126,12 @@ export default function JobCostsPage() {
       if (q && !(`${r.job_number}`.toLowerCase().includes(q) || (r.customer_name || '').toLowerCase().includes(q) || (r.estimate_job_number || '').includes(q))) return false;
       if (jobTypeFilter.length > 0 && !(r.job_type && jobTypeFilter.includes(r.job_type))) return false;
       if (advisorFilter && r.sold_by !== advisorFilter) return false;
+      if (nonZeroOnly && !(r.invoice && r.invoice > 0)) return false;
       if (costFilter === 'costed' && !hasCost(r.id)) return false;
       if (costFilter === 'uncosted' && hasCost(r.id)) return false;
       return true;
     });
-  }, [rows, search, jobTypeFilter, advisorFilter, costFilter, amounts]);
+  }, [rows, search, jobTypeFilter, advisorFilter, nonZeroOnly, costFilter, amounts]);
 
   const onAmt = (id: string, field: 'equipment' | 'material' | 'labor', v: string) =>
     setAmounts(a => ({ ...a, [id]: { ...a[id], [field]: v.replace(/[^0-9.]/g, '') } }));
@@ -224,6 +226,9 @@ export default function JobCostsPage() {
               style={{ backgroundColor: costFilter === f ? 'var(--christmas-green)' : 'transparent', color: costFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
+        <button onClick={() => setNonZeroOnly(v => !v)} className="px-3 py-2 rounded-lg text-sm"
+          style={{ backgroundColor: nonZeroOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: nonZeroOnly ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}
+          title="Show only jobs with an invoice over $0">Invoice &gt; $0</button>
         {(unresolved > 0 || resolving) && (
           <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
             style={{ backgroundColor: 'var(--christmas-green)', border: '1px solid var(--border-subtle)', color: 'var(--christmas-cream)' }}>
