@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatCurrency, formatDate } from '@/lib/ap-utils';
@@ -19,8 +19,14 @@ interface Invoice {
   merchandise: number | null; freight: number | null; sales_tax: number | null; total_due: number | null;
   lines: Line[];
 }
-type View = 'invoices' | 'lines';
+type View = 'invoices' | 'lines' | 'validate';
 type LinkFilter = 'all' | 'linked' | 'unlinked';
+interface ValLine { sku: string | null; description: string | null; shearer_cost: number | null; st_cost: number | null; variance: number | null; is_return?: boolean; only?: 'shearer' | 'st'; }
+interface ValRow {
+  invoice_id: string; invoice_number: string; estimate_job_number: string; invoice_date: string | null;
+  shearer_total: number; st_total: number | null; st_status: string | null; st_estimate_id: number | null;
+  variance: number | null; matched_to_st: boolean; lines: ValLine[];
+}
 interface FlatLine extends Line { invoice_number: string; estimate_job_number: string | null; vendor: string; invoice_date: string | null; }
 
 function monthToDate(): DateRange {
@@ -43,6 +49,9 @@ export default function EquipmentPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [valRows, setValRows] = useState<ValRow[] | null>(null);
+  const [valLoading, setValLoading] = useState(false);
+  const [valExpanded, setValExpanded] = useState<string | null>(null);
 
   const canManage = perms.canManagePayments;
 
@@ -62,6 +71,18 @@ export default function EquipmentPage() {
   }, [range, vendor]);
 
   useEffect(() => { if (!perms.isLoading) load(); }, [load, perms.isLoading]);
+
+  // Validation pulls live ServiceTitan estimates; fetch on demand when the view opens or dates change.
+  useEffect(() => {
+    if (view !== 'validate' || perms.isLoading) return;
+    setValLoading(true); setValExpanded(null);
+    const p = new URLSearchParams({ start: range.start, end: range.end });
+    fetch(`/api/supplier-invoices/validate?${p.toString()}`)
+      .then(r => r.ok ? r.json() : { rows: [] })
+      .then(d => setValRows(d.rows || []))
+      .catch(() => setValRows([]))
+      .finally(() => setValLoading(false));
+  }, [view, range.start, range.end, perms.isLoading]);
 
   const onUpload = async (file: File) => {
     setUploading(true); setUploadMsg(null); setError(null);
@@ -167,7 +188,7 @@ export default function EquipmentPage() {
           ))}
         </div>
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-          {([['invoices', 'Invoices'], ['lines', 'Line Items']] as [View, string][]).map(([v, label]) => (
+          {([['invoices', 'Invoices'], ['lines', 'Line Items'], ['validate', 'Validation']] as [View, string][]).map(([v, label]) => (
             <button key={v} onClick={() => setView(v)} className="px-3 py-1 rounded text-sm"
               style={{ backgroundColor: view === v ? 'var(--christmas-green)' : 'transparent', color: view === v ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
@@ -207,7 +228,35 @@ export default function EquipmentPage() {
         </div>
       </div>
 
-      {loading ? (
+      {view === 'validate' ? (
+        valLoading ? (
+          <div className="rounded-lg p-8 text-center text-sm" style={{ ...cardStyle, color: 'var(--text-muted)' }}>Checking ServiceTitan estimates…</div>
+        ) : !valRows || valRows.length === 0 ? (
+          <div className="rounded-lg p-8 text-center text-sm" style={{ ...cardStyle, color: 'var(--text-muted)' }}>No job-linked invoices in this range to validate. (PO must be a numeric estimate job #.)</div>
+        ) : (
+          <div className="rounded-xl overflow-hidden" style={cardStyle}>
+            <table className="w-full">
+              <thead>
+                <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  {([['PO / Est Job #', 'left'], ['Invoice #', 'left'], ['ServiceTitan', 'left'], ['Shearer $', 'right'], ['ST Equip $', 'right'], ['Variance', 'right']] as [string, string][]).map(([l, a], i) => (
+                    <th key={i} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)', textAlign: a as any, whiteSpace: 'nowrap' }}>{l}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {valRows.map(r => {
+                  const open = valExpanded === r.invoice_id;
+                  const vpct = r.st_total && r.st_total !== 0 && r.variance != null ? (r.variance / r.st_total) * 100 : null;
+                  const vcolor = r.variance == null ? 'var(--text-muted)' : Math.abs(r.variance) < 0.5 ? '#6fd394' : r.variance > 0 ? '#f85149' : '#d29922';
+                  return (
+                    <ValTableRow key={r.invoice_id} r={r} open={open} vpct={vpct} vcolor={vcolor} onToggle={() => setValExpanded(open ? null : r.invoice_id)} />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : loading ? (
         <div className="rounded-lg p-8 text-center text-sm" style={{ ...cardStyle, color: 'var(--text-muted)' }}>Loading…</div>
       ) : invoices.length === 0 ? (
         <div className="rounded-lg p-8 text-center text-sm" style={{ ...cardStyle, color: 'var(--text-muted)' }}>
@@ -218,6 +267,73 @@ export default function EquipmentPage() {
       ) : (
         <AdminTable<FlatLine> tableId="supplier-lines" columns={lineCols} rows={flatLines} rowKey={r => r.id} showSearch={false} emptyMessage="No line items match these filters." />
       )}
+      {view === 'validate' && (
+        <div className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+          Compares Shearer actual cost vs the ServiceTitan estimate&apos;s listed equipment cost (item cost, not sell). Variance = Shearer − ST: <span style={{ color: '#f85149' }}>red = paid more than ST listed</span>, <span style={{ color: '#d29922' }}>amber = paid less</span>, <span style={{ color: '#6fd394' }}>green = matches</span>. Lines matched by SKU.
+        </div>
+      )}
     </div>
+  );
+}
+
+function ValTableRow({ r, open, vpct, vcolor, onToggle }: {
+  r: ValRow; open: boolean; vpct: number | null; vcolor: string; onToggle: () => void;
+}) {
+  const money = (n: number | null) => n == null ? '—' : formatCurrency(n);
+  return (
+    <Fragment>
+      <tr onClick={onToggle} className="cursor-pointer hover:bg-white/5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        <td className="px-3 py-2.5 text-sm tabular-nums" style={{ color: 'var(--text-primary)' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: 10, marginRight: 6 }}>{open ? '▾' : '▸'}</span>{r.estimate_job_number}
+        </td>
+        <td className="px-3 py-2.5 text-sm" style={{ color: 'var(--text-secondary)' }}>{r.invoice_number}</td>
+        <td className="px-3 py-2.5 text-sm">
+          {r.matched_to_st
+            ? (r.st_estimate_id
+                ? <a href={`https://go.servicetitan.com/#/Job/Index/${r.estimate_job_number}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="hover:underline" style={{ color: 'var(--christmas-green)' }}>{r.st_status || 'estimate'}</a>
+                : <span style={{ color: 'var(--text-secondary)' }}>{r.st_status}</span>)
+            : <span style={{ color: '#d29922' }}>no estimate found</span>}
+        </td>
+        <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{money(r.shearer_total)}</td>
+        <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{money(r.st_total)}</td>
+        <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: vcolor }}>
+          {r.variance == null ? '—' : `${r.variance > 0 ? '+' : ''}${formatCurrency(r.variance)}`}
+          {vpct != null && <span className="text-[11px] font-normal" style={{ opacity: 0.8 }}> ({vpct > 0 ? '+' : ''}{vpct.toFixed(0)}%)</span>}
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={6} className="px-3 pb-3 pt-0" style={{ backgroundColor: 'rgba(58,143,87,.04)' }}>
+            <table className="w-full mt-1" style={{ backgroundColor: 'var(--bg-card)', borderRadius: 8 }}>
+              <thead>
+                <tr style={{ color: 'var(--text-muted)' }}>
+                  {([['SKU', 'left'], ['Description', 'left'], ['Shearer $', 'right'], ['ST $', 'right'], ['Variance', 'right']] as [string, string][]).map(([l, a], i) => (
+                    <th key={i} className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ textAlign: a as any }}>{l}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {r.lines.map((l, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                      {l.sku || '—'}{l.is_return && <span className="ml-1" style={{ color: '#f85149' }}>(return)</span>}
+                      {l.only === 'shearer' && <span className="ml-1 text-[10px]" style={{ color: '#d29922' }}>Shearer only</span>}
+                      {l.only === 'st' && <span className="ml-1 text-[10px]" style={{ color: '#5aa9e6' }}>ST only</span>}
+                    </td>
+                    <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{l.description || '—'}</td>
+                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{l.shearer_cost == null ? '—' : formatCurrency(l.shearer_cost)}</td>
+                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{l.st_cost == null ? '—' : formatCurrency(l.st_cost)}</td>
+                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums font-semibold"
+                      style={{ color: l.variance == null ? 'var(--text-muted)' : Math.abs(l.variance) < 0.5 ? '#6fd394' : l.variance > 0 ? '#f85149' : '#d29922' }}>
+                      {l.variance == null ? '—' : `${l.variance > 0 ? '+' : ''}${formatCurrency(l.variance)}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }

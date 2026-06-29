@@ -40,6 +40,26 @@ export interface ShearerInvoice {
   lines: ShearerLine[];
 }
 
+/** Normalize a SKU for cross-system matching: uppercase, strip non-alphanumeric. */
+export function normalizeSku(s: string | null | undefined): string {
+  return (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Do two SKUs refer to the same product across Shearer and ServiceTitan? ST often stores
+ * a base SKU ("5A7A4036A") while Shearer adds a model suffix ("5A7A4036A1000A"), so we
+ * match on exact-equal OR one being a prefix of the other (with a ≥6-char floor to avoid
+ * spurious short matches).
+ */
+export function skuMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = normalizeSku(a), y = normalizeSku(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const short = x.length <= y.length ? x : y;
+  const long = x.length <= y.length ? y : x;
+  return short.length >= 6 && long.startsWith(short);
+}
+
 /** RFC-4180-ish CSV → rows of cells. Handles quoted fields, embedded commas, "" escapes, CRLF. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
