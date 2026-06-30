@@ -71,9 +71,14 @@ export default function JobCostsPage() {
   const [hasEquipOnly, setHasEquipOnly] = useState(true);
   const [advisorFilter, setAdvisorFilter] = useState('');
   const [laborRate, setLaborRate] = useState('');
+  const [materialRate, setMaterialRate] = useState('');
 
-  useEffect(() => { try { const v = localStorage.getItem('ap_std_labor_per_component'); if (v) setLaborRate(v); } catch { /* ignore */ } }, []);
+  useEffect(() => { try {
+    const l = localStorage.getItem('ap_std_labor_per_component'); if (l) setLaborRate(l);
+    const m = localStorage.getItem('ap_std_material_per_component'); if (m) setMaterialRate(m);
+  } catch { /* ignore */ } }, []);
   const onLaborRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setLaborRate(c); try { localStorage.setItem('ap_std_labor_per_component', c); } catch { /* ignore */ } };
+  const onMaterialRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setMaterialRate(c); try { localStorage.setItem('ap_std_material_per_component', c); } catch { /* ignore */ } };
   const [unresolved, setUnresolved] = useState(0);
   const [resolving, setResolving] = useState(false);
   const [resolveMsg, setResolveMsg] = useState<string | null>(null);
@@ -125,9 +130,11 @@ export default function JobCostsPage() {
   const numOf = (s: string | undefined) => { const n = parseFloat(s || ''); return isNaN(n) ? 0 : n; };
   // Equipment = Shearer-linked actual when present, else the manual entry.
   const effEquip = (r: Row) => r.shearer_equipment != null ? r.shearer_equipment : numOf(amounts[r.id]?.equipment);
-  // Standard labor = components × the per-component rate (even regardless of installer).
+  // Standard labor/material = components × the per-component rate (even regardless of installer).
   const rate = numOf(laborRate);
+  const matRate = numOf(materialRate);
   const stdLabor = (r: Row) => (r.components || 0) * rate;
+  const stdMaterial = (r: Row) => (r.components || 0) * matRate;
   const hasCost = (r: Row) => { const a = amounts[r.id]; return (r.shearer_equipment != null && r.shearer_equipment !== 0) || (!!a && (a.equipment !== '' || a.material !== '' || a.labor !== '')); };
 
   const filtered = useMemo(() => {
@@ -163,10 +170,6 @@ export default function JobCostsPage() {
       onChange={e => onAmt(r.id, field, e.target.value)} onBlur={() => save(r.id, field)}
       className="w-24 rounded px-2 py-1 text-sm text-right tabular-nums" style={inputStyle} />
   );
-  const pctCell = (r: Row, field: 'equipment' | 'material' | 'labor', color: string) => {
-    const p = pct(numOf(amounts[r.id]?.[field]), r.invoice);
-    return p != null && numOf(amounts[r.id]?.[field]) > 0 ? <span className="tabular-nums" style={{ color }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>;
-  };
 
   const cols = useMemo<AdminColumn<Row>[]>(() => [
     { key: 'job_number', label: 'Job #', sortable: true, width: 95, sortValue: r => Number(r.job_number) || r.job_number,
@@ -201,18 +204,19 @@ export default function JobCostsPage() {
     { key: 'equip_pct', label: 'Equip %', sortable: true, align: 'right', width: 80, sortValue: r => pct(effEquip(r), r.invoice) ?? -1,
       render: r => { const p = pct(effEquip(r), r.invoice); return p != null && effEquip(r) > 0 ? <span className="tabular-nums" style={{ color: '#d29922' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const e = rows.reduce((s, r) => s + effEquip(r), 0); return inv > 0 ? `${(e / inv * 100).toFixed(1)}%` : '—'; } },
-    { key: 'material', label: 'Material $', align: 'right', width: 110, render: r => moneyInput(r, 'material'),
-      footer: rows => formatCurrency(rows.reduce((s, r) => s + numOf(amounts[r.id]?.material), 0)) },
-    { key: 'mat_pct', label: 'Mat %', sortable: true, align: 'right', width: 80, sortValue: r => pct(numOf(amounts[r.id]?.material), r.invoice) ?? -1,
-      render: r => pctCell(r, 'material', '#5aa9e6'),
-      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const m = rows.reduce((s, r) => s + numOf(amounts[r.id]?.material), 0); return inv > 0 ? `${(m / inv * 100).toFixed(1)}%` : '—'; } },
+    { key: 'material', label: 'Std Material $', sortable: true, align: 'right', width: 110, sortValue: r => stdMaterial(r),
+      render: r => r.components ? <span className="tabular-nums" style={{ color: '#5aa9e6' }} title={`${r.components} components × ${formatCurrency(matRate)}`}>{formatCurrency(stdMaterial(r))}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>,
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + stdMaterial(r), 0)) },
+    { key: 'mat_pct', label: 'Mat %', sortable: true, align: 'right', width: 80, sortValue: r => pct(stdMaterial(r), r.invoice) ?? -1,
+      render: r => { const p = pct(stdMaterial(r), r.invoice); return p != null && stdMaterial(r) > 0 ? <span className="tabular-nums" style={{ color: '#5aa9e6' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
+      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const m = rows.reduce((s, r) => s + stdMaterial(r), 0); return inv > 0 ? `${(m / inv * 100).toFixed(1)}%` : '—'; } },
     { key: 'labor', label: 'Std Labor $', sortable: true, align: 'right', width: 110, sortValue: r => stdLabor(r),
       render: r => r.components ? <span className="tabular-nums" style={{ color: '#a371f7' }} title={`${r.components} components × ${formatCurrency(rate)}`}>{formatCurrency(stdLabor(r))}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>,
       footer: rows => formatCurrency(rows.reduce((s, r) => s + stdLabor(r), 0)) },
     { key: 'labor_pct', label: 'Labor %', sortable: true, align: 'right', width: 80, sortValue: r => pct(stdLabor(r), r.invoice) ?? -1,
       render: r => { const p = pct(stdLabor(r), r.invoice); return p != null && stdLabor(r) > 0 ? <span className="tabular-nums" style={{ color: '#a371f7' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const l = rows.reduce((s, r) => s + stdLabor(r), 0); return inv > 0 ? `${(l / inv * 100).toFixed(1)}%` : '—'; } },
-  ], [amounts, laborRate]);
+  ], [amounts, laborRate, materialRate]);
 
   if (!perms.isLoading && !perms.canManagePayments) {
     return <div className="p-8 text-sm" style={{ color: 'var(--text-muted)' }}>You don&apos;t have permission to view job costs.</div>;
@@ -226,7 +230,7 @@ export default function JobCostsPage() {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Comfort-advisor deals (Brett, Luke). Equipment $ auto-fills from linked Shearer invoices; Labor is a standard rate × components (condenser/coil/furnace/air-handler, accessories excluded); Material is manual. Each shows as a % of invoice.
+        Comfort-advisor deals (Brett, Luke). Equipment $ auto-fills from linked Shearer invoices; Labor &amp; Material are standard rates × components (condenser/coil/furnace/air-handler, accessories excluded). Each shows as a % of invoice.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -259,11 +263,15 @@ export default function JobCostsPage() {
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Std labor $ / component</span>
-        <input type="text" inputMode="decimal" value={laborRate} placeholder="0.00" onChange={e => onLaborRate(e.target.value)}
-          className="w-24 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
-        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· Std Labor = components × this rate (even regardless of in-house vs contractor). Date = completed date.</span>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Std $ / component:</span>
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Labor
+          <input type="text" inputMode="decimal" value={laborRate} placeholder="0.00" onChange={e => onLaborRate(e.target.value)}
+            className="w-20 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Material
+          <input type="text" inputMode="decimal" value={materialRate} placeholder="0.00" onChange={e => onMaterialRate(e.target.value)}
+            className="w-20 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
+        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· Labor & Material = components × rate (even regardless of in-house vs contractor). Date = completed date.</span>
       </div>
 
       {resolveMsg && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(58,143,87,0.12)', border: '1px solid var(--christmas-green)', color: '#6fd394' }}>{resolveMsg}</div>}
