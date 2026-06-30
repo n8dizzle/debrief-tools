@@ -135,6 +135,8 @@ export default function JobCostsPage() {
   const matRate = numOf(materialRate);
   const stdLabor = (r: Row) => (r.components || 0) * rate;
   const stdMaterial = (r: Row) => (r.components || 0) * matRate;
+  // Deal margin = invoice − equipment − material − labor.
+  const margin = (r: Row) => r.invoice != null ? r.invoice - effEquip(r) - stdMaterial(r) - stdLabor(r) : null;
   const hasCost = (r: Row) => { const a = amounts[r.id]; return (r.shearer_equipment != null && r.shearer_equipment !== 0) || (!!a && (a.equipment !== '' || a.material !== '' || a.labor !== '')); };
 
   const filtered = useMemo(() => {
@@ -216,6 +218,12 @@ export default function JobCostsPage() {
     { key: 'labor_pct', label: 'Labor %', sortable: true, align: 'right', width: 80, sortValue: r => pct(stdLabor(r), r.invoice) ?? -1,
       render: r => { const p = pct(stdLabor(r), r.invoice); return p != null && stdLabor(r) > 0 ? <span className="tabular-nums" style={{ color: '#a371f7' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const l = rows.reduce((s, r) => s + stdLabor(r), 0); return inv > 0 ? `${(l / inv * 100).toFixed(1)}%` : '—'; } },
+    { key: 'margin', label: 'Margin $', sortable: true, align: 'right', width: 120, sortValue: r => margin(r) ?? -Infinity,
+      render: r => { const m = margin(r); return m != null ? <span className="tabular-nums font-semibold" style={{ color: m >= 0 ? '#6fd394' : '#f85149' }}>{formatCurrency(m)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + (margin(r) || 0), 0)) },
+    { key: 'margin_pct', label: 'Margin %', sortable: true, align: 'right', width: 90, sortValue: r => { const m = margin(r); return m != null && r.invoice ? m / r.invoice * 100 : -Infinity; },
+      render: r => { const m = margin(r); const p = m != null && r.invoice && r.invoice > 0 ? m / r.invoice * 100 : null; return p != null ? <span className="tabular-nums font-semibold" style={{ color: p >= 0 ? '#6fd394' : '#f85149' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
+      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const m = rows.reduce((s, r) => s + (margin(r) || 0), 0); return inv > 0 ? `${(m / inv * 100).toFixed(1)}%` : '—'; } },
   ], [amounts, laborRate, materialRate]);
 
   if (!perms.isLoading && !perms.canManagePayments) {
