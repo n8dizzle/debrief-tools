@@ -129,6 +129,15 @@ export default function JobCostsPage() {
         : 0;
   // Deal margin = invoice − equipment − material − labor.
   const margin = (r: Row) => r.invoice != null ? r.invoice - effEquip(r) - stdMaterial(r) - stdLabor(r) : null;
+  const marginPct = (r: Row) => { const m = margin(r); return m != null && r.invoice && r.invoice > 0 ? m / r.invoice * 100 : null; };
+  // Commission rate: TGL 8% / Marketed 10% base; drop 1 pt per pt of margin below 58%, floored at 0.
+  const MARGIN_FLOOR = 58;
+  const baseCommission = (r: Row) => /tgl/i.test(r.job_type || '') ? 8 : /mktg|market/i.test(r.job_type || '') ? 10 : null;
+  const commissionPct = (r: Row) => {
+    const base = baseCommission(r); const mp = marginPct(r);
+    if (base == null || mp == null) return null;
+    return Math.max(0, base - Math.max(0, MARGIN_FLOOR - mp));
+  };
   const hasCost = (r: Row) => { const a = amounts[r.id]; return (r.shearer_equipment != null && r.shearer_equipment !== 0) || (!!a && (a.equipment !== '' || a.material !== '' || a.labor !== '')); };
 
   const filtered = useMemo(() => {
@@ -216,6 +225,9 @@ export default function JobCostsPage() {
     { key: 'margin_pct', label: 'Margin %', sortable: true, align: 'right', width: 90, sortValue: r => { const m = margin(r); return m != null && r.invoice ? m / r.invoice * 100 : -Infinity; },
       render: r => { const m = margin(r); const p = m != null && r.invoice && r.invoice > 0 ? m / r.invoice * 100 : null; return p != null ? <span className="tabular-nums font-semibold" style={{ color: p >= 0 ? '#6fd394' : '#f85149' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const m = rows.reduce((s, r) => s + (margin(r) || 0), 0); return inv > 0 ? `${(m / inv * 100).toFixed(1)}%` : '—'; } },
+    { key: 'commission_pct', label: 'Commission %', sortable: true, align: 'right', width: 110, sortValue: r => commissionPct(r) ?? -1,
+      render: r => { const c = commissionPct(r); const base = baseCommission(r); if (c == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>; const reduced = base != null && c < base; return <span className="tabular-nums font-semibold" style={{ color: reduced ? '#d29922' : '#6fd394' }} title={base != null ? `${/tgl/i.test(r.job_type || '') ? 'TGL' : 'Marketed'} base ${base}%${reduced ? ` − ${(base - c).toFixed(1)} (margin ${marginPct(r)!.toFixed(1)}% below ${MARGIN_FLOOR}%)` : ''}` : ''}>{c.toFixed(1)}%</span>; },
+      footer: rows => { const vals = rows.map(commissionPct).filter((v): v is number => v != null); return vals.length ? `${(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1)}% avg` : '—'; } },
   ], [amounts, laborRate, fullMatRate, partialMatRate]);
 
   if (!perms.isLoading && !perms.canManagePayments) {
