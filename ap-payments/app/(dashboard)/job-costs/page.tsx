@@ -71,14 +71,18 @@ export default function JobCostsPage() {
   const [hasEquipOnly, setHasEquipOnly] = useState(true);
   const [advisorFilter, setAdvisorFilter] = useState('');
   const [laborRate, setLaborRate] = useState('');
-  const [materialRate, setMaterialRate] = useState('');
+  // Material is job-type-based: Full = $/system, Partial = $/component.
+  const [fullMatRate, setFullMatRate] = useState('500');
+  const [partialMatRate, setPartialMatRate] = useState('150');
 
   useEffect(() => { try {
     const l = localStorage.getItem('ap_std_labor_per_component'); if (l) setLaborRate(l);
-    const m = localStorage.getItem('ap_std_material_per_component'); if (m) setMaterialRate(m);
+    const f = localStorage.getItem('ap_full_material_per_system'); if (f != null) setFullMatRate(f);
+    const p = localStorage.getItem('ap_partial_material_per_component'); if (p != null) setPartialMatRate(p);
   } catch { /* ignore */ } }, []);
   const onLaborRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setLaborRate(c); try { localStorage.setItem('ap_std_labor_per_component', c); } catch { /* ignore */ } };
-  const onMaterialRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setMaterialRate(c); try { localStorage.setItem('ap_std_material_per_component', c); } catch { /* ignore */ } };
+  const onFullMat = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setFullMatRate(c); try { localStorage.setItem('ap_full_material_per_system', c); } catch { /* ignore */ } };
+  const onPartialMat = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setPartialMatRate(c); try { localStorage.setItem('ap_partial_material_per_component', c); } catch { /* ignore */ } };
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -113,11 +117,16 @@ export default function JobCostsPage() {
   const numOf = (s: string | undefined) => { const n = parseFloat(s || ''); return isNaN(n) ? 0 : n; };
   // Equipment = Shearer-linked actual when present, else the manual entry.
   const effEquip = (r: Row) => r.shearer_equipment != null ? r.shearer_equipment : numOf(amounts[r.id]?.equipment);
-  // Standard labor/material = components × the per-component rate (even regardless of installer).
+  // Standard labor = components × rate (even regardless of installer).
   const rate = numOf(laborRate);
-  const matRate = numOf(materialRate);
   const stdLabor = (r: Row) => (r.components || 0) * rate;
-  const stdMaterial = (r: Row) => (r.components || 0) * matRate;
+  // Material by job type: Full = $/system × systems, Partial = $/component × components.
+  const isFull = (r: Row) => /full/i.test(r.job_type || '');
+  const isPartial = (r: Row) => /partial/i.test(r.job_type || '');
+  const stdMaterial = (r: Row) =>
+    isFull(r) ? numOf(fullMatRate) * (r.systems || 0)
+      : isPartial(r) ? numOf(partialMatRate) * (r.components || 0)
+        : 0;
   // Deal margin = invoice − equipment − material − labor.
   const margin = (r: Row) => r.invoice != null ? r.invoice - effEquip(r) - stdMaterial(r) - stdLabor(r) : null;
   const hasCost = (r: Row) => { const a = amounts[r.id]; return (r.shearer_equipment != null && r.shearer_equipment !== 0) || (!!a && (a.equipment !== '' || a.material !== '' || a.labor !== '')); };
@@ -190,7 +199,7 @@ export default function JobCostsPage() {
       render: r => { const p = pct(effEquip(r), r.invoice); return p != null && effEquip(r) > 0 ? <span className="tabular-nums" style={{ color: '#d29922' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const e = rows.reduce((s, r) => s + effEquip(r), 0); return inv > 0 ? `${(e / inv * 100).toFixed(1)}%` : '—'; } },
     { key: 'material', label: 'Std Material $', sortable: true, align: 'right', width: 110, sortValue: r => stdMaterial(r),
-      render: r => r.components ? <span className="tabular-nums" style={{ color: '#5aa9e6' }} title={`${r.components} components × ${formatCurrency(matRate)}`}>{formatCurrency(stdMaterial(r))}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>,
+      render: r => { const m = stdMaterial(r); const tip = isFull(r) ? `Full: ${r.systems || 0} systems × ${formatCurrency(numOf(fullMatRate))}` : isPartial(r) ? `Partial: ${r.components || 0} components × ${formatCurrency(numOf(partialMatRate))}` : 'not Full/Partial'; return m > 0 ? <span className="tabular-nums" style={{ color: '#5aa9e6' }} title={tip}>{formatCurrency(m)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => formatCurrency(rows.reduce((s, r) => s + stdMaterial(r), 0)) },
     { key: 'mat_pct', label: 'Mat %', sortable: true, align: 'right', width: 80, sortValue: r => pct(stdMaterial(r), r.invoice) ?? -1,
       render: r => { const p = pct(stdMaterial(r), r.invoice); return p != null && stdMaterial(r) > 0 ? <span className="tabular-nums" style={{ color: '#5aa9e6' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
@@ -207,7 +216,7 @@ export default function JobCostsPage() {
     { key: 'margin_pct', label: 'Margin %', sortable: true, align: 'right', width: 90, sortValue: r => { const m = margin(r); return m != null && r.invoice ? m / r.invoice * 100 : -Infinity; },
       render: r => { const m = margin(r); const p = m != null && r.invoice && r.invoice > 0 ? m / r.invoice * 100 : null; return p != null ? <span className="tabular-nums font-semibold" style={{ color: p >= 0 ? '#6fd394' : '#f85149' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const m = rows.reduce((s, r) => s + (margin(r) || 0), 0); return inv > 0 ? `${(m / inv * 100).toFixed(1)}%` : '—'; } },
-  ], [amounts, laborRate, materialRate]);
+  ], [amounts, laborRate, fullMatRate, partialMatRate]);
 
   if (!perms.isLoading && !perms.canManagePayments) {
     return <div className="p-8 text-sm" style={{ color: 'var(--text-muted)' }}>You don&apos;t have permission to view job costs.</div>;
@@ -221,7 +230,7 @@ export default function JobCostsPage() {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Comfort-advisor deals (Brett, Luke). Equipment $ auto-fills from linked Shearer invoices; Labor &amp; Material are standard rates × components (condenser/coil/furnace/air-handler, accessories excluded). Each shows as a % of invoice.
+        Comfort-advisor deals (Brett, Luke). Equipment $ from linked Shearer invoices; Labor = rate × components; Material = Full jobs $/system × systems, Partial jobs $/component × components. Each shows as a % of invoice.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -249,14 +258,15 @@ export default function JobCostsPage() {
           title="Show only jobs with equipment pulled from Shearer (so the Equip % total reflects just those)">Has Equip</button>
       </div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Std $ / component:</span>
-        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Labor
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Labor $/component
           <input type="text" inputMode="decimal" value={laborRate} placeholder="0.00" onChange={e => onLaborRate(e.target.value)}
             className="w-20 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
-        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Material
-          <input type="text" inputMode="decimal" value={materialRate} placeholder="0.00" onChange={e => onMaterialRate(e.target.value)}
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Material: Full $/system
+          <input type="text" inputMode="decimal" value={fullMatRate} placeholder="500" onChange={e => onFullMat(e.target.value)}
             className="w-20 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
-        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· Labor & Material = components × rate (even regardless of in-house vs contractor). Date = completed date.</span>
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Partial $/component
+          <input type="text" inputMode="decimal" value={partialMatRate} placeholder="150" onChange={e => onPartialMat(e.target.value)}
+            className="w-20 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
       </div>
 
       {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>{error}</div>}
