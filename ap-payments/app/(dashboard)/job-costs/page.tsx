@@ -145,6 +145,8 @@ export default function JobCostsPage() {
     if (base == null || mp == null) return null;
     return Math.max(0, base - Math.max(0, MARGIN_FLOOR - mp));
   };
+  // Commission $ pays on invoice (revenue) at the (margin-adjusted) rate.
+  const commissionDollars = (r: Row) => { const c = commissionPct(r); return c != null && r.invoice != null ? c / 100 * r.invoice : null; };
   const hasCost = (r: Row) => { const a = amounts[r.id]; return (r.shearer_equipment != null && r.shearer_equipment !== 0) || (!!a && (a.equipment !== '' || a.material !== '' || a.labor !== '')); };
 
   const filtered = useMemo(() => {
@@ -235,6 +237,9 @@ export default function JobCostsPage() {
     { key: 'commission_pct', label: 'Commission %', sortable: true, align: 'right', width: 110, sortValue: r => commissionPct(r) ?? -1,
       render: r => { const c = commissionPct(r); const base = baseCommission(r); if (c == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>; const reduced = base != null && c < base; return <span className="tabular-nums font-semibold" style={{ color: reduced ? '#d29922' : '#6fd394' }} title={base != null ? `${/tgl/i.test(r.job_type || '') ? 'TGL' : 'Marketed'} base ${base}%${reduced ? ` − ${(base - c).toFixed(1)} (margin ${marginPct(r)!.toFixed(1)}% below ${MARGIN_FLOOR}%)` : ''}` : ''}>{c.toFixed(1)}%</span>; },
       footer: rows => { const vals = rows.map(commissionPct).filter((v): v is number => v != null); return vals.length ? `${(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1)}% avg` : '—'; } },
+    { key: 'commission_dollars', label: 'Commission $', sortable: true, align: 'right', width: 120, sortValue: r => commissionDollars(r) ?? -1,
+      render: r => { const d = commissionDollars(r); return d != null ? <span className="tabular-nums font-semibold" style={{ color: '#6fd394' }} title="Rate × invoice">{formatCurrency(d)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + (commissionDollars(r) || 0), 0)) },
   ], [amounts, laborRate, fullMatRate, partialMatRate, taxRate]);
 
   if (!perms.isLoading && !perms.canManagePayments) {
