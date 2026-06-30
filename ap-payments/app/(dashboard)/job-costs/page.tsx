@@ -79,9 +79,6 @@ export default function JobCostsPage() {
   } catch { /* ignore */ } }, []);
   const onLaborRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setLaborRate(c); try { localStorage.setItem('ap_std_labor_per_component', c); } catch { /* ignore */ } };
   const onMaterialRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setMaterialRate(c); try { localStorage.setItem('ap_std_material_per_component', c); } catch { /* ignore */ } };
-  const [unresolved, setUnresolved] = useState(0);
-  const [resolving, setResolving] = useState(false);
-  const [resolveMsg, setResolveMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -92,7 +89,6 @@ export default function JobCostsPage() {
       const data = await res.json();
       const rs: Row[] = data.rows || [];
       setRows(rs);
-      setUnresolved(data.unresolved || 0);
       const a: Amounts = {};
       for (const r of rs) a[r.id] = {
         equipment: r.equipment_amount != null ? String(r.equipment_amount) : '',
@@ -111,19 +107,6 @@ export default function JobCostsPage() {
     fetch('/api/payroll-periods').then(r => r.ok ? r.json() : []).then(setPayPeriods).catch(() => {});
   }, [perms.isLoading]);
 
-  const resolveAdvisors = async () => {
-    setResolving(true); setResolveMsg(null); setError(null);
-    try {
-      const p = new URLSearchParams({ start: range.start, end: range.end });
-      const res = await fetch(`/api/job-costs/resolve-sales?${p.toString()}`, { method: 'POST' });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j.error || 'Resolve failed');
-      setResolveMsg(`Resolved ${j.resolved} job${j.resolved === 1 ? '' : 's'} → ${j.with_advisor} with a comfort advisor.`);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Resolve failed');
-    } finally { setResolving(false); }
-  };
 
   const jobTypeOptions = useMemo(() => Array.from(new Set(rows.map(r => r.job_type).filter(Boolean) as string[])).sort(), [rows]);
   const advisorOptions = useMemo(() => Array.from(new Set(rows.map(r => r.sold_by).filter(Boolean) as string[])).sort(), [rows]);
@@ -264,12 +247,6 @@ export default function JobCostsPage() {
         <button onClick={() => setHasEquipOnly(v => !v)} className="px-3 py-2 rounded-lg text-sm"
           style={{ backgroundColor: hasEquipOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: hasEquipOnly ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}
           title="Show only jobs with equipment pulled from Shearer (so the Equip % total reflects just those)">Has Equip</button>
-        {(unresolved > 0 || resolving) && (
-          <button onClick={resolveAdvisors} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
-            style={{ backgroundColor: 'var(--christmas-green)', border: '1px solid var(--border-subtle)', color: 'var(--christmas-cream)' }}>
-            {resolving ? 'Resolving…' : `Resolve ${unresolved} job${unresolved === 1 ? '' : 's'}`}
-          </button>
-        )}
       </div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Std $ / component:</span>
@@ -282,7 +259,6 @@ export default function JobCostsPage() {
         <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· Labor & Material = components × rate (even regardless of in-house vs contractor). Date = completed date.</span>
       </div>
 
-      {resolveMsg && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(58,143,87,0.12)', border: '1px solid var(--christmas-green)', color: '#6fd394' }}>{resolveMsg}</div>}
       {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>{error}</div>}
 
       {loading ? (
