@@ -22,12 +22,29 @@ export interface STJob {
   businessUnitId: number;
   jobStatus: string;
   customerId: number;
+  locationId?: number;
   completedOn?: string;
   createdOn?: string;
   total?: number;
   // ST sets this when the job is a recall — points back to the original job
   // whose work caused the callback. Used for "Recalls Caused" attribution.
   recallForId?: number | null;
+}
+
+// Installed equipment at a location. Field quality is excellent where present;
+// coverage on recall locations is partial (verified 2026-06-30). The locationIds
+// (PLURAL) query param filters correctly — the documented ST bug is the singular form.
+export interface STInstalledEquipment {
+  id: number;
+  locationId: number;
+  customerId?: number;
+  name?: string;
+  manufacturer?: string;
+  model?: string;
+  type?: string;
+  serialNumber?: string;
+  installedOn?: string;
+  cost?: number;
 }
 
 export interface STAppointmentAssignment {
@@ -305,6 +322,44 @@ export class ServiceTitanClient {
     );
     const buSet = new Set(businessUnitIds);
     return jobs.filter(j => j.recallForId != null && buSet.has(j.businessUnitId));
+  }
+
+  /**
+   * Like getRecallJobsCreatedInRange but across ALL business units (no BU filter).
+   * Used by the QC Recalls sync, which covers HVAC + plumbing + installs. Each recall
+   * is later tagged is_service_bu so the HVAC-service-scoped leaderboard metric is preserved.
+   */
+  async getAllRecallJobsCreatedInRange(startDate: string, endDate: string): Promise<STJob[]> {
+    const jobs = await this.requestAllPages<STJob>(
+      `jpm/v2/tenant/${this.tenantId}/jobs`,
+      {
+        createdOnOrAfter: `${startDate}T00:00:00`, // no Z — ST interprets as tenant local time
+        createdBefore: `${endDate}T23:59:59`,
+      }
+    );
+    return jobs.filter(j => j.recallForId != null);
+  }
+
+  /**
+   * Installed equipment for a set of locations. Uses the locationIds (PLURAL) param,
+   * which filters correctly (verified) — no fetch-all client-filter workaround needed.
+   * Chunks the location list to keep query strings sane.
+   */
+  async getInstalledEquipmentByLocations(locationIds: number[]): Promise<STInstalledEquipment[]> {
+    const out: STInstalledEquipment[] = [];
+    const CHUNK = 50;
+    for (let i = 0; i < locationIds.length; i += CHUNK) {
+      const chunk = locationIds.slice(i, i + CHUNK);
+      const items = await this.requestAllPages<STInstalledEquipment>(
+        `equipmentsystems/v2/tenant/${this.tenantId}/installed-equipment`,
+        { locationIds: chunk.join(',') },
+        10
+      );
+      // Defensive: keep only the locations we asked for (in case a tenant ignores the filter).
+      const want = new Set(chunk);
+      out.push(...items.filter(e => want.has(e.locationId)));
+    }
+    return out;
   }
 
   /**

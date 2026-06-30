@@ -119,6 +119,8 @@ export interface ServiceDashboardPermissions {
   can_manage_settings?: boolean;
   can_manage_attendance?: boolean;
   can_sync_data?: boolean;
+  can_view_recalls?: boolean;   // Quality / Recalls section — view trends + queue
+  can_investigate?: boolean;    // open/answer/resolve investigations + assign questions
 }
 
 export interface HRHubPermissions {
@@ -577,6 +579,16 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Manually trigger ServiceTitan data sync',
+      },
+      {
+        key: 'can_view_recalls',
+        label: 'View recalls / quality',
+        description: 'View the Quality / Recalls section (recall trends and queue)',
+      },
+      {
+        key: 'can_investigate',
+        label: 'Investigate recalls',
+        description: 'Open root-cause investigations, assign and answer research questions, set root cause',
       },
     ],
   },

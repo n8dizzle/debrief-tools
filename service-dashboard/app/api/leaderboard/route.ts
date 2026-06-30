@@ -179,10 +179,15 @@ export async function GET(request: NextRequest) {
 
   // 7b. Count recalls caused per tech within the date range
   // Filtered by recall_created_on — matches ST's "Recalls Caused" GUI metric.
+  // is_service_bu filter: the QC sync now writes recalls for ALL business units into
+  // this table; the leaderboard counts only service-BU recalls. Legacy rows have
+  // is_service_bu = null (all pre-QC rows were service-BU) and still count. This
+  // predicate mirrors countsForLeaderboard() in lib/qc-recalls.ts (regression-tested).
   const { data: recallRecords } = await supabase
     .from('sd_recalls_caused')
     .select('caused_by_tech_id')
     .in('caused_by_tech_id', techIds)
+    .or('is_service_bu.is.null,is_service_bu.eq.true')
     .gte('recall_created_on', startDate)
     .lte('recall_created_on', endDate);
 

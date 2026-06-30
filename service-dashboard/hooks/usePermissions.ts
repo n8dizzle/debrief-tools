@@ -22,6 +22,8 @@ export function useServiceDashboardPermissions() {
   const canManageSettings = isOwner || permissions?.can_manage_settings === true;
   const canManageAttendance = isOwner || isManager || permissions?.can_manage_attendance === true;
   const canSyncData = isOwner || permissions?.can_sync_data === true;
+  const canViewRecalls = isOwner || isManager || permissions?.can_view_recalls === true;
+  const canInvestigate = isOwner || isManager || permissions?.can_investigate === true;
 
   return {
     isLoading,
@@ -34,5 +36,7 @@ export function useServiceDashboardPermissions() {
     canManageSettings,
     canManageAttendance,
     canSyncData,
+    canViewRecalls,
+    canInvestigate,
   };
 }
