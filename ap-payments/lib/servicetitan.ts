@@ -3,6 +3,8 @@
  * Adapted from job-tracker, focused on install job syncing.
  */
 
+import { countComponents, countSystems } from './hvac-equipment';
+
 interface TokenResponse {
   access_token: string;
   expires_in: number;
@@ -957,6 +959,7 @@ export class ServiceTitanClient {
    */
   async getSalesInfoByProject(projectIds: number[]): Promise<Map<number, {
     sold_by_st_id: number | null; estimate_job_number: string | null; sold_on: string | null;
+    component_count: number; system_count: number;
   }>> {
     const out = new Map<number, any>();
     const ids = Array.from(new Set(projectIds.filter(Boolean)));
@@ -969,10 +972,15 @@ export class ServiceTitanClient {
         if (!ests.length) return;
         const sold = ests.filter(e => statusName(e) === 'Sold');
         const pick = (sold.length ? sold : ests).sort((a, b) => (b.soldOn || b.modifiedOn || '').localeCompare(a.soldOn || a.modifiedOn || ''))[0];
+        const equip = (pick.items || [])
+          .filter((i: any) => (i.sku?.type || '').toLowerCase() === 'equipment')
+          .map((i: any) => ({ sku: i.sku?.name || '', name: i.sku?.displayName || i.description || '', qty: i.qty }));
         out.set(pid, {
           sold_by_st_id: pick.soldBy ?? null,
           estimate_job_number: pick.jobNumber ?? (pick.jobId != null ? String(pick.jobId) : null),
           sold_on: pick.soldOn ? pick.soldOn.slice(0, 10) : null,
+          component_count: countComponents(equip),
+          system_count: countSystems(equip),
         });
       } catch (err) { console.error(`Sales info fetch failed for project ${pid}:`, err); }
     };
