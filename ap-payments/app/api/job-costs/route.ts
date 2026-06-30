@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   let q = supabase
     .from('ap_install_jobs')
-    .select('id, st_job_id, job_number, customer_name, job_type_name, completed_date, st_revenue, job_total, sold_by_name, sold_estimate_job_number, sold_on, sales_resolved_at')
+    .select('id, st_job_id, job_number, customer_name, job_type_name, completed_date, st_revenue, job_total, sold_by_name, sold_estimate_job_number, sold_on, component_count, system_count, sales_resolved_at')
     .eq('business_unit_name', 'HVAC - Install')
     .neq('job_status', 'Canceled')
     .or('is_ignored.is.null,is_ignored.eq.false')
@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
       estimate_job_number: j.sold_estimate_job_number || null,
       sold_by: j.sold_by_name || null,
       sold_on: j.sold_on || null,
+      components: j.component_count ?? null,
+      systems: j.system_count ?? null,
       customer_name: j.customer_name,
       job_type: j.job_type_name,
       completed_date: j.completed_date,

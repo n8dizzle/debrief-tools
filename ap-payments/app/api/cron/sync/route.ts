@@ -513,6 +513,8 @@ export async function POST(request: NextRequest) {
             sold_by_name: soldById != null ? (nameById.get(soldById) || null) : null,
             sold_estimate_job_number: sales?.estimate_job_number ?? null,
             sold_on: sales?.sold_on ?? null,
+            component_count: sales?.component_count ?? null,
+            system_count: sales?.system_count ?? null,
             sales_resolved_at: new Date().toISOString(),
           }).eq('id', j.id);
         }
