@@ -74,15 +74,19 @@ export default function JobCostsPage() {
   // Material is job-type-based: Full = $/system, Partial = $/component.
   const [fullMatRate, setFullMatRate] = useState('500');
   const [partialMatRate, setPartialMatRate] = useState('150');
+  // Shearer equipment is pre-tax; add sales tax to get true equipment cost.
+  const [taxRate, setTaxRate] = useState('8.25');
 
   useEffect(() => { try {
     const l = localStorage.getItem('ap_std_labor_per_component'); if (l) setLaborRate(l);
     const f = localStorage.getItem('ap_full_material_per_system'); if (f != null) setFullMatRate(f);
     const p = localStorage.getItem('ap_partial_material_per_component'); if (p != null) setPartialMatRate(p);
+    const t = localStorage.getItem('ap_equipment_tax_pct'); if (t != null) setTaxRate(t);
   } catch { /* ignore */ } }, []);
   const onLaborRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setLaborRate(c); try { localStorage.setItem('ap_std_labor_per_component', c); } catch { /* ignore */ } };
   const onFullMat = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setFullMatRate(c); try { localStorage.setItem('ap_full_material_per_system', c); } catch { /* ignore */ } };
   const onPartialMat = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setPartialMatRate(c); try { localStorage.setItem('ap_partial_material_per_component', c); } catch { /* ignore */ } };
+  const onTaxRate = (v: string) => { const c = v.replace(/[^0-9.]/g, ''); setTaxRate(c); try { localStorage.setItem('ap_equipment_tax_pct', c); } catch { /* ignore */ } };
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -115,8 +119,11 @@ export default function JobCostsPage() {
   const jobTypeOptions = useMemo(() => Array.from(new Set(rows.map(r => r.job_type).filter(Boolean) as string[])).sort(), [rows]);
   const advisorOptions = useMemo(() => Array.from(new Set(rows.map(r => r.sold_by).filter(Boolean) as string[])).sort(), [rows]);
   const numOf = (s: string | undefined) => { const n = parseFloat(s || ''); return isNaN(n) ? 0 : n; };
-  // Equipment = Shearer-linked actual when present, else the manual entry.
+  // Equipment = Shearer-linked actual when present, else the manual entry (both pre-tax).
   const effEquip = (r: Row) => r.shearer_equipment != null ? r.shearer_equipment : numOf(amounts[r.id]?.equipment);
+  // Equipment + sales tax = the true equipment cost that hits margin.
+  const taxPct = numOf(taxRate);
+  const equipTaxed = (r: Row) => effEquip(r) * (1 + taxPct / 100);
   // Standard labor = components × rate (even regardless of installer).
   const rate = numOf(laborRate);
   const stdLabor = (r: Row) => (r.components || 0) * rate;
@@ -128,7 +135,7 @@ export default function JobCostsPage() {
       : isPartial(r) ? numOf(partialMatRate) * (r.components || 0)
         : 0;
   // Deal margin = invoice − equipment − material − labor.
-  const margin = (r: Row) => r.invoice != null ? r.invoice - effEquip(r) - stdMaterial(r) - stdLabor(r) : null;
+  const margin = (r: Row) => r.invoice != null ? r.invoice - equipTaxed(r) - stdMaterial(r) - stdLabor(r) : null;
   const marginPct = (r: Row) => { const m = margin(r); return m != null && r.invoice && r.invoice > 0 ? m / r.invoice * 100 : null; };
   // Commission rate: TGL 8% / Marketed 10% base; drop 1 pt per pt of margin below 58%, floored at 0.
   const MARGIN_FLOOR = 58;
@@ -199,14 +206,14 @@ export default function JobCostsPage() {
     { key: 'invoice', label: 'Invoice $', sortable: true, align: 'right', width: 110, sortValue: r => r.invoice ?? -1,
       render: r => <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.invoice != null ? formatCurrency(r.invoice) : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>,
       footer: rows => formatCurrency(rows.reduce((s, r) => s + (r.invoice || 0), 0)) },
-    { key: 'equipment', label: 'Equipment $', sortable: true, align: 'right', width: 120, sortValue: r => effEquip(r),
+    { key: 'equipment', label: 'Equip + Tax $', sortable: true, align: 'right', width: 130, sortValue: r => equipTaxed(r),
       render: r => r.shearer_equipment != null
-        ? <span className="tabular-nums" style={{ color: '#6fd394' }} title="From Shearer invoices">{formatCurrency(r.shearer_equipment)}</span>
+        ? <span className="tabular-nums" style={{ color: '#6fd394' }} title={`Shearer ${formatCurrency(effEquip(r))} + ${taxPct}% tax`}>{formatCurrency(equipTaxed(r))}</span>
         : moneyInput(r, 'equipment'),
-      footer: rows => formatCurrency(rows.reduce((s, r) => s + effEquip(r), 0)) },
-    { key: 'equip_pct', label: 'Equip %', sortable: true, align: 'right', width: 80, sortValue: r => pct(effEquip(r), r.invoice) ?? -1,
-      render: r => { const p = pct(effEquip(r), r.invoice); return p != null && effEquip(r) > 0 ? <span className="tabular-nums" style={{ color: '#d29922' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
-      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const e = rows.reduce((s, r) => s + effEquip(r), 0); return inv > 0 ? `${(e / inv * 100).toFixed(1)}%` : '—'; } },
+      footer: rows => formatCurrency(rows.reduce((s, r) => s + equipTaxed(r), 0)) },
+    { key: 'equip_pct', label: 'Equip %', sortable: true, align: 'right', width: 80, sortValue: r => pct(equipTaxed(r), r.invoice) ?? -1,
+      render: r => { const p = pct(equipTaxed(r), r.invoice); return p != null && equipTaxed(r) > 0 ? <span className="tabular-nums" style={{ color: '#d29922' }}>{p.toFixed(1)}%</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
+      footer: rows => { const inv = rows.reduce((s, r) => s + (r.invoice || 0), 0); const e = rows.reduce((s, r) => s + equipTaxed(r), 0); return inv > 0 ? `${(e / inv * 100).toFixed(1)}%` : '—'; } },
     { key: 'material', label: 'Std Material $', sortable: true, align: 'right', width: 110, sortValue: r => stdMaterial(r),
       render: r => { const m = stdMaterial(r); const tip = isFull(r) ? `Full: ${r.systems || 0} systems × ${formatCurrency(numOf(fullMatRate))}` : isPartial(r) ? `Partial: ${r.components || 0} components × ${formatCurrency(numOf(partialMatRate))}` : 'not Full/Partial'; return m > 0 ? <span className="tabular-nums" style={{ color: '#5aa9e6' }} title={tip}>{formatCurrency(m)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>; },
       footer: rows => formatCurrency(rows.reduce((s, r) => s + stdMaterial(r), 0)) },
@@ -228,7 +235,7 @@ export default function JobCostsPage() {
     { key: 'commission_pct', label: 'Commission %', sortable: true, align: 'right', width: 110, sortValue: r => commissionPct(r) ?? -1,
       render: r => { const c = commissionPct(r); const base = baseCommission(r); if (c == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>; const reduced = base != null && c < base; return <span className="tabular-nums font-semibold" style={{ color: reduced ? '#d29922' : '#6fd394' }} title={base != null ? `${/tgl/i.test(r.job_type || '') ? 'TGL' : 'Marketed'} base ${base}%${reduced ? ` − ${(base - c).toFixed(1)} (margin ${marginPct(r)!.toFixed(1)}% below ${MARGIN_FLOOR}%)` : ''}` : ''}>{c.toFixed(1)}%</span>; },
       footer: rows => { const vals = rows.map(commissionPct).filter((v): v is number => v != null); return vals.length ? `${(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1)}% avg` : '—'; } },
-  ], [amounts, laborRate, fullMatRate, partialMatRate]);
+  ], [amounts, laborRate, fullMatRate, partialMatRate, taxRate]);
 
   if (!perms.isLoading && !perms.canManagePayments) {
     return <div className="p-8 text-sm" style={{ color: 'var(--text-muted)' }}>You don&apos;t have permission to view job costs.</div>;
@@ -242,7 +249,7 @@ export default function JobCostsPage() {
         <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Comfort-advisor deals (Brett, Luke). Equipment $ from linked Shearer invoices; Labor = rate × components; Material = Full jobs $/system × systems, Partial jobs $/component × components. Each shows as a % of invoice.
+        Comfort-advisor deals (Brett, Luke). Equipment = Shearer cost + sales tax; Labor = rate × components; Material = Full jobs $/system × systems, Partial jobs $/component × components. Each shows as a % of invoice.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -279,6 +286,9 @@ export default function JobCostsPage() {
         <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Partial $/component
           <input type="text" inputMode="decimal" value={partialMatRate} placeholder="150" onChange={e => onPartialMat(e.target.value)}
             className="w-20 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>Equip tax %
+          <input type="text" inputMode="decimal" value={taxRate} placeholder="8.25" onChange={e => onTaxRate(e.target.value)}
+            className="w-16 rounded px-2 py-1 text-sm text-right tabular-nums" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} /></span>
       </div>
 
       {error && <div className="rounded-lg p-3 mb-4 text-sm" style={{ backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>{error}</div>}
