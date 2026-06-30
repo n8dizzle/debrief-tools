@@ -970,17 +970,24 @@ export class ServiceTitanClient {
           `sales/v2/tenant/${this.tenantId}/estimates`, { projectId: String(pid) }
         );
         if (!ests.length) return;
-        const sold = ests.filter(e => statusName(e) === 'Sold');
-        const pick = (sold.length ? sold : ests).sort((a, b) => (b.soldOn || b.modifiedOn || '').localeCompare(a.soldOn || a.modifiedOn || ''))[0];
-        const equip = (pick.items || [])
+        const equipOf = (e: any) => (e.items || [])
           .filter((i: any) => (i.sku?.type || '').toLowerCase() === 'equipment')
           .map((i: any) => ({ sku: i.sku?.name || '', name: i.sku?.displayName || i.description || '', qty: i.qty }));
+        // A project can have several estimates left in "Sold" status: the real system plus
+        // small add-on/ducting/warranty upsells. Picking the most-recent grabs the trivial
+        // upsell (0 equipment). Instead pick the Sold estimate that actually contains a
+        // system: most components, tie-break highest subtotal, then most recently sold.
+        const candidates = (ests.filter(e => statusName(e) === 'Sold').length ? ests.filter(e => statusName(e) === 'Sold') : ests)
+          .map((e: any) => { const equip = equipOf(e); return { e, equip, comp: countComponents(equip), sub: Number(e.subtotal || 0) }; })
+          .sort((a, b) => b.comp - a.comp || b.sub - a.sub || (b.e.soldOn || b.e.modifiedOn || '').localeCompare(a.e.soldOn || a.e.modifiedOn || ''));
+        const best = candidates[0];
+        const pick = best.e;
         out.set(pid, {
           sold_by_st_id: pick.soldBy ?? null,
           estimate_job_number: pick.jobNumber ?? (pick.jobId != null ? String(pick.jobId) : null),
           sold_on: pick.soldOn ? pick.soldOn.slice(0, 10) : null,
-          component_count: countComponents(equip),
-          system_count: countSystems(equip),
+          component_count: best.comp,
+          system_count: countSystems(best.equip),
         });
       } catch (err) { console.error(`Sales info fetch failed for project ${pid}:`, err); }
     };
