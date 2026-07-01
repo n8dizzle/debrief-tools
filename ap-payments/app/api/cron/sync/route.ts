@@ -507,17 +507,24 @@ export async function POST(request: NextRequest) {
           const { data: techs } = await supabase.from('ap_technicians').select('st_technician_id, name').in('st_technician_id', soldTechIds);
           for (const t of (techs || []) as any[]) nameById.set(t.st_technician_id, t.name);
         }
+        // Component/system counts come from the INVOICE (what was actually installed),
+        // not the sold estimate — multi-system jobs split their systems across several
+        // Sold estimates, so the estimate undercounts. Fall back to estimate if no invoice.
+        const invoiceCounts = await st.getEquipmentCountsByJobs(pending.map((j: any) => j.st_job_id).filter(Boolean));
         for (const j of pending as any[]) {
           const sales = j.st_project_id ? salesByProject.get(j.st_project_id) : null;
           const soldById = sales?.sold_by_st_id ?? null;
+          const inv = j.st_job_id ? invoiceCounts.get(j.st_job_id) : null;
+          const componentCount = inv?.hasEquipment ? inv.components : (sales?.component_count ?? null);
+          const systemCount = inv?.hasEquipment ? inv.systems : (sales?.system_count ?? null);
           await supabase.from('ap_install_jobs').update({
             st_project_id: j.st_project_id ?? null,
             sold_by_st_technician_id: soldById,
             sold_by_name: soldById != null ? (nameById.get(soldById) || null) : null,
             sold_estimate_job_number: sales?.estimate_job_number ?? null,
             sold_on: sales?.sold_on ?? null,
-            component_count: sales?.component_count ?? null,
-            system_count: sales?.system_count ?? null,
+            component_count: componentCount,
+            system_count: systemCount,
             sales_resolved_at: new Date().toISOString(),
           }).eq('id', j.id);
         }

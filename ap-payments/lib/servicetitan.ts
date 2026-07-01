@@ -331,6 +331,34 @@ export class ServiceTitanClient {
     return allTechnicians;
   }
 
+  /**
+   * Count installed components/systems from each job's INVOICE (the source of truth for
+   * what was actually installed — sold estimates carry revision noise and multi-system
+   * jobs get split across several "Sold" estimates). Counts Equipment-type invoice lines
+   * only (excludes labor/service/accessories via the classifier). Returns
+   * stJobId → { components, systems, hasEquipment }.
+   */
+  async getEquipmentCountsByJobs(stJobIds: number[]): Promise<Map<number, { components: number; systems: number; hasEquipment: boolean }>> {
+    const out = new Map<number, { components: number; systems: number; hasEquipment: boolean }>();
+    const ids = Array.from(new Set(stJobIds.filter(Boolean)));
+    const fetchOne = async (jobId: number) => {
+      try {
+        const resp = await this.request<STPagedResponse<any>>(
+          'GET', `accounting/v2/tenant/${this.tenantId}/invoices`, { params: { jobId: String(jobId), pageSize: '50' } }
+        );
+        const items = (resp.data || []).flatMap((inv: any) => inv.items || [])
+          .filter((it: any) => String(it.type || '').toLowerCase() === 'equipment')
+          .map((it: any) => ({ sku: it.skuName || '', name: it.description || it.displayName || '', qty: it.quantity }));
+        out.set(jobId, { components: countComponents(items), systems: countSystems(items), hasEquipment: items.length > 0 });
+      } catch { /* leave unset → caller falls back to estimate counts */ }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+    return out;
+  }
+
   /** All ServiceTitan user roles (id → name), e.g. "HVAC Install - Lead". */
   async getUserRoles(): Promise<{ id: number; name: string }[]> {
     const roles: { id: number; name: string }[] = [];
