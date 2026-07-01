@@ -236,7 +236,8 @@ export default function LeaderboardPage() {
                         {e.rev_per_hour > 0 ? <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'efficiency' }); }} className="hover:underline" title="View jobs + hours">{formatCurrency(e.rev_per_hour)}/h</button> : '—'}</td>
                       <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {e.components > 0 ? <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'efficiency' }); }} className="hover:underline" title="View jobs + components">{e.components}</button> : '—'}</td>
-                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{e.hours_per_component > 0 ? `${e.hours_per_component.toFixed(1)} h` : '—'}</td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {e.hours_per_component > 0 ? <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'efficiency' }); }} className="hover:underline" title="View jobs + hours per component">{e.hours_per_component.toFixed(1)} h</button> : '—'}</td>
                       <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: recallColor(e.recalls) }}>
                         <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'recalls' }); }} className="hover:underline" title="View recalls">{e.recalls}</button></td>
                       <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: e.reviews > 0 ? '#6fd394' : 'var(--text-muted)' }}>
