@@ -14,6 +14,7 @@ const mainLinks = [
   { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const, section: 'wip' },
   { href: '/equipment', label: 'Equipment', icon: 'box', permission: 'canManagePayments' as const, section: 'wip' },
   { href: '/job-costs', label: 'Deal Margin', icon: 'chart', permission: 'canManagePayments' as const, section: 'wip' },
+  { href: '/leaderboard', label: 'Installer Leaderboard', icon: 'trophy', permission: 'canViewJobs' as const, section: 'reports' },
   { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const, section: 'reports' },
   { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const, section: 'reports' },
   { href: '/reports/equipment', label: 'Equipment by Job', icon: 'box', permission: 'canManagePayments' as const, section: 'reports' },
@@ -80,6 +81,11 @@ function NavIcon({ type }: { type: string }) {
     arrow: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+    ),
+    trophy: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 21h8m-4-4v4m-5-17h10v4a5 5 0 01-10 0V4zm0 2H5a2 2 0 002 4m10-4h2a2 2 0 01-2 4" />
       </svg>
     ),
   };
