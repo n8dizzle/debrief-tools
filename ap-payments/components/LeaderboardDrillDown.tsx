@@ -115,7 +115,8 @@ export default function LeaderboardDrillDown({ techName, stTechId, metric, start
             <table className="w-full text-sm">
               <thead><tr style={{ color: 'var(--text-muted)' }}>
                 <th className={`${th} text-left`}>Job #</th><th className={`${th} text-left`}>Completed</th><th className={`${th} text-left`}>Customer</th>
-                <th className={`${th} text-right`}>Hours</th><th className={`${th} text-right`}>Rev/Hr</th><th className={`${th} text-right`}>Invoice</th>
+                <th className={`${th} text-right`}>Hours</th><th className={`${th} text-right`}>Comp</th><th className={`${th} text-right`}>Hrs/Comp</th>
+                <th className={`${th} text-right`}>Rev/Hr</th><th className={`${th} text-right`}>Invoice</th>
               </tr></thead>
               <tbody>
                 {records.map((r, i) => (
@@ -124,6 +125,8 @@ export default function LeaderboardDrillDown({ techName, stTechId, metric, start
                     <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{r.completed_date ? formatDate(r.completed_date) : '—'}</td>
                     <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{r.customer_name || '—'}</td>
                     <td className="py-2 px-2 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.hours > 0 ? r.hours.toFixed(1) : '—'}</td>
+                    <td className="py-2 px-2 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.components != null ? r.components : '—'}</td>
+                    <td className="py-2 px-2 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.hours_per_component != null ? `${r.hours_per_component.toFixed(1)} h` : '—'}</td>
                     <td className="py-2 px-2 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.rev_per_hour > 0 ? `${formatCurrency(r.rev_per_hour)}/h` : '—'}</td>
                     <td className="py-2 px-2 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatCurrency(r.invoice || 0)}</td>
                   </tr>
@@ -133,6 +136,10 @@ export default function LeaderboardDrillDown({ techName, stTechId, metric, start
                 <tr style={{ borderTop: '2px solid var(--border-subtle)' }}>
                   <td colSpan={3} className="py-2 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>Total · {records.length} job{records.length !== 1 ? 's' : ''}</td>
                   <td className="py-2 px-2 text-right tabular-nums font-bold" style={{ color: 'var(--text-primary)' }}>{records.reduce((s, r) => s + (r.hours || 0), 0).toFixed(1)}</td>
+                  <td className="py-2 px-2 text-right tabular-nums font-bold" style={{ color: 'var(--text-primary)' }}>{records.reduce((s, r) => s + (r.components || 0), 0)}</td>
+                  <td className="py-2 px-2 text-right tabular-nums font-bold" style={{ color: 'var(--text-secondary)' }}>
+                    {(() => { const comps = records.reduce((s, r) => s + (r.components || 0), 0); const ch = records.reduce((s, r) => s + (r.components != null && r.components > 0 ? (r.hours || 0) : 0), 0); return comps > 0 ? `${(ch / comps).toFixed(1)} h` : '—'; })()}
+                  </td>
                   <td className="py-2 px-2 text-right tabular-nums font-bold" style={{ color: 'var(--christmas-green)' }}>
                     {(() => { const rev = records.reduce((s, r) => s + (r.invoice || 0), 0); const h = records.reduce((s, r) => s + (r.hours || 0), 0); return h > 0 ? `${formatCurrency(rev / h)}/h` : '—'; })()}
                   </td>

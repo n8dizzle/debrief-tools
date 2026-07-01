@@ -14,6 +14,8 @@ interface Entry {
   revenue: number;
   hours: number;
   rev_per_hour: number;
+  components: number;
+  hours_per_component: number;
   recalls: number;
   reviews: number;
   score: number;
@@ -21,7 +23,7 @@ interface Entry {
   breakdown: { revenue: number; efficiency: number; recalls: number; reviews: number };
 }
 type Weights = { revenue: number; efficiency: number; recalls: number; reviews: number };
-type SortKey = 'rank' | 'name' | 'jobs_led' | 'revenue' | 'rev_per_hour' | 'recalls' | 'reviews' | 'score';
+type SortKey = 'rank' | 'name' | 'jobs_led' | 'revenue' | 'rev_per_hour' | 'components' | 'hours_per_component' | 'recalls' | 'reviews' | 'score';
 
 function monthToDate(): DateRange {
   const now = new Date();
@@ -80,7 +82,7 @@ export default function LeaderboardPage() {
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) { setSortAsc(!sortAsc); }
-    else { setSortKey(key); setSortAsc(key === 'rank' || key === 'name' || key === 'recalls'); }
+    else { setSortKey(key); setSortAsc(key === 'rank' || key === 'name' || key === 'recalls' || key === 'hours_per_component'); }
   };
 
   const filtered = useMemo(() => {
@@ -95,9 +97,9 @@ export default function LeaderboardPage() {
   const totalRevenue = entries.reduce((s, e) => s + e.revenue, 0);
 
   const exportCsv = () => {
-    const header = ['Rank', 'Installer', 'Home Team', 'Jobs Led', 'Revenue', 'Rev/Hr', 'Recalls', 'Reviews', 'Score'];
+    const header = ['Rank', 'Installer', 'Home Team', 'Jobs Led', 'Revenue', 'Rev/Hr', 'Components', 'Hrs/Comp', 'Recalls', 'Reviews', 'Score'];
     const lines = [...entries].sort((a, b) => a.rank - b.rank).map(e =>
-      [e.rank, e.name, e.home_team || '', e.jobs_led, e.revenue, e.rev_per_hour, e.recalls, e.reviews, (e.score * 100).toFixed(1)].join(','));
+      [e.rank, e.name, e.home_team || '', e.jobs_led, e.revenue, e.rev_per_hour, e.components, e.hours_per_component, e.recalls, e.reviews, (e.score * 100).toFixed(1)].join(','));
     const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -204,6 +206,8 @@ export default function LeaderboardPage() {
                 <Th k="jobs_led" label="Jobs" />
                 <Th k="revenue" label="Revenue" />
                 <Th k="rev_per_hour" label="Rev/Hr" title="Revenue installed per total crew hour" />
+                <Th k="components" label="Components" title="Components installed (condenser, coil, air handler, furnace)" />
+                <Th k="hours_per_component" label="Hrs/Comp" title="Crew hours per component installed (lower is faster)" />
                 <Th k="recalls" label="Recalls" title="Recalls caused (lower is better)" />
                 <Th k="reviews" label="Reviews" title="Google review mentions" />
                 <Th k="score" label="Score" />
@@ -230,6 +234,9 @@ export default function LeaderboardPage() {
                         <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'revenue' }); }} className="hover:underline" title="View jobs">{formatCurrency(e.revenue)}</button></td>
                       <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {e.rev_per_hour > 0 ? <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'efficiency' }); }} className="hover:underline" title="View jobs + hours">{formatCurrency(e.rev_per_hour)}/h</button> : '—'}</td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {e.components > 0 ? <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'efficiency' }); }} className="hover:underline" title="View jobs + components">{e.components}</button> : '—'}</td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{e.hours_per_component > 0 ? `${e.hours_per_component.toFixed(1)} h` : '—'}</td>
                       <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: recallColor(e.recalls) }}>
                         <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'recalls' }); }} className="hover:underline" title="View recalls">{e.recalls}</button></td>
                       <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: e.reviews > 0 ? '#6fd394' : 'var(--text-muted)' }}>

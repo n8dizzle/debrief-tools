@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
   // revenue / efficiency → the jobs this lead led (same attribution as the board).
   if (metric === 'revenue' || metric === 'efficiency') {
     let jq = supabase.from('ap_install_jobs')
-      .select('id, st_job_id, job_number, customer_name, completed_date, st_revenue, job_total')
+      .select('id, st_job_id, job_number, customer_name, completed_date, st_revenue, job_total, component_count')
       .eq('business_unit_name', 'HVAC - Install')
       .neq('job_status', 'Canceled')
       .or('is_ignored.is.null,is_ignored.eq.false');
@@ -95,11 +95,14 @@ export async function GET(request: NextRequest) {
       const j: any = jobMeta.get(jobId);
       const invoice = j.st_revenue != null ? Number(j.st_revenue) : (j.job_total != null && Number(j.job_total) > 0 ? Number(j.job_total) : 0);
       const hours = members.reduce((s, m) => s + Number(m.hours || 0), 0);
+      const comps = j.component_count != null ? Number(j.component_count) : null;
       records.push({
         st_job_id: j.st_job_id, job_number: j.job_number, customer_name: j.customer_name,
         completed_date: j.completed_date, invoice: Math.round(invoice * 100) / 100,
         hours: Math.round(hours * 100) / 100,
         rev_per_hour: hours > 0 ? Math.round((invoice / hours) * 100) / 100 : 0,
+        components: comps,
+        hours_per_component: comps && comps > 0 && hours > 0 ? Math.round((hours / comps) * 100) / 100 : null,
       });
     }
     records.sort((a, b) => (b.completed_date || '').localeCompare(a.completed_date || ''));
