@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
   const projectIds = Array.from(new Set(jobs.map((j: any) => j.st_project_id).filter(Boolean)));
   const salesByProject = await st.getSalesInfoByProject(projectIds as number[]);
 
+  // Component/system counts from the INVOICE (source of truth for what was installed).
+  const invoiceCounts = await st.getEquipmentCountsByJobs(jobs.map((j: any) => j.st_job_id).filter(Boolean));
+
   // tech id → name.
   const techIds = Array.from(new Set(Array.from(salesByProject.values()).map(v => v.sold_by_st_id).filter(Boolean)));
   const nameById = new Map<number, string>();
@@ -63,14 +66,15 @@ export async function POST(request: NextRequest) {
     const sales = j.st_project_id ? salesByProject.get(j.st_project_id) : null;
     const soldById = sales?.sold_by_st_id ?? null;
     const soldByName = soldById != null ? (nameById.get(soldById) || null) : null;
+    const inv = j.st_job_id ? invoiceCounts.get(j.st_job_id) : null;
     await supabase.from('ap_install_jobs').update({
       st_project_id: j.st_project_id ?? null,
       sold_by_st_technician_id: soldById,
       sold_by_name: soldByName,
       sold_estimate_job_number: sales?.estimate_job_number ?? null,
       sold_on: sales?.sold_on ?? null,
-      component_count: sales?.component_count ?? null,
-      system_count: sales?.system_count ?? null,
+      component_count: inv?.hasEquipment ? inv.components : (sales?.component_count ?? null),
+      system_count: inv?.hasEquipment ? inv.systems : (sales?.system_count ?? null),
       sales_resolved_at: new Date().toISOString(),
     }).eq('id', j.id);
     resolved++;
