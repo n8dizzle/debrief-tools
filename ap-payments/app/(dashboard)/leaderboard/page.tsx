@@ -130,10 +130,10 @@ export default function LeaderboardPage() {
     <div className="p-4 lg:p-6 max-w-[1150px] mx-auto">
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Installer Leaderboard</h1>
-        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>Lead installers · HVAC Install</span>
+        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(58,143,87,.16)', color: '#6fd394' }}>HVAC Install - Lead</span>
       </div>
       <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-        Each install job is credited to its lead (the crew member with the most clocked hours). Installers are ranked in every metric; ranks become percentiles, and a weighted average is the score.
+        Technicians with the ServiceTitan role <b>HVAC Install - Lead</b>. Each install job is credited to its lead on the crew; leads are ranked in every metric, ranks become percentiles, and a weighted average is the score.
       </p>
 
       <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -258,7 +258,7 @@ export default function LeaderboardPage() {
       )}
 
       <div className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
-        Lead = crew member with the most ServiceTitan clocked hours on a job. <b>Rev/Hr</b> = revenue installed ÷ total crew hours. <b>Recalls</b> from the service dashboard&apos;s recall data. <b>Reviews</b> = Google review mentions by name. Weights are fixed for now.
+        Lead = the <b>HVAC Install - Lead</b> (ServiceTitan role) on the job&apos;s crew; jobs without one aren&apos;t credited here. <b>Rev/Hr</b> = revenue installed ÷ total crew hours. <b>Recalls</b> from the service dashboard&apos;s recall data. <b>Reviews</b> = Google review mentions by name. Weights are fixed for now.
       </div>
     </div>
   );

@@ -61,6 +61,7 @@ export interface STTechnician {
   active: boolean;
   businessUnitId?: number;
   team?: string; // free-text team; set even when businessUnitId is null
+  roleIds?: number[]; // ST user-role ids (e.g. "HVAC Install - Lead")
 }
 
 export interface STAppointment {
@@ -328,6 +329,32 @@ export class ServiceTitanClient {
     }
 
     return allTechnicians;
+  }
+
+  /** All ServiceTitan user roles (id → name), e.g. "HVAC Install - Lead". */
+  async getUserRoles(): Promise<{ id: number; name: string }[]> {
+    const roles: { id: number; name: string }[] = [];
+    let page = 1, hasMore = true;
+    while (hasMore) {
+      const response = await this.request<STPagedResponse<any>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/user-roles`,
+        { params: { pageSize: '200', page: page.toString() } }
+      );
+      roles.push(...(response.data || []).map((r: any) => ({ id: r.id, name: r.name })));
+      hasMore = response.hasMore;
+      page++;
+      if (page > 10) break;
+    }
+    return roles;
+  }
+
+  /** Resolve the user-role id for a role name (case-insensitive). */
+  async getRoleIdByName(name: string): Promise<number | null> {
+    const target = name.trim().toLowerCase();
+    const roles = await this.getUserRoles();
+    const match = roles.find(r => (r.name || '').trim().toLowerCase() === target);
+    return match ? match.id : null;
   }
 
   /** Get a single BU by ID (works for deleted/inactive BUs too). */
