@@ -62,11 +62,21 @@ export default function RcaPage() {
     } catch (e) { setSuggestErr((e as Error).message); } finally { setSuggesting(false); }
   };
 
-  const addQuestion = async () => {
-    if (!newQ.trim()) return;
-    const text = newQ.trim(); setNewQ('');
+  const questionExists = (text: string) =>
+    (d?.questions || []).some((qq) => qq.question.trim().toLowerCase() === text.trim().toLowerCase());
+
+  const addQuestionText = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || questionExists(text)) return; // skip empty or duplicate
     await fetch(`/api/recalls/${jobId}/questions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: text }) });
     await load();
+  };
+
+  const addQuestion = async () => {
+    const text = newQ.trim();
+    if (!text) return;
+    setNewQ('');
+    await addQuestionText(text);
   };
   const answerQuestion = async (id: string, answer: string) => {
     await fetch(`/api/recalls/${jobId}/questions`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, answer }) });
@@ -150,8 +160,10 @@ export default function RcaPage() {
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, color: 'var(--text-secondary)', padding: '3px 0' }}>
                     <span>• {q}</span>
                     {canInvestigate && (
-                      <button onClick={async () => { await fetch(`/api/recalls/${jobId}/questions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) }); await load(); }}
-                        style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
+                      questionExists(q)
+                        ? <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>✓ Added</span>
+                        : <button onClick={() => addQuestionText(q)}
+                            style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
                     )}
                   </div>
                 ))}
