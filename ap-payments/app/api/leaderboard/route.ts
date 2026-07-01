@@ -77,8 +77,18 @@ export async function GET(request: NextRequest) {
     .not('st_technician_id', 'is', null);
   const crew = (crewData || []) as any[];
 
-  // 3) Per job: total crew hours + the lead (max-hours crew member). Skip the generic
-  //    "Install Team" ST account when a real named tech is present.
+  // Who is an "HVAC Install - Lead" (ST role synced onto ap_technicians)?
+  const { data: leadTechs } = await supabase
+    .from('ap_technicians')
+    .select('st_technician_id, name, business_unit_name')
+    .eq('is_install_lead', true);
+  const leadSet = new Set<number>((leadTechs || []).map((t: any) => Number(t.st_technician_id)));
+  const techMap = new Map((leadTechs || []).map((t: any) => [Number(t.st_technician_id), t]));
+  if (leadSet.size === 0) return NextResponse.json({ entries: [], weights: WEIGHTS, job_count: 0 });
+
+  // 3) Per job: total crew hours + the lead. The lead is the crew member flagged
+  //    "HVAC Install - Lead" (max hours among them if more than one). Jobs with no lead
+  //    on the crew are not credited to anyone on this board.
   const jobCrew = new Map<string, any[]>();
   for (const c of crew) {
     if (!jobCrew.has(c.job_id)) jobCrew.set(c.job_id, []);
@@ -88,9 +98,9 @@ export async function GET(request: NextRequest) {
   // 4) Aggregate per lead installer (keyed by st_technician_id).
   const agg = new Map<number, { name: string; jobs: number; revenue: number; hours: number }>();
   for (const [jobId, members] of jobCrew) {
-    const named = members.filter(m => (m.technician_name || '') !== 'Install Team');
-    const pool = named.length ? named : members;
-    const lead = pool.reduce((a, b) => (Number(b.hours || 0) > Number(a.hours || 0) ? b : a));
+    const leadsOnCrew = members.filter(m => leadSet.has(Number(m.st_technician_id)));
+    if (leadsOnCrew.length === 0) continue; // no HVAC Install - Lead on this job
+    const lead = leadsOnCrew.reduce((a, b) => (Number(b.hours || 0) > Number(a.hours || 0) ? b : a));
     const stId = Number(lead.st_technician_id);
     const totalHours = members.reduce((s, m) => s + Number(m.hours || 0), 0);
     const cur = agg.get(stId) || { name: lead.technician_name || '', jobs: 0, revenue: 0, hours: 0 };
@@ -100,16 +110,10 @@ export async function GET(request: NextRequest) {
     if (!cur.name && lead.technician_name) cur.name = lead.technician_name;
     agg.set(stId, cur);
   }
-  if (agg.size === 0) return NextResponse.json({ entries: [], weights: WEIGHTS, job_count: jobIds.length });
+  if (agg.size === 0) return NextResponse.json({ entries: [], weights: WEIGHTS, job_count: 0 });
 
   const leadStIds = Array.from(agg.keys());
-
-  // Canonical names + home team.
-  const { data: techRows } = await supabase
-    .from('ap_technicians')
-    .select('st_technician_id, name, business_unit_name')
-    .in('st_technician_id', leadStIds);
-  const techMap = new Map((techRows || []).map((t: any) => [Number(t.st_technician_id), t]));
+  const creditedJobs = Array.from(agg.values()).reduce((s, v) => s + v.jobs, 0);
 
   // 5) Recalls caused (lower is better), in range.
   const recallCount = new Map<number, number>();
@@ -185,5 +189,5 @@ export async function GET(request: NextRequest) {
   entries.sort((a, b) => b.score - a.score);
   entries.forEach((e, i) => { e.rank = i + 1; });
 
-  return NextResponse.json({ entries, weights: WEIGHTS, job_count: jobIds.length });
+  return NextResponse.json({ entries, weights: WEIGHTS, job_count: creditedJobs });
 }

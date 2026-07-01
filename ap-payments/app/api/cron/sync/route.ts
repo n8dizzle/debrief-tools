@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
   const errors: string[] = [];
 
   try {
-    const [businessUnits, jobTypes, stTechnicians] = await Promise.all([
+    const [businessUnits, jobTypes, stTechnicians, installLeadRoleId] = await Promise.all([
       st.getAllBusinessUnits(),
       st.getJobTypes(),
       st.getTechnicians(false),
+      st.getRoleIdByName('HVAC Install - Lead').catch(() => null),
     ]);
 
     // Upsert technicians (preserve manually-entered hourly_rate and trade)
@@ -70,6 +71,8 @@ export async function POST(request: NextRequest) {
               // report shows a real home team instead of "No team").
               business_unit_name: buName || tech.team || null,
               team: tech.team || null,
+              st_role_ids: tech.roleIds || null,
+              is_install_lead: installLeadRoleId != null && (tech.roleIds || []).includes(installLeadRoleId),
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'st_technician_id', ignoreDuplicates: false }
