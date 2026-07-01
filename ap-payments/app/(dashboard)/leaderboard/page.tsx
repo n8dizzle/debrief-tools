@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatCurrency } from '@/lib/ap-utils';
+import LeaderboardDrillDown, { DrillMetric } from '@/components/LeaderboardDrillDown';
 
 interface Entry {
   st_technician_id: number;
@@ -52,6 +53,7 @@ export default function LeaderboardPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [drill, setDrill] = useState<{ id: number; name: string; metric: DrillMetric } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -222,11 +224,16 @@ export default function LeaderboardPage() {
                           <span>{e.name}{e.home_team ? <span className="ml-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>{e.home_team}</span> : null}</span>
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{e.jobs_led}</td>
-                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(e.revenue)}</td>
-                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{e.rev_per_hour > 0 ? `${formatCurrency(e.rev_per_hour)}/h` : '—'}</td>
-                      <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: recallColor(e.recalls) }}>{e.recalls}</td>
-                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: e.reviews > 0 ? '#6fd394' : 'var(--text-muted)' }}>{e.reviews}</td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'revenue' }); }} className="hover:underline" title="View jobs">{e.jobs_led}</button></td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'revenue' }); }} className="hover:underline" title="View jobs">{formatCurrency(e.revenue)}</button></td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {e.rev_per_hour > 0 ? <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'efficiency' }); }} className="hover:underline" title="View jobs + hours">{formatCurrency(e.rev_per_hour)}/h</button> : '—'}</td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums font-semibold" style={{ color: recallColor(e.recalls) }}>
+                        <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'recalls' }); }} className="hover:underline" title="View recalls">{e.recalls}</button></td>
+                      <td className="px-3 py-2.5 text-sm text-right tabular-nums" style={{ color: e.reviews > 0 ? '#6fd394' : 'var(--text-muted)' }}>
+                        <button onClick={ev => { ev.stopPropagation(); setDrill({ id: e.st_technician_id, name: e.name, metric: 'reviews' }); }} className="hover:underline" title="View reviews">{e.reviews}</button></td>
                       <td className="px-3 py-2.5 text-right"><span className="font-bold text-lg tabular-nums" style={{ color: 'var(--christmas-green)' }}>{(e.score * 100).toFixed(1)}</span></td>
                     </tr>
                     {open && (
@@ -258,8 +265,13 @@ export default function LeaderboardPage() {
       )}
 
       <div className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
-        Lead = the <b>HVAC Install - Lead</b> (ServiceTitan role) on the job&apos;s crew; jobs without one aren&apos;t credited here. <b>Rev/Hr</b> = revenue installed ÷ total crew hours. <b>Recalls</b> from the service dashboard&apos;s recall data. <b>Reviews</b> = Google review mentions by name. Weights are fixed for now.
+        Lead = the <b>HVAC Install - Lead</b> (ServiceTitan role) on the job&apos;s crew; jobs without one aren&apos;t credited here. <b>Rev/Hr</b> = revenue installed ÷ total crew hours. <b>Recalls</b> from the service dashboard&apos;s recall data. <b>Reviews</b> = Google review mentions by name. Click any number to drill into the jobs behind it. Weights are fixed for now.
       </div>
+
+      {drill && (
+        <LeaderboardDrillDown techName={drill.name} stTechId={drill.id} metric={drill.metric}
+          start={range.start} end={range.end} onClose={() => setDrill(null)} />
+      )}
     </div>
   );
 }
