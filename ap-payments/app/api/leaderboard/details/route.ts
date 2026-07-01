@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   if (metric === 'recalls') {
     let q = supabase.from('sd_recalls_caused')
-      .select('st_recall_job_id, st_original_job_id, recall_created_on, business_unit_name, customer_name, days_to_recall')
+      .select('st_recall_job_id, st_original_job_id, recall_created_on, business_unit_name, job_type_name, customer_name, days_to_recall')
       .eq('caused_by_tech_id', techId)
       .order('recall_created_on', { ascending: false });
     if (start) q = q.gte('recall_created_on', start);
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
   // revenue / efficiency → the jobs this lead led (same attribution as the board).
   if (metric === 'revenue' || metric === 'efficiency') {
     let jq = supabase.from('ap_install_jobs')
-      .select('id, st_job_id, job_number, customer_name, completed_date, st_revenue, job_total, component_count')
+      .select('id, st_job_id, job_number, customer_name, job_type_name, completed_date, st_revenue, job_total, component_count')
       .eq('business_unit_name', 'HVAC - Install')
       .neq('job_status', 'Canceled')
       .or('is_ignored.is.null,is_ignored.eq.false');
@@ -98,6 +98,7 @@ export async function GET(request: NextRequest) {
       const comps = j.component_count != null ? Number(j.component_count) : null;
       records.push({
         st_job_id: j.st_job_id, job_number: j.job_number, customer_name: j.customer_name,
+        job_type: j.job_type_name || null,
         completed_date: j.completed_date, invoice: Math.round(invoice * 100) / 100,
         hours: Math.round(hours * 100) / 100,
         rev_per_hour: hours > 0 ? Math.round((invoice / hours) * 100) / 100 : 0,
