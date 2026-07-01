@@ -837,7 +837,9 @@ export default function SettingsPage() {
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
-  if (!isManager && !isOwner) {
+  // Gate on the permissions the settings tabs actually use (matches the API auth),
+  // not role alone — so anyone granted can_sync_data / can_manage_contractors gets in.
+  if (!isOwner && !isManager && !canSyncData && !canManageContractors) {
     return (
       <div className="flex items-center justify-center h-64">
         <p style={{ color: 'var(--text-muted)' }}>You don&apos;t have permission to access settings.</p>
