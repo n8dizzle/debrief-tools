@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.109.0",
     "@supabase/supabase-js": "^2.89.0",
     "next": "^16.1.4",
     "next-auth": "^4.24.5",
