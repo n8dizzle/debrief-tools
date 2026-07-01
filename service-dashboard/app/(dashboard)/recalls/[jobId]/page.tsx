@@ -82,6 +82,10 @@ export default function RcaPage() {
     await fetch(`/api/recalls/${jobId}/questions`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, answer }) });
     await load();
   };
+  const deleteQuestion = async (id: string) => {
+    await fetch(`/api/recalls/${jobId}/questions`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    await load();
+  };
 
   if (loading) return <div style={{ padding: 24, color: 'var(--text-muted)' }}>Loading investigation…</div>;
   if (error) return <div style={{ padding: 24, color: 'var(--status-error)' }}>{error} — <Link href="/recalls/queue" style={{ color: 'var(--christmas-green-light)' }}>back to queue</Link></div>;
@@ -197,7 +201,7 @@ export default function RcaPage() {
         <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Research questions</h2>
         {d.questions.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>No questions yet — add the first one to start the investigation.</p>}
         {d.questions.map(q => (
-          <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} />
+          <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} onDelete={deleteQuestion} />
         ))}
         {canInvestigate && (
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -226,7 +230,7 @@ export default function RcaPage() {
   );
 }
 
-function QuestionRow({ q, canInvestigate, onAnswer }: { q: Question; canInvestigate: boolean; onAnswer: (id: string, a: string) => void }) {
+function QuestionRow({ q, canInvestigate, onAnswer, onDelete }: { q: Question; canInvestigate: boolean; onAnswer: (id: string, a: string) => void; onDelete: (id: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const answered = q.status === 'answered';
@@ -234,7 +238,14 @@ function QuestionRow({ q, canInvestigate, onAnswer }: { q: Question; canInvestig
     <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '10px 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <span style={{ color: 'var(--text-primary)', fontSize: 14 }}>{q.question}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: answered ? 'var(--status-success)' : 'var(--status-info)', whiteSpace: 'nowrap' }}>{answered ? 'Answered' : 'Open'}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: answered ? 'var(--status-success)' : 'var(--status-info)' }}>{answered ? 'Answered' : 'Open'}</span>
+          {canInvestigate && (
+            <button onClick={() => { if (confirm('Delete this question?')) onDelete(q.id); }}
+              title="Delete question"
+              style={{ fontSize: 13, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>✕</button>
+          )}
+        </span>
       </div>
       {q.answer && <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 6, paddingLeft: 12, borderLeft: '2px solid var(--border-default)' }}>{q.answer}</div>}
       {canInvestigate && !answered && !editing && (

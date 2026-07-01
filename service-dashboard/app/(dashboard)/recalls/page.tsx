@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { DateRangePicker, type DateRange } from '@/components/DateRangePicker';
 import { formatLocalDate } from '@/lib/sd-utils';
 
@@ -47,8 +48,15 @@ function Bar({ value, max, label, count }: { value: number; max: number; label: 
 }
 
 export default function RecallTrendsPage() {
+  const router = useRouter();
+  const [jobLookup, setJobLookup] = useState('');
   const [range, setRange] = useState<DateRange>(getMonthToDateRange());
   const [trade, setTrade] = useState<Trade>('all');
+
+  const openJob = () => {
+    const id = jobLookup.trim().replace(/[^0-9]/g, '');
+    if (id) router.push(`/recalls/${id}`);
+  };
   const [data, setData] = useState<TrendsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,8 +88,18 @@ export default function RecallTrendsPage() {
             {data ? `${data.total_recalls} recalls in this period` : 'Recall trends and root-cause analysis'}
             {' · '}<Link href="/recalls/queue" style={{ color: 'var(--christmas-green-light)' }}>View queue →</Link>
           </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+            Counts all trades and all technicians. Differs from the Leaderboard&apos;s &ldquo;Recalls Caused&rdquo;, which is scoped to active HVAC-service techs.
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', gap: 4 }}>
+            <input value={jobLookup} onChange={e => setJobLookup(e.target.value)} onKeyDown={e => e.key === 'Enter' && openJob()}
+              placeholder="Look up job #" inputMode="numeric"
+              style={{ width: 130, padding: '6px 10px', borderRadius: 8, fontSize: 13, backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }} />
+            <button onClick={openJob} title="Open this job to investigate"
+              style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--christmas-green-light)', border: '1px solid var(--border-default)' }}>Go</button>
+          </span>
           {(['all', 'hvac', 'plumbing'] as Trade[]).map(t => (
             <button key={t} onClick={() => setTrade(t)} style={{
               padding: '6px 14px', borderRadius: 8, fontSize: 13, textTransform: 'capitalize',
