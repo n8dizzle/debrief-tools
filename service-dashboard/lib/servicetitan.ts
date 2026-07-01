@@ -25,6 +25,7 @@ export interface STJob {
   locationId?: number;
   completedOn?: string;
   createdOn?: string;
+  summary?: string;
   total?: number;
   // ST sets this when the job is a recall — points back to the original job
   // whose work caused the callback. Used for "Recalls Caused" attribution.

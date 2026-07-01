@@ -29,6 +29,9 @@ export default function RcaPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newQ, setNewQ] = useState('');
+  const [suggestion, setSuggestion] = useState<{ root_cause_category: string; rationale: string; research_questions: string[] } | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestErr, setSuggestErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -47,6 +50,16 @@ export default function RcaPage() {
       if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Save failed'); return; }
       await load();
     } finally { setSaving(false); }
+  };
+
+  const getSuggestion = async () => {
+    setSuggesting(true); setSuggestErr(null); setSuggestion(null);
+    try {
+      const res = await fetch(`/api/recalls/${jobId}/suggest`, { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setSuggestErr(body.error || `Error ${res.status}`); return; }
+      setSuggestion(body.suggestion);
+    } catch (e) { setSuggestErr((e as Error).message); } finally { setSuggesting(false); }
   };
 
   const addQuestion = async () => {
@@ -110,7 +123,43 @@ export default function RcaPage() {
             {d.root_cause_categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Status: <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{status}</strong></span>
+          {canInvestigate && (
+            <button onClick={getSuggestion} disabled={suggesting}
+              style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: suggesting ? 'wait' : 'pointer', backgroundColor: 'transparent', color: 'var(--christmas-green-light)', border: '1px solid var(--border-default)' }}>
+              {suggesting ? 'Thinking…' : '✨ Suggest root cause'}
+            </button>
+          )}
         </div>
+
+        {suggestErr && <div style={{ marginTop: 10, fontSize: 13, color: 'var(--status-error)' }}>{suggestErr}</div>}
+        {suggestion && (
+          <div style={{ marginTop: 12, padding: 12, borderRadius: 8, border: '1px dashed var(--border-default)', backgroundColor: 'var(--bg-secondary)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>AI suggestion (confirm or ignore — not applied automatically)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{suggestion.root_cause_category}</strong>
+              {canInvestigate && (
+                <button onClick={() => saveInvestigation({ root_cause_category: suggestion.root_cause_category, status: status === 'open' ? 'investigating' : status })}
+                  style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>Use this</button>
+              )}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>{suggestion.rationale}</div>
+            {suggestion.research_questions.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Suggested questions:</div>
+                {suggestion.research_questions.map((q, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, color: 'var(--text-secondary)', padding: '3px 0' }}>
+                    <span>• {q}</span>
+                    {canInvestigate && (
+                      <button onClick={async () => { await fetch(`/api/recalls/${jobId}/questions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) }); await load(); }}
+                        style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {canInvestigate && (
           <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
             {status !== 'resolved' ? (
