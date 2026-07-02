@@ -197,13 +197,14 @@ export async function POST(request: NextRequest) {
           .eq('location_id', location.id);
 
         if (reviewStats && reviewStats.length > 0) {
-          const totalReviews = reviewStats.length;
-          const avgRating = reviewStats.reduce((sum, r) => sum + r.star_rating, 0) / totalReviews;
+          const avgRating = reviewStats.reduce((sum, r) => sum + r.star_rating, 0) / reviewStats.length;
 
+          // Only update average_rating here — total_reviews was already set from Google's
+          // authoritative totalReviewCount above (which includes reviews beyond the API's
+          // 1000-row pagination cap).
           await supabase
             .from('google_locations')
             .update({
-              total_reviews: totalReviews,
               average_rating: avgRating,
               updated_at: new Date().toISOString(),
             })
