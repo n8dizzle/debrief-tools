@@ -17,24 +17,30 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-interface DashboardData {
+type BarColor = 'green' | 'gold' | 'red' | 'neutral';
+
+interface KPICard {
+  actual: number;
+  target: number | null;
+  pct: number | null;
+  pacingLabel: string | null;
+  barColor: BarColor;
+}
+
+interface ScorecardData {
   period: string;
-  revenueGoal: number;
-  totals: {
-    totalRevenue: number;
-    completedRevenue: number;
-    totalSales: number;
-    avgTicket: number;
-    totalJobsRan: number;
+  kpis: {
+    revenue: KPICard;
+    leads: KPICard;
+    hvacReplacementLeads: KPICard;
+    newCustomerRevenue: KPICard;
+    spend: KPICard;
+    reviews: KPICard;
   };
-  memberships: {
-    totalMembers: number;
-    sold: number;
-    renewed: number;
-    expired: number;
-    cancelled: number;
-    activeAtEnd: number;
-  };
+}
+
+interface OverviewData {
+  period: string;
   growth: {
     totalLeads: number;
     newNamesInST: number;
@@ -44,12 +50,6 @@ interface DashboardData {
     revenuePercentOfTotal: number;
     avgRevenuePerNewCustomer: number;
     revenuePerLead: number;
-  };
-  reviews: {
-    count: number;
-    jobsWithReviewPercent: number;
-    grossRating: number;
-    avgRating: number;
   };
   calls: {
     totalPhoneCalls: number;
@@ -69,6 +69,7 @@ interface DashboardData {
 
 function formatCurrency(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 }
 
@@ -77,7 +78,122 @@ function formatNumber(value: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Components
+// Pacing Card
+// ---------------------------------------------------------------------------
+
+const BAR_FILL: Record<BarColor, string> = {
+  green: 'var(--christmas-green)',
+  gold: 'var(--christmas-gold)',
+  red: '#ef4444',
+  neutral: 'var(--border-subtle)',
+};
+
+const BORDER_COLOR: Record<BarColor, string> = {
+  green: 'rgba(52, 102, 67, 0.5)',
+  gold: 'rgba(184, 149, 107, 0.5)',
+  red: 'rgba(239, 68, 68, 0.4)',
+  neutral: 'var(--border-subtle)',
+};
+
+const PACING_COLOR: Record<string, string> = {
+  'ahead of pace': 'var(--christmas-green)',
+  'on pace': 'var(--christmas-green)',
+};
+
+function getPacingColor(label: string | null): string {
+  if (!label) return 'var(--text-muted)';
+  if (label === 'ahead of pace' || label === 'on pace') return 'var(--christmas-green)';
+  if (label.includes('behind')) return '#f59e0b';
+  return 'var(--text-muted)';
+}
+
+function PacingCard({
+  title,
+  actual,
+  target,
+  pct,
+  pacingLabel,
+  barColor,
+  isCurrency,
+  isLoading,
+}: {
+  title: string;
+  actual: number;
+  target: number | null;
+  pct: number | null;
+  pacingLabel: string | null;
+  barColor: BarColor;
+  isCurrency?: boolean;
+  isLoading?: boolean;
+}) {
+  const displayActual = isCurrency ? formatCurrency(actual) : formatNumber(actual);
+  const displayTarget = target !== null
+    ? (isCurrency ? formatCurrency(target) : formatNumber(target))
+    : null;
+
+  return (
+    <div
+      className="rounded-xl p-4 flex flex-col gap-2"
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        border: `1px solid ${BORDER_COLOR[barColor]}`,
+      }}
+    >
+      {/* Title */}
+      <div className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+        {title}
+      </div>
+
+      {/* Actual / Target */}
+      {isLoading ? (
+        <div className="h-8 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
+      ) : (
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--christmas-cream)' }}>
+            {displayActual}
+          </span>
+          {displayTarget && (
+            <span className="text-sm tabular-nums" style={{ color: 'var(--text-muted)' }}>
+              / {displayTarget}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Progress bar + pct */}
+      {pct !== null && target !== null ? (
+        <>
+          <div className="relative h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div
+              className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min(pct, 100)}%`,
+                backgroundColor: BAR_FILL[barColor],
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold tabular-nums" style={{ color: BAR_FILL[barColor] }}>
+              {pct}%
+            </span>
+            {pacingLabel && (
+              <span className="text-xs font-medium" style={{ color: getPacingColor(pacingLabel) }}>
+                {pacingLabel}
+              </span>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          {target === null ? 'no target set' : ''}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section Card (for detail rows)
 // ---------------------------------------------------------------------------
 
 function StatRow({
@@ -131,35 +247,46 @@ function StatRow({
   );
 }
 
-function SectionCard({
+function CollapsibleSection({
   title,
   color,
   children,
+  defaultOpen = false,
 }: {
   title: string;
   color: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+
   return (
     <div
       className="rounded-xl overflow-hidden"
       style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
     >
-      <div
-        className="px-5 py-3"
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-3 transition-colors"
         style={{
           backgroundColor: `${color}15`,
-          borderBottom: `2px solid ${color}`,
+          borderBottom: open ? `2px solid ${color}` : 'none',
         }}
       >
-        <h2
-          className="text-sm font-bold uppercase tracking-widest text-center"
-          style={{ color }}
-        >
+        <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color }}>
           {title}
         </h2>
-      </div>
-      <div>{children}</div>
+        <svg
+          className="w-4 h-4 transition-transform"
+          style={{ color, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div>{children}</div>}
     </div>
   );
 }
@@ -168,19 +295,11 @@ function SectionCard({
 // Period Picker
 // ---------------------------------------------------------------------------
 
-function PeriodPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
+function PeriodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const currentMonth = new Date().getMonth(); // 0-indexed
 
   const quickPicks = [
-    { val: 'today', label: 'Today' },
-    { val: 'week', label: 'This Week' },
     { val: String(currentMonth + 1), label: months[currentMonth] },
     { val: 'ytd', label: 'YTD' },
   ];
@@ -232,26 +351,28 @@ function PeriodPicker({
 // ---------------------------------------------------------------------------
 
 export default function MarketingDashboard() {
-  const { data: session } = useSession();
+  useSession();
 
-  const [period, setPeriod] = useState('ytd');
-  const [data, setData] = useState<DashboardData | null>(null);
+  const currentMonth = new Date().getMonth() + 1;
+  const [period, setPeriod] = useState(String(currentMonth));
+  const [scorecard, setScorecard] = useState<ScorecardData | null>(null);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [leadsData, setLeadsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Leads chart state
-  const [leadsData, setLeadsData] = useState<any>(null);
-  const [leadsLoading, setLeadsLoading] = useState(true);
   const [leadsView, setLeadsView] = useState<'category' | 'campaign'>('category');
 
-  const fetchData = useCallback(async () => {
+  const fetchScorecard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/dashboard/overview?period=${period}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load dashboard data');
-      const json: DashboardData = await res.json();
-      setData(json);
+      const [scorecardRes, overviewRes] = await Promise.all([
+        fetch(`/api/dashboard/scorecard?period=${period}`, { credentials: 'include' }),
+        fetch(`/api/dashboard/overview?period=${period}`, { credentials: 'include' }),
+      ]);
+      if (!scorecardRes.ok) throw new Error('Failed to load scorecard data');
+      setScorecard(await scorecardRes.json());
+      if (overviewRes.ok) setOverview(await overviewRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -259,42 +380,33 @@ export default function MarketingDashboard() {
     }
   }, [period]);
 
-  const fetchLeadsData = useCallback(async () => {
-    setLeadsLoading(true);
+  const fetchLeads = useCallback(async () => {
     try {
       const res = await fetch('/api/dashboard/leads?days=30', { credentials: 'include' });
       if (res.ok) setLeadsData(await res.json());
     } catch { /* non-blocking */ }
-    finally { setLeadsLoading(false); }
   }, []);
 
   useEffect(() => {
-    fetchData();
-    fetchLeadsData();
-  }, [fetchData, fetchLeadsData]);
+    fetchScorecard();
+  }, [fetchScorecard]);
 
-  const g = data?.growth;
-  const r = data?.reviews;
-  const t = data?.totals;
-  const c = data?.calls;
-  const m = data?.memberships;
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
 
-  const revPct = data && data.revenueGoal > 0
-    ? Math.round(((t?.totalRevenue || 0) / data.revenueGoal) * 100)
-    : 0;
+  const k = scorecard?.kpis;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
-            Marketing Dashboard
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {data?.period || 'Loading...'}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          Marketing Dashboard
+        </h1>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {scorecard?.period || 'Loading...'}
+        </p>
       </div>
 
       {/* Period Picker */}
@@ -307,143 +419,76 @@ export default function MarketingDashboard() {
           style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}
         >
           <span className="text-sm" style={{ color: '#ef4444' }}>{error}</span>
-          <button onClick={fetchData} className="text-sm px-3 py-1 rounded-lg" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>
+          <button
+            onClick={fetchScorecard}
+            className="text-sm px-3 py-1 rounded-lg"
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+          >
             Retry
           </button>
         </div>
       )}
 
-      {/* Loading */}
-      {loading && !data && (
-        <div className="space-y-4">
-          <div className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-64 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--border-subtle)', opacity: 0.5 }} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {data && (
-        <>
-          {/* Revenue Progress Banner */}
-          <div
-            className="p-5 rounded-xl"
-            style={{
-              background: 'linear-gradient(135deg, rgba(52, 102, 67, 0.15) 0%, var(--bg-secondary) 100%)',
-              border: '1px solid rgba(52, 102, 67, 0.3)',
-            }}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Revenue vs Goal
-              </h2>
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
-                  {formatCurrency(t?.totalRevenue || 0)} / {formatCurrency(data.revenueGoal)}
-                </span>
-                <span
-                  className="text-sm font-semibold px-2 py-0.5 rounded"
-                  style={{
-                    backgroundColor: revPct >= 100 ? 'rgba(52,102,67,0.2)' : 'rgba(239,68,68,0.15)',
-                    color: revPct >= 100 ? 'var(--christmas-green)' : '#ef4444',
-                  }}
-                >
-                  {revPct}%
-                </span>
-              </div>
-            </div>
-            <div className="relative h-2.5 rounded-full" style={{ backgroundColor: 'var(--bg-card)' }}>
-              <div
-                className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(revPct, 100)}%`,
-                  backgroundColor: revPct >= 100 ? 'var(--christmas-green)' : revPct >= 75 ? 'var(--christmas-gold)' : '#ef4444',
-                }}
-              />
-            </div>
-            {/* Summary stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-              <div className="text-center">
-                <div className="text-xs uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Revenue</div>
-                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>{formatCurrency(t?.totalRevenue || 0)}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Sales</div>
-                <div className="text-xl font-bold" style={{ color: 'var(--christmas-gold)' }}>{formatCurrency(t?.totalSales || 0)}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Avg Ticket</div>
-                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>{formatCurrency(t?.avgTicket || 0)}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Jobs Ran</div>
-                <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>{formatNumber(t?.totalJobsRan || 0)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Growth + Reviews */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SectionCard title="Growth" color="var(--christmas-green)">
-              <StatRow label="Total Leads" value={g?.totalLeads || 0} />
-              <StatRow label="# of New Names in ST" value={g?.newNamesInST || 0} />
-              <StatRow label="Total New Customers" value={g?.totalNewCustomers || 0} highlight />
-              <StatRow label="% of leads → customers" value={g?.leadsToCustomerPercent || 0} isPercent muted />
-              <StatRow label="New Customer Revenue" value={g?.newCustomerRevenue || 0} isCurrency highlight />
-              <StatRow label="% of total revenue" value={g?.revenuePercentOfTotal || 0} isPercent muted />
-              <StatRow label="Avg Revenue Per New Customer" value={g?.avgRevenuePerNewCustomer || 0} isCurrency />
-              <StatRow label="Revenue Per Lead" value={g?.revenuePerLead || 0} isCurrency />
-            </SectionCard>
-
-            <SectionCard title="Reviews" color="var(--christmas-green)">
-              <StatRow label="# of Reviews" value={r?.count || 0} highlight />
-              <StatRow label="% of jobs with review" value={r?.jobsWithReviewPercent || 0} isPercent muted />
-              <StatRow label="Gross Rating" value={formatNumber(r?.grossRating || 0)} />
-              <StatRow label="AVG Rating" value={r?.avgRating || 0} isRating highlight />
-              <div className="px-5 py-4">
-                <div className="flex items-center gap-2 justify-center">
-                  {[1, 2, 3, 4, 5].map(star => {
-                    const filled = (r?.avgRating || 0) >= star;
-                    return (
-                      <svg key={star} className="w-7 h-7" fill={filled ? 'var(--christmas-gold)' : 'none'} stroke={filled ? 'var(--christmas-gold)' : 'var(--text-muted)'} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                      </svg>
-                    );
-                  })}
-                  <span className="text-xl font-bold ml-2" style={{ color: 'var(--christmas-cream)' }}>
-                    {(r?.avgRating || 0).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-
-          {/* Calls + Memberships */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SectionCard title="Calls" color="#3B82F6">
-              <StatRow label="Total Phone Calls" value={c?.totalPhoneCalls || 0} />
-              <StatRow label="Inbound Phone Calls" value={c?.inboundPhoneCalls || 0} />
-              <StatRow label="Outbound Calls" value={c?.outboundCalls || 0} />
-              <StatRow label="Phone Leads" value={c?.phoneLeads || 0} highlight />
-              <StatRow label="Booked Jobs from Inbound" value={c?.bookedJobsFromInbound || 0} />
-              <StatRow label="Total Jobs Booked" value={c?.totalJobsBooked || 0} highlight />
-              <StatRow label="Total Cancellations" value={c?.totalCancellations || 0} />
-              <StatRow label="Net Bookings" value={c?.netBookings || 0} highlight />
-            </SectionCard>
-
-            <SectionCard title="Memberships" color="#8B5CF6">
-              <StatRow label="Total Members" value={m?.totalMembers || 0} highlight />
-              <StatRow label="Memberships Sold" value={m?.sold || 0} />
-              <StatRow label="Renewed" value={m?.renewed || 0} />
-              <StatRow label="Expired" value={m?.expired || 0} />
-              <StatRow label="Cancelled" value={m?.cancelled || 0} />
-              <StatRow label="Active at End" value={m?.activeAtEnd || 0} highlight />
-            </SectionCard>
-          </div>
-        </>
-      )}
+      {/* Pacing Scorecard — 3×2 grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <PacingCard
+          title="Revenue"
+          actual={k?.revenue.actual ?? 0}
+          target={k?.revenue.target ?? null}
+          pct={k?.revenue.pct ?? null}
+          pacingLabel={k?.revenue.pacingLabel ?? null}
+          barColor={k?.revenue.barColor ?? 'neutral'}
+          isCurrency
+          isLoading={loading}
+        />
+        <PacingCard
+          title="Total Leads"
+          actual={k?.leads.actual ?? 0}
+          target={k?.leads.target ?? null}
+          pct={k?.leads.pct ?? null}
+          pacingLabel={k?.leads.pacingLabel ?? null}
+          barColor={k?.leads.barColor ?? 'neutral'}
+          isLoading={loading}
+        />
+        <PacingCard
+          title="HVAC Replacement Leads"
+          actual={k?.hvacReplacementLeads.actual ?? 0}
+          target={k?.hvacReplacementLeads.target ?? null}
+          pct={k?.hvacReplacementLeads.pct ?? null}
+          pacingLabel={k?.hvacReplacementLeads.pacingLabel ?? null}
+          barColor={k?.hvacReplacementLeads.barColor ?? 'neutral'}
+          isLoading={loading}
+        />
+        <PacingCard
+          title="New Customer Revenue"
+          actual={k?.newCustomerRevenue.actual ?? 0}
+          target={k?.newCustomerRevenue.target ?? null}
+          pct={k?.newCustomerRevenue.pct ?? null}
+          pacingLabel={k?.newCustomerRevenue.pacingLabel ?? null}
+          barColor={k?.newCustomerRevenue.barColor ?? 'neutral'}
+          isCurrency
+          isLoading={loading}
+        />
+        <PacingCard
+          title="Spend"
+          actual={k?.spend.actual ?? 0}
+          target={k?.spend.target ?? null}
+          pct={k?.spend.pct ?? null}
+          pacingLabel={k?.spend.pacingLabel ?? null}
+          barColor={k?.spend.barColor ?? 'neutral'}
+          isCurrency
+          isLoading={loading}
+        />
+        <PacingCard
+          title="Reviews"
+          actual={k?.reviews.actual ?? 0}
+          target={k?.reviews.target ?? null}
+          pct={k?.reviews.pct ?? null}
+          pacingLabel={k?.reviews.pacingLabel ?? null}
+          barColor={k?.reviews.barColor ?? 'neutral'}
+          isLoading={loading}
+        />
+      </div>
 
       {/* Booked Jobs Chart */}
       <div
@@ -453,49 +498,34 @@ export default function MarketingDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
             Booked Jobs by {leadsView === 'category' ? 'Channel' : 'Campaign'}
+            <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-muted)' }}>last 30 days</span>
           </h2>
           <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <button
-              onClick={() => setLeadsView('category')}
-              className="px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: leadsView === 'category' ? 'var(--christmas-green)' : 'transparent',
-                color: leadsView === 'category' ? 'var(--christmas-cream)' : 'var(--text-muted)',
-              }}
-            >
-              Channel
-            </button>
-            <button
-              onClick={() => setLeadsView('campaign')}
-              className="px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: leadsView === 'campaign' ? 'var(--christmas-green)' : 'transparent',
-                color: leadsView === 'campaign' ? 'var(--christmas-cream)' : 'var(--text-muted)',
-              }}
-            >
-              Campaign
-            </button>
+            {(['category', 'campaign'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setLeadsView(v)}
+                className="px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: leadsView === v ? 'var(--christmas-green)' : 'transparent',
+                  color: leadsView === v ? 'var(--christmas-cream)' : 'var(--text-muted)',
+                }}
+              >
+                {v === 'category' ? 'Channel' : 'Campaign'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {leadsLoading ? (
+        {!leadsData ? (
           <div className="h-72 rounded animate-pulse" style={{ backgroundColor: 'var(--border-subtle)' }} />
-        ) : !leadsData ? (
-          <div className="h-72 flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
-            No booking data available
-          </div>
         ) : (() => {
           const chartData = leadsView === 'category' ? leadsData.dailyByCategory : leadsData.dailyByCampaign;
           const keys = leadsView === 'category' ? leadsData.categories : leadsData.campaigns;
-
-          // Color palette
           const COLORS = [
             '#346643', '#B8956B', '#3B82F6', '#8B5CF6', '#EF4444', '#F59E0B',
             '#10B981', '#6366F1', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
-            '#84CC16', '#A855F7', '#E11D48', '#0EA5E9',
           ];
-
-          // For campaign view, only show top 10 by total volume
           let displayKeys = keys;
           if (leadsView === 'campaign' && keys.length > 10) {
             const totals = keys.map((k: string) => ({
@@ -505,7 +535,6 @@ export default function MarketingDashboard() {
             totals.sort((a: any, b: any) => b.total - a.total);
             displayKeys = totals.slice(0, 10).map((t: any) => t.key);
           }
-
           return (
             <div style={{ width: '100%', height: 360 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -513,10 +542,7 @@ export default function MarketingDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" strokeOpacity={0.5} vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(d: string) => {
-                      const parts = d.split('-');
-                      return `${parts[1]}/${parts[2]}`;
-                    }}
+                    tickFormatter={(d: string) => { const p = d.split('-'); return `${p[1]}/${p[2]}`; }}
                     tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
@@ -528,24 +554,12 @@ export default function MarketingDashboard() {
                     allowDecimals={false}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--bg-card)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      fontSize: 12,
-                    }}
-                    labelFormatter={(label: any) => {
-                      const parts = String(label).split('-');
-                      return `${parts[1]}/${parts[2]}`;
-                    }}
+                    contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: 12 }}
+                    labelFormatter={(label: any) => { const p = String(label).split('-'); return `${p[1]}/${p[2]}`; }}
                     itemStyle={{ color: 'var(--christmas-cream)' }}
                     labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: 4 }}
                   />
-                  <Legend
-                    wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }}
-                    iconType="square"
-                    iconSize={10}
-                  />
+                  <Legend wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }} iconType="square" iconSize={10} />
                   {displayKeys.map((key: string, i: number) => (
                     <Bar
                       key={key}
@@ -561,6 +575,33 @@ export default function MarketingDashboard() {
           );
         })()}
       </div>
+
+      {/* Detail sections (collapsible) */}
+      {overview && (
+        <>
+          <CollapsibleSection title="Growth Detail" color="var(--christmas-green)">
+            <StatRow label="Total Leads" value={overview.growth.totalLeads} />
+            <StatRow label="# of New Names in ST" value={overview.growth.newNamesInST} />
+            <StatRow label="Total New Customers" value={overview.growth.totalNewCustomers} highlight />
+            <StatRow label="% of leads → customers" value={overview.growth.leadsToCustomerPercent} isPercent muted />
+            <StatRow label="New Customer Revenue" value={overview.growth.newCustomerRevenue} isCurrency highlight />
+            <StatRow label="% of total revenue" value={overview.growth.revenuePercentOfTotal} isPercent muted />
+            <StatRow label="Avg Revenue Per New Customer" value={overview.growth.avgRevenuePerNewCustomer} isCurrency />
+            <StatRow label="Revenue Per Lead" value={overview.growth.revenuePerLead} isCurrency />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Calls Detail" color="#3B82F6">
+            <StatRow label="Total Phone Calls" value={overview.calls.totalPhoneCalls} />
+            <StatRow label="Inbound Phone Calls" value={overview.calls.inboundPhoneCalls} />
+            <StatRow label="Outbound Calls" value={overview.calls.outboundCalls} />
+            <StatRow label="Phone Leads" value={overview.calls.phoneLeads} highlight />
+            <StatRow label="Booked Jobs from Inbound" value={overview.calls.bookedJobsFromInbound} />
+            <StatRow label="Total Jobs Booked" value={overview.calls.totalJobsBooked} highlight />
+            <StatRow label="Total Cancellations" value={overview.calls.totalCancellations} />
+            <StatRow label="Net Bookings" value={overview.calls.netBookings} highlight />
+          </CollapsibleSection>
+        </>
+      )}
     </div>
   );
 }
