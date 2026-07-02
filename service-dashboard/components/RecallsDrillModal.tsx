@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { stJobUrl } from '@/lib/sd-utils';
 
 interface RecallRow {
   st_recall_job_id: number;
@@ -21,7 +22,6 @@ interface Props {
   onClose: () => void;
 }
 
-function jobUrl(id: number) { return `https://go.servicetitan.com/Job/Index/${id}`; }
 
 export default function RecallsDrillModal({ startDate, endDate, techName, techId, onClose }: Props) {
   const [rows, setRows] = useState<RecallRow[]>([]);
@@ -94,10 +94,10 @@ export default function RecallsDrillModal({ startDate, endDate, techName, techId
                   <tr key={r.st_recall_job_id} style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
                     <td style={{ padding: '8px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{r.recall_created_on}</td>
                     <td style={{ padding: '8px 8px', whiteSpace: 'nowrap' }}>
-                      <a href={jobUrl(r.st_recall_job_id)} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)' }}>#{r.st_recall_job_id} ↗</a>
+                      <a href={stJobUrl(r.st_recall_job_id)} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)' }}>#{r.st_recall_job_id} ↗</a>
                     </td>
                     <td style={{ padding: '8px 8px', whiteSpace: 'nowrap' }}>
-                      <a href={jobUrl(r.st_original_job_id)} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)' }}>#{r.st_original_job_id} ↗</a>
+                      <a href={stJobUrl(r.st_original_job_id)} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)' }}>#{r.st_original_job_id} ↗</a>
                     </td>
                     <td style={{ padding: '8px 8px' }}>{r.customer_name || '—'}</td>
                     <td style={{ padding: '8px 8px', textAlign: 'right' }}>
