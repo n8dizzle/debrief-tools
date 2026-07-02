@@ -3,19 +3,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency } from '@/lib/ap-utils';
 
-interface EligibleJob { id: string; job_number: string; customer_name: string | null; completed_date: string | null; payment_amount: number; }
+interface EligibleJob { id: string; job_number: string; customer_name: string | null; job_address: string | null; completed_date: string | null; payment_amount: number; }
 interface EligibleContractor { contractor_id: string; contractor_name: string; jobs: EligibleJob[]; total: number; }
 
 function todayLocal(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+const numOf = (s?: string) => { const n = parseFloat(s || ''); return isNaN(n) || n < 0 ? 0 : n; };
 
 export default function PayRunModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [contractors, setContractors] = useState<EligibleContractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [contractorId, setContractorId] = useState('');
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [deductions, setDeductions] = useState<Record<string, string>>({});
   const [amountOverride, setAmountOverride] = useState<string>('');
   const [code, setCode] = useState('');
   const [method, setMethod] = useState('');
@@ -23,6 +25,7 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -38,16 +41,24 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
 
   const current = useMemo(() => contractors.find(c => c.contractor_id === contractorId) || null, [contractors, contractorId]);
 
-  // Default every job checked when a contractor is picked.
   useEffect(() => {
     if (current) setChecked(Object.fromEntries(current.jobs.map(j => [j.id, true])));
+    setDeductions({});
     setAmountOverride('');
   }, [contractorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedJobs = current ? current.jobs.filter(j => checked[j.id]) : [];
-  const summed = selectedJobs.reduce((s, j) => s + (j.payment_amount || 0), 0);
+  const netOf = (j: EligibleJob) => (j.payment_amount || 0) - numOf(deductions[j.id]);
+  const summed = selectedJobs.reduce((s, j) => s + netOf(j), 0);
+  const totalDeduct = selectedJobs.reduce((s, j) => s + numOf(deductions[j.id]), 0);
   const total = amountOverride !== '' ? Number(amountOverride) : summed;
   const variance = Math.round((total - summed) * 100) / 100;
+
+  // Memo for the Gusto memo line: "Job# - Address" per selected job.
+  const memoText = selectedJobs.map(j => `${j.job_number} - ${j.job_address || 'address n/a'}`).join('\n');
+  const copyMemo = async () => {
+    try { await navigator.clipboard.writeText(memoText); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+  };
 
   const submit = async () => {
     setError(null);
@@ -56,12 +67,15 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
     if (!code.trim()) return setError('Enter the confirmation code.');
     setSaving(true);
     try {
+      const dedOut: Record<string, number> = {};
+      for (const j of selectedJobs) { const d = numOf(deductions[j.id]); if (d > 0) dedOut[j.id] = d; }
       const res = await fetch('/api/pay-runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contractor_id: contractorId,
           job_ids: selectedJobs.map(j => j.id),
+          deductions: dedOut,
           confirmation_code: code.trim(),
           payment_method: method || null,
           paid_on: paidOn,
@@ -78,11 +92,12 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
   };
 
   const inputStyle = { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' };
+  const numInput = { ...inputStyle, width: 84 } as const;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+      <div className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Record Lump Payment</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
@@ -116,15 +131,41 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
                       </div>
                     </div>
                     <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-                      {current.jobs.map(j => (
-                        <label key={j.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-white/5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                          <input type="checkbox" checked={!!checked[j.id]} onChange={() => setChecked(s => ({ ...s, [j.id]: !s[j.id] }))} />
-                          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{j.job_number}</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>{j.customer_name || '—'}</span>
-                          <span className="ml-auto tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatCurrency(j.payment_amount)}</span>
-                        </label>
-                      ))}
+                      <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-secondary)' }}>
+                        <span style={{ width: 16 }} />
+                        <span className="flex-1">Job / Customer</span>
+                        <span className="text-right" style={{ width: 84 }}>Pay</span>
+                        <span className="text-right" style={{ width: 84 }}>Deduct</span>
+                        <span className="text-right" style={{ width: 84 }}>Net</span>
+                      </div>
+                      {current.jobs.map(j => {
+                        const on = !!checked[j.id];
+                        return (
+                          <div key={j.id} className="flex items-center gap-2 px-3 py-2 text-sm" style={{ borderTop: '1px solid var(--border-subtle)', opacity: on ? 1 : 0.5 }}>
+                            <input type="checkbox" checked={on} onChange={() => setChecked(s => ({ ...s, [j.id]: !s[j.id] }))} />
+                            <span className="flex-1 min-w-0 truncate">
+                              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{j.job_number}</span>
+                              <span style={{ color: 'var(--text-secondary)' }}> · {j.customer_name || '—'}</span>
+                            </span>
+                            <span className="text-right tabular-nums" style={{ width: 84, color: 'var(--text-secondary)' }}>{formatCurrency(j.payment_amount)}</span>
+                            <input inputMode="decimal" value={deductions[j.id] || ''} placeholder="0"
+                              onChange={e => setDeductions(s => ({ ...s, [j.id]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                              className="rounded px-2 py-1 text-sm text-right tabular-nums" style={numInput} disabled={!on} />
+                            <span className="text-right tabular-nums" style={{ width: 84, color: numOf(deductions[j.id]) > 0 ? '#d29922' : 'var(--text-primary)' }}>{formatCurrency(netOf(j))}</span>
+                          </div>
+                        );
+                      })}
                     </div>
+                    {totalDeduct > 0 && <div className="text-[11px] mt-1" style={{ color: '#d29922' }}>Damage deducted: {formatCurrency(totalDeduct)} across the selected jobs</div>}
+                  </div>
+
+                  {/* Memo for Gusto */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Memo (paste into Gusto)</label>
+                      <button onClick={copyMemo} disabled={selectedJobs.length === 0} className="text-xs px-2 py-0.5 rounded" style={{ border: '1px solid var(--border-subtle)', color: copied ? 'var(--christmas-green)' : 'var(--text-secondary)' }}>{copied ? 'Copied ✓' : 'Copy'}</button>
+                    </div>
+                    <textarea readOnly value={memoText} rows={Math.min(6, Math.max(2, selectedJobs.length))} className="w-full rounded-lg px-3 py-2 text-xs font-mono" style={inputStyle} />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -133,7 +174,7 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
                       <input inputMode="decimal" value={amountOverride} onChange={e => setAmountOverride(e.target.value.replace(/[^0-9.]/g, ''))}
                         placeholder={summed.toFixed(2)} className="w-full rounded-lg px-3 py-2 text-sm text-right tabular-nums" style={inputStyle} />
                       <div className="text-[11px] mt-1" style={{ color: variance !== 0 ? '#d29922' : 'var(--text-muted)' }}>
-                        Sum of {selectedJobs.length} job{selectedJobs.length !== 1 ? 's' : ''}: {formatCurrency(summed)}{variance !== 0 ? ` · ${variance > 0 ? '+' : ''}${formatCurrency(variance)} vs sum` : ''}
+                        Net of {selectedJobs.length} job{selectedJobs.length !== 1 ? 's' : ''}{totalDeduct > 0 ? ` (after ${formatCurrency(totalDeduct)} damage)` : ''}: {formatCurrency(summed)}{variance !== 0 ? ` · ${variance > 0 ? '+' : ''}${formatCurrency(variance)} vs net` : ''}
                       </div>
                     </div>
                     <div>
@@ -155,6 +196,7 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
                         <option value="ACH">ACH</option>
                         <option value="Zelle">Zelle</option>
                         <option value="Wire">Wire</option>
+                        <option value="Gusto">Gusto</option>
                         <option value="Other">Other</option>
                       </select>
                     </div>

@@ -19,7 +19,7 @@ export async function GET() {
   const supabase = getServerSupabase();
   const { data: jobs, error } = await supabase
     .from('ap_install_jobs')
-    .select('id, job_number, customer_name, completed_date, payment_amount, contractor_id')
+    .select('id, job_number, customer_name, job_address, completed_date, payment_amount, contractor_id')
     .eq('assignment_type', 'contractor')
     .eq('payment_status', 'ready_to_pay')
     .or('is_ignored.is.null,is_ignored.eq.false')
@@ -40,7 +40,7 @@ export async function GET() {
       byContractor.set(j.contractor_id, { contractor_id: j.contractor_id, contractor_name: nameById.get(j.contractor_id) || 'Unknown', jobs: [] });
     }
     byContractor.get(j.contractor_id).jobs.push({
-      id: j.id, job_number: j.job_number, customer_name: j.customer_name,
+      id: j.id, job_number: j.job_number, customer_name: j.customer_name, job_address: j.job_address || null,
       completed_date: j.completed_date, payment_amount: j.payment_amount != null ? Number(j.payment_amount) : 0,
     });
   }

@@ -19,12 +19,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: jobs } = await supabase
     .from('ap_install_jobs')
-    .select('id, st_job_id, job_number, customer_name, completed_date, payment_amount')
+    .select('id, st_job_id, job_number, customer_name, job_address, completed_date, payment_amount, payment_deduction')
     .eq('payment_batch_id', id)
     .order('completed_date', { ascending: true, nullsFirst: false });
 
   return NextResponse.json({
     run,
-    jobs: (jobs || []).map((j: any) => ({ ...j, payment_amount: j.payment_amount != null ? Number(j.payment_amount) : 0 })),
+    jobs: (jobs || []).map((j: any) => {
+      const amt = j.payment_amount != null ? Number(j.payment_amount) : 0;
+      const ded = j.payment_deduction != null ? Number(j.payment_deduction) : 0;
+      return { ...j, payment_amount: amt, deduction: ded, net: Math.round((amt - ded) * 100) / 100 };
+    }),
   });
 }

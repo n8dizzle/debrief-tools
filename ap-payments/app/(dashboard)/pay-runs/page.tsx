@@ -9,7 +9,7 @@ interface Run {
   confirmation_code: string | null; payment_method: string | null; paid_on: string | null;
   paid_by_name: string | null; notes: string | null; created_at: string;
 }
-interface RunJob { id: string; st_job_id: number | null; job_number: string; customer_name: string | null; completed_date: string | null; payment_amount: number; }
+interface RunJob { id: string; st_job_id: number | null; job_number: string; customer_name: string | null; completed_date: string | null; payment_amount: number; deduction: number; net: number; }
 
 export default function PayRunsPage() {
   const perms = useAPPermissions();
@@ -126,7 +126,9 @@ export default function PayRunsPage() {
                                 <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-left">Job #</th>
                                 <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-left">Customer</th>
                                 <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-left">Completed</th>
-                                <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-right">Amount</th>
+                                <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-right">Pay</th>
+                                <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-right">Deduct</th>
+                                <th className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-right">Net</th>
                               </tr></thead>
                               <tbody>
                                 {detail.map(j => (
@@ -138,7 +140,9 @@ export default function PayRunsPage() {
                                     </td>
                                     <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-primary)' }}>{j.customer_name || '—'}</td>
                                     <td className="px-2.5 py-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{j.completed_date ? formatDate(j.completed_date) : '—'}</td>
-                                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatCurrency(j.payment_amount)}</td>
+                                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(j.payment_amount)}</td>
+                                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums" style={{ color: j.deduction > 0 ? '#d29922' : 'var(--text-muted)' }}>{j.deduction > 0 ? `-${formatCurrency(j.deduction)}` : '—'}</td>
+                                    <td className="px-2.5 py-1.5 text-xs text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(j.net)}</td>
                                   </tr>
                                 ))}
                               </tbody>
