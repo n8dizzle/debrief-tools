@@ -85,6 +85,7 @@ export default function RecallTrendsPage() {
           <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
             {data ? `${data.total_recalls} recalls in this period` : 'Recall trends and root-cause analysis'}
             {' · '}<Link href="/recalls/queue" style={{ color: 'var(--christmas-green-light)' }}>View queue →</Link>
+            {' · '}<a href="/q/demo" target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)' }}>Preview tech view ↗</a>
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
             Service technicians only.

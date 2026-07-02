@@ -247,7 +247,10 @@ export default function RcaPage() {
 
       {/* Research questions */}
       <div style={PANEL}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Research questions</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Research questions</h2>
+          <a href="/q/demo" target="_blank" rel="noreferrer" title="See exactly what a technician sees when answering (sample data, nothing saved)" style={{ fontSize: 12, color: 'var(--christmas-green-light)' }}>↗ Preview tech view</a>
+        </div>
         {d.questions.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>No questions yet — add the first one to start the investigation.</p>}
         {d.questions.map(q => (
           <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} onDelete={deleteQuestion} onTextTech={textTech} textResult={textResults[q.id]} />
