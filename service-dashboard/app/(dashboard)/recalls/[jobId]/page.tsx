@@ -86,12 +86,15 @@ export default function RcaPage() {
     await fetch(`/api/recalls/${jobId}/questions`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     await load();
   };
-  const [askLinks, setAskLinks] = useState<Record<string, { link: string; message: string }>>({});
-  const askTech = async (id: string) => {
-    const res = await fetch(`/api/recalls/${jobId}/questions/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) setAskLinks(prev => ({ ...prev, [id]: { link: body.link, message: body.message } }));
-    else alert(body.error || 'Could not create the link');
+  const [textResults, setTextResults] = useState<Record<string, { sent: boolean; to?: string; link?: string; message?: string; error?: string; loading?: boolean }>>({});
+  const textTech = async (id: string) => {
+    setTextResults(prev => ({ ...prev, [id]: { sent: false, loading: true } }));
+    try {
+      const res = await fetch(`/api/recalls/${jobId}/questions/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setTextResults(prev => ({ ...prev, [id]: { sent: false, error: body.error || `Error ${res.status}` } })); return; }
+      setTextResults(prev => ({ ...prev, [id]: body })); // {sent:true,to} or {sent:false,link,message,error}
+    } catch (e) { setTextResults(prev => ({ ...prev, [id]: { sent: false, error: (e as Error).message } })); }
   };
 
   if (loading) return <div style={{ padding: 24, color: 'var(--text-muted)' }}>Loading investigation…</div>;
@@ -208,7 +211,7 @@ export default function RcaPage() {
         <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Research questions</h2>
         {d.questions.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>No questions yet — add the first one to start the investigation.</p>}
         {d.questions.map(q => (
-          <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} onDelete={deleteQuestion} onAskTech={askTech} askInfo={askLinks[q.id]} />
+          <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} onDelete={deleteQuestion} onTextTech={textTech} textResult={textResults[q.id]} />
         ))}
         {canInvestigate && (
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -237,7 +240,7 @@ export default function RcaPage() {
   );
 }
 
-function QuestionRow({ q, canInvestigate, onAnswer, onDelete, onAskTech, askInfo }: { q: Question; canInvestigate: boolean; onAnswer: (id: string, a: string) => void; onDelete: (id: string) => void; onAskTech: (id: string) => void; askInfo?: { link: string; message: string } }) {
+function QuestionRow({ q, canInvestigate, onAnswer, onDelete, onTextTech, textResult }: { q: Question; canInvestigate: boolean; onAnswer: (id: string, a: string) => void; onDelete: (id: string) => void; onTextTech: (id: string) => void; textResult?: { sent: boolean; to?: string; link?: string; message?: string; error?: string; loading?: boolean } }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState<'link' | 'msg' | null>(null);
@@ -260,17 +263,26 @@ function QuestionRow({ q, canInvestigate, onAnswer, onDelete, onAskTech, askInfo
       {canInvestigate && !answered && !editing && (
         <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
           <button onClick={() => setEditing(true)} style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Answer</button>
-          <button onClick={() => onAskTech(q.id)} title="Create a link to text the technician" style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Ask the tech</button>
+          <button onClick={() => onTextTech(q.id)} disabled={textResult?.loading} title="Text this question to the original technician" style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: textResult?.loading ? 'wait' : 'pointer', padding: 0 }}>
+            {textResult?.loading ? 'Texting…' : '📱 Text the tech'}
+          </button>
         </div>
       )}
-      {askInfo && !answered && (
+      {textResult?.sent && !answered && (
+        <div style={{ fontSize: 12, color: 'var(--status-success)', marginTop: 6 }}>✓ Texted to {textResult.to} — their answer will appear here.</div>
+      )}
+      {textResult && !textResult.sent && !textResult.loading && (textResult.link || textResult.error) && !answered && (
         <div style={{ marginTop: 8, padding: 10, borderRadius: 8, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Send this to the technician — they answer on the link (no login), and it lands here.</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: 8 }}>{askInfo.link}</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => copy(askInfo.message, 'msg')} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>{copied === 'msg' ? 'Copied ✓' : 'Copy text message'}</button>
-            <button onClick={() => copy(askInfo.link, 'link')} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}>{copied === 'link' ? 'Copied ✓' : 'Copy link only'}</button>
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: textResult.link ? 6 : 0 }}>{textResult.error || 'Could not text automatically.'}</div>
+          {textResult.link && (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: 8 }}>{textResult.link}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => copy(textResult.message || textResult.link!, 'msg')} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>{copied === 'msg' ? 'Copied ✓' : 'Copy text message'}</button>
+                <button onClick={() => copy(textResult.link!, 'link')} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}>{copied === 'link' ? 'Copied ✓' : 'Copy link only'}</button>
+              </div>
+            </>
+          )}
         </div>
       )}
       {answered && q.answered_via === 'tech_link' && (

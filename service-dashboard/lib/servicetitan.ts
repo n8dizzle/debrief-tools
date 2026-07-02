@@ -14,6 +14,8 @@ export interface STTechnician {
   name: string;
   active: boolean;
   businessUnitId?: number;
+  mobilePhone?: string;
+  phoneNumber?: string;
 }
 
 export interface STJob {
@@ -272,6 +274,17 @@ export class ServiceTitanClient {
       { active: 'true' },
       20
     );
+  }
+
+  /**
+   * Look up a technician's phone (mobile preferred) by ST technician id.
+   * Returns null if the tech isn't found or has no number. Used to text a recall's
+   * original tech via the ask-the-tech magic link.
+   */
+  async getTechnicianPhone(techId: number): Promise<string | null> {
+    const techs = await this.getTechnicians();
+    const t = techs.find(x => x.id === techId);
+    return (t?.mobilePhone || t?.phoneNumber || null) as string | null;
   }
 
   /**
