@@ -148,6 +148,7 @@ export const INSTALL_TEAMS = [
 export const SVC_SUBTYPES = [
   'HVAC',
   'Plumbing',
+  'Duct Cleaning',
   'Duct',
   'IAQ',
   'Electrical',

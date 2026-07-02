@@ -171,14 +171,23 @@ export default function InstallPage() {
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: ageColor(daysSince(o.date)) }}>{fmtMD(o.date)}</span>
                       </td>
 
-                      <td><input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })} style={{ minWidth: 95, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} /></td>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })} style={{ minWidth: 95, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
+                          {o.st_url && (
+                            <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+                              onClick={e => e.stopPropagation()}
+                              style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
+                          )}
+                        </span>
+                      </td>
 
                       <td><input className="si" value={o.customer || ''} onChange={e => save(o.id, { customer: e.target.value })} style={{ minWidth: 130 }} /></td>
 
                       <td>
-                        <select className="si-sel" style={{ minWidth: 90 }} value={INSTALL_TECHS.includes(o.tech ?? '') ? (o.tech ?? '') : 'Other'} onChange={e => {
-                          if (e.target.value !== 'Other') save(o.id, { tech: e.target.value });
-                        }}>
+                        <select className="si-sel" style={{ minWidth: 90 }} value={o.tech || ''} onChange={e => save(o.id, { tech: e.target.value })}>
+                          <option value="">— tech —</option>
+                          {o.tech && !INSTALL_TECHS.includes(o.tech) && <option value={o.tech}>{o.tech}</option>}
                           {INSTALL_TECHS.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>

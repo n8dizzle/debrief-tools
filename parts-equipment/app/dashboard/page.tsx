@@ -119,7 +119,9 @@ export default function DashboardPage() {
               const age = daysSince(o.date);
               switch (key) {
                 case 'customer': return <span style={{ fontWeight: 500 }}>{o.customer}</span>;
-                case 'job': return <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
+                case 'job': return o.st_url
+                  ? <a href={o.st_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>#{o.job} ↗</a>
+                  : <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
                 case 'type': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.subtype || o.order_type}</span>;
                 case 'tech': return o.tech;
                 case 'estcost': return <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }}>{o.estimate_cost || o.job_cost || '—'}</span>;
@@ -153,7 +155,9 @@ export default function DashboardPage() {
               const age = daysSince(o.date);
               switch (key) {
                 case 'customer': return <span style={{ fontWeight: 500 }}>{o.customer}</span>;
-                case 'job': return <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
+                case 'job': return o.st_url
+                  ? <a href={o.st_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>#{o.job} ↗</a>
+                  : <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
                 case 'type': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.subtype}</span>;
                 case 'owner': return <span style={{ fontSize: 11 }}>{o.owner}</span>;
                 case 'location': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.location}</span>;
@@ -187,7 +191,9 @@ export default function DashboardPage() {
               const age = daysSince(o.date);
               switch (key) {
                 case 'customer': return <span style={{ fontWeight: 500 }}>{o.customer}</span>;
-                case 'job': return <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
+                case 'job': return o.st_url
+                  ? <a href={o.st_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>#{o.job} ↗</a>
+                  : <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
                 case 'part': return <span style={{ fontSize: 11 }}>{o.part?.slice(0, 30)}{o.part && o.part.length > 30 ? '…' : ''}</span>;
                 case 'owner': return <span style={{ fontSize: 11 }}>{o.owner}</span>;
                 case 'location': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.location}</span>;
@@ -221,7 +227,9 @@ export default function DashboardPage() {
               const age = daysSince(o.date);
               switch (key) {
                 case 'customer': return <span style={{ fontWeight: 500 }}>{o.customer}</span>;
-                case 'job': return <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
+                case 'job': return o.st_url
+                  ? <a href={o.st_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>#{o.job} ↗</a>
+                  : <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
                 case 'type': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.order_type === 'install' ? 'Install' : o.subtype}</span>;
                 case 'owner': return <span style={{ fontSize: 11 }}>{o.owner}</span>;
                 case 'location': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.location}</span>;

@@ -173,14 +173,22 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })}
-                          style={{ minWidth: 100, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
-                        {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })}
+                            style={{ minWidth: 100, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
+                          {o.st_url && (
+                            <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+                              onClick={e => e.stopPropagation()}
+                              style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
+                          )}
+                          {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
+                        </span>
                       </td>
 
                       <td>
                         <select className="si-sel" value={o.tech || ''} onChange={e => save(o.id, { tech: e.target.value })} style={{ minWidth: 100 }}>
                           <option value="">— tech —</option>
+                          {o.tech && !TECHS.includes(o.tech) && <option value={o.tech}>{o.tech}</option>}
                           {TECHS.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>

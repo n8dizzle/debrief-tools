@@ -22,6 +22,20 @@ function isInstallBU(bu: string): boolean {
   return lower.includes('install') || lower.includes('sales');
 }
 
+// Type column value (subtype) from the business unit + estimate title:
+//   - estimate title contains "Duct Cleaning" -> Duct Cleaning
+//   - BU starts with "HVAC" -> HVAC   (incl. HVAC-Sales; the Install tab
+//     placement is handled separately by isInstallBU)
+//   - BU starts with "Plumbing" -> Plumbing
+function classifyType(businessUnit: string, estimateTitle: string): string {
+  const bu = (businessUnit || '').trim().toLowerCase();
+  const title = (estimateTitle || '').toLowerCase();
+  if (title.includes('duct cleaning')) return 'Duct Cleaning';
+  if (bu.startsWith('hvac')) return 'HVAC';
+  if (bu.startsWith('plumbing')) return 'Plumbing';
+  return '';
+}
+
 export async function GET(request: Request) {
   const auth = request.headers.get('Authorization');
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -126,6 +140,10 @@ export async function GET(request: Request) {
           // tenant a job's number equals its id, so the deep link is built directly.
           const customer = row.customer || '';
           const orderType = isInstallBU(row.businessUnit) ? 'install' : 'service';
+          // Estimate title (e.g. "Blower wheel clean") is what we'll be doing —
+          // it belongs in Part/Description, not WH Notes.
+          const estimateTitle = row.note || row.part || '';
+          const subtype = classifyType(row.businessUnit, estimateTitle);
           const soldDate = row.soldDate || today;
           const jobNumber = row.jobNumber || '';
           const jobIdNum = jobNumber ? parseInt(jobNumber, 10) : NaN;
@@ -140,9 +158,10 @@ export async function GET(request: Request) {
             customer,
             tech: row.tech,
             order_type: orderType,
-            part: row.part,
+            subtype,
+            part: estimateTitle,
             estimate_cost: row.estimateCost,
-            note_wh: row.note,
+            note_wh: '',
             st_url: stUrl,
             status: 'open',
             needs_order: true,
