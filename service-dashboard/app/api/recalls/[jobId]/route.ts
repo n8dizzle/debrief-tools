@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { getServiceTitanClient } from '@/lib/servicetitan';
 import { hasRecallPermission, ROOT_CAUSE_CATEGORIES } from '@/lib/qc-recalls';
 
 type Ctx = { params: Promise<{ jobId: string }> };
@@ -41,10 +42,28 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     activity = a || [];
   }
 
+  // Job summary + notes from ServiceTitan (best-effort, parallel — don't fail the page if ST is slow).
+  let jobDetails: unknown = null;
+  try {
+    const st = getServiceTitanClient();
+    const origId: number | null = recall?.st_original_job_id ?? null;
+    const [recallJob, recallNotes, origJob, origNotes] = await Promise.all([
+      st.getJobById(jobId),
+      st.getJobNotes(jobId),
+      origId ? st.getJobById(origId) : Promise.resolve(null),
+      origId ? st.getJobNotes(origId) : Promise.resolve([] as { text: string; createdOn?: string }[]),
+    ]);
+    jobDetails = {
+      recall: { summary: recallJob?.summaryOfWork || recallJob?.summary || null, notes: recallNotes },
+      original: origId ? { job_id: origId, summary: origJob?.summaryOfWork || origJob?.summary || null, notes: origNotes } : null,
+    };
+  } catch { jobDetails = null; }
+
   return NextResponse.json({
     job_id: jobId,
     recall: recall ? { ...recall, tech_name: techName } : null,
     equipment,
+    job_details: jobDetails,
     investigation: investigation || null,
     questions,
     activity,

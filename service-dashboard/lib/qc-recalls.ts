@@ -173,6 +173,22 @@ export async function syncRecalls(
     }
   }
 
+  // Customer names (crm/v2). Skip recalls that already have a name to avoid re-fetching every sync.
+  const existingNames = new Map<number, string>();
+  const recallIds = recallJobs.map(j => j.id);
+  if (recallIds.length > 0) {
+    const { data: ex } = await supabase.from('sd_recalls_caused').select('st_recall_job_id, customer_name').in('st_recall_job_id', recallIds);
+    for (const r of (ex || [])) if (r.customer_name) existingNames.set(r.st_recall_job_id, r.customer_name);
+  }
+  const custNames = new Map<number, string>();
+  const needCust = Array.from(new Set(
+    recallJobs.filter(j => !existingNames.has(j.id) && j.customerId != null).map(j => j.customerId as number)
+  ));
+  for (const cid of needCust) {
+    const c = await st.getCustomer(cid);
+    if (c) custNames.set(cid, c.name);
+  }
+
   for (const recall of recallJobs) {
     const originalId = recall.recallForId!;
     let causedByTechId = origTech.get(originalId);
@@ -206,6 +222,7 @@ export async function syncRecalls(
         business_unit_name: buName,
         business_unit_id: recall.businessUnitId ?? null,
         is_service_bu: serviceBUSet.has(recall.businessUnitId),
+        customer_name: existingNames.get(recall.id) || (recall.customerId != null ? custNames.get(recall.customerId) : null) || null,
         trade,
         st_location_id: recall.locationId ?? null,
         st_original_completed_date: origCompletedOn,

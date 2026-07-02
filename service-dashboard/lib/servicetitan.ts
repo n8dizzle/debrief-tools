@@ -27,7 +27,8 @@ export interface STJob {
   locationId?: number;
   completedOn?: string;
   createdOn?: string;
-  summary?: string;
+  summary?: string;        // job-type boilerplate/description
+  summaryOfWork?: string;  // the actual work write-up
   total?: number;
   // ST sets this when the job is a recall — points back to the original job
   // whose work caused the callback. Used for "Recalls Caused" attribution.
@@ -381,6 +382,24 @@ export class ServiceTitanClient {
    * outside the local sd_completed_jobs window.
    * Returns null if the job is not found.
    */
+  /** Customer name by id (crm/v2 customers). Returns null if not found. */
+  async getCustomer(customerId: number): Promise<{ name: string } | null> {
+    try {
+      const c = await this.request<{ name?: string }>('GET', `crm/v2/tenant/${this.tenantId}/customers/${customerId}`);
+      return c?.name ? { name: c.name } : null;
+    } catch { return null; }
+  }
+
+  /** Job notes (jpm/v2 jobs/{id}/notes). Returns [] on error. Newest-ish order as ST returns. */
+  async getJobNotes(jobId: number): Promise<{ text: string; createdOn?: string }[]> {
+    try {
+      const r = await this.request<STPagedResponse<{ text?: string; createdOn?: string }>>(
+        'GET', `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}/notes`, { params: { pageSize: '50' } }
+      );
+      return (r.data || []).filter(n => n.text && n.text.trim()).map(n => ({ text: n.text as string, createdOn: n.createdOn }));
+    } catch { return []; }
+  }
+
   async getJobById(jobId: number): Promise<STJob | null> {
     try {
       return await this.request<STJob>(

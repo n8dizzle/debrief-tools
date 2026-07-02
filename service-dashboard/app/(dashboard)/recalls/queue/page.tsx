@@ -80,6 +80,8 @@ export default function RecallQueuePage() {
             <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
               <thead><tr style={{ color: 'var(--text-muted)', textAlign: 'left', fontSize: 12, backgroundColor: 'var(--bg-secondary)' }}>
                 <th style={{ padding: '10px 12px' }}>Date</th>
+                <th style={{ padding: '10px 12px' }}>Job #</th>
+                <th style={{ padding: '10px 12px' }}>Customer</th>
                 <th style={{ padding: '10px 12px' }}>Original tech</th>
                 <th style={{ padding: '10px 12px' }}>Trade</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>Days to recall</th>
@@ -91,6 +93,10 @@ export default function RecallQueuePage() {
                 {rows.map(r => (
                   <tr key={r.st_recall_job_id} style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{r.recall_created_on}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      <a href={`https://go.servicetitan.com/Job/Index/${r.st_recall_job_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--christmas-green-light)' }}>#{r.st_recall_job_id} ↗</a>
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>{r.customer_name || '—'}</td>
                     <td style={{ padding: '10px 12px' }}>{r.tech_name}</td>
                     <td style={{ padding: '10px 12px', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{r.trade || '—'}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>{r.days_to_recall ?? '—'}</td>

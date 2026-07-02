@@ -15,6 +15,36 @@ interface Detail {
   questions: Question[];
   activity: { id: string; action: string; created_at: string }[];
   root_cause_categories: string[];
+  job_details?: {
+    recall: { summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
+    original: { job_id: number; summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
+  } | null;
+}
+
+function JobDetailBlock({ label, jobId, data }: { label: string; jobId?: number; data: { summary: string | null; notes: { text: string; createdOn?: string }[] } | null }) {
+  if (!data) return null;
+  const hasSummary = !!data.summary?.trim();
+  const notes = data.notes || [];
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+        {label}{jobId ? ` (job #${jobId})` : ''}
+      </div>
+      {hasSummary
+        ? <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{data.summary}</div>
+        : <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No summary of work.</div>}
+      {notes.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Notes:</div>
+          {notes.map((n, i) => (
+            <div key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '2px 0 2px 10px', borderLeft: '2px solid var(--border-default)', marginBottom: 4, whiteSpace: 'pre-wrap' }}>
+              {n.text}{n.createdOn ? <span style={{ color: 'var(--text-muted)', fontSize: 11 }}> · {new Date(n.createdOn).toLocaleDateString()}</span> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const ST_BASE = 'https://go.servicetitan.com';
@@ -132,6 +162,15 @@ export default function RcaPage() {
           <a href={`${ST_BASE}/Job/Index/${d.job_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)', fontSize: 13 }}>Open in ServiceTitan ↗</a>
         </div>
       </div>
+
+      {/* Job details (summary + notes from ServiceTitan) */}
+      {d.job_details && (
+        <div style={PANEL}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Job details</h2>
+          <JobDetailBlock label="Recall job" jobId={d.job_id} data={d.job_details.recall} />
+          {d.job_details.original && <JobDetailBlock label="Original job" jobId={d.job_details.original.job_id} data={d.job_details.original} />}
+        </div>
+      )}
 
       {/* Root cause + status */}
       <div style={PANEL}>
