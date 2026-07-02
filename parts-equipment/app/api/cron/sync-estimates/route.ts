@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getServiceTitanClient, isJobTerminal } from '@/lib/servicetitan';
+import { getServiceTitanClient } from '@/lib/servicetitan';
 
 function formatLocalDate(date: Date): string {
   const y = date.getFullYear();
@@ -9,10 +9,17 @@ function formatLocalDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function formatLocalDateTime(date: Date): string {
-  const h = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  return `${formatLocalDate(date)}T${h}:${min}:00`;
+function parseSinceParam(sinceParam: string): string {
+  // Accept YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS — reports use date-only params.
+  if (/^\d{4}-\d{2}-\d{2}/.test(sinceParam)) return sinceParam.slice(0, 10);
+  const d = new Date(sinceParam);
+  if (isNaN(d.getTime())) return formatLocalDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+  return formatLocalDate(d);
+}
+
+function isInstallBU(bu: string): boolean {
+  const lower = bu.toLowerCase();
+  return lower.includes('install') || lower.includes('sales');
 }
 
 export async function GET(request: Request) {
@@ -20,6 +27,10 @@ export async function GET(request: Request) {
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const url = new URL(request.url);
+  const sinceParam = url.searchParams.get('since');
+  const probe = url.searchParams.get('probe') === '1';
 
   const st = getServiceTitanClient();
   if (!st.isConfigured()) {
@@ -31,85 +42,108 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Optional ?since=YYYY-MM-DDTHH:MM:SS for manual backfill; defaults to 2h ago
-  const url = new URL(request.url);
-  const sinceParam = url.searchParams.get('since');
-  const sinceStr = sinceParam || formatLocalDateTime(new Date(Date.now() - 2 * 60 * 60 * 1000));
+  const today = formatLocalDate(new Date());
+  const fromDate = sinceParam
+    ? parseSinceParam(sinceParam)
+    : formatLocalDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
   try {
-    // --- Part A: close out open orders whose jobs are now complete ---
+    if (probe) {
+      const probeResult = await st.probePartsReport(fromDate, today);
+      return NextResponse.json({ ok: true, from: fromDate, to: today, ...probeResult });
+    }
+
+    // The report is the source of truth for sold, unbooked estimates.
+    // Its saved filters guarantee: Opportunity=won, Estimate=sold, Install Job(s) empty.
+    // An order is OPEN while it appears in the report; it is CLOSED once it drops out
+    // (i.e., it got booked / an install job was created). We do NOT look at the parent
+    // job's status — for sold-but-unbooked estimates the parent job is usually complete.
+    const { rows: reportRows } = await st.getPartsOrdersReport(fromDate, today);
+    const currentEstimateIds = new Set(
+      reportRows.map(r => r.estimateId).filter((id): id is number => id != null)
+    );
+
+    // --- Part A: close in-window open orders that dropped out of the report ---
+    // Only touch orders inside the report window; the windowed report cannot speak to
+    // older orders, so those are left alone.
     let closed = 0;
     const { data: openOrders } = await supabase
       .from('pe_orders')
-      .select('id, st_estimate_id, job')
+      .select('id, st_estimate_id, date')
       .eq('status', 'open')
-      .not('st_estimate_id', 'is', null);
+      .not('st_estimate_id', 'is', null)
+      .gte('date', fromDate)
+      .lte('date', today);
 
     if (openOrders && openOrders.length > 0) {
       for (const order of openOrders) {
-        try {
-          // We need the job ID — parse it from the job number or look up via estimate
-          const jobIdNum = order.job ? parseInt(String(order.job), 10) : null;
-          if (!jobIdNum || isNaN(jobIdNum)) continue;
-          const job = await st.getJob(jobIdNum);
-          if (isJobTerminal(job)) {
-            await supabase
-              .from('pe_orders')
-              .update({ status: 'completed', completed_at: new Date().toISOString() })
-              .eq('id', order.id);
-            closed++;
-          }
-        } catch {
-          // Skip if job lookup fails
+        if (order.st_estimate_id != null && !currentEstimateIds.has(order.st_estimate_id)) {
+          await supabase
+            .from('pe_orders')
+            .update({ status: 'completed', completed_at: new Date().toISOString() })
+            .eq('id', order.id);
+          closed++;
         }
       }
     }
 
-    // --- Part B: add new estimates sold since `sinceStr` ---
-    const estimates = await st.getSoldEstimates(sinceStr);
+    // --- Part B: insert report rows not already tracked ---
     let created = 0;
+    let skipped = 0;
 
-    if (estimates.length > 0) {
-      // Fetch existing estimate IDs to dedup
+    if (reportRows.length > 0) {
       const { data: existing } = await supabase
         .from('pe_orders')
-        .select('st_estimate_id')
-        .not('st_estimate_id', 'is', null);
+        .select('st_estimate_id, job');
 
-      const existingIds = new Set((existing || []).map((r: { st_estimate_id: number }) => r.st_estimate_id));
-      const newEstimates = estimates.filter(e => !existingIds.has(e.id));
+      const existingEstimateIds = new Set(
+        (existing || [])
+          .map((r: { st_estimate_id: number | null }) => r.st_estimate_id)
+          .filter((id): id is number => id != null)
+      );
+      const existingJobs = new Set(
+        (existing || [])
+          .map((r: { job: string }) => String(r.job || '').trim())
+          .filter(Boolean)
+      );
 
-      for (const estimate of newEstimates) {
+      for (const row of reportRows) {
         try {
-          const job = estimate.jobId ? await st.getJob(estimate.jobId) : null;
+          // Dedup by estimate id (one row per estimate). A parent job can carry many
+          // estimates, so only fall back to job-number dedup when there is no estimate id.
+          if (row.estimateId != null) {
+            if (existingEstimateIds.has(row.estimateId)) {
+              skipped++;
+              continue;
+            }
+          } else if (row.jobNumber && existingJobs.has(row.jobNumber)) {
+            skipped++;
+            continue;
+          }
 
-          // Skip estimates whose jobs are already completed/cancelled
-          if (isJobTerminal(job)) continue;
-
-          const customer = job?.customerId ? await st.getCustomer(job.customerId) : null;
-
-          const buName = (job?.businessUnitName || '').toLowerCase();
-          const orderType = buName.includes('install') ? 'install' : 'service';
-
-          const materials = (estimate.items || [])
-            .filter(i => i.type === 'Material' || i.type === 'Equipment')
-            .map(i => i.skuName || i.displayName || i.description || '')
-            .filter(Boolean);
-
-          const soldDate = estimate.soldOn
-            ? estimate.soldOn.split('T')[0]
-            : formatLocalDate(new Date());
+          // Everything needed comes straight from the report row — no per-row job
+          // lookup (that made 60+ ST calls per sync and tripped rate limits). In this
+          // tenant a job's number equals its id, so the deep link is built directly.
+          const customer = row.customer || '';
+          const orderType = isInstallBU(row.businessUnit) ? 'install' : 'service';
+          const soldDate = row.soldDate || today;
+          const jobNumber = row.jobNumber || '';
+          const jobIdNum = jobNumber ? parseInt(jobNumber, 10) : NaN;
+          const stUrl = !isNaN(jobIdNum)
+            ? `https://go.servicetitan.com/#/Job/Index/${jobIdNum}`
+            : '';
 
           const { error } = await supabase.from('pe_orders').insert({
-            st_estimate_id: estimate.id,
+            st_estimate_id: row.estimateId,
             date: soldDate,
-            job: job?.jobNumber || '',
-            customer: customer?.name || '',
+            job: jobNumber,
+            customer,
+            tech: row.tech,
             order_type: orderType,
-            part: materials.join(', '),
-            estimate_cost: estimate.total != null ? String(estimate.total) : '',
-            note_wh: estimate.name || estimate.summary || '',
-            st_url: job ? `https://go.servicetitan.com/#/Job/Index/${job.id}` : '',
+            part: row.part,
+            estimate_cost: row.estimateCost,
+            note_wh: row.note,
+            st_url: stUrl,
             status: 'open',
             needs_order: true,
             location: 'Place Order',
@@ -117,20 +151,31 @@ export async function GET(request: Request) {
           });
 
           if (error) {
-            console.error(`Failed to insert estimate ${estimate.id}:`, error.message);
+            console.error(`Failed to insert report row (job ${jobNumber}):`, error.message);
           } else {
             created++;
+            if (row.estimateId != null) existingEstimateIds.add(row.estimateId);
+            if (jobNumber) existingJobs.add(jobNumber);
           }
         } catch (err) {
-          console.error(`Error processing estimate ${estimate.id}:`, err);
+          console.error(`Error processing report row (job ${row.jobNumber}):`, err);
         }
       }
     }
 
-    console.log(`Estimate sync: scanned=${estimates.length} created=${created} closed=${closed}`);
-    return NextResponse.json({ ok: true, scanned: estimates.length, created, closed });
+    console.log(`Parts report sync: scanned=${reportRows.length} created=${created} skipped=${skipped} closed=${closed}`);
+    return NextResponse.json({
+      ok: true,
+      source: 'report-54646792',
+      from: fromDate,
+      to: today,
+      scanned: reportRows.length,
+      created,
+      skipped,
+      closed,
+    });
   } catch (err) {
-    console.error('Estimate sync failed:', err);
+    console.error('Parts report sync failed:', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
