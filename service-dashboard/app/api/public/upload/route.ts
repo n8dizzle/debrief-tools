@@ -1,15 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
+import convert from 'heic-convert';
 import { getServerSupabase } from '@/lib/supabase';
 
 // Public, token-gated photo upload for a recall investigation — no login.
 // The photo_upload_token on sd_recall_investigations is the secret. Exempt from the
 // auth middleware (see middleware.ts matcher: /upload and /api/public).
 
+// heic-convert is pure JS (no native deps) but still needs the Node runtime + a few
+// seconds of headroom for large iPhone photos.
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 const ALLOWED: Record<string, string> = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
 };
+
+// iOS sometimes sends HEIC with an empty MIME type — fall back to the filename extension.
+function detectType(file: File): string {
+  if (file.type) return file.type;
+  const n = (file.name || '').toLowerCase();
+  if (n.endsWith('.heic')) return 'image/heic';
+  if (n.endsWith('.heif')) return 'image/heif';
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+  if (n.endsWith('.png')) return 'image/png';
+  if (n.endsWith('.webp')) return 'image/webp';
+  return '';
+}
 
 async function resolve(token: string) {
   if (!token) return null;
@@ -55,19 +73,35 @@ export async function POST(request: NextRequest) {
   const file = form?.get('file');
   if (!(file instanceof File)) return NextResponse.json({ error: 'No file received.' }, { status: 400 });
 
-  const ext = ALLOWED[file.type];
+  const type = detectType(file);
+  let ext = ALLOWED[type];
   if (!ext) return NextResponse.json({ error: 'Please upload a photo (JPG, PNG, WEBP, or HEIC).' }, { status: 415 });
   if (file.size === 0) return NextResponse.json({ error: 'That file was empty.' }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Photo is too large (max 15 MB).' }, { status: 413 });
 
+  let buffer = Buffer.from(await file.arrayBuffer());
+  let contentType = type;
+
+  // HEIC/HEIF (typical iPhone photos) don't render inline in most desktop browsers —
+  // transcode to JPEG on the way in so thumbnails always show on the RCA page.
+  if (type === 'image/heic' || type === 'image/heif') {
+    try {
+      const jpeg = await convert({ buffer: new Uint8Array(buffer), format: 'JPEG', quality: 0.9 });
+      buffer = Buffer.from(jpeg);
+      contentType = 'image/jpeg';
+      ext = 'jpg';
+    } catch {
+      return NextResponse.json({ error: 'Could not process that photo. Try again, or use JPEG.' }, { status: 422 });
+    }
+  }
+
   const supabase = getServerSupabase();
   const path = `${inv.id}/${randomBytes(12).toString('hex')}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const { error: upErr } = await supabase.storage.from('recall-photos').upload(path, buffer, { contentType: file.type, upsert: false });
+  const { error: upErr } = await supabase.storage.from('recall-photos').upload(path, buffer, { contentType, upsert: false });
   if (upErr) return NextResponse.json({ error: 'Upload failed. Try again.' }, { status: 500 });
 
   const { error: rowErr } = await supabase.from('sd_recall_photos').insert({
-    investigation_id: inv.id, st_recall_job_id: inv.st_recall_job_id, storage_path: path, content_type: file.type,
+    investigation_id: inv.id, st_recall_job_id: inv.st_recall_job_id, storage_path: path, content_type: contentType,
   });
   if (rowErr) {
     await supabase.storage.from('recall-photos').remove([path]); // don't orphan the object
