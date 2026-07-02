@@ -36,7 +36,6 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function RecallQueuePage() {
   const [range, setRange] = useState<DateRange>(getMonthToDateRange());
-  const [trade, setTrade] = useState('all');
   const [status, setStatus] = useState('all');
   const [rows, setRows] = useState<RecallRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,11 +44,11 @@ export default function RecallQueuePage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/recalls/queue?startDate=${range.start}&endDate=${range.end}&trade=${trade}&status=${status}`);
+      const res = await fetch(`/api/recalls/queue?startDate=${range.start}&endDate=${range.end}&status=${status}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
       setRows((await res.json()).recalls || []);
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
-  }, [range, trade, status]);
+  }, [range, status]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -65,9 +64,6 @@ export default function RecallQueuePage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={trade} onChange={e => setTrade(e.target.value)} style={selectStyle}>
-            <option value="all">All trades</option><option value="hvac">HVAC</option><option value="plumbing">Plumbing</option>
-          </select>
           <select value={status} onChange={e => setStatus(e.target.value)} style={selectStyle}>
             <option value="all">All statuses</option><option value="none">Not started</option><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option>
           </select>

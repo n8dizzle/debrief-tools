@@ -11,7 +11,6 @@ function getMonthToDateRange(): DateRange {
   return { start: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)), end: formatLocalDate(now) };
 }
 
-type Trade = 'all' | 'hvac' | 'plumbing';
 
 interface TrendsData {
   total_recalls: number;
@@ -51,7 +50,6 @@ export default function RecallTrendsPage() {
   const router = useRouter();
   const [jobLookup, setJobLookup] = useState('');
   const [range, setRange] = useState<DateRange>(getMonthToDateRange());
-  const [trade, setTrade] = useState<Trade>('all');
 
   const openJob = () => {
     const id = jobLookup.trim().replace(/[^0-9]/g, '');
@@ -64,11 +62,11 @@ export default function RecallTrendsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/recalls/trends?startDate=${range.start}&endDate=${range.end}&trade=${trade}`);
+      const res = await fetch(`/api/recalls/trends?startDate=${range.start}&endDate=${range.end}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
       setData(await res.json());
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
-  }, [range, trade]);
+  }, [range]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -100,14 +98,6 @@ export default function RecallTrendsPage() {
             <button onClick={openJob} title="Open this job to investigate"
               style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--christmas-green-light)', border: '1px solid var(--border-default)' }}>Go</button>
           </span>
-          {(['all', 'hvac', 'plumbing'] as Trade[]).map(t => (
-            <button key={t} onClick={() => setTrade(t)} style={{
-              padding: '6px 14px', borderRadius: 8, fontSize: 13, textTransform: 'capitalize',
-              border: '1px solid var(--border-default)', cursor: 'pointer',
-              backgroundColor: trade === t ? 'var(--christmas-green)' : 'transparent',
-              color: trade === t ? 'var(--christmas-cream)' : 'var(--text-secondary)',
-            }}>{t}</button>
-          ))}
           <DateRangePicker value={range} onChange={setRange} />
         </div>
       </div>
