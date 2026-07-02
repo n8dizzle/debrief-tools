@@ -16,8 +16,8 @@ interface Detail {
   activity: { id: string; action: string; created_at: string }[];
   root_cause_categories: string[];
   job_details?: {
-    recall: { summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
-    original: { job_id: number; summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
+    recall: { job_id?: number; summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
+    original: { job_id?: number; summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
   } | null;
 }
 
@@ -116,6 +116,7 @@ export default function RcaPage() {
     await fetch(`/api/recalls/${jobId}/questions`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     await load();
   };
+  const [previewQ, setPreviewQ] = useState<Question | null>(null);
   const [textResults, setTextResults] = useState<Record<string, { sent: boolean; to?: string; link?: string; message?: string; error?: string; loading?: boolean }>>({});
   const textTech = async (id: string) => {
     setTextResults(prev => ({ ...prev, [id]: { sent: false, loading: true } }));
@@ -253,7 +254,7 @@ export default function RcaPage() {
         </div>
         {d.questions.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>No questions yet — add the first one to start the investigation.</p>}
         {d.questions.map(q => (
-          <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} onDelete={deleteQuestion} onTextTech={textTech} textResult={textResults[q.id]} />
+          <QuestionRow key={q.id} q={q} canInvestigate={canInvestigate} onAnswer={answerQuestion} onDelete={deleteQuestion} onTextTech={textTech} textResult={textResults[q.id]} onPreview={setPreviewQ} />
         ))}
         {canInvestigate && (
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -278,11 +279,60 @@ export default function RcaPage() {
           </div>
         </details>
       )}
+
+      {previewQ && <TechPreviewModal d={d} question={previewQ.question} onClose={() => setPreviewQ(null)} />}
     </div>
   );
 }
 
-function QuestionRow({ q, canInvestigate, onAnswer, onDelete, onTextTech, textResult }: { q: Question; canInvestigate: boolean; onAnswer: (id: string, a: string) => void; onDelete: (id: string) => void; onTextTech: (id: string) => void; textResult?: { sent: boolean; to?: string; link?: string; message?: string; error?: string; loading?: boolean } }) {
+// Read-only preview of exactly what the technician sees for THIS job — real context,
+// no token, no SMS, nothing saved. Lets a supervisor see/coach the tech experience.
+function TechPreviewModal({ d, question, onClose }: { d: Detail; question: string; onClose: () => void }) {
+  const customer = d.recall?.customer_name || null;
+  const equip = d.equipment ? [d.equipment.manufacturer, d.equipment.model].filter(Boolean).join(' ') : null;
+  const days = d.recall?.days_to_recall ?? null;
+  const original = d.job_details?.original || null;
+  const recall = d.job_details?.recall || null;
+  const Block = ({ label, jobId, block }: { label: string; jobId?: number; block: { summary: string | null; notes: { text: string; createdOn?: string }[] } | null }) => {
+    if (!block || (!block.summary?.trim() && (block.notes || []).length === 0)) return null;
+    return (
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{label}{jobId ? ` · job #${jobId}` : ''}</div>
+        {block.summary?.trim() && <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', marginTop: 2 }}>{block.summary}</div>}
+        {(block.notes || []).map((n, i) => (
+          <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', paddingLeft: 8, borderLeft: '2px solid var(--border-default)', marginTop: 4 }}>{n.text}</div>
+        ))}
+      </div>
+    );
+  };
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, zIndex: 100, overflowY: 'auto' }}>
+      <div style={{ width: '100%', maxWidth: 480, margin: '24px 0', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--christmas-green-light)', fontWeight: 600 }}>Christmas Air</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--status-warning)', border: '1px solid var(--status-warning)', borderRadius: 999, padding: '2px 8px', display: 'inline-block', marginBottom: 12 }}>PREVIEW — this is what the tech sees (read-only)</div>
+        {(customer || equip || original || recall) && (
+          <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            {customer && <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{customer}</div>}
+            {(equip || days != null) && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{equip || ''}{equip && days != null ? ' · ' : ''}{days != null ? `came back ${days} days later` : ''}</div>}
+            <Block label="The job you worked" jobId={original ? d.job_details?.original?.job_id : undefined} block={original} />
+            <Block label="The callback" jobId={d.job_id} block={recall} />
+          </div>
+        )}
+        <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>Question from the office:</div>
+        <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 16, marginBottom: 14 }}>{question}</div>
+        <textarea disabled rows={4} placeholder="The technician types their answer here…"
+          style={{ width: '100%', boxSizing: 'border-box', padding: 12, borderRadius: 8, fontSize: 15, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', border: '1px solid var(--border-default)', resize: 'none' }} />
+        <button disabled style={{ marginTop: 12, width: '100%', padding: 12, borderRadius: 8, fontSize: 15, fontWeight: 600, border: 'none', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)', opacity: 0.5, cursor: 'not-allowed' }}>Submit answer</button>
+      </div>
+    </div>
+  );
+}
+
+function QuestionRow({ q, canInvestigate, onAnswer, onDelete, onTextTech, textResult, onPreview }: { q: Question; canInvestigate: boolean; onAnswer: (id: string, a: string) => void; onDelete: (id: string) => void; onTextTech: (id: string) => void; textResult?: { sent: boolean; to?: string; link?: string; message?: string; error?: string; loading?: boolean }; onPreview: (q: Question) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState<'link' | 'msg' | null>(null);
@@ -308,6 +358,7 @@ function QuestionRow({ q, canInvestigate, onAnswer, onDelete, onTextTech, textRe
           <button onClick={() => onTextTech(q.id)} disabled={textResult?.loading} title="Text this question to the original technician" style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: textResult?.loading ? 'wait' : 'pointer', padding: 0 }}>
             {textResult?.loading ? 'Texting…' : '📱 Text the tech'}
           </button>
+          <button onClick={() => onPreview(q)} title="See exactly what the technician sees for this job (read-only)" style={{ fontSize: 12, color: 'var(--christmas-green-light)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>👁 Preview tech view</button>
         </div>
       )}
       {textResult?.sent && !answered && (
