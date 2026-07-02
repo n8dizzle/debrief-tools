@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Christmas Air Brand Colors */
+  --christmas-green: #1B4D3E;
+  --christmas-green-dark: #153D31;
+  --christmas-green-light: #2A6B55;
+  --christmas-cream: #FAF8F5;
+  --christmas-cream-dark: #F0EDE8;
+  --christmas-brown: #7B3F3F;
+  --christmas-brown-light: #9B5555;
+  --christmas-gold: #B8956B;
+
+  /* Proto-D Warm Palette */
+  --bg-warm: #FAF8F5;
+  --bg-warm-alt: #F5F2ED;
+  --bg-mint: #E8F5F0;
+  --bg-mint-dark: #D0EBE3;
+  --text-warm: #2C2926;
+  --text-warm-secondary: #6B6560;
+  --text-warm-muted: #9B9590;
+  --border-warm: #E8E4DE;
+  --border-warm-dark: #D5D0C8;
+
+  /* Light Mode */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #FAF8F5;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F5F2ED;
+
+  --text-primary: #2C2926;
+  --text-secondary: #6B6560;
+  --text-muted: #9B9590;
+
+  --border-subtle: #E8E4DE;
+  --border-default: #D5D0C8;
+
+  /* Tier Colors */
+  --tier-good: #6B7280;
+  --tier-good-bg: #F3F4F6;
+  --tier-better: #1B4D3E;
+  --tier-better-bg: #E8F5F0;
+  --tier-best: #B8956B;
+  --tier-best-bg: #FDF8F0;
+
+  /* Fonts */
+  --font-serif: var(--font-instrument-serif), 'Georgia', serif;
+  --font-sans: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+}
+
+body {
+  color: var(--text-warm);
+  background: var(--bg-warm);
+  font-family: var(--font-sans);
+}
+
+/* Serif heading utility */
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--christmas-green);
+  outline-offset: 2px;
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tier-good { border-color: var(--tier-good); }
+.tier-better { border-color: var(--tier-better); }
+.tier-best { border-color: var(--tier-best); }
