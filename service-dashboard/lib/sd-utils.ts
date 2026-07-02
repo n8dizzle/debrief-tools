@@ -21,6 +21,14 @@ export function getTodayDateString(): string {
 }
 
 /**
+ * ServiceTitan job deep-link. The UI is a hash-routed SPA, so the `/#/` is required —
+ * without it, go.servicetitan.com/Job/Index/{id} returns raw JSON instead of the job page.
+ */
+export function stJobUrl(id: number | string): string {
+  return `https://go.servicetitan.com/#/Job/Index/${id}`;
+}
+
+/**
  * Compute percentile-rank scores and weighted overall score.
  *
  * For each KPI, rank all technicians. The score for rank r out of N is:

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, ReactNode } from 'react';
 import Link from 'next/link';
+import { stJobUrl } from '@/lib/sd-utils';
 
 export interface RecallRow {
   st_recall_job_id: number;
@@ -47,7 +48,7 @@ const COLUMNS: Record<ColKey, Column> = {
     key: 'job', label: 'Job #',
     sortValue: r => r.st_recall_job_id,
     render: r => (
-      <a href={`https://go.servicetitan.com/Job/Index/${r.st_recall_job_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--christmas-green-light)', whiteSpace: 'nowrap' }}>#{r.st_recall_job_id} ↗</a>
+      <a href={stJobUrl(r.st_recall_job_id)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--christmas-green-light)', whiteSpace: 'nowrap' }}>#{r.st_recall_job_id} ↗</a>
     ),
   },
   customer: {

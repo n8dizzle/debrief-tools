@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useServiceDashboardPermissions } from '@/hooks/usePermissions';
+import { stJobUrl } from '@/lib/sd-utils';
+
+const ST_LINK: React.CSSProperties = { color: 'var(--christmas-green-light)' };
 
 interface Question { id: string; question: string; assigned_to: string | null; status: string; answer: string | null; answered_via?: string | null; }
 interface Investigation { id: string; status: string; root_cause_category: string | null; root_cause_note: string | null; root_cause_details: string | null; }
@@ -30,7 +33,7 @@ function JobDetailBlock({ label, jobId, data }: { label: string; jobId?: number;
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-        {label}{jobId ? ` (job #${jobId})` : ''}
+        {label}{jobId ? <> (job <a href={stJobUrl(jobId)} target="_blank" rel="noreferrer" style={ST_LINK}>#{jobId} ↗</a>)</> : ''}
       </div>
       {hasSummary
         ? <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{data.summary}</div>
@@ -49,7 +52,6 @@ function JobDetailBlock({ label, jobId, data }: { label: string; jobId?: number;
   );
 }
 
-const ST_BASE = 'https://go.servicetitan.com';
 const PANEL: React.CSSProperties = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20, marginBottom: 16 };
 
 export default function RcaPage() {
@@ -155,7 +157,7 @@ export default function RcaPage() {
             {d.recall ? (
               <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
                 {d.recall.customer_name || 'Customer'} · {d.recall.business_unit_name || '—'}
-                <br />Original job #{d.recall.st_original_job_id} · Tech: {d.recall.tech_name || '—'}
+                <br />Original job <a href={stJobUrl(d.recall.st_original_job_id)} target="_blank" rel="noreferrer" style={ST_LINK}>#{d.recall.st_original_job_id} ↗</a> · Tech: {d.recall.tech_name || '—'}
                 {d.recall.days_to_recall != null && ` · ${d.recall.days_to_recall} days to recall`}
               </p>
             ) : <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>No recall record cached for this job (investigation on a searched job).</p>}
@@ -166,7 +168,7 @@ export default function RcaPage() {
               </p>
             )}
           </div>
-          <a href={`${ST_BASE}/Job/Index/${d.job_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)', fontSize: 13 }}>Open in ServiceTitan ↗</a>
+          <a href={stJobUrl(d.job_id)} target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)', fontSize: 13 }}>Open in ServiceTitan ↗</a>
         </div>
       </div>
 
