@@ -107,6 +107,8 @@ export interface APInstallJob {
   payment_expected_date: string | null;
   payment_method: string | null;
   payment_notes: string | null;
+  payment_confirmation_code: string | null;
+  payment_batch_id: string | null;
   st_invoice_id: number | null;
   invoice_number: string | null;
   invoice_exported_status: string | null;
