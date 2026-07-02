@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DateRangePicker, type DateRange } from '@/components/DateRangePicker';
+import RecallsDrillModal from '@/components/RecallsDrillModal';
+import TestTechFlowModal from '@/components/TestTechFlowModal';
 import { formatLocalDate } from '@/lib/sd-utils';
 
 function getMonthToDateRange(): DateRange {
@@ -50,6 +52,9 @@ export default function RecallTrendsPage() {
   const router = useRouter();
   const [jobLookup, setJobLookup] = useState('');
   const [range, setRange] = useState<DateRange>(getMonthToDateRange());
+  // Drill-down: null = closed; { tech: null } = all recalls; { tech: name } = one tech.
+  const [drill, setDrill] = useState<{ tech: string | null; techId: number | null } | null>(null);
+  const [testFlowOpen, setTestFlowOpen] = useState(false);
 
   const openJob = () => {
     const id = jobLookup.trim().replace(/[^0-9]/g, '');
@@ -83,11 +88,26 @@ export default function RecallTrendsPage() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>Recalls</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            {data ? `${data.total_recalls} recalls in this period` : 'Recall trends and root-cause analysis'}
-            {' · '}<Link href="/recalls/queue" style={{ color: 'var(--christmas-green-light)' }}>View queue →</Link>
-            {' · '}<a href="/q/demo" target="_blank" rel="noreferrer" style={{ color: 'var(--christmas-green-light)' }}>Preview tech view ↗</a>
+            {data ? (
+              <>
+                <button
+                  onClick={() => data.total_recalls > 0 && setDrill({ tech: null, techId: null })}
+                  title="See these recalls"
+                  style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: data.total_recalls > 0 ? 'pointer' : 'default', color: 'var(--christmas-green-light)', fontWeight: 700, textDecoration: data.total_recalls > 0 ? 'underline' : 'none' }}
+                >
+                  {data.total_recalls}
+                </button>
+                {` recall${data.total_recalls === 1 ? '' : 's'} in this period`}
+              </>
+            ) : 'Recall trends and root-cause analysis'}
           </p>
-          <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8 }}>
+            <Link href="/recalls/queue" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream, #F5F0E1)' }}>
+              View queue →
+            </Link>
+            <button onClick={() => setTestFlowOpen(true)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer', fontSize: 13, color: 'var(--christmas-green-light)' }}>Test the tech flow (text yourself) →</button>
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
             Service technicians only.
           </p>
         </div>
@@ -132,7 +152,15 @@ export default function RecallTrendsPage() {
                   {data.tech_rates.map(t => (
                     <tr key={t.st_technician_id} style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}>
                       <td style={{ padding: '8px' }}>{t.name}</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{t.recalls}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>
+                        <button
+                          onClick={() => t.recalls > 0 && setDrill({ tech: t.name, techId: t.st_technician_id })}
+                          title="See this tech's recalls"
+                          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: t.recalls > 0 ? 'pointer' : 'default', color: t.recalls > 0 ? 'var(--christmas-green-light)' : 'var(--text-primary)', fontWeight: 600, textDecoration: t.recalls > 0 ? 'underline' : 'none' }}
+                        >
+                          {t.recalls}
+                        </button>
+                      </td>
                       <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{t.completed_jobs || '—'}</td>
                       <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: rateColor(t.rate) }}>
                         {t.rate === null ? '—' : `${(t.rate * 100).toFixed(1)}%`}
@@ -173,6 +201,18 @@ export default function RecallTrendsPage() {
           </div>
         </div>
       )}
+
+      {drill && (
+        <RecallsDrillModal
+          startDate={range.start}
+          endDate={range.end}
+          techName={drill.tech}
+          techId={drill.techId}
+          onClose={() => setDrill(null)}
+        />
+      )}
+
+      {testFlowOpen && <TestTechFlowModal onClose={() => setTestFlowOpen(false)} />}
     </div>
   );
 }

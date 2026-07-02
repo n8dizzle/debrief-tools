@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
   let items = rows.map(r => ({
     st_recall_job_id: r.st_recall_job_id,
     st_original_job_id: r.st_original_job_id,
+    caused_by_tech_id: r.caused_by_tech_id ?? null,
     tech_name: r.caused_by_tech_id != null ? (techName.get(r.caused_by_tech_id) || `Tech ${r.caused_by_tech_id}`) : '—',
     recall_created_on: r.recall_created_on,
     days_to_recall: r.days_to_recall,

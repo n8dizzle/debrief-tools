@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
+import { stripHtml } from '@/lib/text';
 
 // Public, token-gated endpoint for a technician to answer a research question via a
 // magic link — no login. The 48-char token is the secret; there is no other auth.
@@ -57,8 +58,10 @@ async function buildContext(supabase: ReturnType<typeof getServerSupabase>, inve
       origId ? st.getJobById(origId) : Promise.resolve(null),
       origId ? st.getJobNotes(origId) : Promise.resolve([] as { text: string; createdOn?: string }[]),
     ]);
-    context.recall = { job_id: jobId, summary: recallJob?.summaryOfWork || recallJob?.summary || null, notes: recallNotes };
-    context.original = origId ? { job_id: origId, summary: origJob?.summaryOfWork || origJob?.summary || null, notes: origNotes } : null;
+    const clean = (notes: { text: string; createdOn?: string }[]) =>
+      notes.map(n => ({ ...n, text: stripHtml(n.text) })).filter(n => n.text);
+    context.recall = { job_id: jobId, summary: stripHtml(recallJob?.summaryOfWork || recallJob?.summary) || null, notes: clean(recallNotes) };
+    context.original = origId ? { job_id: origId, summary: stripHtml(origJob?.summaryOfWork || origJob?.summary) || null, notes: clean(origNotes) } : null;
   } catch { /* leave minimal context */ }
 
   return context;
