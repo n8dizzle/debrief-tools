@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   let q = supabase
     .from('sd_recalls_caused')
     .select('st_recall_job_id, st_original_job_id, caused_by_tech_id, recall_created_on, days_to_recall, trade, business_unit_name, customer_name, equipment_id')
+    .or('is_service_bu.is.null,is_service_bu.eq.true') // service technicians only (audience scope)
     .gte('recall_created_on', startDate)
     .lte('recall_created_on', endDate)
     .order('recall_created_on', { ascending: false })

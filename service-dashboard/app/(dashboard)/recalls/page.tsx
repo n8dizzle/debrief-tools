@@ -89,7 +89,7 @@ export default function RecallTrendsPage() {
             {' · '}<Link href="/recalls/queue" style={{ color: 'var(--christmas-green-light)' }}>View queue →</Link>
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
-            Counts all trades and all technicians. Differs from the Leaderboard&apos;s &ldquo;Recalls Caused&rdquo;, which is scoped to active HVAC-service techs.
+            Service technicians only.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

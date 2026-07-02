@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
   let recallQuery = supabase
     .from('sd_recalls_caused')
     .select('st_recall_job_id, caused_by_tech_id, days_to_recall, equipment_id, trade, business_unit_name')
+    // Service technicians only (audience scope). is_service_bu null = legacy rows, all service.
+    .or('is_service_bu.is.null,is_service_bu.eq.true')
     .gte('recall_created_on', startDate)
     .lte('recall_created_on', endDate);
   if (trade === 'hvac' || trade === 'plumbing') recallQuery = recallQuery.eq('trade', trade);
