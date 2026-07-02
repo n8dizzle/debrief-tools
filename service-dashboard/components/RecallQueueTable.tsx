@@ -14,6 +14,7 @@ export interface RecallRow {
   customer_name: string | null;
   has_equipment: boolean;
   investigation_status: string;
+  root_cause_category: string | null;
 }
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
@@ -130,7 +131,8 @@ export default function RecallQueueTable({ rows }: { rows: RecallRow[] }) {
       String(r.st_original_job_id).includes(q) ||
       (r.customer_name || '').toLowerCase().includes(q) ||
       (r.tech_name || '').toLowerCase().includes(q) ||
-      (STATUS_STYLE[r.investigation_status]?.label || '').toLowerCase().includes(q)
+      (STATUS_STYLE[r.investigation_status]?.label || '').toLowerCase().includes(q) ||
+      (r.root_cause_category || '').toLowerCase().includes(q)
     );
   }, [rows, query]);
 
@@ -183,7 +185,7 @@ export default function RecallQueueTable({ rows }: { rows: RecallRow[] }) {
                   </th>
                 );
               })}
-              <th style={{ padding: '10px 12px' }}></th>
+              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Root cause</th>
             </tr>
           </thead>
           <tbody>
@@ -195,7 +197,9 @@ export default function RecallQueueTable({ rows }: { rows: RecallRow[] }) {
                   </td>
                 ))}
                 <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                  <Link href={`/recalls/${r.st_recall_job_id}`} style={{ color: 'var(--christmas-green-light)', fontWeight: 600 }}>Investigate →</Link>
+                  <Link href={`/recalls/${r.st_recall_job_id}`} title={r.root_cause_category ? 'View investigation' : undefined} style={{ color: 'var(--christmas-green-light)', fontWeight: 600 }}>
+                    {r.root_cause_category ? `${r.root_cause_category} →` : 'Investigate →'}
+                  </Link>
                 </td>
               </tr>
             ))}
