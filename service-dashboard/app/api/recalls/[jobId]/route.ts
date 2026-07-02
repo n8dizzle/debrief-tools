@@ -36,11 +36,21 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   const { data: investigation } = await supabase.from('sd_recall_investigations').select('*').eq('st_recall_job_id', jobId).maybeSingle();
   let questions: unknown[] = [];
   let activity: unknown[] = [];
+  let photos: { id: string; url: string | null; uploaded_at: string }[] = [];
   if (investigation) {
     const { data: q } = await supabase.from('sd_research_questions').select('*').eq('investigation_id', investigation.id).is('deleted_at', null).order('created_at');
     questions = q || [];
     const { data: a } = await supabase.from('sd_recall_activity').select('*').eq('investigation_id', investigation.id).order('created_at', { ascending: false });
     activity = a || [];
+    const { data: ph } = await supabase.from('sd_recall_photos').select('id, storage_path, uploaded_at').eq('investigation_id', investigation.id).order('uploaded_at', { ascending: false });
+    if (ph?.length) {
+      // Private bucket — sign each path for a 1h read window.
+      const signed = await Promise.all(ph.map(async p => {
+        const { data: s } = await supabase.storage.from('recall-photos').createSignedUrl(p.storage_path, 3600);
+        return { id: p.id, url: s?.signedUrl ?? null, uploaded_at: p.uploaded_at };
+      }));
+      photos = signed;
+    }
   }
 
   // Job summary + notes from ServiceTitan (best-effort, parallel — don't fail the page if ST is slow).
@@ -70,6 +80,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     investigation: investigation || null,
     questions,
     activity,
+    photos,
     root_cause_categories: ROOT_CAUSE_CATEGORIES,
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
@@ -85,8 +96,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   if (Number.isNaN(jobId)) return NextResponse.json({ error: 'Invalid job id' }, { status: 400 });
 
   const body = await request.json().catch(() => ({}));
-  const { status, root_cause_category, root_cause_note, assigned_to } = body as {
-    status?: string; root_cause_category?: string; root_cause_note?: string; assigned_to?: string;
+  const { status, root_cause_category, root_cause_note, root_cause_details, assigned_to } = body as {
+    status?: string; root_cause_category?: string; root_cause_note?: string; root_cause_details?: string; assigned_to?: string;
   };
   const actor = (session.user as { id?: string }).id ?? null;
   const supabase = getServerSupabase();
@@ -108,6 +119,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     status: targetStatus,
     root_cause_category: targetRootCause,
     root_cause_note: root_cause_note ?? existing?.root_cause_note ?? null,
+    root_cause_details: root_cause_details ?? existing?.root_cause_details ?? null,
     assigned_to: assigned_to ?? existing?.assigned_to ?? null,
     opened_by: existing?.opened_by ?? actor,
     resolved_by: targetStatus === 'resolved' ? actor : (targetStatus === 'investigating' ? null : existing?.resolved_by ?? null),

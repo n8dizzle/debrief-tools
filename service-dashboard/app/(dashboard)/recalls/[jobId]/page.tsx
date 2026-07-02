@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { useServiceDashboardPermissions } from '@/hooks/usePermissions';
 
 interface Question { id: string; question: string; assigned_to: string | null; status: string; answer: string | null; answered_via?: string | null; }
-interface Investigation { id: string; status: string; root_cause_category: string | null; root_cause_note: string | null; }
+interface Investigation { id: string; status: string; root_cause_category: string | null; root_cause_note: string | null; root_cause_details: string | null; }
+interface Photo { id: string; url: string | null; uploaded_at: string }
 interface Detail {
   job_id: number;
   recall: { st_original_job_id: number; tech_name: string | null; recall_created_on: string; days_to_recall: number | null; customer_name: string | null; business_unit_name: string | null } | null;
@@ -14,6 +15,7 @@ interface Detail {
   investigation: Investigation | null;
   questions: Question[];
   activity: { id: string; action: string; created_at: string }[];
+  photos?: Photo[];
   root_cause_categories: string[];
   job_details?: {
     recall: { job_id?: number; summary: string | null; notes: { text: string; createdOn?: string }[] } | null;
@@ -62,13 +64,17 @@ export default function RcaPage() {
   const [suggestion, setSuggestion] = useState<{ root_cause_category: string; rationale: string; research_questions: string[] } | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestErr, setSuggestErr] = useState<string | null>(null);
+  const [details, setDetails] = useState('');
+  const [photoLinkOpen, setPhotoLinkOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const res = await fetch(`/api/recalls/${jobId}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
-      setD(await res.json());
+      const body = await res.json();
+      setD(body);
+      setDetails(body.investigation?.root_cause_details || '');
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
   }, [jobId]);
   useEffect(() => { load(); }, [load]);
@@ -244,6 +250,49 @@ export default function RcaPage() {
             )}
           </div>
         )}
+
+        {/* Root cause details — supervisor's write-up, shown once a cause is picked */}
+        {canInvestigate && rootCause && (
+          <div style={{ marginTop: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Details</label>
+            <textarea
+              value={details}
+              onChange={e => setDetails(e.target.value)}
+              onBlur={() => { if ((inv?.root_cause_details || '') !== details) saveInvestigation({ root_cause_details: details }); }}
+              rows={4}
+              placeholder="What happened, what was corrected, any follow-up needed…"
+              style={{ width: '100%', boxSizing: 'border-box', padding: 10, borderRadius: 8, fontSize: 14, resize: 'vertical', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Saves when you click away.</div>
+          </div>
+        )}
+
+        {/* Evidence photos — supervisor uploads from their phone via a texted link */}
+        {canInvestigate && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Photos</span>
+              <span style={{ display: 'flex', gap: 8 }}>
+                <button onClick={load} title="Refresh to see newly uploaded photos"
+                  style={{ padding: '6px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}>↻ Refresh</button>
+                <button onClick={() => setPhotoLinkOpen(true)}
+                  style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--christmas-green-light)', border: '1px solid var(--border-default)' }}>📷 Text me an upload link</button>
+              </span>
+            </div>
+            {d.photos && d.photos.length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {d.photos.map(p => p.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <a key={p.id} href={p.url} target="_blank" rel="noreferrer" title={new Date(p.uploaded_at).toLocaleString()}>
+                    <img src={p.url} alt="Recall evidence" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
+                  </a>
+                ) : null)}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No photos yet. Text yourself a link to upload from your phone.</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Research questions */}
@@ -281,12 +330,74 @@ export default function RcaPage() {
       )}
 
       {previewQ && <TechPreviewModal d={d} question={previewQ.question} onClose={() => setPreviewQ(null)} />}
+      {photoLinkOpen && <PhotoLinkModal jobId={jobId} onClose={() => setPhotoLinkOpen(false)} />}
     </div>
   );
 }
 
 // Read-only preview of exactly what the technician sees for THIS job — real context,
 // no token, no SMS, nothing saved. Lets a supervisor see/coach the tech experience.
+// Texts the supervisor a photo-upload link for this recall (they enter their own number).
+function PhotoLinkModal({ jobId, onClose }: { jobId: string; onClose: () => void }) {
+  const [phone, setPhone] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const send = async () => {
+    if (!phone.trim() || sending) return;
+    setSending(true); setError(null);
+    try {
+      const res = await fetch(`/api/recalls/${jobId}/photo-link`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.sent) { setError(body.error || 'Could not send. Try again.'); return; }
+      setSentTo(body.to || null);
+    } catch { setError('Could not send. Try again.'); } finally { setSending(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.7)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ width: '100%', maxWidth: 420, borderRadius: 12, overflow: 'hidden', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Text me a photo-upload link</h2>
+          <button onClick={onClose} style={{ padding: 6, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18 }}>✕</button>
+        </div>
+        <div style={{ padding: 20 }}>
+          {sentTo ? (
+            <div>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📱</div>
+              <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 4 }}>Sent to {sentTo}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Open it on your phone to snap and upload photos. Come back and hit ↻ Refresh to see them here.</div>
+              <button onClick={onClose} style={{ marginTop: 16, padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream, #F5F0E1)' }}>Done</button>
+            </div>
+          ) : (
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 12 }}>Enter your mobile number. We&apos;ll text a link to upload photos for this recall from your phone.</p>
+              <input value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
+                type="tel" inputMode="tel" placeholder="(469) 555-0123" autoFocus
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, fontSize: 15, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }} />
+              {error && <div style={{ color: 'var(--status-error)', fontSize: 13, marginTop: 8 }}>{error}</div>}
+              <button onClick={send} disabled={sending || !phone.trim()}
+                style={{ marginTop: 14, width: '100%', padding: '11px', borderRadius: 8, fontSize: 15, fontWeight: 600, border: 'none', cursor: sending || !phone.trim() ? 'not-allowed' : 'pointer', opacity: sending || !phone.trim() ? 0.5 : 1, backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream, #F5F0E1)' }}>
+                {sending ? 'Sending…' : 'Text me the link'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TechPreviewModal({ d, question, onClose }: { d: Detail; question: string; onClose: () => void }) {
   const customer = d.recall?.customer_name || null;
   const equip = d.equipment ? [d.equipment.manufacturer, d.equipment.model].filter(Boolean).join(' ') : null;
