@@ -6,7 +6,7 @@ import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils'
 import { SUPPLIERS, INSTALL_TEAMS } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
-const INSTALL_TECHS = ['Brett', 'Christina', 'John', 'Luke', 'Mark', 'Other'];
+const INSTALL_TECHS = ['Luke', 'Brett', 'Christina', 'John', 'Daniel', 'Other'];
 
 function fmtMD(d: string | null | undefined): string {
   if (!d) return '—';
