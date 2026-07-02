@@ -68,7 +68,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { contractor_id, job_ids, confirmation_code, payment_method, paid_on, total_amount, notes } = body;
+  const { contractor_id, job_ids, confirmation_code, payment_method, paid_on, total_amount, notes, deductions } = body;
+  // deductions: optional { [jobId]: amount } — damage withheld from that job's pay.
+  const deductMap: Record<string, number> = deductions && typeof deductions === 'object' ? deductions : {};
 
   if (!contractor_id || !Array.isArray(job_ids) || job_ids.length === 0) {
     return NextResponse.json({ error: 'contractor_id and at least one job are required' }, { status: 400 });
@@ -92,8 +94,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'All jobs must belong to this contractor and be approved (ready to pay).' }, { status: 400 });
   }
 
-  const summedAmount = (jobs || []).reduce((s: number, j: any) => s + (j.payment_amount != null ? Number(j.payment_amount) : 0), 0);
-  const total = total_amount != null && total_amount !== '' ? Number(total_amount) : summedAmount;
+  // Net per job = agreed pay − any damage deduction. Lump total defaults to the sum of nets.
+  const dedOf = (id: string) => { const v = Number(deductMap[id]); return isNaN(v) || v < 0 ? 0 : v; };
+  const netSum = (jobs || []).reduce((s: number, j: any) => s + ((j.payment_amount != null ? Number(j.payment_amount) : 0) - dedOf(j.id)), 0);
+  const totalDeductions = (jobs || []).reduce((s: number, j: any) => s + dedOf(j.id), 0);
+  const total = total_amount != null && total_amount !== '' ? Number(total_amount) : Math.round(netSum * 100) / 100;
   const paidOn = paid_on || formatLocalDate(new Date());
   const code = String(confirmation_code).trim();
 
@@ -103,6 +108,7 @@ export async function POST(request: NextRequest) {
     .insert({
       contractor_id,
       total_amount: total,
+      total_deductions: Math.round(totalDeductions * 100) / 100,
       job_count: job_ids.length,
       confirmation_code: code,
       payment_method: payment_method || null,
@@ -115,30 +121,36 @@ export async function POST(request: NextRequest) {
   if (runErr || !run) return NextResponse.json({ error: runErr?.message || 'Failed to create pay run' }, { status: 500 });
 
   const nowIso = new Date().toISOString();
-  // Mark each job paid + link to the run.
-  const { error: updErr } = await supabase
-    .from('ap_install_jobs')
-    .update({
-      payment_status: 'paid',
-      payment_paid_at: nowIso,
-      payment_paid_by: userId,
-      payment_batch_id: run.id,
-      payment_confirmation_code: code,
-      payment_method: payment_method || null,
-    })
-    .in('id', job_ids);
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+  // Mark each job paid + link to the run, stamping its damage deduction.
+  for (const jid of job_ids) {
+    const ded = dedOf(jid);
+    await supabase
+      .from('ap_install_jobs')
+      .update({
+        payment_status: 'paid',
+        payment_paid_at: nowIso,
+        payment_paid_by: userId,
+        payment_batch_id: run.id,
+        payment_confirmation_code: code,
+        payment_method: payment_method || null,
+        payment_deduction: ded > 0 ? ded : null,
+      })
+      .eq('id', jid);
+  }
 
   // Activity log per job.
-  const logs = (jobs || []).map((j: any) => ({
-    job_id: j.id,
-    contractor_id,
-    action: 'payment_paid',
-    description: `Paid via lump payment (${job_ids.length} jobs, conf ${code})`,
-    old_value: 'ready_to_pay',
-    new_value: 'paid',
-    performed_by: userId,
-  }));
+  const logs = (jobs || []).map((j: any) => {
+    const ded = dedOf(j.id);
+    return {
+      job_id: j.id,
+      contractor_id,
+      action: 'payment_paid',
+      description: `Paid via lump payment (${job_ids.length} jobs, conf ${code})${ded > 0 ? ` — $${ded.toFixed(2)} damage deducted` : ''}`,
+      old_value: 'ready_to_pay',
+      new_value: 'paid',
+      performed_by: userId,
+    };
+  });
   if (logs.length) await supabase.from('ap_activity_log').insert(logs);
 
   // One consolidated notification per recipient group (honors paid_* Settings toggles).
