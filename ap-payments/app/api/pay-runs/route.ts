@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { hasAPPermission, formatLocalDate } from '@/lib/ap-utils';
+import { sendPayRunNotification } from '@/lib/sms-notifications';
 
 function hasPermission(session: any, perm: string): boolean {
   if (session.user.role === 'owner') return true;
@@ -15,6 +16,46 @@ function hasPermission(session: any, perm: string): boolean {
  * every selected job Paid, linked to the run, stamped with the confirmation code.
  * Body: { contractor_id, job_ids[], confirmation_code, payment_method, paid_on, total_amount, notes }
  */
+/** GET /api/pay-runs — list recorded lump payments (most recent first). */
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!hasAPPermission(session, 'can_manage_payments')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const supabase = getServerSupabase();
+  const { data: runs, error } = await supabase
+    .from('ap_contractor_payments')
+    .select('id, contractor_id, total_amount, job_count, confirmation_code, payment_method, paid_on, paid_by, notes, created_at')
+    .order('paid_on', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(300);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const rows = runs || [];
+  const contractorIds = Array.from(new Set(rows.map((r: any) => r.contractor_id).filter(Boolean)));
+  const paidByIds = Array.from(new Set(rows.map((r: any) => r.paid_by).filter(Boolean)));
+  const cName = new Map<string, string>();
+  const uName = new Map<string, string>();
+  if (contractorIds.length) {
+    const { data } = await supabase.from('ap_contractors').select('id, name').in('id', contractorIds);
+    for (const c of (data || []) as any[]) cName.set(c.id, c.name);
+  }
+  if (paidByIds.length) {
+    const { data } = await supabase.from('portal_users').select('id, name, email').in('id', paidByIds);
+    for (const u of (data || []) as any[]) uName.set(u.id, u.name || u.email);
+  }
+
+  return NextResponse.json({
+    runs: rows.map((r: any) => ({
+      ...r,
+      total_amount: r.total_amount != null ? Number(r.total_amount) : 0,
+      contractor_name: cName.get(r.contractor_id) || 'Unknown',
+      paid_by_name: uName.get(r.paid_by) || null,
+    })),
+  });
+}
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -99,6 +140,10 @@ export async function POST(request: NextRequest) {
     performed_by: userId,
   }));
   if (logs.length) await supabase.from('ap_activity_log').insert(logs);
+
+  // One consolidated notification per recipient group (honors paid_* Settings toggles).
+  sendPayRunNotification({ contractorId: contractor_id, jobCount: job_ids.length, totalAmount: total, confirmationCode: code, sentBy: userId })
+    .catch(err => console.error('Pay run notification error:', err));
 
   return NextResponse.json({ id: run.id, job_count: job_ids.length, total_amount: total, confirmation_code: code });
 }

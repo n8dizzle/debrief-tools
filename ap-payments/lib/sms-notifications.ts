@@ -704,3 +704,62 @@ export async function sendManualSMS(params: {
   });
   return result;
 }
+
+/**
+ * Consolidated notifications for a lump payment (Pay Run): ONE summary per recipient
+ * group instead of a per-job blast. Honors the existing paid_contractor / paid_internal
+ * / paid_manager toggles + channels from Settings.
+ */
+export async function sendPayRunNotification(params: {
+  contractorId: string;
+  jobCount: number;
+  totalAmount: number;
+  confirmationCode: string;
+  sentBy: string | null;
+}): Promise<void> {
+  const { contractorId, jobCount, totalAmount, confirmationCode, sentBy } = params;
+  const supabase = getServerSupabase();
+  const { data: contractor } = await supabase
+    .from('ap_contractors')
+    .select('id, name, phone, email, trade')
+    .eq('id', contractorId)
+    .single();
+
+  const toggles = await getNotificationToggles();
+  const amount = formatCurrency(totalAmount);
+  const n = `${jobCount} job${jobCount !== 1 ? 's' : ''}`;
+  const contractorName = contractor?.name || 'contractor';
+  const trade = (contractor?.trade as string) || 'hvac';
+
+  // Contractor summary
+  const contractorMsg = `Christmas Air: payment sent for ${n} totaling ${amount}. Ref: ${confirmationCode}. Thank you!`;
+  if (isSmsEnabled(toggles, 'paid_contractor') && contractor?.phone && formatPhoneE164(contractor.phone)) {
+    await sendAndLog({ to: contractor.phone, message: contractorMsg, job_id: null, contractor_id: contractorId, recipient_type: 'contractor', recipient_name: contractorName, event_type: 'paid_contractor', sent_by: sentBy });
+  }
+  if (isEmailEnabled(toggles, 'paid_contractor') && contractor?.email) {
+    await sendEmailToRecipients([{ name: contractorName, email: contractor.email }], 'Payment sent', contractorMsg, { contractorId, recipientType: 'contractor', eventType: 'paid_contractor', sentBy });
+  }
+
+  // Internal AP team summary
+  const internalMsg = `Lump payment recorded: ${contractorName} — ${amount} across ${n}. Ref ${confirmationCode}.`;
+  if (isSmsEnabled(toggles, 'paid_internal')) {
+    for (const p of await getInternalTeamPhones()) {
+      if (!formatPhoneE164(p.phone)) continue;
+      await sendAndLog({ to: p.phone, message: internalMsg, job_id: null, contractor_id: contractorId, recipient_type: 'internal', recipient_name: p.name, event_type: 'paid_internal', sent_by: sentBy });
+    }
+  }
+  if (isEmailEnabled(toggles, 'paid_internal')) {
+    await sendEmailToRecipients(await getInternalTeamEmails(), 'Lump payment recorded', internalMsg, { contractorId, recipientType: 'internal', eventType: 'paid_internal', sentBy });
+  }
+
+  // Trade manager summary
+  if (isSmsEnabled(toggles, 'paid_manager')) {
+    for (const m of await getManagerPhonesByTrade(trade)) {
+      if (!formatPhoneE164(m.phone)) continue;
+      await sendAndLog({ to: m.phone, message: internalMsg, job_id: null, contractor_id: contractorId, recipient_type: 'internal', recipient_name: m.name, event_type: 'paid_manager', sent_by: sentBy });
+    }
+  }
+  if (isEmailEnabled(toggles, 'paid_manager')) {
+    await sendEmailToRecipients(await getManagerEmailsByTrade(trade), 'Lump payment recorded', internalMsg, { contractorId, recipientType: 'internal', eventType: 'paid_manager', sentBy });
+  }
+}
