@@ -38,12 +38,13 @@ export async function GET(request: NextRequest) {
   // Investigation status per recall
   const jobIds = rows.map(r => r.st_recall_job_id);
   const invStatus = new Map<number, string>();
+  const invCause = new Map<number, string | null>();
   if (jobIds.length > 0) {
     const { data: invs } = await supabase
       .from('sd_recall_investigations')
-      .select('st_recall_job_id, status')
+      .select('st_recall_job_id, status, root_cause_category')
       .in('st_recall_job_id', jobIds);
-    for (const i of (invs || [])) invStatus.set(i.st_recall_job_id, i.status);
+    for (const i of (invs || [])) { invStatus.set(i.st_recall_job_id, i.status); invCause.set(i.st_recall_job_id, i.root_cause_category ?? null); }
   }
 
   let items = rows.map(r => ({
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
     customer_name: r.customer_name,
     has_equipment: r.equipment_id != null,
     investigation_status: invStatus.get(r.st_recall_job_id) || 'none',
+    root_cause_category: invCause.get(r.st_recall_job_id) || null,
   }));
 
   if (statusFilter !== 'all') items = items.filter(i => i.investigation_status === statusFilter);

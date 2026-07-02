@@ -12,6 +12,7 @@ interface RecallRow {
   recall_created_on: string;
   customer_name: string | null;
   investigation_status: string;
+  root_cause_category: string | null;
 }
 
 interface Props {
@@ -86,7 +87,7 @@ export default function RecallsDrillModal({ startDate, endDate, techName, techId
                   <th style={{ padding: '8px 8px' }}>Recall job</th>
                   <th style={{ padding: '8px 8px' }}>Original job</th>
                   <th style={{ padding: '8px 8px' }}>Customer</th>
-                  <th style={{ padding: '8px 8px' }}></th>
+                  <th style={{ padding: '8px 8px', textAlign: 'right' }}>Root cause</th>
                 </tr>
               </thead>
               <tbody>
@@ -101,7 +102,11 @@ export default function RecallsDrillModal({ startDate, endDate, techName, techId
                     </td>
                     <td style={{ padding: '8px 8px' }}>{r.customer_name || '—'}</td>
                     <td style={{ padding: '8px 8px', textAlign: 'right' }}>
-                      <Link href={`/recalls/${r.st_recall_job_id}`} onClick={onClose} style={{ color: 'var(--christmas-green-light)', fontWeight: 600 }}>Investigate →</Link>
+                      {r.root_cause_category ? (
+                        <Link href={`/recalls/${r.st_recall_job_id}`} onClick={onClose} title="View investigation" style={{ color: 'var(--christmas-green-light)', fontWeight: 600 }}>{r.root_cause_category} →</Link>
+                      ) : (
+                        <Link href={`/recalls/${r.st_recall_job_id}`} onClick={onClose} style={{ color: 'var(--christmas-green-light)', fontWeight: 600 }}>Investigate →</Link>
+                      )}
                     </td>
                   </tr>
                 ))}
