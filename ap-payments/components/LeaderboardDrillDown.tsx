@@ -90,7 +90,7 @@ export default function LeaderboardDrillDown({ techName, stTechId, metric, start
                     <td className="py-2 px-2"><JobLink id={r.st_recall_job_id} label={String(r.st_recall_job_id)} /></td>
                     <td className="py-2 px-2"><JobLink id={r.st_original_job_id} label={String(r.st_original_job_id)} /></td>
                     <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{r.recall_created_on ? formatDate(r.recall_created_on) : '—'}</td>
-                    <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{r.job_type_name || '—'}</td>
+                    <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{r.business_unit_name ? r.business_unit_name.replace(/^(HVAC|Plumbing)\s*-\s*/i, '') : '—'}</td>
                     <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{r.customer_name || '—'}</td>
                     <td className="py-2 px-2 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{r.days_to_recall ?? '—'}</td>
                   </tr>
