@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
 import { hasRecallPermission, ROOT_CAUSE_CATEGORIES } from '@/lib/qc-recalls';
+import { stripHtml } from '@/lib/text';
 
 type Ctx = { params: Promise<{ jobId: string }> };
 
@@ -53,9 +54,11 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       origId ? st.getJobById(origId) : Promise.resolve(null),
       origId ? st.getJobNotes(origId) : Promise.resolve([] as { text: string; createdOn?: string }[]),
     ]);
+    const clean = (notes: { text: string; createdOn?: string }[]) =>
+      notes.map(n => ({ ...n, text: stripHtml(n.text) })).filter(n => n.text);
     jobDetails = {
-      recall: { summary: recallJob?.summaryOfWork || recallJob?.summary || null, notes: recallNotes },
-      original: origId ? { job_id: origId, summary: origJob?.summaryOfWork || origJob?.summary || null, notes: origNotes } : null,
+      recall: { summary: stripHtml(recallJob?.summaryOfWork || recallJob?.summary) || null, notes: clean(recallNotes) },
+      original: origId ? { job_id: origId, summary: stripHtml(origJob?.summaryOfWork || origJob?.summary) || null, notes: clean(origNotes) } : null,
     };
   } catch { jobDetails = null; }
 
