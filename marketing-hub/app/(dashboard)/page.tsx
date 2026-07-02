@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import {
   BarChart,
   Bar,
@@ -292,69 +293,21 @@ function CollapsibleSection({
 }
 
 // ---------------------------------------------------------------------------
-// Period Picker
-// ---------------------------------------------------------------------------
-
-function PeriodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const currentMonth = new Date().getMonth(); // 0-indexed
-
-  const quickPicks = [
-    { val: String(currentMonth + 1), label: months[currentMonth] },
-    { val: 'ytd', label: 'YTD' },
-  ];
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {quickPicks.map(({ val, label }) => {
-        const active = value === val;
-        return (
-          <button
-            key={val}
-            onClick={() => onChange(val)}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{
-              backgroundColor: active ? 'var(--christmas-green)' : 'var(--bg-card)',
-              color: active ? 'var(--christmas-cream)' : 'var(--text-muted)',
-              border: `1px solid ${active ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
-            }}
-          >
-            {label}
-          </button>
-        );
-      })}
-      <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--border-subtle)' }} />
-      {months.slice(0, currentMonth + 1).map((m, i) => {
-        const val = String(i + 1);
-        const active = value === val;
-        return (
-          <button
-            key={m}
-            onClick={() => onChange(val)}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{
-              backgroundColor: active ? 'var(--christmas-green)' : 'var(--bg-card)',
-              color: active ? 'var(--christmas-cream)' : 'var(--text-muted)',
-              border: `1px solid ${active ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
-            }}
-          >
-            {m}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
+
+function getMTDRange(): DateRange {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return { start: `${year}-${month}-01`, end: `${year}-${month}-${day}` };
+}
 
 export default function MarketingDashboard() {
   useSession();
 
-  const currentMonth = new Date().getMonth() + 1;
-  const [period, setPeriod] = useState(String(currentMonth));
+  const [dateRange, setDateRange] = useState<DateRange>(getMTDRange);
   const [scorecard, setScorecard] = useState<ScorecardData | null>(null);
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [leadsData, setLeadsData] = useState<any>(null);
@@ -366,9 +319,10 @@ export default function MarketingDashboard() {
     setLoading(true);
     setError(null);
     try {
+      const params = `start=${dateRange.start}&end=${dateRange.end}`;
       const [scorecardRes, overviewRes] = await Promise.all([
-        fetch(`/api/dashboard/scorecard?period=${period}`, { credentials: 'include' }),
-        fetch(`/api/dashboard/overview?period=${period}`, { credentials: 'include' }),
+        fetch(`/api/dashboard/scorecard?${params}`, { credentials: 'include' }),
+        fetch(`/api/dashboard/overview?${params}`, { credentials: 'include' }),
       ]);
       if (!scorecardRes.ok) throw new Error('Failed to load scorecard data');
       setScorecard(await scorecardRes.json());
@@ -378,7 +332,7 @@ export default function MarketingDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [dateRange]);
 
   const fetchLeads = useCallback(async () => {
     try {
@@ -409,8 +363,8 @@ export default function MarketingDashboard() {
         </p>
       </div>
 
-      {/* Period Picker */}
-      <PeriodPicker value={period} onChange={setPeriod} />
+      {/* Date Range Picker */}
+      <DateRangePicker value={dateRange} onChange={setDateRange} />
 
       {/* Error */}
       {error && (
