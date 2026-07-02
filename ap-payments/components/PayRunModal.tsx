@@ -54,8 +54,9 @@ export default function PayRunModal({ onClose, onDone }: { onClose: () => void; 
   const total = amountOverride !== '' ? Number(amountOverride) : summed;
   const variance = Math.round((total - summed) * 100) / 100;
 
-  // Memo for the Gusto memo line: "Job# - Address" per selected job.
-  const memoText = selectedJobs.map(j => `${j.job_number} - ${j.job_address || 'address n/a'}`).join('\n');
+  // Memo for the Gusto memo line: "Job# - Street" (street only — keep it short).
+  const streetOf = (addr: string | null) => (addr || '').split(',')[0].trim();
+  const memoText = selectedJobs.map(j => `${j.job_number} - ${streetOf(j.job_address) || 'address n/a'}`).join('\n');
   const copyMemo = async () => {
     try { await navigator.clipboard.writeText(memoText); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
   };
