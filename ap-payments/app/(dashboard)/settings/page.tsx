@@ -22,7 +22,7 @@ function TestSMSForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone.trim(),
-          message: 'Test message from AP Payments (Dialpad)',
+          message: 'Test message from AP Payments (Quo)',
         }),
       });
       const data = await res.json();
@@ -1468,10 +1468,10 @@ export default function SettingsPage() {
         {/* Test SMS */}
         <div className="card">
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            Test SMS (Dialpad)
+            Test SMS (Quo)
           </h2>
           <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-            Send a test message to verify Dialpad SMS is working.
+            Send a test message to verify Quo SMS is working.
           </p>
           <TestSMSForm />
         </div>

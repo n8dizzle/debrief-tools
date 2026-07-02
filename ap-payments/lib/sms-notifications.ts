@@ -2,7 +2,7 @@
  * SMS + Email notification templates and orchestration for AP Payments
  */
 
-import { sendSMS, formatPhoneE164 } from './twilio';
+import { sendSMS, formatPhoneE164 } from './quo';
 import { sendEmail } from './email';
 import { getServerSupabase } from './supabase';
 import { formatCurrency } from './ap-utils';
