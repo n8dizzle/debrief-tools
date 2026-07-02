@@ -24,8 +24,8 @@ const mainLinks = [
 
 const SECTIONS: { key: string; heading: string | null; wip?: boolean }[] = [
   { key: 'payments', heading: 'Payments' },
-  { key: 'wip', heading: 'Work In Progress', wip: true },
   { key: 'reports', heading: 'Reports' },
+  { key: 'wip', heading: 'Work In Progress', wip: true },
   { key: 'manage', heading: null },
 ];
 
