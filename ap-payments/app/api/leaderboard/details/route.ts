@@ -43,19 +43,21 @@ export async function GET(request: NextRequest) {
     const { data: tech } = await supabase.from('ap_technicians').select('name').eq('st_technician_id', techId).maybeSingle();
     const name = (tech?.name || '').trim().toLowerCase();
     if (!name) return NextResponse.json({ records: [] });
+    // Match Daily Dash: prefer human-confirmed_mentions over AI-detected, filter by create_time.
     let q = supabase.from('google_reviews')
-      .select('reviewer_name, star_rating, comment, create_time, update_time, team_members_mentioned')
-      .not('team_members_mentioned', 'is', null)
-      .order('update_time', { ascending: false });
-    if (start) q = q.gte('update_time', start);
-    if (end) q = q.lte('update_time', `${end}T23:59:59`);
+      .select('reviewer_name, star_rating, comment, create_time, team_members_mentioned, confirmed_mentions')
+      .or('team_members_mentioned.not.is.null,confirmed_mentions.not.is.null')
+      .order('create_time', { ascending: false });
+    if (start) q = q.gte('create_time', `${start}T00:00:00`);
+    if (end) q = q.lte('create_time', `${end}T23:59:59`);
     const { data } = await q;
     const records = (data || []).filter((r: any) => {
-      const m: string[] = Array.isArray(r.team_members_mentioned) ? r.team_members_mentioned : [];
+      const m: string[] = Array.isArray(r.confirmed_mentions) ? r.confirmed_mentions
+        : (Array.isArray(r.team_members_mentioned) ? r.team_members_mentioned : []);
       return m.some(x => String(x).trim().toLowerCase() === name);
     }).map((r: any) => ({
       reviewer_name: r.reviewer_name, star_rating: r.star_rating, comment: r.comment,
-      create_time: r.create_time || r.update_time,
+      create_time: r.create_time,
     }));
     return NextResponse.json({ records });
   }

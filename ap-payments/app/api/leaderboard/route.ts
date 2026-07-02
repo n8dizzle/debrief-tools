@@ -137,12 +137,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 6) Review mentions, in range (matched by name).
+  // 6) Review mentions, in range. Matches Daily Dash: prefer human-confirmed_mentions
+  //    over AI-detected team_members_mentioned, and filter by create_time.
   const reviewCount = new Map<number, number>();
   {
-    let vq = supabase.from('google_reviews').select('team_members_mentioned, update_time').not('team_members_mentioned', 'is', null);
-    if (start) vq = vq.gte('update_time', start);
-    if (end) vq = vq.lte('update_time', `${end}T23:59:59`);
+    let vq = supabase.from('google_reviews')
+      .select('team_members_mentioned, confirmed_mentions, create_time')
+      .or('team_members_mentioned.not.is.null,confirmed_mentions.not.is.null');
+    if (start) vq = vq.gte('create_time', `${start}T00:00:00`);
+    if (end) vq = vq.lte('create_time', `${end}T23:59:59`);
     const { data: reviews } = await vq;
     const nameToId = new Map<string, number>();
     for (const id of leadStIds) {
@@ -150,7 +153,8 @@ export async function GET(request: NextRequest) {
       if (nm) nameToId.set(nm, id);
     }
     for (const rv of (reviews || []) as any[]) {
-      const mentioned: string[] = Array.isArray(rv.team_members_mentioned) ? rv.team_members_mentioned : [];
+      const mentioned: string[] = Array.isArray(rv.confirmed_mentions) ? rv.confirmed_mentions
+        : (Array.isArray(rv.team_members_mentioned) ? rv.team_members_mentioned : []);
       for (const m of mentioned) {
         const id = nameToId.get(String(m).trim().toLowerCase());
         if (id != null) reviewCount.set(id, (reviewCount.get(id) || 0) + 1);
