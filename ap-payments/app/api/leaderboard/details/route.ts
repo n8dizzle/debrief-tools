@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   if (metric === 'recalls') {
     let q = supabase.from('sd_recalls_caused')
-      .select('st_recall_job_id, st_original_job_id, recall_created_on, business_unit_name, job_type_name, customer_name, days_to_recall')
+      .select('st_recall_job_id, st_original_job_id, recall_created_on, business_unit_name, customer_name, days_to_recall')
       .eq('caused_by_tech_id', techId)
       .order('recall_created_on', { ascending: false });
     if (start) q = q.gte('recall_created_on', start);
