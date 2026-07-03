@@ -24,6 +24,13 @@ export interface TierConfig {
   perks: TierPerk[];
   guarantees: string[];
   techFeatures: string[];     // filtration, UV, etc.
+  // New fields from 002 migration
+  defaultAddonIds: string[];
+  featuredFinancingPlanId?: string;
+  warrantyExtensionPrice?: number;
+  scopeIncluded: string[];
+  scopeExcluded: string[];
+  scopeAssumptions: string[];
 }
 
 export const TIERS: TierConfig[] = [

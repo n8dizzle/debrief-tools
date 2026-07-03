@@ -160,7 +160,7 @@ export default function OptionDetailPage() {
     <div className="min-h-screen bg-white">
       {/* Advisor Toolbar */}
       <div className="bg-gray-900 text-white px-4 py-2 flex items-center justify-between text-sm print:hidden">
-        <button onClick={() => router.push(`/present/${estimate.id}`)} className="text-gray-400 hover:text-white">&larr; Back to Options</button>
+        <button onClick={() => router.back()} className="text-gray-400 hover:text-white">&larr; Back</button>
         <button onClick={() => router.push(`/estimates/${estimate.id}`)} className="text-gray-400 hover:text-white">Edit Estimate</button>
       </div>
 
@@ -169,7 +169,7 @@ export default function OptionDetailPage() {
         <div className="max-w-4xl mx-auto px-6 py-8">
           <div className="flex items-center gap-6">
             <div className="w-36 h-36 rounded-2xl bg-white p-2 flex items-center justify-center flex-shrink-0">
-              <img src={getSystemImage(seer, option.label)} alt={systemName} className="w-full h-full object-contain" />
+              <img src={getSystemImage(seer, option.label, brand)} alt={systemName} className="w-full h-full object-contain" />
             </div>
             <div className="flex-1">
               <div className="text-sm font-semibold text-white/70 uppercase tracking-wide">{brand}</div>
@@ -622,9 +622,9 @@ export default function OptionDetailPage() {
 
             {/* CTA Buttons */}
             <div className="space-y-2">
-              <button onClick={() => router.push(`/present/${estimate.id}`)}
+              <button onClick={() => router.back()}
                 className="w-full py-3 bg-[var(--christmas-green)] text-white rounded-xl font-semibold text-sm hover:bg-[var(--christmas-green-dark)] shadow-md">
-                &larr; Compare All Options
+                &larr; Back
               </button>
               <button onClick={() => router.push(`/estimates/${estimate.id}`)}
                 className="w-full py-2.5 border border-gray-300 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-50 print:hidden">

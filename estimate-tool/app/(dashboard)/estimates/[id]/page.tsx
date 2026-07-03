@@ -282,10 +282,14 @@ export default function EstimateBuilderPage() {
           {step === 'build' && (
             <button onClick={() => setStep('config')} className="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Change System</button>
           )}
-          <button onClick={() => router.push(`/present/${estimate.id}`)} disabled={!hasOptions}
-            className={`px-4 py-2 rounded-lg font-medium text-sm ${hasOptions ? 'bg-[var(--christmas-green)] text-white hover:bg-[var(--christmas-green-dark)]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-            Present to Customer
-          </button>
+          {hasOptions ? (
+            <Link href={`/present/${estimate.id}`}
+              className="px-4 py-2 rounded-lg font-medium text-sm bg-[var(--christmas-green)] text-white hover:bg-[var(--christmas-green-dark)] no-underline">
+              Present to Customer
+            </Link>
+          ) : (
+            <span className="px-4 py-2 rounded-lg font-medium text-sm bg-gray-100 text-gray-400 cursor-not-allowed">Present to Customer</span>
+          )}
         </div>
       </div>
 
@@ -417,7 +421,7 @@ export default function EstimateBuilderPage() {
                             {/* Photo */}
                             <div className="px-4 pt-4 flex justify-center">
                               <img
-                                src={getSystemImage(group.seer, group.tier)}
+                                src={getSystemImage(group.seer, group.tier, selected?.brand)}
                                 alt={systemName}
                                 className="w-28 h-28 object-contain rounded-xl"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="w-28 h-28 rounded-xl bg-gray-100 flex items-center justify-center"><span class="text-3xl text-gray-300">&#10052;</span></div>'; }}
@@ -532,10 +536,14 @@ export default function EstimateBuilderPage() {
                   );
                 })}
               </div>
-              <button onClick={() => router.push(`/present/${estimate.id}`)} disabled={!hasOptions}
-                className={`px-6 py-3 rounded-xl font-semibold text-sm ${hasOptions ? 'bg-[var(--christmas-green)] text-white hover:bg-[var(--christmas-green-dark)]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-                Present to Customer &rarr;
-              </button>
+              {hasOptions ? (
+                <Link href={`/present/${estimate.id}`}
+                  className="px-6 py-3 rounded-xl font-semibold text-sm bg-[var(--christmas-green)] text-white hover:bg-[var(--christmas-green-dark)] no-underline">
+                  Present to Customer &rarr;
+                </Link>
+              ) : (
+                <span className="px-6 py-3 rounded-xl font-semibold text-sm bg-gray-100 text-gray-400 cursor-not-allowed">Present to Customer &rarr;</span>
+              )}
             </div>
           )}
         </div>

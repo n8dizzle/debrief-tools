@@ -95,7 +95,7 @@ export default function PresentPage() {
   if (!estimate) return null;
 
   const activeTerm = financingTerms.find(t => t.id === selectedTerm) || financingTerms[1];
-  const optCount = estimate.options.length;
+  const optCount = estimate.options.filter(o => o.equipment.length > 0).length;
 
   return (
     <div className="min-h-screen bg-white">
@@ -159,7 +159,7 @@ export default function PresentPage() {
           optCount === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
           'grid-cols-1 sm:grid-cols-3 lg:grid-cols-5'
         }`}>
-          {estimate.options.map((opt, idx) => {
+          {estimate.options.filter(o => o.equipment.length > 0).map((opt, idx) => {
             const total = getOptionTotal(opt);
             const monthly = activeTerm ? getMonthlyPayment(total, activeTerm) : total / 60;
             const tierConfig = getTierConfig(opt.label);
@@ -193,7 +193,7 @@ export default function PresentPage() {
                 {/* Photo */}
                 <div className="px-4 pt-4 flex justify-center">
                   <img
-                    src={getSystemImage(seer, opt.label)}
+                    src={getSystemImage(seer, opt.label, primaryEquip?.brand)}
                     alt={systemName}
                     className="w-28 h-28 object-contain"
                   />

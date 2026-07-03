@@ -127,6 +127,33 @@ export interface FinancingTerm {
   minAmount: number;
 }
 
+export interface FinancingPlan {
+  id: string;
+  source: 'servicetitan' | 'manual';
+  stPlanCode?: string;
+  name: string;
+  months: number;
+  apr: number;
+  minAmount: number;
+  applyUrl?: string;
+  active: boolean;
+  syncedAt?: string;
+}
+
+export interface CachedAddOn {
+  id: string;
+  source: 'servicetitan' | 'manual';
+  stSkuId?: number;
+  stCode?: string;
+  stType?: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+  popular: boolean;
+  active: boolean;
+}
+
 export function getInstallItemsTotal(items: InstallItem[]): number {
   return items.reduce((sum, item) => sum + item.unitCost * item.quantity, 0);
 }
