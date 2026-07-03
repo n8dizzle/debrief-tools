@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Estimate, getOptionTotal } from '@/types/estimate';
 import { getEstimate, saveEstimate, createBlankOption } from '@/lib/store';
 import { useSystems, TierGroup, SystemOption } from '@/lib/use-systems';
-import { TIERS, getTierBullets, TierConfig } from '@/lib/tiers';
+import { TIERS, getTierBullets, TierConfig, findTierConfig } from '@/lib/tiers';
 import CustomerInfo from '@/components/CustomerInfo';
 import SystemConfig, { SystemSetup } from '@/components/SystemConfig';
 import { getSystemImage } from '@/lib/system-images';
@@ -176,7 +176,9 @@ export default function EstimateBuilderPage() {
     const groups = filterByTonnageAndFuel(setup.tonnage, fuel);
     setTierGroups(groups);
     setTierOrder(groups.map(g => g.tier));
-    setHiddenTiers(new Set());
+    // Auto-hide "+" variants by default — advisor can unhide them
+    const plusTiers = new Set(groups.filter(g => g.tier.includes('+')).map(g => g.tier));
+    setHiddenTiers(plusTiers);
 
     const defaults: Record<string, SystemOption> = {};
     for (const group of groups) {
@@ -232,13 +234,29 @@ export default function EstimateBuilderPage() {
     setExpandedTier(null);
   }
 
+  // Sync tier order to saved estimate options so presentation page respects it
+  function syncOptionsOrder(newOrder: string[]) {
+    if (!estimate) return;
+    const visible = newOrder.filter(t => !hiddenTiers.has(t));
+    const ordered = visible
+      .map(t => estimate.options.find(o => o.label === t))
+      .filter(Boolean) as typeof estimate.options;
+    // Add any options not in the order (shouldn't happen, but safety)
+    for (const opt of estimate.options) {
+      if (!ordered.find(o => o.id === opt.id)) ordered.push(opt);
+    }
+    updateEstimate({ options: ordered });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     setTierOrder(prev => {
       const oldIdx = prev.indexOf(active.id as string);
       const newIdx = prev.indexOf(over.id as string);
-      return arrayMove(prev, oldIdx, newIdx);
+      const newOrder = arrayMove(prev, oldIdx, newIdx);
+      syncOptionsOrder(newOrder);
+      return newOrder;
     });
   }
 
@@ -336,6 +354,37 @@ export default function EstimateBuilderPage() {
               <button onClick={() => setPricingMode('finance')} className={`px-4 py-1.5 rounded-full text-sm font-medium ${pricingMode === 'finance' ? 'bg-[var(--christmas-green)] text-white' : 'text-gray-600'}`}>Monthly Payment</button>
             </div>
             {systemSetup && <span className="text-sm text-gray-400">{systemSetup.tonnage} Ton | {systemSetup.systemType.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>}
+            <div className="flex items-center gap-1 ml-auto">
+              <span className="text-xs text-gray-400 mr-1">Sort:</span>
+              <button onClick={() => {
+                const newOrder = (() => {
+                  const visible = tierOrder.filter(t => !hiddenTiers.has(t));
+                  const hidden = tierOrder.filter(t => hiddenTiers.has(t));
+                  const sorted = [...visible].sort((a, b) => {
+                    const priceA = (selectedSystems[a] || tierGroups.find(g => g.tier === a)?.defaultSystem)?.price || 0;
+                    const priceB = (selectedSystems[b] || tierGroups.find(g => g.tier === b)?.defaultSystem)?.price || 0;
+                    return priceB - priceA;
+                  });
+                  return [...sorted, ...hidden];
+                })();
+                setTierOrder(newOrder);
+                syncOptionsOrder(newOrder);
+              }} className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 hover:bg-gray-200" title="Highest price first">High &rarr; Low</button>
+              <button onClick={() => {
+                const newOrder = (() => {
+                  const visible = tierOrder.filter(t => !hiddenTiers.has(t));
+                  const hidden = tierOrder.filter(t => hiddenTiers.has(t));
+                  const sorted = [...visible].sort((a, b) => {
+                    const priceA = (selectedSystems[a] || tierGroups.find(g => g.tier === a)?.defaultSystem)?.price || 0;
+                    const priceB = (selectedSystems[b] || tierGroups.find(g => g.tier === b)?.defaultSystem)?.price || 0;
+                    return priceA - priceB;
+                  });
+                  return [...sorted, ...hidden];
+                })();
+                setTierOrder(newOrder);
+                syncOptionsOrder(newOrder);
+              }} className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 hover:bg-gray-200" title="Lowest price first">Low &rarr; High</button>
+            </div>
           </div>
 
           {/* Hidden tiers */}
@@ -357,10 +406,10 @@ export default function EstimateBuilderPage() {
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={visibleIds} strategy={horizontalListSortingStrategy}>
-                <div className="flex gap-4 items-stretch overflow-x-auto pb-2">
+                <div className="flex gap-4 items-end overflow-x-auto pb-2">
                   {visibleGroups.map(group => {
                     const selected = selectedSystems[group.tier] || group.defaultSystem;
-                    const baseTierConfig = TIERS.find(t => t.name === group.tier) || TIERS[0];
+                    const baseTierConfig = findTierConfig(group.tier);
                     const cardColor = customColors[group.tier] || baseTierConfig.color;
                     const tierConfig = { ...baseTierConfig, color: cardColor };
                     const bullets = getTierBullets(tierConfig);
@@ -374,7 +423,7 @@ export default function EstimateBuilderPage() {
                     return (
                       <DraggableCard key={group.tier} id={group.tier}>
                         {(dragListeners: any) => (
-                          <div className="rounded-2xl border-2 bg-white flex flex-col h-full relative" style={{ borderColor: `${cardColor}60` }}>
+                          <div className="rounded-2xl border-2 bg-white flex flex-col relative" style={{ borderColor: `${cardColor}60` }}>
                             {/* Drag Handle */}
                             <div {...dragListeners} className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1" title="Drag to reorder">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="4" r="2"/><circle cx="16" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="16" cy="20" r="2"/></svg>
@@ -469,7 +518,7 @@ export default function EstimateBuilderPage() {
                               )}
                             </div>
                             {/* Bullets */}
-                            <div className="px-3 pt-3 flex-1">
+                            <div className="px-3 pt-3">
                               <ul className="space-y-1.5">
                                 {bullets.map((b, i) => (
                                   <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
@@ -551,7 +600,7 @@ export default function EstimateBuilderPage() {
               <div className="flex gap-4">
                 {visibleGroups.map(group => {
                   const selected = selectedSystems[group.tier] || group.defaultSystem;
-                  const tierConfig = TIERS.find(t => t.name === group.tier) || TIERS[0];
+                  const tierConfig = findTierConfig(group.tier);
                   const totalPrice = (selected?.price || 0) * (systemSetup?.systemCount || 1);
                   return (
                     <div key={group.tier} className="text-center">

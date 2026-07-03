@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Estimate, EstimateOption, getOptionTotal, getMonthlyPayment } from '@/types/estimate';
+import { Estimate, EstimateOption, FinancingPlan, getOptionTotal, getMonthlyPayment } from '@/types/estimate';
 import { getEstimate, saveEstimate } from '@/lib/store';
-import { financingTerms } from '@/lib/catalog';
-import { TIERS, getTierBullets, TierConfig } from '@/lib/tiers';
+import { TIERS, getTierBullets, TierConfig, findTierConfig } from '@/lib/tiers';
 import { getSystemImage } from '@/lib/system-images';
 
 function fmt(n: number): string {
@@ -16,7 +15,7 @@ function fmtMo(n: number): string {
 }
 
 function getTierConfig(label: string): TierConfig {
-  return TIERS.find(t => t.name.toLowerCase() === label.toLowerCase()) || TIERS[0];
+  return findTierConfig(label);
 }
 
 export default function PresentPage() {
@@ -25,7 +24,8 @@ export default function PresentPage() {
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pricingMode, setPricingMode] = useState<'cash' | 'finance'>('cash');
-  const [selectedTerm, setSelectedTerm] = useState(financingTerms[1]?.id || '');
+  const [financingPlans, setFinancingPlans] = useState<FinancingPlan[]>([]);
+  const [selectedTerm, setSelectedTerm] = useState('');
   const [pushing, setPushing] = useState(false);
   const [pushResult, setPushResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -34,6 +34,11 @@ export default function PresentPage() {
     if (!est) { router.push('/'); return; }
     setEstimate(est);
     setSelectedId(est.selectedOptionId || null);
+    fetch('/api/settings/financing').then(r => r.json()).then(d => {
+      const plans = (d.plans || []).filter((p: FinancingPlan) => p.active);
+      setFinancingPlans(plans);
+      if (plans.length > 0) setSelectedTerm(plans[0].id);
+    }).catch(() => {});
   }, [params.id, router]);
 
   function handleSelect(optionId: string) {
@@ -94,7 +99,8 @@ export default function PresentPage() {
 
   if (!estimate) return null;
 
-  const activeTerm = financingTerms.find(t => t.id === selectedTerm) || financingTerms[1];
+  const activePlan = financingPlans.find(p => p.id === selectedTerm) || financingPlans[0];
+  const activeTerm = activePlan ? { id: activePlan.id, name: activePlan.name, months: activePlan.months, apr: activePlan.apr, minAmount: activePlan.minAmount } : null;
   const optCount = estimate.options.filter(o => o.equipment.length > 0).length;
 
   return (
@@ -139,10 +145,10 @@ export default function PresentPage() {
           </div>
           {pricingMode === 'finance' && (
             <div className="flex gap-2">
-              {financingTerms.map(term => (
-                <button key={term.id} onClick={() => setSelectedTerm(term.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${selectedTerm === term.id ? 'border-[var(--christmas-green)] bg-green-50 text-[var(--christmas-green)]' : 'border-gray-200 text-gray-500'}`}>
-                  {term.name}
+              {financingPlans.map(plan => (
+                <button key={plan.id} onClick={() => setSelectedTerm(plan.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${selectedTerm === plan.id ? 'border-[var(--christmas-green)] bg-green-50 text-[var(--christmas-green)]' : 'border-gray-200 text-gray-500'}`}>
+                  {plan.name}
                 </button>
               ))}
             </div>
@@ -152,7 +158,7 @@ export default function PresentPage() {
 
       {/* Option Cards */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className={`grid gap-5 ${
+        <div className={`grid gap-5 items-end ${
           optCount === 1 ? 'grid-cols-1 max-w-md mx-auto' :
           optCount === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto' :
           optCount === 3 ? 'grid-cols-1 sm:grid-cols-3' :
@@ -177,7 +183,7 @@ export default function PresentPage() {
               <div
                 key={opt.id}
                 onClick={() => handleSelect(opt.id)}
-                className={`relative rounded-2xl border-2 transition-all cursor-pointer flex flex-col ${
+                className={`relative rounded-2xl border-2 transition-all cursor-pointer ${
                   isSelected
                     ? `${tierConfig.borderColor} ring-2 shadow-xl scale-[1.02]`
                     : 'border-gray-200 hover:border-gray-300 hover:shadow-lg'
@@ -220,7 +226,7 @@ export default function PresentPage() {
                 </div>
 
                 {/* Bullet Points */}
-                <div className="px-4 pt-4 flex-1">
+                <div className="px-4 pt-4">
                   <ul className="space-y-2">
                     {bullets.map((b, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-gray-700">

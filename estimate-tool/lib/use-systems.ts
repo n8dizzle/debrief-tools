@@ -21,7 +21,7 @@ export interface SystemOption {
   components?: string;
 }
 
-export type TierName = 'Builder' | 'Silver' | 'Gold' | 'Platinum' | 'Platinum+';
+export type TierName = 'Builder' | 'Builder+' | 'Silver' | 'Silver+' | 'Gold' | 'Gold+' | 'Platinum' | 'Platinum+';
 
 export interface TierGroup {
   tier: TierName;
@@ -32,25 +32,31 @@ export interface TierGroup {
 }
 
 // Tier mapping rules:
-// Builder = Comfort Maker (entry brand), single-stage
-// Silver = American Standard, single-stage (14-16 SEER)
-// Gold = American Standard, two-stage (17 SEER)
-// Platinum = American Standard, variable/inverter (18 SEER)
-// Platinum+ = American Standard, variable/inverter (20 SEER)
+// Stage defines the base tier. SEER determines base vs "+" variant.
+// Builder = entry brand single-stage OR 14 SEER AS single-stage
+// Builder+ = 15 SEER single-stage (entry brand or AS)
+// Silver = 16 SEER single-stage
+// Silver+ = higher single-stage if exists
+// Gold = 17 SEER two-stage
+// Gold+ = 18+ SEER two-stage if exists
+// Platinum = 18 SEER variable
+// Platinum+ = 20 SEER variable
 function seerToTier(seer: number, brand: string, stage: string): TierName {
   const lower = brand.toLowerCase();
   const isBuilderBrand = lower.includes('comfort m') || lower.includes('comfortm') || lower.includes('ameristar');
-  if (isBuilderBrand) return 'Builder';
 
-  // American Standard / other brands: tier by stage + SEER
   if (stage === 'Variable') {
     return seer >= 20 ? 'Platinum+' : 'Platinum';
   }
   if (stage === 'Two-Stage') {
-    return 'Gold';
+    return seer >= 18 ? 'Gold+' : 'Gold';
   }
-  // Single-stage: lowest SEER (14) = Builder, higher = Silver
+  // Single-stage
+  if (isBuilderBrand) {
+    return seer >= 16 ? 'Builder+' : 'Builder';
+  }
   if (seer <= 14) return 'Builder';
+  if (seer <= 15) return 'Builder+';
   return 'Silver';
 }
 
@@ -204,7 +210,7 @@ export function useSystems(): UseSystemsResult {
     }
 
     // Build tier groups in order, pick cheapest as default
-    const tierOrder: TierName[] = ['Builder', 'Silver', 'Gold', 'Platinum', 'Platinum+'];
+    const tierOrder: TierName[] = ['Builder', 'Builder+', 'Silver', 'Silver+', 'Gold', 'Gold+', 'Platinum', 'Platinum+'];
     const groups: TierGroup[] = [];
 
     for (const tierName of tierOrder) {

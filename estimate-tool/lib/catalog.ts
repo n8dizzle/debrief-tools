@@ -1,4 +1,4 @@
-import { Equipment, AddOn, InstallItem, Warranty, Discount, Package, FinancingTerm } from '@/types/estimate';
+import { Equipment, AddOn, InstallItem, Warranty, Discount, Package } from '@/types/estimate';
 
 // ── Equipment Catalog ───────────────────────────────────────────────
 
@@ -485,10 +485,5 @@ export const packagesCatalog: Package[] = [
 ];
 
 // ── Financing ───────────────────────────────────────────────────────
-
-export const financingTerms: FinancingTerm[] = [
-  { id: 'promo-0', name: '0% for 18 Months', months: 18, apr: 0, minAmount: 1000 },
-  { id: 'promo-60', name: '6.99% for 60 Months', months: 60, apr: 6.99, minAmount: 3000 },
-  { id: 'promo-84', name: '7.99% for 84 Months', months: 84, apr: 7.99, minAmount: 5000 },
-  { id: 'promo-120', name: '8.99% for 120 Months', months: 120, apr: 8.99, minAmount: 5000 },
-];
+// Financing plans are now DB-backed (estimate_financing_plans table).
+// Fetch via /api/settings/financing instead of using hardcoded terms.
