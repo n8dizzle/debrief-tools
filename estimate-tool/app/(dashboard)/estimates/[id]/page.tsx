@@ -8,6 +8,7 @@ import { useSystems, TierGroup, SystemOption } from '@/lib/use-systems';
 import { TIERS, getTierBullets, TierConfig } from '@/lib/tiers';
 import CustomerInfo from '@/components/CustomerInfo';
 import SystemConfig, { SystemSetup } from '@/components/SystemConfig';
+import { getSystemImage } from '@/lib/system-images';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -25,23 +26,6 @@ function mapFuelType(systemType: string): 'Gas' | 'Electric' | 'Dual Fuel' {
   return 'Gas';
 }
 
-// Sortable wrapper
-function SortableCard({ id, children }: { id: string; children: ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : undefined,
-  };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} className="flex-shrink-0 w-64">
-      {/* Drag handle is inside the card, listeners go on the handle only */}
-      {typeof children === 'function' ? (children as any)(listeners) : children}
-    </div>
-  );
-}
-
 // Wrapper that passes drag listeners
 function DraggableCard({ id, children }: { id: string; children: (dragListeners: any) => ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -55,6 +39,22 @@ function DraggableCard({ id, children }: { id: string; children: (dragListeners:
     <div ref={setNodeRef} style={style} {...attributes} className="flex-shrink-0 w-64">
       {children(listeners)}
     </div>
+  );
+}
+
+// Editable tier name — local state so typing doesn't remount the card
+function EditableTierName({ value, className, onCommit }: { value: string; className: string; onCommit: (newName: string) => void }) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => { setLocal(value); }, [value]);
+  return (
+    <input
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (local !== value) onCommit(local); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+      className={`text-lg font-bold bg-transparent border-none text-center w-full focus:ring-0 focus:outline-none p-0 ${className}`}
+    />
   );
 }
 
@@ -80,9 +80,83 @@ export default function EstimateBuilderPage() {
     const est = getEstimate(params.id as string);
     if (!est) { router.push('/'); return; }
     setEstimate(est);
-    if (est.options.some(o => o.equipment.length > 0)) setStep('build');
-    else if (est.stJobId || est.customerName) setStep('config');
+
+    // If estimate already has options with equipment, rebuild tier groups from saved data
+    if (est.options.some(o => o.equipment.length > 0)) {
+      const groups: TierGroup[] = est.options.map(opt => {
+        const eq = opt.equipment[0];
+        const sys: SystemOption | null = eq ? {
+          id: eq.stSkuId || 0,
+          code: eq.stCode || eq.model || '',
+          displayName: `${opt.label} - ${eq.name}`,
+          description: eq.description || '',
+          price: eq.retailPrice || 0,
+          memberPrice: 0,
+          seer: eq.seer || 0,
+          type: eq.type === 'heat-pump' ? 'HP' : 'AC',
+          stage: eq.description?.includes('Variable') ? 'Variable' :
+                 eq.description?.includes('Two-Stage') || eq.description?.includes('2-Stage') ? 'Two-Stage' : 'Single-Stage',
+          tonnage: 0,
+          fuelType: 'Gas',
+          brand: eq.brand || 'American Standard',
+          categoryName: '',
+          equipmentRefs: [],
+        } : null;
+
+        return {
+          tier: opt.label as any,
+          seer: eq?.seer || 0,
+          stage: sys?.stage || 'Single-Stage',
+          systems: sys ? [sys] : [],
+          defaultSystem: sys,
+        };
+      });
+
+      setTierGroups(groups);
+      setTierOrder(groups.map(g => g.tier));
+
+      const selected: Record<string, SystemOption> = {};
+      for (const g of groups) {
+        if (g.defaultSystem) selected[g.tier] = g.defaultSystem;
+      }
+      setSelectedSystems(selected);
+      setStep('build');
+    } else if (est.stJobId || est.customerName) {
+      setStep('config');
+    }
   }, [params.id, router]);
+
+  // When pricebook loads, backfill full system lists into existing tier groups so swap works
+  useEffect(() => {
+    if (allSystems.length === 0 || tierGroups.length === 0) return;
+    // Only backfill if groups have single-item system lists (rebuilt from saved data)
+    const needsBackfill = tierGroups.some(g => g.systems.length <= 1);
+    if (!needsBackfill) return;
+
+    // Detect tonnage and fuel from first system
+    const firstSys = tierGroups[0]?.defaultSystem;
+    if (!firstSys) return;
+
+    // Parse tonnage from the display name
+    const tonMatch = firstSys.displayName.match(/([\d.]+)\s*Ton/i);
+    const tonnage = tonMatch ? parseFloat(tonMatch[1]) : 0;
+    if (!tonnage) return;
+
+    // Detect fuel from name/description
+    const desc = (firstSys.displayName + ' ' + firstSys.description).toLowerCase();
+    const fuel: 'Gas' | 'Electric' | 'Dual Fuel' = desc.includes('dual fuel') ? 'Dual Fuel' : desc.includes('gas') ? 'Gas' : 'Electric';
+
+    const freshGroups = filterByTonnageAndFuel(tonnage, fuel);
+
+    // Merge: keep the user's tier order and selections, but fill in the full system lists
+    setTierGroups(prev => prev.map(existing => {
+      const fresh = freshGroups.find(g => g.tier === existing.tier);
+      if (fresh) {
+        return { ...existing, systems: fresh.systems };
+      }
+      return existing;
+    }));
+  }, [allSystems, tierGroups, filterByTonnageAndFuel]);
 
   function updateEstimate(updates: Partial<Estimate>) {
     if (!estimate) return;
@@ -288,12 +362,12 @@ export default function EstimateBuilderPage() {
                             </button>
                             {/* Header */}
                             <div className={`rounded-t-xl px-4 py-3 text-center ${tierConfig.bgColor}`} style={{ borderBottom: `3px solid ${tierConfig.color}` }}>
-                              <input
-                                type="text"
+                              <EditableTierName
                                 value={group.tier}
-                                onChange={(e) => {
+                                className={tierConfig.textColor}
+                                onCommit={(newName) => {
                                   const oldName = group.tier;
-                                  const newName = e.target.value;
+                                  if (newName === oldName || !newName.trim()) return;
                                   setTierGroups(prev => prev.map(g => g.tier === oldName ? { ...g, tier: newName as any } : g));
                                   setTierOrder(prev => prev.map(t => t === oldName ? newName : t));
                                   if (hiddenTiers.has(oldName)) {
@@ -307,19 +381,25 @@ export default function EstimateBuilderPage() {
                                     updateEstimate({ options: newOptions });
                                   }
                                 }}
-                                className={`text-lg font-bold bg-transparent border-none text-center w-full focus:ring-0 focus:outline-none p-0 ${tierConfig.textColor}`}
                               />
                               <div className="text-xs text-gray-500">{group.seer} SEER | {group.stage}</div>
                             </div>
                             {/* Photo */}
                             <div className="px-4 pt-4 flex justify-center">
-                              <div className="w-24 h-24 rounded-xl bg-gray-100 flex items-center justify-center"><span className="text-3xl text-gray-300">&#10052;</span></div>
+                              <img
+                                src={getSystemImage(group.seer, group.tier)}
+                                alt={systemName}
+                                className="w-28 h-28 object-contain rounded-xl"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="w-28 h-28 rounded-xl bg-gray-100 flex items-center justify-center"><span class="text-3xl text-gray-300">&#10052;</span></div>'; }}
+                              />
                             </div>
-                            {/* Name */}
+                            {/* Brand + Series + Name */}
                             <div className="px-3 pt-2 text-center">
-                              <div className="font-bold text-gray-900 text-sm leading-tight">{systemName}</div>
-                              {selected && <div className="text-xs text-gray-400 mt-0.5">{selected.code}</div>}
-                              <div className="text-xs text-blue-600 mt-0.5">{group.systems.length} matchup{group.systems.length !== 1 ? 's' : ''}</div>
+                              <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: tierConfig.color }}>
+                                {selected?.brand || tierConfig.brand || 'American Standard'}
+                              </div>
+                              <div className="font-bold text-gray-900 text-sm leading-tight mt-0.5">{group.tier} Series</div>
+                              <div className="text-xs text-gray-500 mt-0.5">{systemName}</div>
                             </div>
                             {/* Price */}
                             <div className="px-4 pt-3 text-center">
@@ -348,12 +428,18 @@ export default function EstimateBuilderPage() {
                                 <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">{tierConfig.coolingSavings}</span>
                               </div>
                             </div>
-                            {/* Swap */}
-                            <div className="px-3 py-2 border-t border-gray-100">
-                              <button onClick={() => setExpandedTier(isExpanded ? null : group.tier)}
-                                className="w-full py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
-                                {isExpanded ? 'Close' : 'Swap Matchup'} ({group.systems.length})
-                              </button>
+                            {/* Actions */}
+                            <div className="px-3 py-2 border-t border-gray-100 space-y-1.5">
+                              <div className="flex gap-1.5">
+                                <button onClick={() => setExpandedTier(isExpanded ? null : group.tier)}
+                                  className="flex-1 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                                  {isExpanded ? 'Close' : 'Swap System'}
+                                </button>
+                                <button onClick={() => router.push(`/present/${estimate.id}/option/${estimate.options.find(o => o.label === group.tier)?.id || ''}`)}
+                                  className="flex-1 py-2 text-xs font-medium rounded-lg text-white" style={{ backgroundColor: tierConfig.color }}>
+                                  Details
+                                </button>
+                              </div>
                             </div>
                             {isExpanded && (
                               <div className="border-t border-gray-200 bg-gray-50 px-3 py-3 rounded-b-xl max-h-56 overflow-y-auto">
