@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Estimate, EstimateOption, AddOn, InstallItem, getOptionTotal } from '@/types/estimate';
+import { Estimate, EstimateOption, AddOn, InstallItem, getOptionTotal, FinancingPlan, CachedAddOn, getMonthlyPayment } from '@/types/estimate';
 import { getEstimate, saveEstimate } from '@/lib/store';
-import { financingTerms } from '@/lib/catalog';
 import { TierConfig } from '@/lib/tiers';
 import { useTierConfigs } from '@/lib/use-tier-configs';
 import { getSystemImage } from '@/lib/system-images';
@@ -54,18 +53,20 @@ export default function OptionDetailPage() {
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [option, setOption] = useState<EstimateOption | null>(null);
   const [pricingMode, setPricingMode] = useState<'cash' | 'finance'>('cash');
-  const [selectedTerm, setSelectedTerm] = useState(financingTerms[1]?.id || '');
   const [showAddScope, setShowAddScope] = useState(false);
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
-  const [oldSystemSeer, setOldSystemSeer] = useState(10); // default assumption
+  const [oldSystemSeer, setOldSystemSeer] = useState(10);
   const [installDate, setInstallDate] = useState(() => {
-    // Default to next available weekday, 3 days out
     const d = new Date();
     d.setDate(d.getDate() + 3);
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
     return d.toISOString().split('T')[0];
   });
+  const [financingPlans, setFinancingPlans] = useState<FinancingPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [showMoreFinancing, setShowMoreFinancing] = useState(false);
+  const [cachedAddons, setCachedAddons] = useState<CachedAddOn[]>([]);
   const { tiers } = useTierConfigs();
 
   useEffect(() => {
@@ -75,6 +76,15 @@ export default function OptionDetailPage() {
     const opt = est.options.find(o => o.id === params.optionId);
     if (!opt) { router.push(`/present/${est.id}`); return; }
     setOption(opt);
+
+    // Fetch financing plans and cached add-ons from DB
+    fetch('/api/settings/financing').then(r => r.json()).then(d => {
+      const plans = (d.plans || []).filter((p: FinancingPlan) => p.active);
+      setFinancingPlans(plans);
+    }).catch(() => {});
+    fetch('/api/settings/addons').then(r => r.json()).then(d => {
+      setCachedAddons(d.addons || []);
+    }).catch(() => {});
   }, [params.id, params.optionId, router]);
 
   function updateOption(updates: Partial<EstimateOption>) {
@@ -120,11 +130,15 @@ export default function OptionDetailPage() {
   if (!estimate || !option) return null;
 
   const total = getOptionTotal(option);
-  const activeTerm = financingTerms.find(t => t.id === selectedTerm) || financingTerms[1];
-  const monthly = activeTerm ? total / activeTerm.months : 0;
   const primaryEquip = option.equipment[0];
 
   const tierConfig: TierConfig | undefined = tiers.find(t => t.name.toLowerCase() === option.label.toLowerCase());
+
+  // Financing: use featured plan from tier config, or first available
+  const featuredPlanId = tierConfig?.featuredFinancingPlanId;
+  const activePlanId = selectedPlanId || featuredPlanId || financingPlans[0]?.id || '';
+  const activePlan = financingPlans.find(p => p.id === activePlanId) || financingPlans[0];
+  const monthly = activePlan ? getMonthlyPayment(total, { id: activePlan.id, name: activePlan.name, months: activePlan.months, apr: activePlan.apr, minAmount: activePlan.minAmount }) : 0;
   const accentColor = tierConfig?.color || '#1a5632';
 
   const seer = primaryEquip?.seer || 14;
@@ -144,17 +158,15 @@ export default function OptionDetailPage() {
   // Clean system name
   const systemName = primaryEquip ? primaryEquip.name.replace(/^\d+\s*-\s*/, '') : `${option.label} Comfort System`;
 
-  // Common add-ons the advisor can offer
-  const availableAddOns: AddOn[] = [
-    { id: 'addon-surge', name: 'Whole-Home Surge Protector', description: 'Protects your new system and home electronics from power surges', price: 299, category: 'protection' },
-    { id: 'addon-uv', name: 'UV Air Purification System', description: 'Kills 99.9% of airborne bacteria, viruses, and mold in your ductwork', price: 895, category: 'indoor-air-quality' },
-    { id: 'addon-media-filter', name: '5" Media Filter Cabinet', description: 'Hospital-grade filtration that lasts 6-12 months between changes', price: 495, category: 'indoor-air-quality' },
-    { id: 'addon-thermostat', name: 'Ecobee Smart Thermostat', description: 'Smart scheduling, room sensors, and energy reports from your phone', price: 449, category: 'smart-home' },
-    { id: 'addon-scrubber', name: 'Air Scrubber Plus', description: 'ActivePure technology reduces surface and airborne contaminants', price: 1295, category: 'indoor-air-quality' },
-    { id: 'addon-humidifier', name: 'Whole-Home Humidifier', description: 'Maintains ideal humidity levels during dry winter months', price: 695, category: 'comfort' },
-    { id: 'addon-duct-seal', name: 'Duct Sealing', description: 'Seal leaky ductwork to improve efficiency by up to 20%', price: 895, category: 'comfort' },
-    { id: 'addon-zoning', name: 'Zone Control System', description: 'Independent temperature control for different areas of your home', price: 2495, category: 'comfort' },
-  ];
+  // Add-ons from DB (synced from ST pricebook or manually entered)
+  const availableAddOns: AddOn[] = cachedAddons.map((a) => ({
+    id: a.id,
+    name: a.name,
+    description: a.description || '',
+    price: a.price,
+    category: a.category,
+    popular: a.popular,
+  }));
 
   return (
     <div className="min-h-screen bg-white">
@@ -191,7 +203,7 @@ export default function OptionDetailPage() {
               ) : (
                 <>
                   <div className="text-3xl font-black">{fmtMo(monthly)}<span className="text-lg">/mo</span></div>
-                  <div className="text-xs text-white/60 mt-0.5">{activeTerm?.name}</div>
+                  <div className="text-xs text-white/60 mt-0.5">{activePlan?.name}</div>
                 </>
               )}
             </div>
@@ -290,6 +302,63 @@ export default function OptionDetailPage() {
           </div>
         </section>
 
+        {/* ═══ 4.5. PROTECT YOUR INVESTMENT ═══ */}
+        {tierConfig?.warrantyExtensionPrice != null && tierConfig.warrantyExtensionPrice > 0 && (
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Protect Your Investment</h2>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-bold text-gray-900">10-Year Complete Coverage</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Extends your warranty to cover all labor, parts, and refrigerant for a full 10 years.
+                    If anything goes wrong, you pay nothing.
+                  </p>
+                  <div className="flex gap-4 mt-3">
+                    <div className="flex items-center gap-1.5 text-xs text-blue-700">
+                      <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">&#10003;</span>
+                      Labor
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-blue-700">
+                      <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">&#10003;</span>
+                      Parts
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-blue-700">
+                      <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">&#10003;</span>
+                      Refrigerant
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Included: {tierConfig.laborWarranty} labor warranty. This extends coverage to 10 years.
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0 ml-6">
+                  <div className="text-2xl font-black text-gray-900">+{fmt(tierConfig.warrantyExtensionPrice)}</div>
+                  {option.addOns.some(a => a.name === '10-Year Complete Coverage') ? (
+                    <button
+                      onClick={() => removeAddOn(option.addOns.find(a => a.name === '10-Year Complete Coverage')!.id)}
+                      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium print:hidden">
+                      Added &#10003;
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => addAddOn({
+                        id: `warranty-ext-${tierConfig?.id || 'default'}`,
+                        name: '10-Year Complete Coverage',
+                        description: 'Extends warranty to cover labor, parts, and refrigerant for 10 years',
+                        price: tierConfig.warrantyExtensionPrice!,
+                        category: 'protection',
+                      })}
+                      className="mt-2 px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 print:hidden">
+                      + Add Protection
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ═══ 5. COMMON ADD-ONS ═══ */}
         <section>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Customers Also Added</h2>
@@ -377,6 +446,108 @@ export default function OptionDetailPage() {
             </button>
           )}
         </section>
+
+        {/* ═══ 6.5. FINANCING ═══ */}
+        {financingPlans.length > 0 && activePlan && (
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Financing Options</h2>
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-bold text-gray-900">{activePlan.name}</div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {activePlan.apr === 0 ? 'No interest' : `${activePlan.apr}% APR`} for {activePlan.months} months
+                  </div>
+                  <div className="text-2xl font-black text-gray-900 mt-2">
+                    {fmtMo(monthly)}<span className="text-sm text-gray-500">/mo</span>
+                  </div>
+                </div>
+                {activePlan.applyUrl && (
+                  <a href={activePlan.applyUrl} target="_blank" rel="noopener noreferrer"
+                    className="px-6 py-3 bg-[var(--christmas-green)] text-white rounded-xl font-bold text-sm hover:bg-[var(--christmas-green-dark)] print:hidden">
+                    Apply Now
+                  </a>
+                )}
+              </div>
+
+              {/* More options disclosure */}
+              {financingPlans.length > 1 && (
+                <div className="mt-4 print:hidden">
+                  <button onClick={() => setShowMoreFinancing(!showMoreFinancing)}
+                    className="text-sm text-gray-500 hover:text-gray-700">
+                    {showMoreFinancing ? 'Hide other options' : `View ${financingPlans.length - 1} more option${financingPlans.length > 2 ? 's' : ''}`}
+                  </button>
+                  {showMoreFinancing && (
+                    <div className="mt-3 space-y-2">
+                      {financingPlans.filter(p => p.id !== activePlan.id).map(p => {
+                        const planMonthly = getMonthlyPayment(total, { id: p.id, name: p.name, months: p.months, apr: p.apr, minAmount: p.minAmount });
+                        return (
+                          <button key={p.id}
+                            onClick={() => setSelectedPlanId(p.id)}
+                            className="w-full flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg hover:border-green-300 text-left">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{p.name}</div>
+                              <div className="text-xs text-gray-500">{p.apr === 0 ? 'No interest' : `${p.apr}% APR`} for {p.months} months</div>
+                            </div>
+                            <div className="text-sm font-bold text-gray-900">{fmtMo(planMonthly)}/mo</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ═══ 6.75. SCOPE TRANSPARENCY ═══ */}
+        {tierConfig && (tierConfig.scopeIncluded.length > 0 || tierConfig.scopeExcluded.length > 0 || tierConfig.scopeAssumptions.length > 0) && (
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Scope of Work</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {tierConfig.scopeIncluded.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-green-900 mb-3 uppercase tracking-wide">What&apos;s Included</h3>
+                  <ul className="space-y-2">
+                    {tierConfig.scopeIncluded.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-green-800">
+                        <span className="text-green-500 mt-0.5">&#10003;</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {tierConfig.scopeExcluded.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-red-900 mb-3 uppercase tracking-wide">What&apos;s Not Included</h3>
+                  <ul className="space-y-2">
+                    {tierConfig.scopeExcluded.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-red-800">
+                        <span className="text-red-400 mt-0.5">&#10007;</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {tierConfig.scopeAssumptions.length > 0 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Requirements</h3>
+                  <ul className="space-y-2">
+                    {tierConfig.scopeAssumptions.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                        <span className="text-gray-400 mt-0.5">&bull;</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ═══ 7. WHAT'S INCLUDED ═══ */}
         {tierConfig && (
@@ -579,7 +750,7 @@ export default function OptionDetailPage() {
                       <span className="font-semibold text-gray-900">Monthly</span>
                       <span className="text-2xl font-black text-[var(--christmas-green)]">{fmtMo(monthly)}<span className="text-sm">/mo</span></span>
                     </div>
-                    <div className="text-xs text-gray-400 text-right">{activeTerm?.name} | {fmt(total)} total</div>
+                    <div className="text-xs text-gray-400 text-right">{activePlan?.name} | {fmt(total)} total</div>
                   </>
                 )}
               </div>

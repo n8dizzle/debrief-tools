@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS estimate_financing_plans (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Unique constraint for ST sync upsert
+CREATE UNIQUE INDEX IF NOT EXISTS idx_estimate_financing_plans_st_plan_code
+  ON estimate_financing_plans (st_plan_code) WHERE st_plan_code IS NOT NULL;
+
 -- Seed default financing plans (manual, matching current hardcoded terms)
 INSERT INTO estimate_financing_plans (source, name, months, apr, min_amount, active)
 VALUES
@@ -76,6 +80,10 @@ CREATE TABLE IF NOT EXISTS estimate_addons (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Unique constraint for ST sync upsert
+CREATE UNIQUE INDEX IF NOT EXISTS idx_estimate_addons_st_sku_id
+  ON estimate_addons (st_sku_id) WHERE st_sku_id IS NOT NULL;
 
 -- Updated_at trigger for addons
 CREATE TRIGGER trg_estimate_addons_updated_at

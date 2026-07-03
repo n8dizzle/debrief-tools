@@ -76,6 +76,7 @@ export default function EstimateBuilderPage() {
   const [tierOrder, setTierOrder] = useState<string[]>([]);
   const [customColors, setCustomColors] = useState<Record<string, string>>({});
   const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
+  const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { allSystems, loading, error, filterByTonnageAndFuel } = useSystems();
@@ -241,6 +242,18 @@ export default function EstimateBuilderPage() {
     });
   }
 
+  function deleteOption(tierName: string) {
+    // Permanently remove from tier groups, tier order, and estimate options
+    setTierGroups(prev => prev.filter(g => g.tier !== tierName));
+    setTierOrder(prev => prev.filter(t => t !== tierName));
+    setSelectedSystems(prev => { const n = { ...prev }; delete n[tierName]; return n; });
+    setCustomColors(prev => { const n = { ...prev }; delete n[tierName]; return n; });
+    hiddenTiers.delete(tierName);
+    if (estimate) {
+      updateEstimate({ options: estimate.options.filter(o => o.label !== tierName) });
+    }
+  }
+
   function addCustomOption() {
     if (!estimate) return;
     const customLabel = `Custom ${tierGroups.length + 1}`;
@@ -366,11 +379,26 @@ export default function EstimateBuilderPage() {
                             <div {...dragListeners} className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1" title="Drag to reorder">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="4" r="2"/><circle cx="16" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="16" cy="20" r="2"/></svg>
                             </div>
-                            {/* Remove X */}
-                            <button onClick={() => setHiddenTiers(prev => new Set(prev).add(group.tier))}
-                              className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-white/80 border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-xs transition-colors">
+                            {/* Card menu (hide/delete) */}
+                            <button onClick={() => setCardMenuOpen(cardMenuOpen === group.tier ? null : group.tier)}
+                              className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-white/80 border border-gray-200 text-gray-400 hover:text-gray-600 flex items-center justify-center text-xs transition-colors">
                               &times;
                             </button>
+                            {cardMenuOpen === group.tier && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setCardMenuOpen(null)} />
+                                <div className="absolute top-9 right-2 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-32">
+                                  <button onClick={() => { setHiddenTiers(prev => new Set(prev).add(group.tier)); setCardMenuOpen(null); }}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    Hide
+                                  </button>
+                                  <button onClick={() => { deleteOption(group.tier); setCardMenuOpen(null); }}
+                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
                             {/* Header */}
                             <div className="rounded-t-xl px-4 py-3 text-center relative" style={{ backgroundColor: `${cardColor}15`, borderBottom: `3px solid ${cardColor}` }}>
                               {/* Color picker trigger */}
@@ -418,25 +446,22 @@ export default function EstimateBuilderPage() {
                               />
                               <div className="text-xs text-gray-500">{group.seer} SEER | {group.stage}</div>
                             </div>
-                            {/* Photo */}
-                            <div className="px-4 pt-4 flex justify-center">
+                            {/* Fixed-height top: photo + brand + name */}
+                            <div className="h-48 flex flex-col items-center justify-center px-3">
                               <img
                                 src={getSystemImage(group.seer, group.tier, selected?.brand)}
                                 alt={systemName}
-                                className="w-28 h-28 object-contain rounded-xl"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="w-28 h-28 rounded-xl bg-gray-100 flex items-center justify-center"><span class="text-3xl text-gray-300">&#10052;</span></div>'; }}
+                                className="w-24 h-24 object-contain"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="w-24 h-24 rounded-xl bg-gray-100 flex items-center justify-center"><span class="text-3xl text-gray-300">&#10052;</span></div>'; }}
                               />
-                            </div>
-                            {/* Brand + Series + Name */}
-                            <div className="px-3 pt-2 text-center">
-                              <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: tierConfig.color }}>
+                              <div className="text-xs font-semibold uppercase tracking-wide mt-2" style={{ color: cardColor }}>
                                 {selected?.brand || tierConfig.brand || 'American Standard'}
                               </div>
                               <div className="font-bold text-gray-900 text-sm leading-tight mt-0.5">{group.tier} Series</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{systemName}</div>
+                              <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">{systemName}</div>
                             </div>
-                            {/* Price */}
-                            <div className="px-4 pt-3 text-center">
+                            {/* Price box */}
+                            <div className="mx-3 py-3 bg-gray-50 rounded-xl text-center">
                               {pricingMode === 'cash' ? (
                                 <><div className="text-2xl font-black text-gray-900">{fmt(totalPrice)}</div><div className="text-xs text-gray-400">Installed Price</div></>
                               ) : (

@@ -330,6 +330,31 @@ export class ServiceTitanClient {
   }
 
   // ══════════════════════════════════════════════
+  // FINANCING
+  // ══════════════════════════════════════════════
+
+  async getFinancingOptions(): Promise<Array<{ id: number; name: string; code?: string; months?: number; apr?: number }>> {
+    // Try settings endpoint first, then fall back to pricebook services with financing category
+    try {
+      const res = await this.request<{ data: Array<{ id: number; name: string; code?: string; term?: number; rate?: number }> }>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/financing-options`,
+        { params: { pageSize: '200' } }
+      );
+      return (res.data || []).map(f => ({
+        id: f.id,
+        name: f.name,
+        code: f.code,
+        months: f.term,
+        apr: f.rate,
+      }));
+    } catch {
+      // Endpoint may not exist -- rethrow to let caller handle
+      throw new Error('ST API 404: Financing options endpoint not available');
+    }
+  }
+
+  // ══════════════════════════════════════════════
   // JOBS
   // ══════════════════════════════════════════════
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { FinancingPlan, CachedAddOn } from '@/types/estimate';
 
 interface TierRow {
   id: string;
@@ -20,6 +21,13 @@ interface TierRow {
   financing_options: string[];
   guarantees: string[];
   tech_features: string[];
+  // New fields
+  default_addon_ids: string[];
+  featured_financing_plan_id: string | null;
+  warranty_extension_price: number | null;
+  scope_included: string[];
+  scope_excluded: string[];
+  scope_assumptions: string[];
 }
 
 const STAGE_OPTIONS = ['Single-Stage', 'Two-Stage', 'Variable'];
@@ -32,12 +40,6 @@ const GUARANTEE_OPTIONS = [
   '1-Year Club',
   '2-Year Satisfaction',
   'Apples to Apples',
-];
-const FINANCING_OPTIONS = [
-  '18 Month 0% Interest',
-  '60 Month 0% Interest',
-  '7.9% APR',
-  '9.9% APR',
 ];
 const FEATURE_OPTIONS = [
   'Basic Thermostat',
@@ -55,20 +57,29 @@ const FEATURE_OPTIONS = [
 
 export default function TierSettingsPage() {
   const [tiers, setTiers] = useState<TierRow[]>([]);
+  const [financingPlans, setFinancingPlans] = useState<FinancingPlan[]>([]);
+  const [addons, setAddons] = useState<CachedAddOn[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [editingTier, setEditingTier] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
-  useEffect(() => { fetchTiers(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  async function fetchTiers() {
+  async function fetchAll() {
     setLoading(true);
     try {
-      const res = await fetch('/api/settings/tiers');
-      const data = await res.json();
+      const [tiersRes, financingRes, addonsRes] = await Promise.all([
+        fetch('/api/settings/tiers'),
+        fetch('/api/settings/financing'),
+        fetch('/api/settings/addons'),
+      ]);
+      const tiersData = await tiersRes.json();
+      const financingData = await financingRes.json();
+      const addonsData = await addonsRes.json();
+
       // Convert TierConfig back to raw DB shape for editing
-      const raw = (data.tiers || []).map((t: any) => ({
+      const raw = (tiersData.tiers || []).map((t: any) => ({
         id: t.id,
         display_name: t.name,
         sort_order: 0,
@@ -86,8 +97,16 @@ export default function TierSettingsPage() {
         financing_options: t.financing,
         guarantees: t.guarantees,
         tech_features: t.techFeatures,
+        default_addon_ids: t.defaultAddonIds || [],
+        featured_financing_plan_id: t.featuredFinancingPlanId || null,
+        warranty_extension_price: t.warrantyExtensionPrice ?? null,
+        scope_included: t.scopeIncluded || [],
+        scope_excluded: t.scopeExcluded || [],
+        scope_assumptions: t.scopeAssumptions || [],
       }));
       setTiers(raw);
+      setFinancingPlans(financingData.plans || []);
+      setAddons(addonsData.addons || []);
     } catch {
       setMessage('Failed to load tier configs');
     } finally {
@@ -119,12 +138,33 @@ export default function TierSettingsPage() {
     setTiers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
   }
 
-  function toggleArrayItem(tierId: string, field: 'guarantees' | 'financing_options' | 'tech_features', item: string) {
+  function toggleArrayItem(tierId: string, field: 'guarantees' | 'financing_options' | 'tech_features' | 'default_addon_ids', item: string) {
     const tier = tiers.find(t => t.id === tierId);
     if (!tier) return;
     const arr = tier[field] as string[];
     const updated = arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item];
     updateTier(tierId, { [field]: updated });
+  }
+
+  function updateScopeItem(tierId: string, field: 'scope_included' | 'scope_excluded' | 'scope_assumptions', index: number, value: string) {
+    const tier = tiers.find(t => t.id === tierId);
+    if (!tier) return;
+    const arr = [...tier[field]];
+    arr[index] = value;
+    updateTier(tierId, { [field]: arr });
+  }
+
+  function addScopeItem(tierId: string, field: 'scope_included' | 'scope_excluded' | 'scope_assumptions') {
+    const tier = tiers.find(t => t.id === tierId);
+    if (!tier) return;
+    updateTier(tierId, { [field]: [...tier[field], ''] });
+  }
+
+  function removeScopeItem(tierId: string, field: 'scope_included' | 'scope_excluded' | 'scope_assumptions', index: number) {
+    const tier = tiers.find(t => t.id === tierId);
+    if (!tier) return;
+    const arr = tier[field].filter((_, i) => i !== index);
+    updateTier(tierId, { [field]: arr });
   }
 
   if (loading) {
@@ -136,7 +176,7 @@ export default function TierSettingsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tier Settings</h1>
-          <p className="text-sm text-gray-500 mt-1">Configure warranties, financing, guarantees, and features for each tier</p>
+          <p className="text-sm text-gray-500 mt-1">Configure warranties, financing, guarantees, add-ons, and scope for each tier</p>
         </div>
       </div>
 
@@ -212,6 +252,16 @@ export default function TierSettingsPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
                     </div>
 
+                    {/* Warranty Extension Price */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Warranty Extension Price ($)</label>
+                      <input type="number" value={tier.warranty_extension_price ?? ''}
+                        onChange={e => updateTier(tier.id, { warranty_extension_price: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="e.g. 795"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                      <p className="text-xs text-gray-400 mt-1">Cost to extend to 10yr coverage (Protect Your Investment)</p>
+                    </div>
+
                     {/* Compressor Stage */}
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Compressor Stage</label>
@@ -257,6 +307,44 @@ export default function TierSettingsPage() {
                     </div>
                   </div>
 
+                  {/* Featured Financing Plan */}
+                  <div className="mt-4">
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">Featured Financing Plan</label>
+                    <select
+                      value={tier.featured_financing_plan_id || ''}
+                      onChange={e => updateTier(tier.id, { featured_financing_plan_id: e.target.value || null })}
+                      className="w-full sm:w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                      <option value="">None selected</option>
+                      {financingPlans.filter(p => p.active).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.apr}% APR, {p.months}mo)
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1">Shown prominently to customer on product detail page</p>
+                  </div>
+
+                  {/* Default Add-ons */}
+                  {addons.length > 0 && (
+                    <div className="mt-4">
+                      <label className="block text-xs font-semibold text-gray-600 mb-2">Default Add-ons</label>
+                      <p className="text-xs text-gray-400 mb-2">Pre-selected when creating estimates for this tier</p>
+                      <div className="flex flex-wrap gap-2">
+                        {addons.map(a => (
+                          <button key={a.id}
+                            onClick={() => toggleArrayItem(tier.id, 'default_addon_ids', a.id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                              tier.default_addon_ids.includes(a.id)
+                                ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                            }`}>
+                            {a.name} (${a.price})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Guarantees */}
                   <div className="mt-4">
                     <label className="block text-xs font-semibold text-gray-600 mb-2">Guarantees</label>
@@ -270,24 +358,6 @@ export default function TierSettingsPage() {
                               : 'border-gray-200 text-gray-500 hover:border-gray-300'
                           }`}>
                           {g}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Financing */}
-                  <div className="mt-4">
-                    <label className="block text-xs font-semibold text-gray-600 mb-2">Financing Options</label>
-                    <div className="flex flex-wrap gap-2">
-                      {FINANCING_OPTIONS.map(f => (
-                        <button key={f}
-                          onClick={() => toggleArrayItem(tier.id, 'financing_options', f)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            tier.financing_options.includes(f)
-                              ? 'border-blue-400 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                          }`}>
-                          {f}
                         </button>
                       ))}
                     </div>
@@ -308,6 +378,58 @@ export default function TierSettingsPage() {
                           {f}
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Scope: What's Included */}
+                  <div className="mt-6 border-t border-gray-100 pt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Scope Transparency</h3>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-green-700 mb-2">What&apos;s Included</label>
+                        {tier.scope_included.map((item, i) => (
+                          <div key={i} className="flex gap-2 mb-1">
+                            <input type="text" value={item}
+                              onChange={e => updateScopeItem(tier.id, 'scope_included', i, e.target.value)}
+                              className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                            <button onClick={() => removeScopeItem(tier.id, 'scope_included', i)}
+                              className="text-gray-400 hover:text-red-500 text-sm px-2">&times;</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addScopeItem(tier.id, 'scope_included')}
+                          className="text-xs text-green-600 hover:text-green-700 mt-1">+ Add item</button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-red-700 mb-2">What&apos;s Not Included</label>
+                        {tier.scope_excluded.map((item, i) => (
+                          <div key={i} className="flex gap-2 mb-1">
+                            <input type="text" value={item}
+                              onChange={e => updateScopeItem(tier.id, 'scope_excluded', i, e.target.value)}
+                              className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                            <button onClick={() => removeScopeItem(tier.id, 'scope_excluded', i)}
+                              className="text-gray-400 hover:text-red-500 text-sm px-2">&times;</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addScopeItem(tier.id, 'scope_excluded')}
+                          className="text-xs text-red-600 hover:text-red-700 mt-1">+ Add item</button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-2">Requirements / Assumptions</label>
+                        {tier.scope_assumptions.map((item, i) => (
+                          <div key={i} className="flex gap-2 mb-1">
+                            <input type="text" value={item}
+                              onChange={e => updateScopeItem(tier.id, 'scope_assumptions', i, e.target.value)}
+                              className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                            <button onClick={() => removeScopeItem(tier.id, 'scope_assumptions', i)}
+                              className="text-gray-400 hover:text-red-500 text-sm px-2">&times;</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addScopeItem(tier.id, 'scope_assumptions')}
+                          className="text-xs text-gray-500 hover:text-gray-700 mt-1">+ Add item</button>
+                      </div>
                     </div>
                   </div>
 
