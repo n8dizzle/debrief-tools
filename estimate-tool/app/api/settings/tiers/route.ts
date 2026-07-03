@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
-import { dbRowToTierConfig } from '@/lib/use-tier-configs';
+import { dbRowToTierConfig } from '@/lib/tiers';
 
 export const dynamic = 'force-dynamic';
 
