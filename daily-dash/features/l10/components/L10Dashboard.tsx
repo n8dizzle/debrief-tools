@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import StoriesTab from './StoriesTab';
 import RocksTab from './RocksTab';
+import RigorTab from './RigorTab';
 import TodosTab from './TodosTab';
 import IdsTab from './IdsTab';
 import RatingsTab from './RatingsTab';
@@ -10,6 +11,7 @@ import RatingsTab from './RatingsTab';
 const tabs = [
   { key: 'stories', label: 'Story' },
   { key: 'rocks', label: 'Rocks' },
+  { key: 'rigor', label: 'Rigor' },
   { key: 'todos', label: 'To-Dos' },
   { key: 'ids', label: 'IDS' },
   { key: 'ratings', label: 'Ratings' },
@@ -29,7 +31,7 @@ export default function L10Dashboard() {
             L10 Meeting
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            Weekly meeting tools &mdash; story, rocks, to-dos, IDS, and ratings
+            Weekly meeting tools &mdash; story, rocks, rigor, to-dos, IDS, and ratings
           </p>
         </div>
       </div>
@@ -54,6 +56,7 @@ export default function L10Dashboard() {
       {/* Tab content */}
       {activeTab === 'stories' && <StoriesTab />}
       {activeTab === 'rocks' && <RocksTab />}
+      {activeTab === 'rigor' && <RigorTab />}
       {activeTab === 'todos' && <TodosTab />}
       {activeTab === 'ids' && <IdsTab />}
       {activeTab === 'ratings' && <RatingsTab />}
