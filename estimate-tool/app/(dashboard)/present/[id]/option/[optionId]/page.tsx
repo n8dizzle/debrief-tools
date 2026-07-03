@@ -67,7 +67,10 @@ export default function OptionDetailPage() {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [showMoreFinancing, setShowMoreFinancing] = useState(false);
   const [cachedAddons, setCachedAddons] = useState<CachedAddOn[]>([]);
-  const [reviews, setReviews] = useState<Array<{ name: string; rating: number; text: string; date: string }>>([]);
+  const [selectedReviews, setSelectedReviews] = useState<Array<{ name: string; rating: number; text: string; date: string; locationName?: string; isLocal?: boolean }>>([]);
+  const [availableReviews, setAvailableReviews] = useState<Array<{ name: string; rating: number; text: string; date: string; locationName?: string; isLocal?: boolean }>>([]);
+  const [showReviewPicker, setShowReviewPicker] = useState(false);
+  const [reviewSearch, setReviewSearch] = useState('');
   const { tiers } = useTierConfigs();
 
   useEffect(() => {
@@ -86,12 +89,31 @@ export default function OptionDetailPage() {
     fetch('/api/settings/addons').then(r => r.json()).then(d => {
       setCachedAddons(d.addons || []);
     }).catch(() => {});
-    // Fetch real install reviews, prioritizing customer's city
+    // Load curated reviews from estimate, or fetch fresh defaults
     const city = est.customerAddress?.match(/,\s*([^,]+),\s*[A-Z]{2}/)?.[1]?.trim() || '';
-    fetch(`/api/reviews?limit=5&install=true${city ? '&city=' + encodeURIComponent(city) : ''}`).then(r => r.json()).then(d => {
-      setReviews(d.reviews || []);
+    fetch(`/api/reviews?limit=30&install=true${city ? '&city=' + encodeURIComponent(city) : ''}`).then(r => r.json()).then(d => {
+      const all = d.reviews || [];
+      if (est.selectedReviews && est.selectedReviews.length > 0) {
+        // Use saved selections — put the rest in available
+        setSelectedReviews(est.selectedReviews);
+        const selectedTexts = new Set(est.selectedReviews.map(r => r.text));
+        setAvailableReviews(all.filter((r: { text: string }) => !selectedTexts.has(r.text)));
+      } else {
+        // First time — auto-select top 3
+        setSelectedReviews(all.slice(0, 3));
+        setAvailableReviews(all.slice(3));
+      }
     }).catch(() => {});
   }, [params.id, params.optionId, router]);
+
+  function saveSelectedReviews(reviews: typeof selectedReviews) {
+    setSelectedReviews(reviews);
+    if (estimate) {
+      const updated = { ...estimate, selectedReviews: reviews };
+      saveEstimate(updated);
+      setEstimate(updated);
+    }
+  }
 
   function updateOption(updates: Partial<EstimateOption>) {
     if (!estimate || !option) return;
@@ -653,27 +675,85 @@ export default function OptionDetailPage() {
         </section>
 
         {/* ═══ 9. REVIEWS ═══ */}
-        {reviews.length > 0 && (
+        {(selectedReviews.length > 0 || availableReviews.length > 0) && (
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">What Our Customers Say</h2>
+              <button onClick={() => setShowReviewPicker(!showReviewPicker)}
+                className="text-xs text-gray-500 hover:text-gray-700 print:hidden">
+                {showReviewPicker ? 'Done' : `Browse Reviews (${selectedReviews.length + availableReviews.length})`}
+              </button>
+            </div>
+
+            {/* Selected reviews — shown to customer */}
             <div className="space-y-4">
-              {reviews.map((review, i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-xl p-5">
+              {selectedReviews.map((review, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 relative">
+                  <button onClick={() => {
+                    setAvailableReviews(prev => [...prev, review]);
+                    saveSelectedReviews(selectedReviews.filter((_, idx) => idx !== i));
+                  }} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 text-xs print:hidden" title="Remove">
+                    &times;
+                  </button>
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex text-amber-400 text-sm">{'★'.repeat(review.rating)}</div>
                     <span className="text-sm font-medium text-gray-900">{review.name}</span>
                     <span className="text-xs text-gray-400">{review.date}</span>
-                    {(review as any).isLocal && (
+                    {review.isLocal && (
                       <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium">Your Area</span>
                     )}
                   </div>
                   <p className="text-sm text-gray-700 leading-relaxed">{review.text}</p>
-                  {(review as any).locationName && (
-                    <p className="text-xs text-gray-400 mt-2">via Google Reviews &middot; {(review as any).locationName}</p>
+                  {review.locationName && (
+                    <p className="text-xs text-gray-400 mt-2">via Google Reviews &middot; {review.locationName}</p>
                   )}
                 </div>
               ))}
             </div>
+
+            {/* Advisor review picker — browse and search available reviews */}
+            {showReviewPicker && (
+              <div className="mt-4 border border-gray-200 rounded-xl bg-gray-50 p-4 print:hidden">
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={reviewSearch}
+                    onChange={(e) => setReviewSearch(e.target.value)}
+                    placeholder="Search reviews by keyword..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <span className="text-xs text-gray-400">{availableReviews.length} available</span>
+                </div>
+                <div className="max-h-72 overflow-y-auto space-y-2">
+                  {availableReviews
+                    .filter(r => !reviewSearch || r.text.toLowerCase().includes(reviewSearch.toLowerCase()) || r.name.toLowerCase().includes(reviewSearch.toLowerCase()))
+                    .map((review, i) => (
+                    <div key={i} className="bg-white border border-gray-200 rounded-lg p-3 flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="flex text-amber-400 text-xs">{'★'.repeat(review.rating)}</div>
+                          <span className="text-xs font-medium text-gray-900">{review.name}</span>
+                          <span className="text-xs text-gray-400">{review.date}</span>
+                          {review.isLocal && <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-medium">Local</span>}
+                        </div>
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">{review.text}</p>
+                        {review.locationName && <p className="text-[10px] text-gray-400 mt-1">{review.locationName}</p>}
+                      </div>
+                      <button onClick={() => {
+                        saveSelectedReviews([...selectedReviews, review]);
+                        setAvailableReviews(prev => prev.filter((_, idx) => idx !== i));
+                      }} className="flex-shrink-0 px-3 py-1.5 bg-[var(--christmas-green)] text-white rounded-lg text-xs font-medium hover:bg-[var(--christmas-green-dark)]">
+                        + Add
+                      </button>
+                    </div>
+                  ))}
+                  {availableReviews.filter(r => !reviewSearch || r.text.toLowerCase().includes(reviewSearch.toLowerCase())).length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-4">No matching reviews found</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <p className="text-xs text-gray-400 mt-3 text-center">Verified reviews from Google Business Profile</p>
           </section>
         )}

@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Estimate, getOptionTotal } from '@/types/estimate';
-import { getEstimate, saveEstimate, createBlankOption } from '@/lib/store';
+import { getEstimate, saveEstimate, createBlankOption, fetchEstimate } from '@/lib/store';
 import { useSystems, TierGroup, SystemOption } from '@/lib/use-systems';
 import { TIERS, getTierBullets, TierConfig, findTierConfig } from '@/lib/tiers';
 import CustomerInfo from '@/components/CustomerInfo';
@@ -82,8 +82,16 @@ export default function EstimateBuilderPage() {
   const { allSystems, loading, error, filterByTonnageAndFuel } = useSystems();
 
   useEffect(() => {
-    const est = getEstimate(params.id as string);
-    if (!est) { router.push('/'); return; }
+    // Show cached instantly, then fetch latest from Supabase
+    const cached = getEstimate(params.id as string);
+    if (cached) loadEstimate(cached);
+
+    fetchEstimate(params.id as string).then(est => {
+      if (est) loadEstimate(est);
+      else if (!cached) router.push('/');
+    });
+
+    function loadEstimate(est: Estimate) {
     setEstimate(est);
 
     // If estimate already has options with equipment, rebuild tier groups from saved data
@@ -129,6 +137,7 @@ export default function EstimateBuilderPage() {
     } else if (est.stJobId || est.customerName) {
       setStep('config');
     }
+    } // end loadEstimate
   }, [params.id, router]);
 
   // When pricebook loads, backfill full system lists into existing tier groups so swap works

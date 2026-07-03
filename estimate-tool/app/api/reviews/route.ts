@@ -8,8 +8,9 @@ export const dynamic = 'force-dynamic';
 // Prioritizes: install-related, 5-star, customer's city, recent
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const limit = parseInt(searchParams.get('limit') || '3');
+  const limit = parseInt(searchParams.get('limit') || '30');
   const installOnly = searchParams.get('install') !== 'false';
+  const keyword = searchParams.get('keyword') || '';
   const city = searchParams.get('city') || '';
 
   try {
@@ -24,17 +25,22 @@ export async function GET(request: Request) {
       .order('create_time', { ascending: false });
 
     if (installOnly) {
+      // Tight filter: HVAC install-specific keywords only
       query = query.or(
-        'comment.ilike.%install%,comment.ilike.%new system%,comment.ilike.%replacement%,comment.ilike.%new unit%,comment.ilike.%new ac%,comment.ilike.%new air conditioner%,comment.ilike.%hvac%,comment.ilike.%furnace%,comment.ilike.%heat pump%,comment.ilike.%comfort advisor%,comment.ilike.%estimate%,comment.ilike.%new equipment%'
+        'comment.ilike.%new ac%,comment.ilike.%new air conditioner%,comment.ilike.%new system%,comment.ilike.%new unit%,comment.ilike.%replacement system%,comment.ilike.%install team%,comment.ilike.%install crew%,comment.ilike.%comfort advisor%,comment.ilike.%new a/c%,comment.ilike.%replaced our%,comment.ilike.%brand new%'
       );
     }
 
-    // Pull more than we need so we can prioritize by city
-    const { data, error } = await query.limit(50);
+    // Pull more than we need so we can filter out non-HVAC and prioritize by city
+    const { data, error } = await query.limit(100);
 
     if (error) throw new Error(error.message);
 
-    let reviews = (data || []).map(r => ({
+    // Post-filter: exclude maintenance, water heater, plumbing, repair-only reviews
+    const excludePatterns = /water heater|tankless|plumbing|plumber|drain|sewer|maintenance visit|tune.?up|repair(?:ed|s)?\s/i;
+    const filtered = (data || []).filter(r => !excludePatterns.test(r.comment || ''));
+
+    let reviews = filtered.map(r => ({
       name: r.reviewer_name || 'Anonymous',
       rating: r.star_rating,
       text: r.comment,

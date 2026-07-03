@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Estimate, getOptionTotal } from '@/types/estimate';
-import { getAllEstimates, createBlankEstimate, saveEstimate, deleteEstimate } from '@/lib/store';
+import { getAllEstimates, fetchAllEstimates, createEstimate as createEstimateApi, deleteEstimate } from '@/lib/store';
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -52,7 +52,9 @@ export default function EstimatesPage() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setEstimates(getAllEstimates().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+    // Show cached instantly, then fetch from Supabase
+    setEstimates(getAllEstimates());
+    fetchAllEstimates().then(setEstimates).catch(() => {});
   }, []);
 
   async function handleSearch(query?: string) {
@@ -93,8 +95,7 @@ export default function EstimatesPage() {
     }
   }
 
-  function handleStartFromResult(result: SearchResult) {
-    // Check if estimate already exists for this job
+  async function handleStartFromResult(result: SearchResult) {
     const existing = result.jobNumber
       ? estimates.find(e => e.stJobNumber === result.jobNumber)
       : null;
@@ -104,22 +105,21 @@ export default function EstimatesPage() {
       return;
     }
 
-    const est = createBlankEstimate();
-    est.customerName = result.customerName;
-    est.customerAddress = result.address;
-    est.customerPhone = result.phone;
-    est.customerEmail = result.email;
-    est.stJobId = result.jobId || undefined;
-    est.stJobNumber = result.jobNumber || undefined;
-    est.stCustomerId = result.customerId;
-    est.stLocationId = result.locationId || undefined;
-    saveEstimate(est);
+    const est = await createEstimateApi({
+      customerName: result.customerName,
+      customerAddress: result.address,
+      customerPhone: result.phone,
+      customerEmail: result.email,
+      stJobId: result.jobId || undefined,
+      stJobNumber: result.jobNumber || undefined,
+      stCustomerId: result.customerId,
+      stLocationId: result.locationId || undefined,
+    });
     router.push(`/estimates/${est.id}`);
   }
 
-  function handleNew() {
-    const est = createBlankEstimate();
-    saveEstimate(est);
+  async function handleNew() {
+    const est = await createEstimateApi({});
     router.push(`/estimates/${est.id}`);
   }
 

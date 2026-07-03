@@ -117,6 +117,8 @@ export interface Estimate {
   stCustomerId?: number;
   stLocationId?: number;
   stEstimateId?: number; // set after pushing to ST
+  // Curated reviews selected by advisor (shared across all options)
+  selectedReviews?: Array<{ name: string; rating: number; text: string; date: string; locationName?: string; isLocal?: boolean }>;
 }
 
 export interface FinancingTerm {
