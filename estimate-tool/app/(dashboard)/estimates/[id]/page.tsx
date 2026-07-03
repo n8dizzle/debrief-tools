@@ -43,7 +43,7 @@ function DraggableCard({ id, children }: { id: string; children: (dragListeners:
 }
 
 // Editable tier name — local state so typing doesn't remount the card
-function EditableTierName({ value, className, onCommit }: { value: string; className: string; onCommit: (newName: string) => void }) {
+function EditableTierName({ value, className, style, onCommit }: { value: string; className: string; style?: React.CSSProperties; onCommit: (newName: string) => void }) {
   const [local, setLocal] = useState(value);
   useEffect(() => { setLocal(value); }, [value]);
   return (
@@ -54,6 +54,7 @@ function EditableTierName({ value, className, onCommit }: { value: string; class
       onBlur={() => { if (local !== value) onCommit(local); }}
       onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
       className={`text-lg font-bold bg-transparent border-none text-center w-full focus:ring-0 focus:outline-none p-0 ${className}`}
+      style={style}
     />
   );
 }
@@ -72,6 +73,8 @@ export default function EstimateBuilderPage() {
   const [pricingMode, setPricingMode] = useState<'cash' | 'finance'>('cash');
   const [hiddenTiers, setHiddenTiers] = useState<Set<string>>(new Set());
   const [tierOrder, setTierOrder] = useState<string[]>([]);
+  const [customColors, setCustomColors] = useState<Record<string, string>>({});
+  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { allSystems, loading, error, filterByTonnageAndFuel } = useSystems();
@@ -339,18 +342,21 @@ export default function EstimateBuilderPage() {
                 <div className="flex gap-4 items-stretch overflow-x-auto pb-2">
                   {visibleGroups.map(group => {
                     const selected = selectedSystems[group.tier] || group.defaultSystem;
-                    const tierConfig = TIERS.find(t => t.name === group.tier) || TIERS[0];
+                    const baseTierConfig = TIERS.find(t => t.name === group.tier) || TIERS[0];
+                    const cardColor = customColors[group.tier] || baseTierConfig.color;
+                    const tierConfig = { ...baseTierConfig, color: cardColor };
                     const bullets = getTierBullets(tierConfig);
                     const price = selected?.price || 0;
                     const totalPrice = price * (systemSetup?.systemCount || 1);
                     const monthly = totalPrice > 0 ? totalPrice / 60 : 0;
                     const isExpanded = expandedTier === group.tier;
                     const systemName = selected ? selected.displayName.replace(/^\S+\s*-\s*/, '') : '';
+                    const isPickingColor = colorPickerOpen === group.tier;
 
                     return (
                       <DraggableCard key={group.tier} id={group.tier}>
                         {(dragListeners: any) => (
-                          <div className={`rounded-2xl border-2 ${tierConfig.borderColor} bg-white flex flex-col h-full relative`}>
+                          <div className="rounded-2xl border-2 bg-white flex flex-col h-full relative" style={{ borderColor: `${cardColor}60` }}>
                             {/* Drag Handle */}
                             <div {...dragListeners} className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1" title="Drag to reorder">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="4" r="2"/><circle cx="16" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="16" cy="20" r="2"/></svg>
@@ -361,10 +367,30 @@ export default function EstimateBuilderPage() {
                               &times;
                             </button>
                             {/* Header */}
-                            <div className={`rounded-t-xl px-4 py-3 text-center ${tierConfig.bgColor}`} style={{ borderBottom: `3px solid ${tierConfig.color}` }}>
+                            <div className="rounded-t-xl px-4 py-3 text-center relative" style={{ backgroundColor: `${cardColor}15`, borderBottom: `3px solid ${cardColor}` }}>
+                              {/* Color picker trigger */}
+                              <button
+                                onClick={() => setColorPickerOpen(isPickingColor ? null : group.tier)}
+                                className="absolute top-2 right-9 w-5 h-5 rounded-full border-2 border-white shadow z-10 print:hidden hover:scale-110 transition-transform"
+                                style={{ backgroundColor: cardColor }}
+                                title="Change color"
+                              />
+                              {isPickingColor && (
+                                <>
+                                  <div className="fixed inset-0 z-10" onClick={() => setColorPickerOpen(null)} />
+                                  <div className="absolute top-9 right-2 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-2.5 flex gap-2">
+                                    {['#6B7280','#2563EB','#B8956B','#7C3AED','#16A34A','#DC2626','#EA580C','#0891B2'].map(c => (
+                                      <button key={c} onClick={() => { setCustomColors(prev => ({ ...prev, [group.tier]: c })); setColorPickerOpen(null); }}
+                                        className={`w-8 h-8 rounded-full border-3 transition-transform hover:scale-110 ${c === cardColor ? 'border-gray-900 scale-110 ring-2 ring-gray-300' : 'border-white shadow'}`}
+                                        style={{ backgroundColor: c }} />
+                                    ))}
+                                  </div>
+                                </>
+                              )}
                               <EditableTierName
                                 value={group.tier}
-                                className={tierConfig.textColor}
+                                className=""
+                                style={{ color: cardColor }}
                                 onCommit={(newName) => {
                                   const oldName = group.tier;
                                   if (newName === oldName || !newName.trim()) return;
@@ -375,6 +401,9 @@ export default function EstimateBuilderPage() {
                                   }
                                   if (selectedSystems[oldName]) {
                                     setSelectedSystems(prev => { const n = { ...prev }; n[newName] = n[oldName]; delete n[oldName]; return n; });
+                                  }
+                                  if (customColors[oldName]) {
+                                    setCustomColors(prev => { const n = { ...prev }; n[newName] = n[oldName]; delete n[oldName]; return n; });
                                   }
                                   if (estimate) {
                                     const newOptions = estimate.options.map(o => o.label === oldName ? { ...o, label: newName } : o);

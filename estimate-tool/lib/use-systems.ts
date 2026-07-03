@@ -92,10 +92,10 @@ function parseType(code: string): 'AC' | 'HP' {
   return 'AC';
 }
 
-function parseFuelType(categoryName: string, name: string): 'Gas' | 'Electric' | 'Dual Fuel' {
-  const combined = (categoryName + ' ' + name).toLowerCase();
+function parseFuelType(categoryName: string, name: string, description: string = ''): 'Gas' | 'Electric' | 'Dual Fuel' {
+  const combined = (categoryName + ' ' + name + ' ' + description).toLowerCase();
   if (combined.includes('dual fuel')) return 'Dual Fuel';
-  if (combined.includes('gas')) return 'Gas';
+  if (combined.includes('gas') || combined.includes('furnace') || combined.includes('afue')) return 'Gas';
   return 'Electric';
 }
 
@@ -140,10 +140,20 @@ export function useSystems(): UseSystemsResult {
           serviceEquipment?: Array<{ skuId: number; quantity: number }>;
         }>;
 
-        // Filter to AHRI system codes (NACnn- or NHPnn- pattern)
-        const systemServices = services.filter(s =>
-          (s.code || '').match(/^\d+[A-Z]{2}\d{2}-/)
-        );
+        // Filter to system services:
+        // 1. AHRI codes (5AC14-xxxx, 5HP16-xxxx pattern)
+        // 2. Comfort Maker / ICP / Ameristar full systems
+        const systemServices = services.filter(s => {
+          const code = s.code || '';
+          const name = (s.displayName || '').toLowerCase();
+          // AHRI-matched American Standard systems
+          if (code.match(/^\d+[A-Z]{2}\d{2}-/)) return true;
+          // Comfort Maker / ICP / Ameristar full systems
+          if ((name.includes('comfort m') || name.includes('comfortm') || name.includes('ameristar') || name.includes('icp'))
+              && (name.includes('full system') || name.includes('system including') || name.includes('ton'))
+              && name.includes('seer')) return true;
+          return false;
+        });
 
         const parsed: SystemOption[] = systemServices.map(s => {
           const code = s.code || '';
@@ -162,7 +172,7 @@ export function useSystems(): UseSystemsResult {
             type: parseType(code),
             stage: parseStage(name),
             tonnage: parseTonnage(name, catName),
-            fuelType: parseFuelType(catName, name),
+            fuelType: parseFuelType(catName, name, desc),
             brand: parseBrand(name, code),
             categoryName: catName,
             equipmentRefs: s.serviceEquipment || [],
