@@ -67,6 +67,7 @@ export default function OptionDetailPage() {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [showMoreFinancing, setShowMoreFinancing] = useState(false);
   const [cachedAddons, setCachedAddons] = useState<CachedAddOn[]>([]);
+  const [reviews, setReviews] = useState<Array<{ name: string; rating: number; text: string; date: string }>>([]);
   const { tiers } = useTierConfigs();
 
   useEffect(() => {
@@ -84,6 +85,11 @@ export default function OptionDetailPage() {
     }).catch(() => {});
     fetch('/api/settings/addons').then(r => r.json()).then(d => {
       setCachedAddons(d.addons || []);
+    }).catch(() => {});
+    // Fetch real install reviews, prioritizing customer's city
+    const city = est.customerAddress?.match(/,\s*([^,]+),\s*[A-Z]{2}/)?.[1]?.trim() || '';
+    fetch(`/api/reviews?limit=5&install=true${city ? '&city=' + encodeURIComponent(city) : ''}`).then(r => r.json()).then(d => {
+      setReviews(d.reviews || []);
     }).catch(() => {});
   }, [params.id, params.optionId, router]);
 
@@ -647,25 +653,30 @@ export default function OptionDetailPage() {
         </section>
 
         {/* ═══ 9. REVIEWS ═══ */}
-        <section>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
-          <div className="space-y-4">
-            {[
-              { name: 'Sarah M.', rating: 5, text: 'The installation team was professional, on time, and cleaned up everything. Our new system is so much quieter than the old one. The upstairs is finally comfortable!', date: 'June 2026' },
-              { name: 'David R.', rating: 5, text: 'We got quotes from 4 companies. Christmas Air was the most thorough in explaining our options and didn\'t pressure us at all. The install was flawless and our energy bill dropped by 30%.', date: 'May 2026' },
-              { name: 'Jennifer & Mark T.', rating: 5, text: 'From the comfort advisor to the install crew, everyone was outstanding. They walked us through every step and the new American Standard system works perfectly. Highly recommend.', date: 'April 2026' },
-            ].map((review, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex text-amber-400 text-sm">{'★'.repeat(review.rating)}</div>
-                  <span className="text-sm font-medium text-gray-900">{review.name}</span>
-                  <span className="text-xs text-gray-400">{review.date}</span>
+        {reviews.length > 0 && (
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
+            <div className="space-y-4">
+              {reviews.map((review, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex text-amber-400 text-sm">{'★'.repeat(review.rating)}</div>
+                    <span className="text-sm font-medium text-gray-900">{review.name}</span>
+                    <span className="text-xs text-gray-400">{review.date}</span>
+                    {(review as any).isLocal && (
+                      <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium">Your Area</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">{review.text}</p>
+                  {(review as any).locationName && (
+                    <p className="text-xs text-gray-400 mt-2">via Google Reviews &middot; {(review as any).locationName}</p>
+                  )}
                 </div>
-                <p className="text-sm text-gray-700 leading-relaxed">{review.text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-3 text-center">Verified reviews from Google Business Profile</p>
+          </section>
+        )}
 
         {/* Footer */}
         <div className="text-center py-8 text-xs text-gray-400">
@@ -677,7 +688,7 @@ export default function OptionDetailPage() {
         </div>{/* end main content */}
 
         {/* ═══ STICKY SIDEBAR ═══ */}
-        <div className="hidden lg:block w-80 flex-shrink-0">
+        <div className="hidden md:block w-72 lg:w-80 flex-shrink-0">
           <div className="sticky top-4 space-y-4">
 
             {/* Install Date */}

@@ -113,14 +113,14 @@ export default function PresentPage() {
 
       {/* Header */}
       <div className="bg-[var(--christmas-green)] text-white">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-              <span className="text-white font-bold text-xl">CA</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-base sm:text-xl">CA</span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Your Comfort Options</h1>
-              <p className="text-white/80 text-sm">{estimate.customerName || 'Valued Customer'} &middot; {estimate.customerAddress}</p>
+              <h1 className="text-lg sm:text-2xl font-bold">Your Comfort Options</h1>
+              <p className="text-white/80 text-xs sm:text-sm">{estimate.customerName || 'Valued Customer'} &middot; {estimate.customerAddress}</p>
             </div>
           </div>
           <div className="text-right hidden sm:block">
@@ -157,13 +157,13 @@ export default function PresentPage() {
       </div>
 
       {/* Option Cards */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className={`grid gap-5 items-end ${
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className={`grid gap-4 sm:gap-5 items-end ${
           optCount === 1 ? 'grid-cols-1 max-w-md mx-auto' :
-          optCount === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto' :
-          optCount === 3 ? 'grid-cols-1 sm:grid-cols-3' :
-          optCount === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
-          'grid-cols-1 sm:grid-cols-3 lg:grid-cols-5'
+          optCount === 2 ? 'grid-cols-2 max-w-3xl mx-auto' :
+          optCount === 3 ? 'grid-cols-3' :
+          optCount === 4 ? 'grid-cols-2 md:grid-cols-4' :
+          'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
         }`}>
           {estimate.options.filter(o => o.equipment.length > 0).map((opt, idx) => {
             const total = getOptionTotal(opt);
@@ -197,40 +197,40 @@ export default function PresentPage() {
                 </div>
 
                 {/* Fixed-height top section: photo + brand + name */}
-                <div className="h-52 flex flex-col items-center justify-center px-4">
+                <div className="h-44 sm:h-52 flex flex-col items-center justify-center px-3 sm:px-4">
                   <img
                     src={getSystemImage(seer, opt.label, primaryEquip?.brand)}
                     alt={systemName}
-                    className="w-28 h-28 object-contain"
+                    className="w-20 h-20 sm:w-28 sm:h-28 object-contain"
                   />
-                  <div className="text-xs font-semibold uppercase tracking-wide mt-2" style={{ color: tierConfig.color }}>
+                  <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mt-2" style={{ color: tierConfig.color }}>
                     {primaryEquip?.brand || tierConfig.brand || 'American Standard'}
                   </div>
-                  <h3 className="font-bold text-gray-900 text-sm leading-tight mt-0.5">{opt.label} Series</h3>
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{systemName}</p>
+                  <h3 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight mt-0.5">{opt.label} Series</h3>
+                  <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 line-clamp-1">{systemName}</p>
                 </div>
 
                 {/* Price — always aligned across cards */}
-                <div className="mx-3 py-4 bg-gray-50 rounded-xl text-center">
+                <div className="mx-2 sm:mx-3 py-3 sm:py-4 bg-gray-50 rounded-xl text-center">
                   {pricingMode === 'cash' ? (
                     <>
-                      <div className="text-3xl font-black text-gray-900">{fmt(total)}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">Installed Price</div>
+                      <div className="text-xl sm:text-3xl font-black text-gray-900">{fmt(total)}</div>
+                      <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Installed Price</div>
                     </>
                   ) : (
                     <>
-                      <div className="text-3xl font-black text-[var(--christmas-green)]">{fmtMo(monthly)}<span className="text-lg font-semibold">/mo</span></div>
-                      <div className="text-xs text-gray-400 mt-0.5">{activeTerm?.name}</div>
+                      <div className="text-xl sm:text-3xl font-black text-[var(--christmas-green)]">{fmtMo(monthly)}<span className="text-sm sm:text-lg font-semibold">/mo</span></div>
+                      <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{activeTerm?.name}</div>
                     </>
                   )}
                 </div>
 
                 {/* Bullet Points */}
-                <div className="px-4 pt-4">
-                  <ul className="space-y-2">
+                <div className="px-3 sm:px-4 pt-3 sm:pt-4">
+                  <ul className="space-y-1.5 sm:space-y-2">
                     {bullets.map((b, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white mt-0.5 text-xs"
+                      <li key={i} className="flex items-start gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-700">
+                        <span className="flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white mt-0.5 text-[8px] sm:text-xs"
                           style={{ backgroundColor: tierConfig.color }}>&#10003;</span>
                         <span className="leading-tight">{b}</span>
                       </li>
@@ -239,16 +239,16 @@ export default function PresentPage() {
                 </div>
 
                 {/* Badges */}
-                <div className="px-4 pt-4 pb-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{tierConfig.laborWarranty} Labor</span>
-                    <span className="px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium">{tierConfig.noiseLevel}</span>
-                    <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs font-medium">{tierConfig.coolingSavings}</span>
+                <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
+                  <div className="flex flex-wrap gap-1">
+                    <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-50 text-blue-700 rounded-md text-[10px] sm:text-xs font-medium">{tierConfig.laborWarranty} Labor</span>
+                    <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-green-50 text-green-700 rounded-md text-[10px] sm:text-xs font-medium">{tierConfig.noiseLevel}</span>
+                    <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-amber-50 text-amber-700 rounded-md text-[10px] sm:text-xs font-medium">{tierConfig.coolingSavings}</span>
                   </div>
                 </div>
 
                 {/* Select Button */}
-                <div className="p-4 pt-2">
+                <div className="p-3 sm:p-4 pt-2">
                   <button
                     className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
                       isSelected ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
