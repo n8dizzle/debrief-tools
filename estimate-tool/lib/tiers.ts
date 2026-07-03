@@ -59,6 +59,10 @@ export const TIERS: TierConfig[] = [
     ],
     guarantees: ['Property Protection'],
     techFeatures: ['Basic Thermostat'],
+    defaultAddonIds: [],
+    scopeIncluded: ['All materials and labor', 'City permit and inspection', 'Equipment disposal and recycling', 'Floor savers and drop cloths', 'Complete cleanup when we leave', 'Post-install quality inspection'],
+    scopeExcluded: ['Ductwork modification or replacement', 'Electrical panel upgrades', 'Attic or crawl space access modifications', 'Concrete or structural work'],
+    scopeAssumptions: ['Standard residential system (5 tons or under)', 'Equipment accessible without modification', 'Existing electrical service is adequate', 'Standard refrigerant line lengths (up to 50ft)'],
   },
   {
     id: 'silver',
@@ -87,6 +91,10 @@ export const TIERS: TierConfig[] = [
     ],
     guarantees: ['$500 No-Frustration', 'Property Protection', 'No-Lemon', '2-Year Satisfaction'],
     techFeatures: ['Programmable Thermostat', 'Upgraded Filtration', 'Noise Reduction'],
+    defaultAddonIds: [],
+    scopeIncluded: ['All materials and labor', 'City permit and inspection', 'Equipment disposal and recycling', 'Floor savers and drop cloths', 'Complete cleanup when we leave', 'Post-install quality inspection'],
+    scopeExcluded: ['Ductwork modification or replacement', 'Electrical panel upgrades', 'Attic or crawl space access modifications', 'Concrete or structural work'],
+    scopeAssumptions: ['Standard residential system (5 tons or under)', 'Equipment accessible without modification', 'Existing electrical service is adequate', 'Standard refrigerant line lengths (up to 50ft)'],
   },
   {
     id: 'gold',
@@ -121,6 +129,10 @@ export const TIERS: TierConfig[] = [
       'UV Germicidal Light',
       'Variable-Speed Blower',
     ],
+    defaultAddonIds: [],
+    scopeIncluded: ['All materials and labor', 'City permit and inspection', 'Equipment disposal and recycling', 'Floor savers and drop cloths', 'Complete cleanup when we leave', 'Post-install quality inspection'],
+    scopeExcluded: ['Ductwork modification or replacement', 'Electrical panel upgrades', 'Attic or crawl space access modifications', 'Concrete or structural work'],
+    scopeAssumptions: ['Standard residential system (5 tons or under)', 'Equipment accessible without modification', 'Existing electrical service is adequate', 'Standard refrigerant line lengths (up to 50ft)'],
   },
   {
     id: 'platinum',
@@ -156,6 +168,10 @@ export const TIERS: TierConfig[] = [
       'UV Germicidal Light',
       'Variable-Speed Technology',
     ],
+    defaultAddonIds: [],
+    scopeIncluded: ['All materials and labor', 'City permit and inspection', 'Equipment disposal and recycling', 'Floor savers and drop cloths', 'Complete cleanup when we leave', 'Post-install quality inspection'],
+    scopeExcluded: ['Ductwork modification or replacement', 'Electrical panel upgrades', 'Attic or crawl space access modifications', 'Concrete or structural work'],
+    scopeAssumptions: ['Standard residential system (5 tons or under)', 'Equipment accessible without modification', 'Existing electrical service is adequate', 'Standard refrigerant line lengths (up to 50ft)'],
   },
 ];
 

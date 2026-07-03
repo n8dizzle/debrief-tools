@@ -69,6 +69,12 @@ export function dbRowToTierConfig(row: {
   financing_options: string[];
   guarantees: string[];
   tech_features: string[];
+  default_addon_ids?: string[];
+  featured_financing_plan_id?: string;
+  warranty_extension_price?: number;
+  scope_included?: string[];
+  scope_excluded?: string[];
+  scope_assumptions?: string[];
 }): TierConfig {
   const colors = getColorClasses(row.color);
   return {
@@ -92,5 +98,11 @@ export function dbRowToTierConfig(row: {
     perks: row.guarantees.map(g => ({ label: g, included: true })),
     guarantees: row.guarantees,
     techFeatures: row.tech_features,
+    defaultAddonIds: row.default_addon_ids || [],
+    featuredFinancingPlanId: row.featured_financing_plan_id || undefined,
+    warrantyExtensionPrice: row.warranty_extension_price ?? undefined,
+    scopeIncluded: row.scope_included || [],
+    scopeExcluded: row.scope_excluded || [],
+    scopeAssumptions: row.scope_assumptions || [],
   };
 }

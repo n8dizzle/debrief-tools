@@ -190,26 +190,22 @@ export default function PresentPage() {
                   <span className={`text-lg font-bold ${tierConfig.textColor}`}>{opt.label}</span>
                 </div>
 
-                {/* Photo */}
-                <div className="px-4 pt-4 flex justify-center">
+                {/* Fixed-height top section: photo + brand + name */}
+                <div className="h-52 flex flex-col items-center justify-center px-4">
                   <img
                     src={getSystemImage(seer, opt.label, primaryEquip?.brand)}
                     alt={systemName}
                     className="w-28 h-28 object-contain"
                   />
-                </div>
-
-                {/* Brand + Series + System Name */}
-                <div className="px-4 pt-3 text-center">
-                  <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: tierConfig.color }}>
+                  <div className="text-xs font-semibold uppercase tracking-wide mt-2" style={{ color: tierConfig.color }}>
                     {primaryEquip?.brand || tierConfig.brand || 'American Standard'}
                   </div>
                   <h3 className="font-bold text-gray-900 text-sm leading-tight mt-0.5">{opt.label} Series</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{systemName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{systemName}</p>
                 </div>
 
-                {/* Price */}
-                <div className="px-4 pt-4 text-center">
+                {/* Price — always aligned across cards */}
+                <div className="mx-3 py-4 bg-gray-50 rounded-xl text-center">
                   {pricingMode === 'cash' ? (
                     <>
                       <div className="text-3xl font-black text-gray-900">{fmt(total)}</div>
