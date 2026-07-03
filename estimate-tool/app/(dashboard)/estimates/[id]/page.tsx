@@ -2,6 +2,7 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Estimate, getOptionTotal } from '@/types/estimate';
 import { getEstimate, saveEstimate, createBlankOption } from '@/lib/store';
 import { useSystems, TierGroup, SystemOption } from '@/lib/use-systems';
@@ -464,10 +465,10 @@ export default function EstimateBuilderPage() {
                                   className="flex-1 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
                                   {isExpanded ? 'Close' : 'Swap System'}
                                 </button>
-                                <button onClick={() => router.push(`/present/${estimate.id}/option/${estimate.options.find(o => o.label === group.tier)?.id || ''}`)}
-                                  className="flex-1 py-2 text-xs font-medium rounded-lg text-white" style={{ backgroundColor: tierConfig.color }}>
+                                <Link href={`/present/${estimate.id}/option/${estimate.options.find(o => o.label === group.tier)?.id || ''}`}
+                                  className="flex-1 py-2 text-xs font-medium rounded-lg text-white text-center no-underline" style={{ backgroundColor: cardColor }}>
                                   Details
-                                </button>
+                                </Link>
                               </div>
                             </div>
                             {isExpanded && (
