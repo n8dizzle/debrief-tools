@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Instrument_Serif } from "next/font/google";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
@@ -22,7 +23,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${dmSans.variable} ${instrumentSerif.variable} ${dmSans.className}`}>{children}</body>
+      <body className={`${dmSans.variable} ${instrumentSerif.variable} ${dmSans.className}`}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

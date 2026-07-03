@@ -13,6 +13,8 @@ export interface Equipment {
   imageUrl?: string;
   retailPrice: number;
   tier: 'good' | 'better' | 'best';
+  stSkuId?: number;  // ServiceTitan pricebook equipment ID
+  stCode?: string;   // ServiceTitan pricebook code/SKU
 }
 
 export type EquipmentType =
@@ -28,18 +30,23 @@ export interface AddOn {
   name: string;
   description: string;
   price: number;
-  category: 'indoor-air-quality' | 'comfort' | 'protection' | 'smart-home';
+  category: 'indoor-air-quality' | 'comfort' | 'protection' | 'smart-home' | string;
   imageUrl?: string;
   popular?: boolean;
+  stSkuId?: number;
+  stCode?: string;
+  stType?: 'Service' | 'Material' | 'Equipment';
 }
 
 export interface InstallItem {
   id: string;
   name: string;
   description?: string;
-  category: 'materials' | 'electrical' | 'ductwork' | 'refrigerant' | 'misc';
+  category: 'materials' | 'electrical' | 'ductwork' | 'refrigerant' | 'misc' | string;
   unitCost: number;
   quantity: number;
+  stSkuId?: number;
+  stCode?: string;
 }
 
 export interface Warranty {
@@ -50,6 +57,9 @@ export interface Warranty {
   term: string;          // e.g. "10 Years", "Lifetime"
   price: number;
   imageUrl?: string;
+  stSkuId?: number;
+  stCode?: string;
+  stType?: 'Service' | 'Material' | 'Equipment';
 }
 
 export interface Discount {
@@ -101,6 +111,12 @@ export interface Estimate {
   status: 'draft' | 'presented' | 'accepted' | 'declined';
   createdAt: string;
   updatedAt: string;
+  // ServiceTitan integration
+  stJobId?: number;
+  stJobNumber?: string;
+  stCustomerId?: number;
+  stLocationId?: number;
+  stEstimateId?: number; // set after pushing to ST
 }
 
 export interface FinancingTerm {

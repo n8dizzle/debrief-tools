@@ -73,6 +73,8 @@ export default function PresentPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pricingMode, setPricingMode] = useState<'cash' | 'finance'>('cash');
   const [selectedTerm, setSelectedTerm] = useState(financingTerms[1].id);
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     const est = getEstimate(params.id as string);
@@ -82,15 +84,125 @@ export default function PresentPage() {
   }, [params.id, router]);
 
   function handleSelect(optionId: string) {
-    // Navigate to the detail page for this option
     router.push(`/present/${estimate!.id}/option/${optionId}`);
   }
 
-  function handleAccept() {
+  async function handleAccept() {
     if (!estimate || !selectedId) return;
     const updated = { ...estimate, selectedOptionId: selectedId, status: 'accepted' as const };
     saveEstimate(updated);
     setEstimate(updated);
+
+    // Push to ServiceTitan if linked to a job
+    if (updated.stJobId) {
+      await pushToServiceTitan(updated);
+    }
+  }
+
+  async function pushToServiceTitan(est: Estimate) {
+    if (!est.stJobId || !est.selectedOptionId) return;
+    setPushing(true);
+    setPushResult(null);
+
+    try {
+      const selectedOption = est.options.find(o => o.id === est.selectedOptionId);
+      if (!selectedOption) throw new Error('Selected option not found');
+
+      // Build ST estimate items from the selected option
+      const items: Array<{
+        skuId: number;
+        type: 'Service' | 'Material' | 'Equipment';
+        description?: string;
+        quantity: number;
+        unitPrice: number;
+      }> = [];
+
+      // Equipment items
+      for (const eq of selectedOption.equipment) {
+        if (eq.stSkuId) {
+          items.push({
+            skuId: eq.stSkuId,
+            type: 'Equipment',
+            description: `${eq.brand} ${eq.model} ${eq.name}`,
+            quantity: 1,
+            unitPrice: eq.retailPrice,
+          });
+        }
+      }
+
+      // Add-ons (services)
+      for (const ao of selectedOption.addOns) {
+        if (ao.stSkuId) {
+          items.push({
+            skuId: ao.stSkuId,
+            type: (ao.stType as 'Service' | 'Material' | 'Equipment') || 'Service',
+            description: ao.name,
+            quantity: 1,
+            unitPrice: ao.price,
+          });
+        }
+      }
+
+      // Install materials
+      for (const mat of selectedOption.installItems || []) {
+        if (mat.stSkuId) {
+          items.push({
+            skuId: mat.stSkuId,
+            type: 'Material',
+            description: mat.name,
+            quantity: mat.quantity,
+            unitPrice: mat.unitCost,
+          });
+        }
+      }
+
+      // Warranties
+      for (const w of selectedOption.warranties || []) {
+        if (w.stSkuId) {
+          items.push({
+            skuId: w.stSkuId,
+            type: (w.stType as 'Service' | 'Material' | 'Equipment') || 'Service',
+            description: w.name,
+            quantity: 1,
+            unitPrice: w.price,
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        setPushResult({ success: false, message: 'No items with ST pricebook IDs to push. Items must come from the ST pricebook.' });
+        return;
+      }
+
+      const res = await fetch('/api/servicetitan/estimates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: est.stJobId,
+          name: `${selectedOption.label} - ${est.customerName}`,
+          summary: `${selectedOption.label} option: ${selectedOption.equipment.map(e => e.name).join(', ')}`,
+          items,
+          sold: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to push estimate');
+
+      // Save the ST estimate ID back
+      const finalUpdate = { ...est, stEstimateId: data.estimateId };
+      saveEstimate(finalUpdate);
+      setEstimate(finalUpdate);
+
+      setPushResult({ success: true, message: `Estimate #${data.estimateId} created in ServiceTitan` });
+    } catch (err) {
+      setPushResult({
+        success: false,
+        message: err instanceof Error ? err.message : 'Failed to push to ServiceTitan',
+      });
+    } finally {
+      setPushing(false);
+    }
   }
 
   if (!estimate) return null;
@@ -317,11 +429,33 @@ export default function PresentPage() {
 
         {/* ── Accept / Next Steps ──────────────────────────────── */}
         {selectedId && (
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 space-y-4">
             {estimate.status === 'accepted' ? (
-              <div className="inline-flex items-center gap-2 px-8 py-4 bg-green-50 text-green-700 rounded-2xl font-semibold text-lg">
-                <span>&#10003;</span> Option Accepted — We&apos;ll get you scheduled!
-              </div>
+              <>
+                <div className="inline-flex items-center gap-2 px-8 py-4 bg-green-50 text-green-700 rounded-2xl font-semibold text-lg">
+                  <span>&#10003;</span> Option Accepted — We&apos;ll get you scheduled!
+                </div>
+                {/* ST Push Status */}
+                {pushing && (
+                  <div className="text-sm text-blue-600">Syncing to ServiceTitan...</div>
+                )}
+                {pushResult && (
+                  <div className={`text-sm ${pushResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                    {pushResult.message}
+                  </div>
+                )}
+                {estimate.stEstimateId && (
+                  <div className="text-xs text-gray-500">ST Estimate ID: {estimate.stEstimateId}</div>
+                )}
+                {estimate.stJobId && !estimate.stEstimateId && !pushing && (
+                  <button
+                    onClick={() => pushToServiceTitan(estimate)}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+                  >
+                    Push to ServiceTitan
+                  </button>
+                )}
+              </>
             ) : (
               <button onClick={handleAccept}
                 className="px-10 py-4 bg-[var(--christmas-green)] text-white rounded-2xl font-bold text-lg hover:bg-[var(--christmas-green-dark)] transition-colors shadow-lg hover:shadow-xl">
