@@ -78,10 +78,15 @@ export default function DashboardPage() {
   };
   const open = orders.filter(o => o.status === 'open');
 
-  const newOrders = open.filter(o => o.needs_order || o.location === 'Place Order');
+  // New Orders: sold in the last 7 days, still needs ordering. Falls off once
+  // Part(s) Ordered is checked (order placed) or the location moves off Place Order.
+  const newOrders = open.filter(o =>
+    o.location === 'Place Order' && !o.parts_ordered && daysSince(o.date) <= 7);
 
+  // Ready to Schedule: service jobs whose part is in — Location "Lewisville Shop"
+  // or Parts at Shop checked — for the Service Dispatcher / CXR to schedule.
   const svcOrders = open
-    .filter(o => o.order_type === 'service')
+    .filter(o => o.order_type === 'service' && (o.location === 'Lewisville Shop' || o.parts_at_shop))
     .sort((a, b) => daysSince(b.date) - daysSince(a.date))
     .slice(0, 50);
 
@@ -122,7 +127,7 @@ export default function DashboardPage() {
           <span style={{ fontSize: 12, opacity: .8 }}>{newOrders.length} order{newOrders.length !== 1 ? 's' : ''}</span>
         </div>
         <div style={{ padding: '7px 12px', background: '#eaf4fb', borderBottom: '1px solid var(--border)', fontSize: 11, color: '#1a5276', flexShrink: 0 }}>
-          Ready to order — needs_order flag or Place Order location
+          Sold in the last 7 days — still needs ordering (falls off once Part(s) Ordered is checked)
         </div>
         <div style={{ overflowY: 'auto', flex: 1 }}>
           <QuadrantTable
@@ -156,11 +161,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* TOP RIGHT: Service Quick Look */}
+      {/* TOP RIGHT: Ready to Schedule */}
       <div style={quadStyle}>
         <div style={{ background: '#2d4a3e', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: .3 }}>Service</span>
-          <span style={{ fontSize: 12, opacity: .8 }}>{svcOrders.length} open</span>
+          <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: .3 }}>Ready to Schedule</span>
+          <span style={{ fontSize: 12, opacity: .8 }}>{svcOrders.length} ready</span>
         </div>
         <div style={{ overflowY: 'auto', flex: 1 }}>
           <QuadrantTable
