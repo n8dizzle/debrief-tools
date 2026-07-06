@@ -52,9 +52,9 @@ export const OWNERS = [
   'CXR Team',
   'Install Manager',
   'Install Dispatcher',
+  'Plumbing Dispatch',
   'Parts Coordinator',
   'Service Manager',
-  'Rachel',
   'Unassigned',
 ];
 
@@ -68,7 +68,8 @@ export const SVC_OWNERS_CONFIG: OwnerConfig[] = [
   { name: 'Warehouse', dot: '#1976d2' },
   { name: 'CXR Team', dot: '#6a0dad' },
   { name: 'Service Manager', dot: '#1565c0' },
-  { name: 'Rachel', dot: '#1a9aaa' },
+  { name: 'Install Dispatcher', dot: '#880e4f' },
+  { name: 'Plumbing Dispatch', dot: '#1a9aaa' },
   { name: 'Unassigned', dot: '#95a5a6' },
 ];
 

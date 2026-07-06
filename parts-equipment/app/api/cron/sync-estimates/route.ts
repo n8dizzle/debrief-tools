@@ -23,6 +23,14 @@ function isInstallBU(bu: string): boolean {
   return lower.includes('install') || lower.includes('sales');
 }
 
+// Some HVAC *service* estimates are really install-team work and belong on the
+// Install tab. Route by keyword in the estimate title.
+const INSTALL_KEYWORDS = ['txv', 'evaporator coil', 'evap coil'];
+function hasInstallKeyword(title: string): boolean {
+  const t = (title || '').toLowerCase();
+  return INSTALL_KEYWORDS.some(k => t.includes(k));
+}
+
 // Type column value (subtype) from the business unit + estimate title:
 //   - title contains "Christmas List" -> Membership (memberships are ~99% a
 //     standalone estimate; if other work is bundled in, staff reclassify to Service)
@@ -146,15 +154,17 @@ export async function GET(request: Request) {
           // lookup (that made 60+ ST calls per sync and tripped rate limits). In this
           // tenant a job's number equals its id, so the deep link is built directly.
           const customer = row.customer || '';
-          const orderType = isInstallBU(row.businessUnit) ? 'install' : 'service';
           // Estimate title (e.g. "Blower wheel clean") is what we'll be doing —
           // it belongs in Part/Description, not WH Notes.
           const estimateTitle = row.note || row.part || '';
+          const orderType =
+            (isInstallBU(row.businessUnit) || hasInstallKeyword(estimateTitle)) ? 'install' : 'service';
           const subtype = classifyType(row.businessUnit, estimateTitle);
           // Auto-assign the ticket owner based on type.
           const owner =
             subtype === 'Membership' ? 'CXR Team'
             : subtype === 'Duct Cleaning' ? 'Install Dispatcher'
+            : subtype === 'Plumbing' ? 'Plumbing Dispatch'
             : 'Unassigned';
           const soldDate = row.soldDate || today;
           const jobNumber = row.jobNumber || '';

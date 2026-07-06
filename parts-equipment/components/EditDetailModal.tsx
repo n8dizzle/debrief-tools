@@ -149,6 +149,12 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
                   {OWNERS.map(o => <option key={o}>{o}</option>)}
                 </select>
               ))}
+              {fieldGroup('Board (Tab)', (
+                <select style={inputStyle} value={order.order_type || 'service'} onChange={e => saveField('order_type', e.target.value)}>
+                  <option value="service">Service</option>
+                  <option value="install">Install</option>
+                </select>
+              ))}
               {fieldGroup(isInstall ? 'Job Cost' : 'Est. Cost', (
                 <input style={inputStyle} value={isInstall ? (order.job_cost || '') : (order.estimate_cost || '')}
                   onChange={e => saveField(isInstall ? 'job_cost' : 'estimate_cost', e.target.value)} placeholder="$0.00" />

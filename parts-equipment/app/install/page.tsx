@@ -285,7 +285,7 @@ export default function InstallPage() {
                         </select>
                       </td>
 
-                      <td><input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} placeholder="Equipment..." style={{ minWidth: 150 }} /></td>
+                      <td><input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} title={o.part || ''} placeholder="Equipment..." style={{ minWidth: 150 }} /></td>
 
                       <td style={{ textAlign: 'center' }}>
                         <select className="si-sel" value={o.equip_avail || ''} onChange={e => save(o.id, { equip_avail: e.target.value })}>

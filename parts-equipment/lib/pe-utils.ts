@@ -67,7 +67,7 @@ export function ownerForLocation(location: string, isInstall: boolean): string |
     case 'Waiting for Tech/Cus':
       return isInstall ? 'Install Dispatcher' : 'Service Manager';
     case 'Duct Cleaning - Schedule':
-      return 'Rachel';
+      return 'Install Dispatcher';
     default:
       return null;
   }
@@ -98,7 +98,7 @@ export function rowClass(o: PEOrder): string {
     case 'Install Dispatcher': return 'row-install-disp';
     case 'Parts Coordinator': return 'row-parts-coord';
     case 'Service Manager': return 'row-svc-mgr';
-    case 'Rachel': return 'row-rachel';
+    case 'Plumbing Dispatch': return 'row-plumbing-disp';
     default: return 'row-unassigned';
   }
 }

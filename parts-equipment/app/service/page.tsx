@@ -289,6 +289,7 @@ export default function ServicePage() {
                           const patch: Partial<PEOrder> = { subtype: v };
                           if (v === 'Membership') patch.owner = 'CXR Team';
                           else if (v === 'Duct Cleaning') patch.owner = 'Install Dispatcher';
+                          else if (v === 'Plumbing') patch.owner = 'Plumbing Dispatch';
                           save(o.id, patch);
                         }} style={{ minWidth: 90 }}>
                           <option value="">— type —</option>
@@ -318,7 +319,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} placeholder="Part description..." style={{ minWidth: 150 }} />
+                        <input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} title={o.part || ''} placeholder="Part description..." style={{ minWidth: 150 }} />
                       </td>
 
                       <td style={{ textAlign: 'center' }}>

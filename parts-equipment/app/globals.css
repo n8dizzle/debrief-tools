@@ -296,9 +296,9 @@ tr.row-svc-mgr td { background: #bfdbfe !important; }
 tr.row-svc-mgr td:first-child { border-left: 5px solid #1565c0 !important; }
 tr.row-svc-mgr:hover td { background: #93c5fd !important; }
 
-tr.row-rachel td { background: #e8f8fa !important; }
-tr.row-rachel td:first-child { border-left: 5px solid #1a9aaa !important; }
-tr.row-rachel:hover td { background: #d4f2f5 !important; }
+tr.row-plumbing-disp td { background: #e8f8fa !important; }
+tr.row-plumbing-disp td:first-child { border-left: 5px solid #1a9aaa !important; }
+tr.row-plumbing-disp:hover td { background: #d4f2f5 !important; }
 
 tr.row-unassigned td { background: var(--surface) !important; }
 tr.row-unassigned:hover td { background: var(--surface2) !important; }
