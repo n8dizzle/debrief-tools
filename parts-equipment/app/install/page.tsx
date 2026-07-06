@@ -25,6 +25,19 @@ export default function InstallPage() {
   const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'all'>('open');
   const [statFilter, setStatFilter] = useState<string>('all');
   const [focusId, setFocusId] = useState<number | null>(null);
+  const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+
+  function toggleSort(col: 'date' | 'customer') {
+    if (sortCol === col) {
+      setSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setSortCol(col);
+      setSortDir(1);
+    }
+  }
+  const sortArrow = (col: 'date' | 'customer') =>
+    sortCol === col ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
 
   // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
   useEffect(() => {
@@ -89,6 +102,21 @@ export default function InstallPage() {
     });
   }, [instOrders, search, teamFilter, statusFilter, statFilter]);
 
+  const sorted = useMemo(() => {
+    if (!sortCol) return filtered;
+    const arr = [...filtered];
+    arr.sort((a: PEOrder, b: PEOrder) => {
+      let cmp = 0;
+      if (sortCol === 'date') {
+        cmp = (a.date || '').localeCompare(b.date || '');
+      } else {
+        cmp = (a.customer || '').localeCompare(b.customer || '', 'en', { sensitivity: 'base' });
+      }
+      return cmp * sortDir;
+    });
+    return arr;
+  }, [filtered, sortCol, sortDir]);
+
   function setActiveStatFilter(key: string, status: 'open' | 'completed') {
     setStatFilter(key);
     setStatusFilter(status);
@@ -147,9 +175,9 @@ export default function InstallPage() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }}>✎</th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4 }}>{vrt('Date')}</th>
+                  <th onClick={() => toggleSort('date')} style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4, cursor: 'pointer', userSelect: 'none' }} title="Sort by date">{vrt('Date')}<span style={{ fontSize: 10, opacity: sortCol === 'date' ? 1 : 0.4 }}>{sortArrow('date')}</span></th>
                   <th>Job #</th>
-                  <th>Customer</th>
+                  <th onClick={() => toggleSort('customer')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by customer name">Customer<span style={{ fontSize: 10, opacity: sortCol === 'customer' ? 1 : 0.4 }}>{sortArrow('customer')}</span></th>
                   <th>Sold By</th>
                   <th>Job Cost</th>
                   <th>Owner</th>
@@ -175,7 +203,7 @@ export default function InstallPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o: PEOrder) => {
+                {sorted.map((o: PEOrder) => {
                   const rc = rowClass(o);
                   return (
                     <tr key={o.id} id={`inst-row-${o.id}`} className={rc}

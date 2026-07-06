@@ -22,6 +22,19 @@ export default function ServicePage() {
   const [ownerFilter, setOwnerFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'cancelled'>('open');
   const [focusId, setFocusId] = useState<number | null>(null);
+  const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+
+  function toggleSort(col: 'date' | 'customer') {
+    if (sortCol === col) {
+      setSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setSortCol(col);
+      setSortDir(1);
+    }
+  }
+  const sortArrow = (col: 'date' | 'customer') =>
+    sortCol === col ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
 
   // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
   useEffect(() => {
@@ -77,6 +90,21 @@ export default function ServicePage() {
       return true;
     });
   }, [svcOrders, search, ownerFilter, statusFilter]);
+
+  const sorted = useMemo(() => {
+    if (!sortCol) return filtered;
+    const arr = [...filtered];
+    arr.sort((a: PEOrder, b: PEOrder) => {
+      let cmp = 0;
+      if (sortCol === 'date') {
+        cmp = (a.date || '').localeCompare(b.date || ''); // YYYY-MM-DD sorts chronologically
+      } else {
+        cmp = (a.customer || '').localeCompare(b.customer || '', 'en', { sensitivity: 'base' });
+      }
+      return cmp * sortDir;
+    });
+    return arr;
+  }, [filtered, sortCol, sortDir]);
 
   const vrt = (label: string) => (
     <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 4 }}>{label}</div>
@@ -137,11 +165,11 @@ export default function ServicePage() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }}>✎</th>
-                  <th>Date</th>
+                  <th onClick={() => toggleSort('date')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by date">Date<span style={{ fontSize: 10, opacity: sortCol === 'date' ? 1 : 0.4 }}>{sortArrow('date')}</span></th>
                   <th>Job #</th>
                   <th>Sold By</th>
                   <th>Est. Cost</th>
-                  <th>Customer</th>
+                  <th onClick={() => toggleSort('customer')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by customer name">Customer<span style={{ fontSize: 10, opacity: sortCol === 'customer' ? 1 : 0.4 }}>{sortArrow('customer')}</span></th>
                   <th>Owner</th>
                   <th>Type</th>
                   <th style={{ minWidth: 90 }}>Parts/Repair</th>
@@ -174,7 +202,7 @@ export default function ServicePage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o: PEOrder) => {
+                {sorted.map((o: PEOrder) => {
                   const rc = rowClass(o);
                   const age = daysSince(o.date);
                   const linkedCount = o.linked_jobs?.length || 0;
