@@ -6,14 +6,14 @@ import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatDate } from '@/lib/ap-utils';
 
 interface KV { key: string; count: number; }
-interface CohortRow { month: string; installs: number; warranties: number; rate: number | null; }
+interface CohortRow { month: string; installs: number; went_back: number; rate: number | null; }
 interface Pair {
   warranty_job: number | null; warranty_type: string | null; warranty_date: string | null; customer: string | null; trade: string;
   install_job: number | null; install_date: string | null; days: number | null;
   lead: string | null; contractor: string | null; equipment: string | null; root_cause: string | null;
 }
 interface Data {
-  summary: { total: number; linked: number; unlinked: number; link_pct: number; avg_days_to_warranty: number | null; hvac: number; plumbing: number };
+  summary: { total: number; linked: number; unlinked: number; link_pct: number; avg_days_to_warranty: number | null; hvac: number; plumbing: number; total_installs: number; go_back_installs: number; go_back_rate: number | null };
   trend: KV[]; ttw: KV[]; cohort: CohortRow[]; by_lead: KV[]; by_contractor: KV[]; by_equipment: KV[]; by_root_cause: KV[]; pairs: Pair[];
 }
 
@@ -120,14 +120,14 @@ export default function WarrantiesPage() {
               <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{s!.linked} of {s!.total} traced back</div>
             </div>
             <div className="rounded-xl p-4" style={card}>
+              <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Go-Back Rate</div>
+              <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: s!.go_back_rate != null && s!.go_back_rate >= 15 ? '#f85149' : s!.go_back_rate != null && s!.go_back_rate >= 8 ? '#d29922' : '#6fd394' }}>{s!.go_back_rate != null ? `${s!.go_back_rate}%` : '—'}</div>
+              <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{s!.go_back_installs} of {s!.total_installs} installs revisited</div>
+            </div>
+            <div className="rounded-xl p-4" style={card}>
               <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Avg Days to Warranty</div>
               <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--text-primary)' }}>{s!.avg_days_to_warranty ?? '—'}</div>
               <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>after install</div>
-            </div>
-            <div className="rounded-xl p-4" style={card}>
-              <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Unlinked</div>
-              <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--text-primary)' }}>{s!.unlinked}</div>
-              <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>no prior install on record</div>
             </div>
           </div>
 
@@ -154,13 +154,13 @@ export default function WarrantiesPage() {
           </div>
 
           {/* Cohort rate */}
-          <Panel title="Warranty rate by install cohort" sub="Of the installs completed each month, how many have generated a warranty. The leading indicator.">
+          <Panel title="Go-back rate by install cohort" sub="Of the installs completed each month, the % we've had to return to at least once. All installs on record, ignores the date filter above. Recent months read low until warranties have had time to surface.">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr style={{ color: 'var(--text-muted)' }}>
                   <th className="text-left py-1.5 text-[11px] uppercase tracking-wider">Install Month</th>
                   <th className="text-right py-1.5 text-[11px] uppercase tracking-wider">Installs</th>
-                  <th className="text-right py-1.5 text-[11px] uppercase tracking-wider">Warranties</th>
+                  <th className="text-right py-1.5 text-[11px] uppercase tracking-wider">Went Back</th>
                   <th className="text-right py-1.5 text-[11px] uppercase tracking-wider">Rate</th>
                 </tr></thead>
                 <tbody>
@@ -168,8 +168,8 @@ export default function WarrantiesPage() {
                     <tr key={c.month} style={{ borderTop: '1px solid var(--border-subtle)' }}>
                       <td className="py-1.5" style={{ color: 'var(--text-primary)' }}>{c.month}</td>
                       <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{c.installs}</td>
-                      <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{c.warranties}</td>
-                      <td className="py-1.5 text-right tabular-nums font-semibold" style={{ color: c.rate != null && c.rate >= 20 ? '#f85149' : c.rate != null && c.rate >= 10 ? '#d29922' : 'var(--text-primary)' }}>{c.rate != null ? `${c.rate}%` : '—'}</td>
+                      <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{c.went_back}</td>
+                      <td className="py-1.5 text-right tabular-nums font-semibold" style={{ color: c.rate != null && c.rate >= 15 ? '#f85149' : c.rate != null && c.rate >= 8 ? '#d29922' : 'var(--text-primary)' }}>{c.rate != null ? `${c.rate}%` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

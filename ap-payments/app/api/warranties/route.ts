@@ -67,6 +67,17 @@ export async function GET(request: NextRequest) {
     return best;
   };
 
+  // Go-back rate: what share of installs we've had to return to. Uses ALL warranties
+  // (any date — an install's warranties may fall outside the visit-date filter), trade-
+  // filtered. goBackSet = the install ids that are some warranty's originating install.
+  const warrAll = jobs.filter((j: any) => isWarranty(j.job_type_name))
+    .filter((w: any) => !tradeFilter || tradeOf(w.business_unit_name) === tradeFilter);
+  const goBackSet = new Set<string>();
+  for (const w of warrAll) { const i = priorInstall(w); if (i) goBackSet.add(i.id); }
+  const installsForRate = installs.filter((i: any) => !tradeFilter || tradeOf(i.business_unit_name) === tradeFilter);
+  const totalInstalls = installsForRate.length;
+  const goBackInstalls = installsForRate.filter((i: any) => goBackSet.has(i.id)).length;
+
   // Crew lead (max-hours, preferring HVAC Install - Lead) for the originating installs.
   const originIds = Array.from(new Set(warranties.map(priorInstall).filter(Boolean).map((i: any) => i.id)));
   const leadByInstall = new Map<string, string>();
@@ -119,7 +130,6 @@ export async function GET(request: NextRequest) {
   // Build linked pairs + aggregates.
   const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
   const trend = new Map<string, number>();       // warranty month -> count
-  const cohort = new Map<string, number>();       // originating install month -> warranty count
   const byLead = new Map<string, number>();
   const byContractor = new Map<string, number>();
   const byEquip = new Map<string, number>();
@@ -144,7 +154,6 @@ export async function GET(request: NextRequest) {
         if (days <= 30) ttwBuckets['0–30d']++; else if (days <= 90) ttwBuckets['31–90d']++;
         else if (days <= 180) ttwBuckets['91–180d']++; else if (days <= 365) ttwBuckets['181–365d']++; else ttwBuckets['365d+']++;
       }
-      bump(cohort, monthOf(inst.completed_date));
       const lead = leadByInstall.get(inst.id);
       if (lead) bump(byLead, lead);
       if (inst.contractor_id) bump(byContractor, contractorName.get(inst.contractor_id) || 'Unknown');
@@ -160,20 +169,21 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Install cohort denominators (installs completed per month), for warranty rate.
-  const installsPerMonth = new Map<string, number>();
-  for (const i of installs) {
-    if (tradeFilter && tradeOf(i.business_unit_name) !== tradeFilter) continue;
-    bump(installsPerMonth, monthOf(i.completed_date));
-  }
-
   const sortMap = (m: Map<string, number>, byKey = false) => Array.from(m.entries())
     .map(([k, v]) => ({ key: k, count: v })).sort((a, b) => byKey ? a.key.localeCompare(b.key) : b.count - a.count);
 
-  const cohortRows = Array.from(new Set([...cohort.keys(), ...installsPerMonth.keys()]))
-    .filter(m => m >= '2025-01')
-    .sort()
-    .map(m => { const inst = installsPerMonth.get(m) || 0; const warr = cohort.get(m) || 0; return { month: m, installs: inst, warranties: warr, rate: inst > 0 ? Math.round((warr / inst) * 1000) / 10 : null }; });
+  // Go-back rate by install cohort: of installs completed each month, how many we've
+  // had to return to at least once (distinct installs, not warranty visits).
+  const instByMonth = new Map<string, { installs: number; went: number }>();
+  for (const i of installsForRate) {
+    const m = monthOf(i.completed_date);
+    const cur = instByMonth.get(m) || { installs: 0, went: 0 };
+    cur.installs++;
+    if (goBackSet.has(i.id)) cur.went++;
+    instByMonth.set(m, cur);
+  }
+  const cohortRows = Array.from(instByMonth.keys()).filter(m => m >= '2025-01').sort()
+    .map(m => { const c = instByMonth.get(m)!; return { month: m, installs: c.installs, went_back: c.went, rate: c.installs > 0 ? Math.round((c.went / c.installs) * 1000) / 10 : null }; });
 
   return NextResponse.json({
     summary: {
@@ -182,6 +192,9 @@ export async function GET(request: NextRequest) {
       avg_days_to_warranty: daysN ? Math.round(daysSum / daysN) : null,
       hvac: warranties.filter((w: any) => tradeOf(w.business_unit_name) === 'hvac').length,
       plumbing: warranties.filter((w: any) => tradeOf(w.business_unit_name) === 'plumbing').length,
+      total_installs: totalInstalls,
+      go_back_installs: goBackInstalls,
+      go_back_rate: totalInstalls ? Math.round((goBackInstalls / totalInstalls) * 1000) / 10 : null,
     },
     trend: sortMap(trend, true),
     ttw: Object.entries(ttwBuckets).map(([key, count]) => ({ key, count })),
