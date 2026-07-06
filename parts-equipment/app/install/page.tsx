@@ -286,6 +286,7 @@ export default function InstallPage() {
                           <option>Parts Coordinator</option>
                           <option>Warehouse</option>
                           <option>Install Dispatcher</option>
+                          <option>Christina</option>
                         </select>
                       </td>
 
@@ -333,7 +334,7 @@ export default function InstallPage() {
                       <td>
                         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value, o)} style={{ minWidth: 140 }}>
                           <option value="">— select —</option>
-                          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Cancel PO'].map(l => <option key={l}>{l}</option>)}
+                          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Cancel PO','Shipping to Supplier'].map(l => <option key={l}>{l}</option>)}
                         </select>
                       </td>
 

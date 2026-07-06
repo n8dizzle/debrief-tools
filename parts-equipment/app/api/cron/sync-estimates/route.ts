@@ -185,6 +185,8 @@ export async function GET(request: Request) {
             subtype,
             part: estimateTitle,
             estimate_cost: fmtMoney(row.estimateCost),
+            // Install tab shows Job Cost; populate it with the sold estimate subtotal too.
+            job_cost: orderType === 'install' ? fmtMoney(row.estimateCost) : '',
             note_wh: '',
             st_url: stUrl,
             status: 'open',

@@ -130,6 +130,7 @@ export function rowClass(o: PEOrder): string {
     case 'Service Manager': return 'row-svc-mgr';
     case 'Plumbing Dispatcher': return 'row-plumbing-disp';
     case 'Commercial': return 'row-commercial';
+    case 'Christina': return 'row-christina';
     default: return 'row-unassigned';
   }
 }
