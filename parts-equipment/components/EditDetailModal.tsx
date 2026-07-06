@@ -187,10 +187,12 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
                 <input style={inputStyle} value={order.part || ''} onChange={e => saveField('part', e.target.value)} placeholder="Part or equipment description" />
               ))}
               {fieldGroup('Supplier', (
-                <select style={inputStyle} value={order.supplier || ''} onChange={e => saveField('supplier', e.target.value)}>
-                  <option value="">—</option>
-                  {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
-                </select>
+                <>
+                  <input style={inputStyle} list="pe-suppliers-modal" value={order.supplier || ''} onChange={e => saveField('supplier', e.target.value)} placeholder="Select or type…" />
+                  <datalist id="pe-suppliers-modal">
+                    {SUPPLIERS.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </>
               ))}
               {fieldGroup('Order #', <input style={inputStyle} value={order.order_num || ''} onChange={e => saveField('order_num', e.target.value)} />)}
               {fieldGroup(isInstall ? 'Equip. Cost' : 'Actual Cost', (

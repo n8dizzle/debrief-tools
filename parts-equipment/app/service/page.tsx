@@ -174,6 +174,9 @@ export default function ServicePage() {
       </div>
 
       {/* Table */}
+      <datalist id="pe-suppliers">
+        {SUPPLIERS.map(s => <option key={s} value={s} />)}
+      </datalist>
       <div className="table-wrap" style={{ padding: '0 24px 12px' }}>
         {isLoading ? (
           <div className="empty"><div className="empty-icon">◎</div><p>Loading...</p></div>
@@ -342,10 +345,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} style={{ minWidth: 150 }}>
-                          <option value="">— select —</option>
-                          {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
-                        </select>
+                        <input className="si" list="pe-suppliers" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} placeholder="— select or type —" title={o.supplier || ''} style={{ minWidth: 150 }} />
                       </td>
 
                       <td>
