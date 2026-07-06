@@ -60,14 +60,15 @@ export const SUPPLIERS = [
 ];
 
 export const OWNERS = [
-  'Service Dispatcher',
-  'Warehouse',
-  'CXR Team',
-  'Install Manager',
   'Install Dispatcher',
-  'Plumbing Dispatch',
-  'Parts Coordinator',
+  'Warehouse',
   'Service Manager',
+  'CXR Team',
+  'Parts Coordinator',
+  'Install Manager',
+  'Service Dispatcher',
+  'Plumbing Dispatcher',
+  'Commercial',
   'Unassigned',
 ];
 
@@ -77,12 +78,13 @@ export interface OwnerConfig {
 }
 
 export const SVC_OWNERS_CONFIG: OwnerConfig[] = [
-  { name: 'Service Dispatcher', dot: '#e65100' },
+  { name: 'Parts Coordinator', dot: '#00838f' },
   { name: 'Warehouse', dot: '#1976d2' },
   { name: 'CXR Team', dot: '#6a0dad' },
-  { name: 'Service Manager', dot: '#1565c0' },
-  { name: 'Install Dispatcher', dot: '#880e4f' },
-  { name: 'Plumbing Dispatch', dot: '#1a9aaa' },
+  { name: 'Service Dispatcher', dot: '#a1887f' },
+  { name: 'Service Manager', dot: '#c0392b' },
+  { name: 'Install Dispatcher', dot: '#c2185b' },
+  { name: 'Plumbing Dispatcher', dot: '#ef6c00' },
   { name: 'Unassigned', dot: '#95a5a6' },
 ];
 

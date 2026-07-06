@@ -77,8 +77,8 @@ export default function NewOrderWizard({ onClose }: Props) {
         note_cxr: sNoteCXR.trim(),
         is_equipment: sIsEquip,
         status: 'open',
-        owner: 'Service Dispatcher',
-        location: sPart.trim() ? 'Place Order' : '',
+        owner: 'Parts Coordinator',
+        location: 'Place Order',
         needs_order: !!sPart.trim(),
       });
       showToast('Service order created');
@@ -134,7 +134,7 @@ export default function NewOrderWizard({ onClose }: Props) {
         customer: sCustomer.trim(),
         note_cxr: sNoteCXR.trim(),
         status: 'open',
-        owner: 'CXR Team',
+        owner: 'Install Dispatcher',
         location: 'Duct Cleaning - Schedule',
         needs_order: false,
       });

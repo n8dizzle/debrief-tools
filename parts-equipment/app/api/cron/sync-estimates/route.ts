@@ -160,12 +160,14 @@ export async function GET(request: Request) {
           const orderType =
             (isInstallBU(row.businessUnit) || hasInstallKeyword(estimateTitle)) ? 'install' : 'service';
           const subtype = classifyType(row.businessUnit, estimateTitle);
-          // Auto-assign the ticket owner based on type.
+          // Auto-assign the ticket owner based on type. Regular (non-duct,
+          // non-membership) service/install parts tickets start with the Parts
+          // Coordinator at "Place Order".
           const owner =
             subtype === 'Membership' ? 'CXR Team'
             : subtype === 'Duct Cleaning' ? 'Install Dispatcher'
-            : subtype === 'Plumbing' ? 'Plumbing Dispatch'
-            : 'Unassigned';
+            : subtype === 'Plumbing' ? 'Plumbing Dispatcher'
+            : 'Parts Coordinator';
           const soldDate = row.soldDate || today;
           const jobNumber = row.jobNumber || '';
           const jobIdNum = jobNumber ? parseInt(jobNumber, 10) : NaN;

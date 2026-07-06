@@ -267,38 +267,51 @@ select.filter:focus { border-color: var(--accent); }
 .wt-completed th { background: #4a7a4e; }
 .wt-completed tr td { background: #f0f8f0; color: #2a5a2e; }
 
-/* ─── ROW COLOR CLASSES ─── */
-tr.row-dispatcher td { background: #fff3e0 !important; }
-tr.row-dispatcher td:first-child { border-left: 5px solid #e65100 !important; }
-tr.row-dispatcher:hover td { background: #ffcc80 !important; }
+/* ─── ROW COLOR CLASSES (owner-based, per workflow legend) ─── */
+tr.row-dispatcher td { background: #e6d9a8 !important; }           /* Service Dispatcher — tan */
+tr.row-dispatcher td:first-child { border-left: 5px solid #a1887f !important; }
+tr.row-dispatcher:hover td { background: #dccb92 !important; }
 
-tr.row-warehouse td { background: #dbeafe !important; }
+tr.row-warehouse td { background: #bbdefb !important; }            /* Warehouse — blue */
 tr.row-warehouse td:first-child { border-left: 5px solid #1976d2 !important; }
-tr.row-warehouse:hover td { background: #93c5fd !important; }
+tr.row-warehouse:hover td { background: #90caf9 !important; }
 
-tr.row-cxr td { background: #edd9f7 !important; }
+tr.row-cxr td { background: #e1bee7 !important; }                  /* CXR Team — purple */
 tr.row-cxr td:first-child { border-left: 5px solid #6a0dad !important; }
-tr.row-cxr:hover td { background: #d8b4fe !important; }
+tr.row-cxr:hover td { background: #ce93d8 !important; }
 
-tr.row-install-mgr td { background: #c8e6c9 !important; }
+tr.row-install-mgr td { background: #c8e6c9 !important; }          /* Install Manager — green */
 tr.row-install-mgr td:first-child { border-left: 5px solid #1b5e20 !important; }
 tr.row-install-mgr:hover td { background: #a5d6a7 !important; }
 
-tr.row-install-disp td { background: #fce4ec !important; }
-tr.row-install-disp td:first-child { border-left: 5px solid #880e4f !important; }
+tr.row-install-disp td { background: #f8bbd0 !important; }         /* Install Dispatcher — pink */
+tr.row-install-disp td:first-child { border-left: 5px solid #c2185b !important; }
 tr.row-install-disp:hover td { background: #f48fb1 !important; }
 
-tr.row-parts-coord td { background: #b2ebf2 !important; }
+tr.row-parts-coord td { background: #b2ebf2 !important; }          /* Parts Coordinator — cyan */
 tr.row-parts-coord td:first-child { border-left: 5px solid #00838f !important; }
 tr.row-parts-coord:hover td { background: #80deea !important; }
 
-tr.row-svc-mgr td { background: #bfdbfe !important; }
-tr.row-svc-mgr td:first-child { border-left: 5px solid #1565c0 !important; }
-tr.row-svc-mgr:hover td { background: #93c5fd !important; }
+tr.row-svc-mgr td { background: #ef9a9a !important; }              /* Service Manager — red */
+tr.row-svc-mgr td:first-child { border-left: 5px solid #c0392b !important; }
+tr.row-svc-mgr:hover td { background: #e57373 !important; }
 
-tr.row-plumbing-disp td { background: #e8f8fa !important; }
-tr.row-plumbing-disp td:first-child { border-left: 5px solid #1a9aaa !important; }
-tr.row-plumbing-disp:hover td { background: #d4f2f5 !important; }
+tr.row-plumbing-disp td { background: #ffcc80 !important; }        /* Plumbing Dispatcher — orange */
+tr.row-plumbing-disp td:first-child { border-left: 5px solid #ef6c00 !important; }
+tr.row-plumbing-disp:hover td { background: #ffb74d !important; }
+
+tr.row-commercial td { background: #fff59d !important; }           /* Commercial — yellow */
+tr.row-commercial td:first-child { border-left: 5px solid #f9a825 !important; }
+tr.row-commercial:hover td { background: #fff176 !important; }
+
+/* ─── ROW STATE COLORS (override owner color) ─── */
+tr.row-backordered td { background: #ffd54f !important; }          /* Backordered — amber */
+tr.row-backordered td:first-child { border-left: 5px solid #ff8f00 !important; }
+tr.row-backordered:hover td { background: #ffca28 !important; }
+
+tr.row-cancel-pending td { background: #ff8a65 !important; }       /* Cancel PO — deep orange */
+tr.row-cancel-pending td:first-child { border-left: 5px solid #e64a19 !important; }
+tr.row-cancel-pending:hover td { background: #ff7043 !important; }
 
 tr.row-unassigned td { background: var(--surface) !important; }
 tr.row-unassigned:hover td { background: var(--surface2) !important; }

@@ -59,14 +59,17 @@ export default function ServicePage() {
   }
 
   function onPartBOChange(id: number, checked: boolean, order: PEOrder) {
+    // Part backordered → CXR Team owns it; row turns backordered color (via rowClass).
     const changes: Partial<PEOrder> = { part_bo: checked };
-    if (checked && !order.bo_informed && !order.parts_at_shop) changes.owner = 'Service Dispatcher';
+    if (checked) changes.owner = 'CXR Team';
     save(id, changes);
   }
 
   function onBOInformedChange(id: number, checked: boolean, order: PEOrder) {
+    // Customer informed of the backorder → hand back to Parts Coordinator.
+    // Row stays the backordered color until the part arrives (parts_at_shop).
     const changes: Partial<PEOrder> = { bo_informed: checked };
-    if (checked && !order.parts_at_shop) changes.owner = 'Warehouse';
+    if (checked) changes.owner = 'Parts Coordinator';
     save(id, changes);
   }
 
@@ -292,7 +295,7 @@ export default function ServicePage() {
                           const patch: Partial<PEOrder> = { subtype: v };
                           if (v === 'Membership') patch.owner = 'CXR Team';
                           else if (v === 'Duct Cleaning') patch.owner = 'Install Dispatcher';
-                          else if (v === 'Plumbing') patch.owner = 'Plumbing Dispatch';
+                          else if (v === 'Plumbing') patch.owner = 'Plumbing Dispatcher';
                           save(o.id, patch);
                         }} style={{ minWidth: 90 }}>
                           <option value="">— type —</option>
