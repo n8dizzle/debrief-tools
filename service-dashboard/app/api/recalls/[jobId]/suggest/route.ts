@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
 import { hasRecallPermission } from '@/lib/qc-recalls';
-import { suggestRootCause, type RcaContext } from '@/lib/root-cause-ai';
+import { suggestRootCause, AI_MODEL_ID, type RcaContext } from '@/lib/root-cause-ai';
 
 export const maxDuration = 60;
 
@@ -37,19 +37,25 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (e) equipment = { manufacturer: e.manufacturer, model: e.model, type: e.type, installedOn: e.installed_on };
   }
 
-  // Job summaries from ServiceTitan (best-effort — don't fail the suggestion if ST is slow/down).
+  // Job summaries + notes from ServiceTitan (best-effort — don't fail the suggestion if ST is slow/down).
   let originalSummary: string | null = null;
   let recallSummary: string | null = null;
+  let originalNotes: string[] = [];
+  let recallNotes: string[] = [];
   try {
     const st = getServiceTitanClient();
-    const [recallJob, originalJob] = await Promise.all([
+    const [recallJob, recallNotesRaw, originalJob, originalNotesRaw] = await Promise.all([
       st.getJobById(jobId),
+      st.getJobNotes(jobId),
       recall?.st_original_job_id ? st.getJobById(recall.st_original_job_id) : Promise.resolve(null),
+      recall?.st_original_job_id ? st.getJobNotes(recall.st_original_job_id) : Promise.resolve([] as { text: string }[]),
     ]);
-    recallSummary = recallJob?.summary ?? null;
-    originalSummary = originalJob?.summary ?? null;
+    recallSummary = recallJob?.summaryOfWork || recallJob?.summary || null;
+    originalSummary = originalJob?.summaryOfWork || originalJob?.summary || null;
+    recallNotes = (recallNotesRaw || []).map(n => n.text);
+    originalNotes = (originalNotesRaw || []).map(n => n.text);
   } catch {
-    // leave summaries null — equipment/timing context is still useful
+    // leave summaries/notes empty — equipment/timing context is still useful
   }
 
   const ctx: RcaContext = {
@@ -60,10 +66,30 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     equipment,
     originalSummary,
     recallSummary,
+    originalNotes,
+    recallNotes,
   };
 
   try {
     const suggestion = await suggestRootCause(ctx);
+    // Persist the fresh proposal so a re-run isn't lost on tab close. Never clobber a human
+    // decision: only (re)write ai_* + set ai_proposed when the record isn't already validated/overridden.
+    const { data: inv } = await supabase.from('sd_recall_investigations')
+      .select('id, validation_state').eq('st_recall_job_id', jobId).maybeSingle();
+    const humanDecided = inv?.validation_state === 'validated' || inv?.validation_state === 'overridden';
+    const patch: Record<string, unknown> = {
+      st_recall_job_id: jobId,
+      ai_root_cause_category: suggestion.root_cause_category,
+      ai_rationale: suggestion.rationale,
+      ai_evidence: suggestion.evidence,
+      ai_confidence: suggestion.confidence,
+      ai_model: AI_MODEL_ID,
+      ai_generated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (!inv) patch.status = 'open';              // brand-new investigation
+    if (!humanDecided) patch.validation_state = 'ai_proposed'; // don't clobber a human decision
+    await supabase.from('sd_recall_investigations').upsert(patch, { onConflict: 'st_recall_job_id' });
     return NextResponse.json({ suggestion }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     const msg = (err as Error).message || 'Suggestion failed';

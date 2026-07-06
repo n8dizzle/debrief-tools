@@ -96,9 +96,13 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   if (Number.isNaN(jobId)) return NextResponse.json({ error: 'Invalid job id' }, { status: 400 });
 
   const body = await request.json().catch(() => ({}));
-  const { status, root_cause_category, root_cause_note, root_cause_details, assigned_to } = body as {
+  const raw = body as {
     status?: string; root_cause_category?: string; root_cause_note?: string; root_cause_details?: string; assigned_to?: string;
   };
+  const { status, root_cause_note, root_cause_details, assigned_to } = raw;
+  // Coerce the blank "Select a root cause…" option ('') to null — otherwise it slips past the
+  // category-validity check, gets stored, and shows up as an empty bucket in the Trends rollup.
+  const root_cause_category = raw.root_cause_category === '' ? null : raw.root_cause_category;
   const actor = (session.user as { id?: string }).id ?? null;
   const supabase = getServerSupabase();
 
@@ -113,6 +117,18 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Invalid root cause category.' }, { status: 400 });
   }
 
+  // Validation state: once a human sets/changes the human-facing root_cause_category, the
+  // record moves out of 'ai_proposed'. Matching the AI's guess = validated; anything else =
+  // overridden. Leaving root_cause_category untouched preserves the existing state. This keeps
+  // AI guesses out of Trends/resolve (both key off root_cause_category) until a human acts.
+  // Only classify against an AI proposal that actually exists. A human setting a cause on a
+  // recall with no AI proposal (rare once auto-RCA is on, e.g. a manual investigation) is
+  // neither "validated" nor "overridden" — leave its validation_state untouched.
+  let validationState = existing?.validation_state ?? null;
+  if (root_cause_category != null && existing?.ai_root_cause_category) {
+    validationState = root_cause_category === existing.ai_root_cause_category ? 'validated' : 'overridden';
+  }
+
   const now = new Date().toISOString();
   const row = {
     st_recall_job_id: jobId,
@@ -120,6 +136,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     root_cause_category: targetRootCause,
     root_cause_note: root_cause_note ?? existing?.root_cause_note ?? null,
     root_cause_details: root_cause_details ?? existing?.root_cause_details ?? null,
+    validation_state: validationState,
     assigned_to: assigned_to ?? existing?.assigned_to ?? null,
     opened_by: existing?.opened_by ?? actor,
     resolved_by: targetStatus === 'resolved' ? actor : (targetStatus === 'investigating' ? null : existing?.resolved_by ?? null),
@@ -134,7 +151,15 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const action = !existing ? 'opened' : (existing.status !== targetStatus ? `status:${existing.status}→${targetStatus}` : 'updated');
+  // Prefer the most meaningful action for the timeline: a validation/override event beats a
+  // bare status change beats "updated".
+  const validationChanged = validationState !== (existing?.validation_state ?? null)
+    && (validationState === 'validated' || validationState === 'overridden');
+  const action = !existing
+    ? 'opened'
+    : validationChanged
+      ? (validationState === 'validated' ? 'ai_validated' : 'ai_overridden')
+      : (existing.status !== targetStatus ? `status:${existing.status}→${targetStatus}` : 'updated');
   await supabase.from('sd_recall_activity').insert({
     investigation_id: saved.id, actor, action,
     detail: { root_cause_category: targetRootCause },

@@ -15,6 +15,34 @@ export interface RecallRow {
   has_equipment: boolean;
   investigation_status: string;
   root_cause_category: string | null;
+  validation_state?: string | null;
+  ai_confidence?: string | null;
+}
+
+const CONF_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
+  high: { bg: 'rgba(34,197,94,0.15)', fg: 'var(--status-success)', label: 'High' },
+  med: { bg: 'rgba(234,179,8,0.15)', fg: 'var(--status-warning)', label: 'Med' },
+  low: { bg: 'rgba(239,68,68,0.15)', fg: 'var(--status-error)', label: 'Low' },
+};
+
+// Whether this recall still needs a human decision (AI proposed but not yet confirmed/overridden).
+function needsAttention(r: RecallRow): boolean {
+  return r.validation_state !== 'validated' && r.validation_state !== 'overridden';
+}
+// Lower rank = surfaces first. Unvalidated + low-confidence is most urgent; validated sinks.
+function attentionRank(r: RecallRow): number {
+  if (!needsAttention(r)) return 100;
+  const c = r.ai_confidence;
+  return c === 'low' ? 0 : c === 'med' ? 1 : c === 'high' ? 2 : 3; // unvalidated, no AI yet = 3
+}
+
+function ReviewBadge({ r }: { r: RecallRow }) {
+  if (!needsAttention(r)) {
+    return <span style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: 'var(--status-success)', padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>✓ Validated</span>;
+  }
+  const c = CONF_STYLE[r.ai_confidence || ''];
+  if (c) return <span style={{ backgroundColor: c.bg, color: c.fg, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600 }} title="AI proposed — needs validation">AI · {c.label}</span>;
+  return <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>;
 }
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
@@ -29,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
   return <span style={{ backgroundColor: s.bg, color: s.fg, padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{s.label}</span>;
 }
 
-type ColKey = 'date' | 'job' | 'customer' | 'tech' | 'days' | 'equipment' | 'status';
+type ColKey = 'review' | 'date' | 'job' | 'customer' | 'tech' | 'days' | 'equipment' | 'status';
 
 interface Column {
   key: ColKey;
@@ -40,6 +68,11 @@ interface Column {
 }
 
 const COLUMNS: Record<ColKey, Column> = {
+  review: {
+    key: 'review', label: 'Review',
+    sortValue: r => attentionRank(r),
+    render: r => <ReviewBadge r={r} />,
+  },
   date: {
     key: 'date', label: 'Date',
     sortValue: r => r.recall_created_on,
@@ -79,7 +112,7 @@ const COLUMNS: Record<ColKey, Column> = {
   },
 };
 
-const DEFAULT_ORDER: ColKey[] = ['date', 'job', 'customer', 'tech', 'days', 'equipment', 'status'];
+const DEFAULT_ORDER: ColKey[] = ['review', 'date', 'job', 'customer', 'tech', 'days', 'equipment', 'status'];
 const ORDER_KEY = 'recall-queue-col-order';
 
 function loadOrder(): ColKey[] {
@@ -98,8 +131,8 @@ function loadOrder(): ColKey[] {
 export default function RecallQueueTable({ rows }: { rows: RecallRow[] }) {
   const [order, setOrder] = useState<ColKey[]>(DEFAULT_ORDER);
   const [query, setQuery] = useState('');
-  const [sortKey, setSortKey] = useState<ColKey>('date');
-  const [sortAsc, setSortAsc] = useState(false);
+  const [sortKey, setSortKey] = useState<ColKey>('review'); // triage first: unvalidated + low-confidence on top
+  const [sortAsc, setSortAsc] = useState(true);
   const [dragKey, setDragKey] = useState<ColKey | null>(null);
 
   useEffect(() => { setOrder(loadOrder()); }, []);
