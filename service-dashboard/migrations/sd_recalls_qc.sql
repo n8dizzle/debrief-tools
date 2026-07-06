@@ -56,6 +56,24 @@ CREATE TABLE IF NOT EXISTS sd_recall_investigations (
 CREATE INDEX IF NOT EXISTS idx_sd_investigations_status ON sd_recall_investigations(status);
 CREATE INDEX IF NOT EXISTS idx_sd_investigations_assigned ON sd_recall_investigations(assigned_to);
 
+-- ── 3b. Automated AI root-cause + validation (2026-07-06) ──
+-- AI proposes a root cause automatically on sync. Its guess lives ONLY in ai_root_cause_category;
+-- the human-facing root_cause_category stays NULL until a manager validates/overrides. This is
+-- deliberate: Trends (app/api/recalls/trends) and the resolve guard both key off root_cause_category
+-- with no status filter, so keeping AI guesses out of it until validation keeps both human-gated.
+-- (root_cause_details was already live in prod but missing from this file — added here to end drift.)
+ALTER TABLE sd_recall_investigations
+  ADD COLUMN IF NOT EXISTS root_cause_details    text,
+  ADD COLUMN IF NOT EXISTS ai_root_cause_category text,
+  ADD COLUMN IF NOT EXISTS ai_rationale          text,
+  ADD COLUMN IF NOT EXISTS ai_evidence           jsonb,   -- [{claim, source, quote?}]
+  ADD COLUMN IF NOT EXISTS ai_confidence         text CHECK (ai_confidence IN ('high','med','low')),
+  ADD COLUMN IF NOT EXISTS ai_model              text,
+  ADD COLUMN IF NOT EXISTS ai_generated_at       timestamptz,
+  ADD COLUMN IF NOT EXISTS validation_state      text CHECK (validation_state IN ('ai_proposed','validated','overridden'));
+-- Surfaces low-confidence / unvalidated recalls fast for queue triage.
+CREATE INDEX IF NOT EXISTS idx_sd_investigations_validation ON sd_recall_investigations(validation_state, ai_confidence);
+
 -- Investigations can also be opened on a NON-recall job ("search a job that went wrong").
 -- st_recall_job_id holds the job id either way; recall vs not is derivable from sd_recalls_caused.
 

@@ -188,7 +188,7 @@ async function runSync() {
     const recallResult = await syncRecalls(supabase, st, startDate, endDate, serviceBUIds, buMap);
     recallsSynced = recallResult.recallsSynced;
     errors.push(...recallResult.errors);
-    console.log(`Synced ${recallsSynced} recalls, ${recallResult.equipmentSynced} equipment`);
+    console.log(`Synced ${recallsSynced} recalls, ${recallResult.equipmentSynced} equipment, ${recallResult.aiSuggested} AI root-cause proposals`);
 
     // ============================================
     // 3. SYNC TECH-GENERATED LEADS / "Leads Set" (last 30 days)

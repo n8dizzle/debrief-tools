@@ -5,15 +5,22 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useServiceDashboardPermissions } from '@/hooks/usePermissions';
 import { stJobUrl } from '@/lib/sd-utils';
+import RecallTimeline from '@/components/RecallTimeline';
 
 const ST_LINK: React.CSSProperties = { color: 'var(--christmas-green-light)' };
 
 interface Question { id: string; question: string; assigned_to: string | null; status: string; answer: string | null; answered_via?: string | null; }
-interface Investigation { id: string; status: string; root_cause_category: string | null; root_cause_note: string | null; root_cause_details: string | null; }
+interface Evidence { claim: string; source: string; quote?: string }
+interface Investigation {
+  id: string; status: string; root_cause_category: string | null; root_cause_note: string | null; root_cause_details: string | null;
+  validation_state?: string | null;
+  ai_root_cause_category?: string | null; ai_rationale?: string | null; ai_evidence?: Evidence[] | null;
+  ai_confidence?: string | null; ai_generated_at?: string | null;
+}
 interface Photo { id: string; url: string | null; uploaded_at: string }
 interface Detail {
   job_id: number;
-  recall: { st_original_job_id: number; tech_name: string | null; recall_created_on: string; days_to_recall: number | null; customer_name: string | null; business_unit_name: string | null } | null;
+  recall: { st_original_job_id: number; st_original_completed_date?: string | null; tech_name: string | null; recall_created_on: string; days_to_recall: number | null; customer_name: string | null; business_unit_name: string | null } | null;
   equipment: { manufacturer: string | null; model: string | null; installed_on: string | null } | null;
   investigation: Investigation | null;
   questions: Question[];
@@ -97,6 +104,7 @@ export default function RcaPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { setSuggestErr(body.error || `Error ${res.status}`); return; }
       setSuggestion(body.suggestion);
+      await load(); // the suggest route now persists — refresh so the timeline + dropdown reflect it
     } catch (e) { setSuggestErr((e as Error).message); } finally { setSuggesting(false); }
   };
 
@@ -142,8 +150,19 @@ export default function RcaPage() {
 
   const inv = d.investigation;
   const status = inv?.status || 'open';
-  const rootCause = inv?.root_cause_category || '';
-  const canResolve = !!rootCause;
+  const rootCause = inv?.root_cause_category || '';   // human-validated cause (drives resolve + Trends)
+  const canResolve = !!rootCause;                      // resolve stays gated on a HUMAN cause
+  const aiCat = inv?.ai_root_cause_category || '';
+  // An AI cause the manager hasn't acted on yet. Shown pre-selected so they "arrive to a
+  // filled-in answer," but it is NOT the committed cause until they confirm/override.
+  const isAiProposed = inv?.validation_state === 'ai_proposed' && !rootCause && !!aiCat;
+  const displayCause = rootCause || (isAiProposed ? aiCat : '');
+  const CONF_BADGE: Record<string, { label: string; fg: string; bg: string }> = {
+    high: { label: 'High confidence', fg: 'var(--status-success)', bg: 'rgba(34,197,94,0.12)' },
+    med: { label: 'Medium confidence', fg: 'var(--status-warning)', bg: 'rgba(234,179,8,0.12)' },
+    low: { label: 'Low confidence', fg: 'var(--status-error)', bg: 'rgba(239,68,68,0.12)' },
+  };
+  const confBadge = CONF_BADGE[inv?.ai_confidence || ''] || null;
 
   return (
     <div style={{ padding: 24, maxWidth: 880, margin: '0 auto' }}>
@@ -172,6 +191,14 @@ export default function RcaPage() {
         </div>
       </div>
 
+      {/* Timeline — the causal journey managers scan to validate causation */}
+      <RecallTimeline
+        recall={d.recall}
+        investigation={d.investigation}
+        jobDetails={d.job_details ?? null}
+        activity={d.activity}
+      />
+
       {/* Job details (summary + notes from ServiceTitan) */}
       {d.job_details && (
         <div style={PANEL}>
@@ -186,22 +213,37 @@ export default function RcaPage() {
         <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Root cause</h2>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <select
-            value={rootCause}
+            value={displayCause}
             disabled={!canInvestigate || saving}
             onChange={e => saveInvestigation({ root_cause_category: e.target.value, status: status === 'open' ? 'investigating' : status })}
-            style={{ padding: '8px 12px', borderRadius: 8, fontSize: 14, minWidth: 240, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
+            style={{ padding: '8px 12px', borderRadius: 8, fontSize: 14, minWidth: 240, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)',
+              border: isAiProposed ? '1px dashed var(--christmas-green-light)' : '1px solid var(--border-default)' }}
           >
             <option value="">Select a root cause…</option>
             {d.root_cause_categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          {confBadge && (isAiProposed || !rootCause) && (
+            <span style={{ backgroundColor: confBadge.bg, color: confBadge.fg, padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{confBadge.label}</span>
+          )}
+          {canInvestigate && isAiProposed && (
+            <button onClick={() => saveInvestigation({ root_cause_category: aiCat, status: status === 'open' ? 'investigating' : status })} disabled={saving}
+              style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: saving ? 'wait' : 'pointer', backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>
+              ✓ Confirm AI cause
+            </button>
+          )}
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Status: <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{status}</strong></span>
           {canInvestigate && (
             <button onClick={getSuggestion} disabled={suggesting}
               style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: suggesting ? 'wait' : 'pointer', backgroundColor: 'transparent', color: 'var(--christmas-green-light)', border: '1px solid var(--border-default)' }}>
-              {suggesting ? 'Thinking…' : '✨ Suggest root cause'}
+              {suggesting ? 'Thinking…' : (aiCat ? '✨ Re-run AI' : '✨ Suggest root cause')}
             </button>
           )}
         </div>
+        {canInvestigate && isAiProposed && (
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+            AI proposed this cause. Confirm to lock it in, or pick a different cause to override — nothing counts toward reporting until you do.
+          </div>
+        )}
 
         {suggestErr && <div style={{ marginTop: 10, fontSize: 13, color: 'var(--status-error)' }}>{suggestErr}</div>}
         {suggestion && (
