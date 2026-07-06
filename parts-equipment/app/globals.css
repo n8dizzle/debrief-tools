@@ -268,9 +268,9 @@ select.filter:focus { border-color: var(--accent); }
 .wt-completed tr td { background: #f0f8f0; color: #2a5a2e; }
 
 /* ─── ROW COLOR CLASSES (owner-based, per workflow legend) ─── */
-tr.row-dispatcher td { background: #e6d9a8 !important; }           /* Service Dispatcher — tan */
-tr.row-dispatcher td:first-child { border-left: 5px solid #a1887f !important; }
-tr.row-dispatcher:hover td { background: #dccb92 !important; }
+tr.row-dispatcher td { background: #b39ddb !important; }           /* Service Dispatcher — darker purple */
+tr.row-dispatcher td:first-child { border-left: 5px solid #512da8 !important; }
+tr.row-dispatcher:hover td { background: #9575cd !important; }
 
 tr.row-warehouse td { background: #bbdefb !important; }            /* Warehouse — blue */
 tr.row-warehouse td:first-child { border-left: 5px solid #1976d2 !important; }
@@ -280,9 +280,9 @@ tr.row-cxr td { background: #e1bee7 !important; }                  /* CXR Team �
 tr.row-cxr td:first-child { border-left: 5px solid #6a0dad !important; }
 tr.row-cxr:hover td { background: #ce93d8 !important; }
 
-tr.row-install-mgr td { background: #c8e6c9 !important; }          /* Install Manager — green */
-tr.row-install-mgr td:first-child { border-left: 5px solid #1b5e20 !important; }
-tr.row-install-mgr:hover td { background: #a5d6a7 !important; }
+tr.row-install-mgr td { background: #a5d6a7 !important; }          /* Install Manager — greener */
+tr.row-install-mgr td:first-child { border-left: 5px solid #2e7d32 !important; }
+tr.row-install-mgr:hover td { background: #81c784 !important; }
 
 tr.row-install-disp td { background: #f8bbd0 !important; }         /* Install Dispatcher — pink */
 tr.row-install-disp td:first-child { border-left: 5px solid #c2185b !important; }
@@ -296,13 +296,13 @@ tr.row-svc-mgr td { background: #ef9a9a !important; }              /* Service Ma
 tr.row-svc-mgr td:first-child { border-left: 5px solid #c0392b !important; }
 tr.row-svc-mgr:hover td { background: #e57373 !important; }
 
-tr.row-plumbing-disp td { background: #ffcc80 !important; }        /* Plumbing Dispatcher — orange */
-tr.row-plumbing-disp td:first-child { border-left: 5px solid #ef6c00 !important; }
-tr.row-plumbing-disp:hover td { background: #ffb74d !important; }
+tr.row-plumbing-disp td { background: #ffb74d !important; }        /* Plumbing Dispatcher — oranger */
+tr.row-plumbing-disp td:first-child { border-left: 5px solid #e65100 !important; }
+tr.row-plumbing-disp:hover td { background: #ffa726 !important; }
 
-tr.row-commercial td { background: #fff59d !important; }           /* Commercial — yellow */
-tr.row-commercial td:first-child { border-left: 5px solid #f9a825 !important; }
-tr.row-commercial:hover td { background: #fff176 !important; }
+tr.row-commercial td { background: #ff7043 !important; }           /* Commercial — reddish-orange */
+tr.row-commercial td:first-child { border-left: 5px solid #bf360c !important; }
+tr.row-commercial:hover td { background: #f4511e !important; }
 
 tr.row-christina td { background: #b2dfdb !important; }            /* Christina — teal */
 tr.row-christina td:first-child { border-left: 5px solid #00695c !important; }
@@ -313,9 +313,9 @@ tr.row-backordered td { background: #ffd54f !important; }          /* Backordere
 tr.row-backordered td:first-child { border-left: 5px solid #ff8f00 !important; }
 tr.row-backordered:hover td { background: #ffca28 !important; }
 
-tr.row-cancel-pending td { background: #ff8a65 !important; }       /* Cancel PO — deep orange */
-tr.row-cancel-pending td:first-child { border-left: 5px solid #e64a19 !important; }
-tr.row-cancel-pending:hover td { background: #ff7043 !important; }
+tr.row-cancel-pending td { background: #ef5350 !important; }       /* Cancel PO — red */
+tr.row-cancel-pending td:first-child { border-left: 5px solid #b71c1c !important; }
+tr.row-cancel-pending:hover td { background: #e53935 !important; }
 
 tr.row-unassigned td { background: var(--surface) !important; }
 tr.row-unassigned:hover td { background: var(--surface2) !important; }

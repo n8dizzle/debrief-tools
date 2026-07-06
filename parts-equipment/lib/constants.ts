@@ -69,7 +69,6 @@ export const OWNERS = [
   'Service Dispatcher',
   'Plumbing Dispatcher',
   'Commercial',
-  'Christina',
   'Unassigned',
 ];
 

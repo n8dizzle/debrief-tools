@@ -189,6 +189,14 @@ class ServiceTitanClient {
     });
   }
 
+  /** All estimates attached to a job (any status) — for diagnostics. */
+  async getEstimatesByJob(jobId: number): Promise<Array<{ id: number; name?: string; status?: unknown; total?: number; soldOn?: string; jobId?: number }>> {
+    return this.requestAllPages(
+      `sales/v2/tenant/${this.tenantId}/estimates`,
+      { jobId: String(jobId) }
+    );
+  }
+
   async getJob(jobId: number): Promise<STJob | null> {
     try {
       return await this.request<STJob>('GET', `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}`);
