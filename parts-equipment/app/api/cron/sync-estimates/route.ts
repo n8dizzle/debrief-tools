@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getServiceTitanClient } from '@/lib/servicetitan';
+import { fmtMoney } from '@/lib/pe-utils';
 
 function formatLocalDate(date: Date): string {
   const y = date.getFullYear();
@@ -23,15 +24,18 @@ function isInstallBU(bu: string): boolean {
 }
 
 // Type column value (subtype) from the business unit + estimate title:
-//   - estimate title contains "Duct Cleaning" -> Duct Cleaning
-//   - BU starts with "HVAC" -> HVAC   (incl. HVAC-Sales; the Install tab
-//     placement is handled separately by isInstallBU)
+//   - title contains "Christmas List" -> Membership (memberships are ~99% a
+//     standalone estimate; if other work is bundled in, staff reclassify to Service)
+//   - title contains "Duct Cleaning" -> Duct Cleaning
+//   - BU starts with "HVAC" -> Service (Parts vs Repair is set manually in the
+//     adjacent column). HVAC-Sales still routes to the Install tab via isInstallBU.
 //   - BU starts with "Plumbing" -> Plumbing
 function classifyType(businessUnit: string, estimateTitle: string): string {
   const bu = (businessUnit || '').trim().toLowerCase();
   const title = (estimateTitle || '').toLowerCase();
+  if (title.includes('christmas list')) return 'Membership';
   if (title.includes('duct cleaning')) return 'Duct Cleaning';
-  if (bu.startsWith('hvac')) return 'HVAC';
+  if (bu.startsWith('hvac')) return 'Service';
   if (bu.startsWith('plumbing')) return 'Plumbing';
   return '';
 }
@@ -56,10 +60,13 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const today = formatLocalDate(new Date());
+  const now = new Date();
+  const today = formatLocalDate(now);
+  // Default to year-to-date: a sold-but-unbooked estimate still needs ordering
+  // no matter how long ago it was sold this year, so we scan from Jan 1.
   const fromDate = sinceParam
     ? parseSinceParam(sinceParam)
-    : formatLocalDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+    : formatLocalDate(new Date(now.getFullYear(), 0, 1));
 
   try {
     if (probe) {
@@ -144,6 +151,11 @@ export async function GET(request: Request) {
           // it belongs in Part/Description, not WH Notes.
           const estimateTitle = row.note || row.part || '';
           const subtype = classifyType(row.businessUnit, estimateTitle);
+          // Auto-assign the ticket owner based on type.
+          const owner =
+            subtype === 'Membership' ? 'CXR Team'
+            : subtype === 'Duct Cleaning' ? 'Install Dispatcher'
+            : 'Unassigned';
           const soldDate = row.soldDate || today;
           const jobNumber = row.jobNumber || '';
           const jobIdNum = jobNumber ? parseInt(jobNumber, 10) : NaN;
@@ -160,13 +172,13 @@ export async function GET(request: Request) {
             order_type: orderType,
             subtype,
             part: estimateTitle,
-            estimate_cost: row.estimateCost,
+            estimate_cost: fmtMoney(row.estimateCost),
             note_wh: '',
             st_url: stUrl,
             status: 'open',
             needs_order: true,
             location: 'Place Order',
-            owner: 'Unassigned',
+            owner,
           });
 
           if (error) {

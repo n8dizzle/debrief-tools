@@ -1,8 +1,8 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils';
+import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney } from '@/lib/pe-utils';
 import { SUPPLIERS, INSTALL_TEAMS } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
@@ -24,6 +24,20 @@ export default function InstallPage() {
   const [teamFilter, setTeamFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'all'>('open');
   const [statFilter, setStatFilter] = useState<string>('all');
+  const [focusId, setFocusId] = useState<number | null>(null);
+
+  // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('focus');
+    const id = raw ? parseInt(raw, 10) : NaN;
+    if (isNaN(id)) return;
+    setFocusId(id);
+    const t = setTimeout(() => {
+      document.getElementById(`inst-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+    const clear = setTimeout(() => setFocusId(null), 4000);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+  }, []);
 
   function save(id: number, changes: Partial<PEOrder>) {
     saveOrderDebounced(id, changes);
@@ -164,7 +178,8 @@ export default function InstallPage() {
                 {filtered.map((o: PEOrder) => {
                   const rc = rowClass(o);
                   return (
-                    <tr key={o.id} className={rc}>
+                    <tr key={o.id} id={`inst-row-${o.id}`} className={rc}
+                      style={focusId === o.id ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : undefined}>
                       <td><button className="detail-open-btn" style={{ background: '#7a1c2e' }} onClick={() => openEditDetail?.(o.id)}>✎</button></td>
 
                       <td style={{ textAlign: 'center' }}>
@@ -192,7 +207,7 @@ export default function InstallPage() {
                         </select>
                       </td>
 
-                      <td><input className="si" value={o.job_cost || ''} onChange={e => save(o.id, { job_cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
+                      <td><input className="si" value={o.job_cost || ''} onChange={e => save(o.id, { job_cost: e.target.value })} onBlur={e => save(o.id, { job_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <select className="si-sel" value={o.owner || ''} onChange={e => save(o.id, { owner: e.target.value })} style={{ minWidth: 130 }}>
@@ -226,7 +241,7 @@ export default function InstallPage() {
                       </td>
 
                       <td>
-                        <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.eta)}</span>
+                        <input className="si" type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })} style={{ minWidth: 130 }} />
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
@@ -246,7 +261,7 @@ export default function InstallPage() {
 
                       <td><input className="si" value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })} style={{ minWidth: 90, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} /></td>
 
-                      <td><input className="si" value={o.equip_cost || ''} onChange={e => save(o.id, { equip_cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
+                      <td><input className="si" value={o.equip_cost || ''} onChange={e => save(o.id, { equip_cost: e.target.value })} onBlur={e => save(o.id, { equip_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value, o)} style={{ minWidth: 140 }}>
@@ -262,7 +277,7 @@ export default function InstallPage() {
                         </select>
                       </td>
 
-                      <td><input className="si" value={o.sub_rate || ''} onChange={e => save(o.id, { sub_rate: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
+                      <td><input className="si" value={o.sub_rate || ''} onChange={e => save(o.id, { sub_rate: e.target.value })} onBlur={e => save(o.id, { sub_rate: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.sched_date)}</span>

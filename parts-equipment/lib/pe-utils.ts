@@ -34,6 +34,18 @@ export function daysSince(dateStr: string | null | undefined): number {
   return Math.max(0, Math.floor((nowLocal.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
+// Format a stored cost value as a US dollar amount for display / on-blur
+// normalization (e.g. "382.5" or "$382.50" -> "$382.50"). Empty stays empty;
+// unparseable input is returned unchanged so we never destroy manual text.
+export function fmtMoney(v: string | null | undefined): string {
+  if (v == null) return '';
+  const raw = String(v).trim();
+  if (!raw) return '';
+  const num = parseFloat(raw.replace(/[^0-9.-]/g, ''));
+  if (isNaN(num)) return raw;
+  return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function ageColor(days: number): string {
   if (days > 30) return '#c0392b'; // red
   if (days > 20) return '#e67e22'; // amber

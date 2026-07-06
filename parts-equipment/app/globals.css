@@ -320,9 +320,7 @@ tr.row-cancelled td * { text-decoration: line-through; color: #999 !important; }
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(30,37,53,.45);
   z-index: 200; display: flex; align-items: flex-start; justify-content: flex-end;
-  opacity: 0; pointer-events: none; transition: opacity .2s;
 }
-.modal-overlay.open { opacity: 1; pointer-events: all; }
 .modal {
   width: 720px; height: 100vh; background: var(--surface);
   border-left: 1px solid var(--border); padding: 24px;

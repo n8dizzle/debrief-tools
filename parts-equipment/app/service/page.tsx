@@ -1,9 +1,9 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils';
-import { OWNERS, SUPPLIERS, TECHS, SVC_SUBTYPES, SVC_OWNERS_CONFIG } from '@/lib/constants';
+import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney } from '@/lib/pe-utils';
+import { OWNERS, SUPPLIERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
@@ -21,6 +21,20 @@ export default function ServicePage() {
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'cancelled'>('open');
+  const [focusId, setFocusId] = useState<number | null>(null);
+
+  // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('focus');
+    const id = raw ? parseInt(raw, 10) : NaN;
+    if (isNaN(id)) return;
+    setFocusId(id);
+    const t = setTimeout(() => {
+      document.getElementById(`svc-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+    const clear = setTimeout(() => setFocusId(null), 4000);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+  }, []);
 
   function save(id: number, changes: Partial<PEOrder>) {
     saveOrderDebounced(id, changes);
@@ -130,6 +144,7 @@ export default function ServicePage() {
                   <th>Customer</th>
                   <th>Owner</th>
                   <th>Type</th>
+                  <th style={{ minWidth: 90 }}>Parts/Repair</th>
                   <th style={{ textAlign: 'center', minWidth: 44 }}>War?</th>
                   <th style={{ textAlign: 'center', minWidth: 55 }}>W.Type</th>
                   <th style={{ minWidth: 150 }}>Part/Description</th>
@@ -165,7 +180,8 @@ export default function ServicePage() {
                   const linkedCount = o.linked_jobs?.length || 0;
                   const isWarranty = ['Yes', 'P', 'P/L', 'L'].includes(o.warranty ?? '');
                   return (
-                    <tr key={o.id} className={rc}>
+                    <tr key={o.id} id={`svc-row-${o.id}`} className={rc}
+                      style={focusId === o.id ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : undefined}>
                       <td><button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button></td>
 
                       <td>
@@ -194,7 +210,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.estimate_cost || ''} onChange={e => save(o.id, { estimate_cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} />
+                        <input className="si" value={o.estimate_cost || ''} onChange={e => save(o.id, { estimate_cost: e.target.value })} onBlur={e => save(o.id, { estimate_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} />
                       </td>
 
                       <td>
@@ -209,9 +225,23 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <select className="si-sel" value={o.subtype || ''} onChange={e => save(o.id, { subtype: e.target.value })} style={{ minWidth: 90 }}>
+                        <select className="si-sel" value={o.subtype || ''} onChange={e => {
+                          const v = e.target.value;
+                          const patch: Partial<PEOrder> = { subtype: v };
+                          if (v === 'Membership') patch.owner = 'CXR Team';
+                          else if (v === 'Duct Cleaning') patch.owner = 'Install Dispatcher';
+                          save(o.id, patch);
+                        }} style={{ minWidth: 90 }}>
                           <option value="">— type —</option>
+                          {o.subtype && !SVC_SUBTYPES.includes(o.subtype) && <option value={o.subtype}>{o.subtype}</option>}
                           {SVC_SUBTYPES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </td>
+
+                      <td>
+                        <select className="si-sel" value={o.tech_type || ''} onChange={e => save(o.id, { tech_type: e.target.value })} style={{ minWidth: 90 }}>
+                          <option value="">—</option>
+                          {PARTS_REPAIR.map(s => <option key={s}>{s}</option>)}
                         </select>
                       </td>
 
@@ -243,7 +273,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.eta)}</span>
+                        <input className="si" type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })} style={{ minWidth: 130 }} />
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
@@ -263,7 +293,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} />
+                        <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} onBlur={e => save(o.id, { cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} />
                       </td>
 
                       <td>

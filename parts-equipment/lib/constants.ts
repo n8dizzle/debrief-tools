@@ -142,14 +142,15 @@ export const INSTALL_TEAMS = [
 ];
 
 export const SVC_SUBTYPES = [
-  'HVAC',
+  'Service',
   'Plumbing',
   'Duct Cleaning',
-  'Duct',
-  'IAQ',
-  'Electrical',
+  'Membership',
   'Other',
 ];
+
+// Options for the Parts/Repair column (stored in the tech_type field).
+export const PARTS_REPAIR = ['Parts', 'Repair'];
 
 export const INST_SUBTYPES = [
   'HVAC Install',
