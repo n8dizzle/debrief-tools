@@ -61,9 +61,17 @@ export default function InstallPage() {
     save(id, { location: loc, ...(newOwner ? { owner: newOwner } : {}) });
   }
 
+  function onBOStatusChange(id: number, val: string) {
+    // B/O = Yes → location Backordered (amber) + Install Dispatcher owns it.
+    const changes: Partial<PEOrder> = { bo_status: val };
+    if (val === 'Yes') { changes.location = 'Backordered'; changes.owner = 'Install Dispatcher'; }
+    save(id, changes);
+  }
+
   function onBOInformedChange(id: number, checked: boolean) {
+    // Customer informed → hand back to Parts Coordinator; row stays Backordered.
     const changes: Partial<PEOrder> = { bo_informed: checked };
-    if (checked) changes.owner = 'Warehouse';
+    if (checked) changes.owner = 'Parts Coordinator';
     save(id, changes);
   }
 
@@ -297,7 +305,7 @@ export default function InstallPage() {
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
-                        <select className="si-sel" value={o.bo_status || ''} onChange={e => save(o.id, { bo_status: e.target.value })}>
+                        <select className="si-sel" value={o.bo_status || ''} onChange={e => onBOStatusChange(o.id, e.target.value)}>
                           <option value="">—</option><option>Yes</option><option>No</option>
                         </select>
                       </td>

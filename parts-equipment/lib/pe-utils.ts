@@ -56,19 +56,18 @@ export function ownerForLocation(location: string, isInstall: boolean): string |
   if (isInstall) {
     switch (location) {
       case 'Place Order':
+      case 'Cancel PO':
+        return 'Parts Coordinator';
       case 'Shipping to Shop':
       case 'P/U Supply House':
       case 'Shipping to Supplier':
-        return 'Parts Coordinator';
+        return 'Warehouse';
       case 'Lewisville Shop':
         return 'Install Manager';
       case 'Backordered':
-        return 'Warehouse';
       case 'Waiting for Customer':
       case 'Waiting for Tech/Cus':
         return 'Install Dispatcher';
-      case 'Cancel PO':
-        return 'Parts Coordinator';
       default:
         return null;
     }
@@ -116,10 +115,11 @@ export function autoOwnerFromCheckboxes(order: Partial<PEOrder>, isInstall: bool
 export function rowClass(o: PEOrder): string {
   if (o.status === 'completed') return 'row-completed';
   if (o.status === 'cancelled') return 'row-cancelled';
-  // State colors override the owner color:
-  // a PO pending cancellation, or a backordered part not yet at the shop.
+  // State colors override the owner color: Backordered and Cancel PO are
+  // locations in the workflow legend, so they drive their own row color and
+  // clear automatically once the location changes (e.g. part arrives).
   if (o.location === 'Cancel PO') return 'row-cancel-pending';
-  if (o.part_bo && !o.parts_at_shop) return 'row-backordered';
+  if (o.location === 'Backordered') return 'row-backordered';
   switch (o.owner) {
     case 'Service Dispatcher': return 'row-dispatcher';
     case 'Warehouse': return 'row-warehouse';

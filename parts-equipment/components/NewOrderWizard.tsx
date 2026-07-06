@@ -108,8 +108,8 @@ export default function NewOrderWizard({ onClose }: Props) {
         install_team: iTeam,
         note_wh: iNote.trim(),
         status: 'open',
-        owner: 'Install Manager',
-        location: iPart.trim() ? 'Place Order' : '',
+        owner: 'Parts Coordinator',
+        location: 'Place Order',
         needs_order: !!iPart.trim(),
       });
       showToast('Install order created');

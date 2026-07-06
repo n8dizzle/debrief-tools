@@ -59,9 +59,9 @@ export default function ServicePage() {
   }
 
   function onPartBOChange(id: number, checked: boolean, order: PEOrder) {
-    // Part backordered → CXR Team owns it; row turns backordered color (via rowClass).
+    // Part backordered → location Backordered (drives amber color) + CXR Team owns it.
     const changes: Partial<PEOrder> = { part_bo: checked };
-    if (checked) changes.owner = 'CXR Team';
+    if (checked) { changes.location = 'Backordered'; changes.owner = 'CXR Team'; }
     save(id, changes);
   }
 
