@@ -272,9 +272,9 @@ tr.row-dispatcher td { background: #b39ddb !important; }           /* Service Di
 tr.row-dispatcher td:first-child { border-left: 5px solid #512da8 !important; }
 tr.row-dispatcher:hover td { background: #9575cd !important; }
 
-tr.row-warehouse td { background: #bbdefb !important; }            /* Warehouse — blue */
-tr.row-warehouse td:first-child { border-left: 5px solid #1976d2 !important; }
-tr.row-warehouse:hover td { background: #90caf9 !important; }
+tr.row-warehouse td { background: #64b5f6 !important; }            /* Warehouse — darker blue */
+tr.row-warehouse td:first-child { border-left: 5px solid #0d47a1 !important; }
+tr.row-warehouse:hover td { background: #42a5f5 !important; }
 
 tr.row-cxr td { background: #e1bee7 !important; }                  /* CXR Team — purple */
 tr.row-cxr td:first-child { border-left: 5px solid #6a0dad !important; }

@@ -189,12 +189,68 @@ class ServiceTitanClient {
     });
   }
 
+  /** A single estimate by id — for diagnostics. */
+  async getEstimateById(estimateId: number): Promise<Record<string, unknown> | null> {
+    try {
+      return await this.request<Record<string, unknown>>(
+        'GET',
+        `sales/v2/tenant/${this.tenantId}/estimates/${estimateId}`
+      );
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+
   /** All estimates attached to a job (any status) — for diagnostics. */
   async getEstimatesByJob(jobId: number): Promise<Array<{ id: number; name?: string; status?: unknown; total?: number; soldOn?: string; jobId?: number }>> {
     return this.requestAllPages(
       `sales/v2/tenant/${this.tenantId}/estimates`,
       { jobId: String(jobId) }
     );
+  }
+
+  /**
+   * Sold WARRANTY estimates (items whose SKU starts with "CA-W-", i.e. $0
+   * warranty repairs). These are excluded from report 54646792, so we pull them
+   * separately to feed the parts board + warranty claims. Returns report-shaped rows.
+   */
+  async getSoldWarrantyEstimates(soldAfter: string): Promise<Array<{
+    estimateId: number; jobNumber: string; businessUnit: string; name: string;
+    total: number; warrantyType: string; customerId: number | null; soldOn: string;
+  }>> {
+    const raw = await this.requestAllPages<Record<string, unknown>>(
+      `sales/v2/tenant/${this.tenantId}/estimates`,
+      { soldAfter }
+    );
+    const out: Array<{ estimateId: number; jobNumber: string; businessUnit: string; name: string; total: number; warrantyType: string; customerId: number | null; soldOn: string }> = [];
+    for (const e of raw) {
+      const status = e.status as { name?: string } | string | undefined;
+      const statusName = typeof status === 'string' ? status : status?.name;
+      if (statusName !== 'Sold') continue;
+      const items = (e.items as Array<Record<string, unknown>>) || [];
+      const isWarranty = items.some(it => {
+        const sku = it.sku as { name?: string; displayName?: string } | undefined;
+        const name = (sku?.name || (it.skuName as string) || '').toUpperCase();
+        const disp = (sku?.displayName || (it.displayName as string) || '').toLowerCase();
+        return name.startsWith('CA-W-') || disp.startsWith('warranty');
+      });
+      if (!isWarranty) continue;
+      const name = (e.name as string) || '';
+      const summary = (e.summary as string) || '';
+      const hay = (name + ' ' + summary).toLowerCase();
+      const warrantyType = (hay.includes('labor') && hay.includes('part')) ? 'P/L' : 'P';
+      out.push({
+        estimateId: Number(e.id),
+        jobNumber: String(e.jobNumber ?? e.jobId ?? ''),
+        businessUnit: (e.businessUnitName as string) || '',
+        name,
+        total: Number(e.subtotal ?? e.total ?? 0),
+        warrantyType,
+        customerId: e.customerId != null ? Number(e.customerId) : null,
+        soldOn: (e.soldOn as string) || '',
+      });
+    }
+    return out;
   }
 
   async getJob(jobId: number): Promise<STJob | null> {
