@@ -91,6 +91,26 @@ export default function ServicePage() {
     });
   }, [svcOrders, search, ownerFilter, statusFilter]);
 
+  // Auto-link: open estimates that share an originating job number must be booked
+  // together. Build {orderId -> {idx, total, job}} for any job with 2+ open rows.
+  const linkGroups = useMemo(() => {
+    const byJob = new Map<string, PEOrder[]>();
+    for (const o of svcOrders) {
+      if (o.status !== 'open') continue;
+      const j = (o.job || '').trim();
+      if (!j) continue;
+      if (!byJob.has(j)) byJob.set(j, []);
+      byJob.get(j)!.push(o);
+    }
+    const info = new Map<number, { idx: number; total: number; job: string }>();
+    byJob.forEach((arr, j) => {
+      if (arr.length < 2) return;
+      arr.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+      arr.forEach((o, i) => info.set(o.id, { idx: i + 1, total: arr.length, job: j }));
+    });
+    return info;
+  }, [svcOrders]);
+
   const sorted = useMemo(() => {
     if (!sortCol) return filtered;
     const arr = [...filtered];
@@ -206,10 +226,14 @@ export default function ServicePage() {
                   const rc = rowClass(o);
                   const age = daysSince(o.date);
                   const linkedCount = o.linked_jobs?.length || 0;
+                  const link = linkGroups.get(o.id);
                   const isWarranty = ['Yes', 'P', 'P/L', 'L'].includes(o.warranty ?? '');
+                  const trStyle: React.CSSProperties = {};
+                  if (link) trStyle.boxShadow = 'inset 4px 0 0 #d48a0a';
+                  if (focusId === o.id) { trStyle.outline = '2px solid var(--accent)'; trStyle.outlineOffset = -2; }
                   return (
                     <tr key={o.id} id={`svc-row-${o.id}`} className={rc}
-                      style={focusId === o.id ? { outline: '2px solid var(--accent)', outlineOffset: -2 } : undefined}>
+                      style={Object.keys(trStyle).length ? trStyle : undefined}>
                       <td><button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button></td>
 
                       <td>
@@ -224,6 +248,13 @@ export default function ServicePage() {
                             <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
                               onClick={e => e.stopPropagation()}
                               style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
+                          )}
+                          {link && (
+                            <span onClick={() => setSearch(o.job || '')}
+                              title={`Book together — ${link.total} estimates on job #${link.job}. Click to show them all.`}
+                              style={{ background: '#d48a0a', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 10, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              ‼ {link.idx}/{link.total}
+                            </span>
                           )}
                           {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
                         </span>
