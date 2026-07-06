@@ -80,6 +80,10 @@ export interface PEWarrantyClaim {
   amt_charged: string | null;
   amt_refunded: string | null;
   paid: string | null;
+  job: string | null;
+  tech: string | null;
+  customer: string | null;
+  status: string | null;
   created_at: string;
   updated_at: string;
 }

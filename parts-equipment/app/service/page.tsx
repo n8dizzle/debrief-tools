@@ -2,9 +2,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney } from '@/lib/pe-utils';
+import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
 import { OWNERS, SUPPLIERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
-import type { PEOrder } from '@/types';
+import type { PEOrder, PEWarrantyClaim } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
   if (!d) return '—';
@@ -16,7 +16,8 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading,
+    warrantyOrders, setWarrantyOrders, showToast } = ctx;
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
@@ -77,6 +78,40 @@ export default function ServicePage() {
     const changes: Partial<PEOrder> = { parts_at_shop: checked };
     if (checked) changes.owner = 'CXR Team';
     save(id, changes);
+  }
+
+  // Jobs that already have a warranty claim started (avoid duplicates).
+  const warrantyJobs = useMemo(
+    () => new Set(((warrantyOrders as PEWarrantyClaim[]) || []).map(w => String(w.job || '').trim()).filter(Boolean)),
+    [warrantyOrders]
+  );
+
+  // When a ticket is marked warranty Parts (P) or Part & Labor (P/L), auto-start a
+  // warranty claim on the Warranty tab pre-filled with the customer + ticket number.
+  function onWTypeChange(o: PEOrder, val: string) {
+    const changes: Partial<PEOrder> = { warranty_type: val };
+    if (val === 'P' || val === 'P/L') changes.warranty = 'Yes';
+    save(o.id, changes);
+
+    if ((val === 'P' || val === 'P/L') && o.job && !warrantyJobs.has(String(o.job).trim())) {
+      const newW = {
+        last_name: '', mfgr: '', fail_date: null, repair_date: null,
+        main_model_num: '', main_unit_sn: '', failed_part_num: '', failed_part_serial: '',
+        mfg_invoice_num: '', repl_part_num: '', repl_part_serial: '',
+        date_of_claim: formatLocalDate(new Date()), claim_num: '',
+        credit_approved: '', return_required: '', amt_charged: '', amt_refunded: '', paid: '',
+        job: o.job || '', tech: o.tech || '', customer: o.customer || '', status: 'active',
+      };
+      fetch('/api/warranty', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newW) })
+        .then(r => r.json())
+        .then(({ claim }) => {
+          if (claim) {
+            setWarrantyOrders?.((prev: PEWarrantyClaim[]) => [claim, ...prev]);
+            showToast?.(`Warranty claim started for ${o.customer || 'job #' + o.job}`);
+          }
+        })
+        .catch(() => showToast?.('Failed to start warranty claim', 'error'));
+    }
   }
 
   const svcOrders = useMemo(() => orders.filter((o: PEOrder) => o.order_type === 'service'), [orders]);
@@ -317,7 +352,7 @@ export default function ServicePage() {
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
-                        <select className="si-sel" value={o.warranty_type || ''} onChange={e => save(o.id, { warranty_type: e.target.value })}
+                        <select className="si-sel" value={o.warranty_type || ''} onChange={e => onWTypeChange(o, e.target.value)}
                           style={{ minWidth: 50, opacity: isWarranty ? 1 : .3 }}>
                           <option value="">—</option>
                           {['P', 'L', 'P/L'].map(w => <option key={w}>{w}</option>)}
