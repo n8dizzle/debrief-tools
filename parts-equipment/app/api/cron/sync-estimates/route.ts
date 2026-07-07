@@ -208,54 +208,74 @@ export async function GET(request: Request) {
       }
     }
 
-    // --- Part C: warranty estimates (CA-W- SKUs, $0) — excluded from the report ---
-    // Pulled separately so warranty parts land on the board and auto-start a claim.
+    // --- Part C: warranty estimates (CA-W- SKUs) — auto-flag War? + start claim ---
+    // The report excludes $0 warranty estimates entirely, and $-valued ones arrive
+    // as normal orders without the warranty flag. So for every sold warranty estimate:
+    //   - if already on the board -> set War? + W.Type (once), and
+    //   - if not (the $0 ones)     -> insert it,
+    // then start a Warranty-tab claim for the job if one doesn't exist yet.
     let warrantyCreated = 0;
+    let warrantyFlagged = 0;
     let warrantyClaimsStarted = 0;
     try {
       const warrantyFrom = formatLocalDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30));
       const warrantyEstimates = await st.getSoldWarrantyEstimates(warrantyFrom);
       if (warrantyEstimates.length > 0) {
-        const { data: existW } = await supabase.from('pe_orders').select('st_estimate_id');
-        const haveEst = new Set(
-          (existW || []).map((r: { st_estimate_id: number | null }) => r.st_estimate_id).filter((x): x is number => x != null)
-        );
+        const { data: existW } = await supabase.from('pe_orders').select('id, st_estimate_id, job, customer, warranty');
+        const byEst = new Map<number, { id: number; job: string; customer: string; warranty: string }>();
+        for (const r of (existW || []) as Array<{ id: number; st_estimate_id: number | null; job: string; customer: string; warranty: string }>) {
+          if (r.st_estimate_id != null) byEst.set(r.st_estimate_id, { id: r.id, job: String(r.job || ''), customer: r.customer || '', warranty: r.warranty || '' });
+        }
         const { data: claims } = await supabase.from('pe_warranty_claims').select('job');
         const claimJobs = new Set((claims || []).map((c: { job: string }) => String(c.job || '').trim()).filter(Boolean));
 
         for (const w of warrantyEstimates) {
           try {
-            if (haveEst.has(w.estimateId)) continue;
-            const orderType = (isInstallBU(w.businessUnit) || hasInstallKeyword(w.name)) ? 'install' : 'service';
+            const existing = byEst.get(w.estimateId);
+            let job = w.jobNumber;
             let customer = '';
-            if (w.customerId) { try { customer = (await st.getCustomer(w.customerId))?.name || ''; } catch { /* ignore */ } }
-            const jobIdNum = w.jobNumber ? parseInt(w.jobNumber, 10) : NaN;
-            const stUrl = !isNaN(jobIdNum) ? `https://go.servicetitan.com/#/Job/Index/${jobIdNum}` : '';
-            const money = fmtMoney(String(w.total));
-            const soldDate = w.soldOn && /^\d{4}-\d{2}-\d{2}/.test(w.soldOn) ? w.soldOn.slice(0, 10) : today;
 
-            const { error: insErr } = await supabase.from('pe_orders').insert({
-              st_estimate_id: w.estimateId, date: soldDate, job: w.jobNumber, customer,
-              order_type: orderType, subtype: 'Service', part: w.name,
-              estimate_cost: money, job_cost: orderType === 'install' ? money : '',
-              warranty: 'Yes', warranty_type: w.warrantyType, tech_type: 'Parts',
-              note_wh: '', st_url: stUrl, status: 'open', needs_order: true,
-              location: 'Place Order', owner: 'Parts Coordinator',
-            });
-            if (insErr) { console.error(`Warranty insert failed (job ${w.jobNumber}):`, insErr.message); continue; }
-            warrantyCreated++; haveEst.add(w.estimateId);
+            if (existing) {
+              // Already on the board (via the report). Flag it as warranty once.
+              if (existing.warranty !== 'Yes') {
+                await supabase.from('pe_orders').update({ warranty: 'Yes', warranty_type: w.warrantyType }).eq('id', existing.id);
+                warrantyFlagged++;
+              }
+              job = existing.job || w.jobNumber;
+              customer = existing.customer;
+            } else {
+              // New $0 warranty estimate the report skips — insert it.
+              if (w.customerId) { try { customer = (await st.getCustomer(w.customerId))?.name || ''; } catch { /* ignore */ } }
+              const orderType = (isInstallBU(w.businessUnit) || hasInstallKeyword(w.name)) ? 'install' : 'service';
+              const jobIdNum = w.jobNumber ? parseInt(w.jobNumber, 10) : NaN;
+              const stUrl = !isNaN(jobIdNum) ? `https://go.servicetitan.com/#/Job/Index/${jobIdNum}` : '';
+              const money = fmtMoney(String(w.total));
+              const soldDate = w.soldOn && /^\d{4}-\d{2}-\d{2}/.test(w.soldOn) ? w.soldOn.slice(0, 10) : today;
+              const { error: insErr } = await supabase.from('pe_orders').insert({
+                st_estimate_id: w.estimateId, date: soldDate, job: w.jobNumber, customer,
+                order_type: orderType, subtype: 'Service', part: w.name,
+                estimate_cost: money, job_cost: orderType === 'install' ? money : '',
+                warranty: 'Yes', warranty_type: w.warrantyType, tech_type: 'Parts',
+                note_wh: '', st_url: stUrl, status: 'open', needs_order: true,
+                location: 'Place Order', owner: 'Parts Coordinator',
+              });
+              if (insErr) { console.error(`Warranty insert failed (job ${w.jobNumber}):`, insErr.message); continue; }
+              warrantyCreated++;
+              byEst.set(w.estimateId, { id: 0, job: w.jobNumber, customer, warranty: 'Yes' });
+            }
 
-            // Auto-start the warranty claim on the Warranty tab.
-            if (w.jobNumber && !claimJobs.has(String(w.jobNumber).trim())) {
+            // Start the Warranty-tab claim for this job if none exists.
+            if (job && !claimJobs.has(String(job).trim())) {
+              if (!customer && w.customerId) { try { customer = (await st.getCustomer(w.customerId))?.name || ''; } catch { /* ignore */ } }
               const { error: cErr } = await supabase.from('pe_warranty_claims').insert({
                 last_name: '', mfgr: '', fail_date: null, repair_date: null,
                 main_model_num: '', main_unit_sn: '', failed_part_num: '', failed_part_serial: '',
                 mfg_invoice_num: '', repl_part_num: '', repl_part_serial: '',
                 date_of_claim: today, claim_num: '', credit_approved: '', return_required: '',
                 amt_charged: '', amt_refunded: '', paid: '',
-                job: w.jobNumber, tech: '', customer, status: 'active',
+                job, tech: '', customer, status: 'active',
               });
-              if (!cErr) { warrantyClaimsStarted++; claimJobs.add(String(w.jobNumber).trim()); }
+              if (!cErr) { warrantyClaimsStarted++; claimJobs.add(String(job).trim()); }
             }
           } catch (e) {
             console.error(`Warranty estimate error (job ${w.jobNumber}):`, e);
@@ -266,7 +286,7 @@ export async function GET(request: Request) {
       console.error('Warranty estimate sync failed:', err);
     }
 
-    console.log(`Parts report sync: scanned=${reportRows.length} created=${created} skipped=${skipped} closed=${closed} warrantyCreated=${warrantyCreated} warrantyClaims=${warrantyClaimsStarted}`);
+    console.log(`Parts report sync: scanned=${reportRows.length} created=${created} skipped=${skipped} closed=${closed} warrantyCreated=${warrantyCreated} warrantyFlagged=${warrantyFlagged} warrantyClaims=${warrantyClaimsStarted}`);
     return NextResponse.json({
       ok: true,
       source: 'report-54646792',
@@ -277,6 +297,7 @@ export async function GET(request: Request) {
       skipped,
       closed,
       warrantyCreated,
+      warrantyFlagged,
       warrantyClaimsStarted,
     });
   } catch (err) {
