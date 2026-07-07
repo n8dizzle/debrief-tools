@@ -13,10 +13,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   if (!job) {
     return (
-      <main className="wrap">
-        <p className="lede">Job not found.</p>
-        <Link className="navlink" href="/jobs">← Back to jobs</Link>
-      </main>
+      <div className="wrap">
+        <p className="lede">Job not found (not an HVAC install, or not synced).</p>
+        <Link className="joblink" href="/jobs">← Back to jobs</Link>
+      </div>
     );
   }
 
@@ -25,15 +25,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const gapCount = jobStages.filter((s) => s.source === 'manual').length;
 
   return (
-    <main className="wrap">
-      <header className="masthead">
-        <div className="mark">IA</div>
-        <div>
-          <div className="title">Job #{job.job_number ?? job.st_job_id}</div>
-          <div className="url">on the install pipeline</div>
-        </div>
-        <Link className="navlink" href="/jobs">← All jobs</Link>
-      </header>
+    <div className="wrap">
+      <div className="pagehead">
+        <Link className="joblink" href="/jobs">← All jobs</Link>
+        <h1 style={{ marginTop: 10 }}>Job #{job.job_number ?? job.st_job_id}</h1>
+      </div>
 
       <div className="jobhdr">
         <div className="jobmeta">
@@ -71,6 +67,6 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         Read-only view from ap_install_jobs (synced from ServiceTitan). Stage structure comes from the
         map you built — rename or reorder stages there and this view follows.
       </p>
-    </main>
+    </div>
   );
 }

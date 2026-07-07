@@ -8,23 +8,17 @@ export default async function JobsPage() {
   const [{ stages }, jobs] = await Promise.all([getInstallStages(), getInstallJobs(60)]);
 
   return (
-    <main className="wrap">
-      <header className="masthead">
-        <div className="mark">IA</div>
-        <div>
-          <div className="title">Install Tracker · Jobs</div>
-          <div className="url">HVAC installs, from ServiceTitan</div>
-        </div>
-        <Link className="navlink" href="/">← Pipeline map</Link>
-      </header>
-
-      <p className="lede">
-        Live <b>HVAC install</b> jobs synced from ServiceTitan. Each one is placed on the pipeline you built —
-        ServiceTitan advances the stages it can see; the rest is yours to fill in. Click a job to see it.
-      </p>
+    <div className="wrap">
+      <div className="pagehead">
+        <h1>HVAC Install Jobs</h1>
+        <p className="desc">
+          Live <b>HVAC install</b> jobs synced from ServiceTitan. Each one sits on the pipeline you built —
+          ServiceTitan advances the stages it can see; the rest is yours to fill in. Click a job to open it.
+        </p>
+      </div>
 
       <div className="jobs-scroll">
-        <table className="jobs-table">
+        <table className="ar-table">
           <thead>
             <tr>
               <th>Job</th><th>Customer</th><th>Type</th><th className="num">Total</th><th>Current stage</th>
@@ -39,7 +33,7 @@ export default async function JobsPage() {
                   <td className="cust">{job.customer_name ?? '—'}</td>
                   <td className="muted">{job.business_unit_name ?? job.job_type_name ?? '—'}</td>
                   <td className="num">{fmtMoney(job.job_total) ?? '—'}</td>
-                  <td><span className="stage-chip">{current}</span></td>
+                  <td><span className="badge badge-stage">{current}</span></td>
                 </tr>
               );
             })}
@@ -47,6 +41,6 @@ export default async function JobsPage() {
         </table>
         {jobs.length === 0 && <p className="lede">No jobs found (database not reachable, or nothing synced).</p>}
       </div>
-    </main>
+    </div>
   );
 }

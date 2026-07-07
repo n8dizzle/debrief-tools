@@ -1,31 +1,49 @@
-:root {
-  --pine: #0E4D3C;
-  --pine-soft: #14654e;
-  --ember: #E0762E;
-  --good: #2F9E6B;
-  --wait: #E0A03A;
-  --blocked: #D24B4B;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  --bg: #f4f6f4;
-  --surface: #ffffff;
-  --surface-2: #eef1ee;
-  --line: #d9deda;
-  --ink: #17211c;
-  --ink-2: #4a564e;
-  --ink-3: #7c877f;
+:root {
+  /* Christmas Air brand palette (matches ar.christmasair.com — dark only) */
+  --christmas-green: #5D8A66;
+  --christmas-green-dark: #4A7053;
+  --christmas-green-light: #6B9B75;
+  --christmas-cream: #F5F0E1;
+  --christmas-brown: #7B3F3F;
+  --christmas-gold: #B8956B;
+  --bg-primary: #0F1210;
+  --bg-secondary: #161B18;
+  --bg-card: #1C231E;
+  --bg-card-hover: #232B26;
+  --text-primary: #F5F0E1;
+  --text-secondary: #A8B5AB;
+  --text-muted: #6B7C6E;
+  --border-subtle: #2A3530;
+  --border-default: #3A4840;
+  --status-success: #22c55e;
+  --status-warning: #eab308;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+
+  /* Aliases: existing components read these, so they inherit the AR palette */
+  --bg: var(--bg-primary);
+  --surface: var(--bg-card);
+  --surface-2: var(--bg-secondary);
+  --line: var(--border-subtle);
+  --ink: var(--text-primary);
+  --ink-2: var(--text-secondary);
+  --ink-3: var(--text-muted);
+  --pine: var(--christmas-green);
+  --pine-soft: var(--christmas-green-dark);
+  --ember: var(--christmas-gold);
+  --good: var(--status-success);
+  --wait: var(--status-warning);
+  --blocked: var(--status-error);
+  --gap: var(--text-muted);
 
   --radius: 10px;
-  --shadow: 0 1px 2px rgba(17, 33, 26, .06), 0 8px 24px rgba(17, 33, 26, .06);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #10160f; --surface: #18201a; --surface-2: #1f291f; --line: #2c382d;
-    --ink: #eef2ee; --ink-2: #b3bdb4; --ink-3: #7f8b81;
-    --pine: #3fae8a; --pine-soft: #2f8f70;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
-  }
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -117,7 +135,8 @@ button { font: inherit; }
 .login-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--line);
   border-radius: 16px; box-shadow: var(--shadow); padding: 36px 32px; text-align: center; }
-.login-mark { width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 18px; font-size: 18px; }
+.login-mark { width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 18px; font-size: 18px;
+  background: var(--christmas-green); color: var(--christmas-cream); display: grid; place-items: center; font-weight: 700; }
 .login-title { font-size: 20px; font-weight: 640; letter-spacing: -.3px; }
 .login-sub { color: var(--ink-3); font-size: 14px; margin: 8px 0 24px; }
 .login-error { background: color-mix(in srgb, var(--blocked) 12%, transparent); color: var(--blocked);
@@ -221,3 +240,27 @@ button { font: inherit; }
 .src.partial { background: color-mix(in srgb, var(--ember) 16%, transparent); color: var(--ember); }
 .src.manual { background: color-mix(in srgb, var(--ink-3) 18%, transparent); color: var(--ink-2);
   border: 1px dashed var(--ink-3); }
+
+/* ---------- AR Collections base (matches ar.christmasair.com) ---------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--christmas-green-dark); }
+*:focus-visible { outline: 2px solid var(--christmas-green); outline-offset: 2px; }
+
+.ar-table { width: 100%; border-collapse: collapse; }
+.ar-table th { text-align: left; padding: .75rem 1rem; font-size: .75rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted);
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle); }
+.ar-table td { padding: .75rem 1rem; border-bottom: 1px solid var(--border-subtle); text-align: left; }
+.ar-table tbody tr:hover { background: var(--bg-card-hover); }
+.ar-table th.num, .ar-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.badge { display: inline-flex; align-items: center; padding: .25rem .6rem; border-radius: 9999px;
+  font-size: .75rem; font-weight: 500; }
+.badge-stage { background: rgba(93,138,102,.16); color: var(--christmas-green-light); }
+
+/* Page header inside the shell */
+.pagehead { margin-bottom: 20px; }
+.pagehead h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--christmas-cream); }
+.pagehead .desc { color: var(--text-secondary); font-size: 14px; margin-top: 6px; max-width: 64ch; }

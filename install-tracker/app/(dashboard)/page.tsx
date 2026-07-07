@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import InstallTimeline from '@/components/InstallTimeline';
 import { getInstallStages } from '@/lib/install-data';
 
@@ -9,20 +8,14 @@ export default async function Page() {
   const { stages, source } = await getInstallStages();
 
   return (
-    <main className="wrap">
-      <header className="masthead">
-        <div className="mark">IA</div>
-        <div>
-          <div className="title">Install Tracker</div>
-          <div className="url">install.christmasair.com</div>
-        </div>
-        <Link className="navlink" href="/jobs">Jobs →</Link>
-      </header>
-
-      <p className="lede">
-        The install process, end to end. Start at the top — the seven stages — then click any
-        stage to see what happens inside it. This map grows as we learn each step.
-      </p>
+    <div className="wrap">
+      <div className="pagehead">
+        <h1>Install Pipeline</h1>
+        <p className="desc">
+          The install process, end to end. Start at the top — the seven stages — then click any
+          stage to see what happens inside it. This map grows as we learn each step.
+        </p>
+      </div>
 
       <div className="legend" aria-hidden="true">
         <span><i className="sw" style={{ background: 'var(--good)' }} />Done</span>
@@ -35,9 +28,9 @@ export default async function Page() {
 
       <p className="foot-note">
         {source === 'db'
-          ? 'Rung 2 — map loaded from the install_nodes table. Statuses are illustrative. Next: edit stages in the app.'
-          : 'Rung 2 — showing seed data (database not reachable). Statuses are illustrative.'}
+          ? 'Map loaded from the install_nodes table. Statuses are illustrative.'
+          : 'Showing seed data (database not reachable). Statuses are illustrative.'}
       </p>
-    </main>
+    </div>
   );
 }
