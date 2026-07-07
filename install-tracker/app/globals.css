@@ -60,7 +60,8 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 button { font: inherit; }
 
 /* ---------- Install timeline ---------- */
-.wrap { max-width: 1180px; margin: 0 auto; padding: 26px 22px 90px; }
+/* Full width inside the dashboard shell (the shell provides the page gutters). */
+.wrap { width: 100%; padding: 0 0 60px; }
 
 .masthead { display: flex; align-items: center; gap: 12px; padding-bottom: 18px;
   border-bottom: 1px solid var(--line); margin-bottom: 22px; }
