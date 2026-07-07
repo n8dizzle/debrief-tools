@@ -34,17 +34,31 @@ export async function GET(request: NextRequest) {
 
   // All install-family jobs (installs + warranties) we might need. Pull a broad window
   // so a warranty in range can still find its (older) originating install.
-  const { data: allJobs, error } = await supabase
-    .from('ap_install_jobs')
-    .select('id, st_job_id, st_location_id, job_type_name, business_unit_name, completed_date, customer_name, contractor_id, sold_by_name, component_count, system_count')
-    .neq('job_status', 'Canceled')
-    .or('is_ignored.is.null,is_ignored.eq.false')
-    .not('completed_date', 'is', null)
-    .gte('completed_date', '2024-01-01')
-    .order('completed_date', { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const jobs = allJobs || [];
+  //
+  // Paginate: Supabase caps a single select at 1000 rows and ap_install_jobs holds
+  // thousands. Without paging we'd silently keep only the OLDEST 1000 (completed_date
+  // ascending) and drop the most-recent jobs — undercounting every metric on this page,
+  // and getting worse as the table grows. Secondary sort on id keeps paging stable when
+  // many rows share a completed_date.
+  const PAGE = 1000;
+  const cols = 'id, st_job_id, st_location_id, job_type_name, business_unit_name, completed_date, customer_name, contractor_id, sold_by_name, component_count, system_count';
+  const jobs: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await supabase
+      .from('ap_install_jobs')
+      .select(cols)
+      .neq('job_status', 'Canceled')
+      .or('is_ignored.is.null,is_ignored.eq.false')
+      .not('completed_date', 'is', null)
+      .gte('completed_date', '2024-01-01')
+      .order('completed_date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!page || page.length === 0) break;
+    jobs.push(...page);
+    if (page.length < PAGE) break;
+  }
   const installs = jobs.filter((j: any) => isInstall(j.job_type_name));
   let warranties = jobs.filter((j: any) => isWarranty(j.job_type_name));
   // Date + trade filter applies to the WARRANTY visit.
