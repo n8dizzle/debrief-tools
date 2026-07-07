@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DateRangePicker, DateRange } from '@/components/DateRangePicker';
 import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { formatDate } from '@/lib/ap-utils';
@@ -23,6 +23,21 @@ function yearToDate(): DateRange {
   return { start: `${now.getFullYear()}-01-01`, end: fmt(now) };
 }
 const JOB = (id: number | null) => id ? `https://go.servicetitan.com/#/Job/Index/${id}` : '#';
+
+type PairKey = 'warranty_job' | 'warranty_type' | 'warranty_date' | 'customer' | 'install_job' | 'install_date' | 'days' | 'lead' | 'equipment' | 'root_cause';
+type SortDir = 'asc' | 'desc';
+const PAIR_COLUMNS: { key: PairKey; label: string; align: 'left' | 'right'; width: number; numeric?: boolean }[] = [
+  { key: 'warranty_job', label: 'Warranty Job', align: 'left', width: 110, numeric: true },
+  { key: 'warranty_type', label: 'Type', align: 'left', width: 150 },
+  { key: 'warranty_date', label: 'Warranty Date', align: 'left', width: 120 },
+  { key: 'customer', label: 'Customer', align: 'left', width: 180 },
+  { key: 'install_job', label: 'Install Job', align: 'left', width: 110, numeric: true },
+  { key: 'install_date', label: 'Installed', align: 'left', width: 110 },
+  { key: 'days', label: 'Days', align: 'right', width: 80, numeric: true },
+  { key: 'lead', label: 'Lead', align: 'left', width: 140 },
+  { key: 'equipment', label: 'Equipment', align: 'left', width: 160 },
+  { key: 'root_cause', label: 'Root Cause', align: 'left', width: 160 },
+];
 
 function Bars({ rows, color = '#d29922', money = false }: { rows: KV[]; color?: string; money?: boolean }) {
   const max = Math.max(1, ...rows.map(r => r.count));
@@ -49,6 +64,87 @@ export default function WarrantiesPage() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Detail table: search, quick filter, sort, resizable columns.
+  const [search, setSearch] = useState('');
+  const [linkFilter, setLinkFilter] = useState<'' | 'linked' | 'unlinked'>('');
+  const [sortKey, setSortKey] = useState<PairKey>('warranty_date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [colWidths, setColWidths] = useState<Record<string, number>>(
+    () => Object.fromEntries(PAIR_COLUMNS.map(c => [c.key, c.width]))
+  );
+  const resizing = useRef<{ key: string; startX: number; startW: number } | null>(null);
+
+  const startResize = useCallback((key: string, e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    resizing.current = { key, startX: e.clientX, startW: colWidths[key] };
+    const onMove = (ev: MouseEvent) => {
+      const r = resizing.current; if (!r) return;
+      setColWidths(prev => ({ ...prev, [r.key]: Math.max(60, r.startW + (ev.clientX - r.startX)) }));
+    };
+    const onUp = () => { resizing.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+  }, [colWidths]);
+
+  const toggleSort = useCallback((key: PairKey) => {
+    setSortKey(prev => {
+      if (prev === key) { setSortDir(d => (d === 'asc' ? 'desc' : 'asc')); return prev; }
+      setSortDir(key === 'days' || key === 'warranty_date' || key === 'install_date' ? 'desc' : 'asc');
+      return key;
+    });
+  }, []);
+
+  const visiblePairs = useMemo(() => {
+    const rows = data?.pairs ?? [];
+    const q = search.trim().toLowerCase();
+    const filtered = rows.filter(p => {
+      if (linkFilter === 'linked' && !p.install_job) return false;
+      if (linkFilter === 'unlinked' && p.install_job) return false;
+      if (!q) return true;
+      return [p.warranty_job, p.warranty_type, p.warranty_date, p.customer, p.install_job, p.install_date, p.lead, p.contractor, p.equipment, p.root_cause]
+        .some(v => v != null && String(v).toLowerCase().includes(q));
+    });
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const col = PAIR_COLUMNS.find(c => c.key === sortKey);
+    return [...filtered].sort((a, b) => {
+      const av = a[sortKey]; const bv = b[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;   // nulls always last
+      if (bv == null) return -1;
+      return (col?.numeric ? Number(av) - Number(bv) : String(av).localeCompare(String(bv))) * dir;
+    });
+  }, [data, search, linkFilter, sortKey, sortDir]);
+
+  const renderCell = (key: PairKey, p: Pair) => {
+    switch (key) {
+      case 'warranty_job':
+        return p.warranty_job
+          ? <a href={JOB(p.warranty_job)} target="_blank" rel="noopener noreferrer" className="font-mono font-semibold hover:underline" style={{ color: 'var(--christmas-green)' }}>{p.warranty_job}</a>
+          : '—';
+      case 'warranty_type':
+        return <span style={{ color: 'var(--text-secondary)' }}>{(p.warranty_type || '').replace(/^(H|P)\s*-\s*/, '') || '—'}</span>;
+      case 'warranty_date':
+        return <span style={{ color: 'var(--text-secondary)' }}>{p.warranty_date ? formatDate(p.warranty_date) : '—'}</span>;
+      case 'customer':
+        return <span style={{ color: 'var(--text-primary)' }} title={p.customer || ''}>{p.customer || '—'}</span>;
+      case 'install_job':
+        return p.install_job
+          ? <a href={JOB(p.install_job)} target="_blank" rel="noopener noreferrer" className="font-mono font-semibold hover:underline" style={{ color: 'var(--christmas-green)' }}>{p.install_job}</a>
+          : <span style={{ color: '#d29922' }}>unlinked</span>;
+      case 'install_date':
+        return <span style={{ color: 'var(--text-secondary)' }}>{p.install_date ? formatDate(p.install_date) : '—'}</span>;
+      case 'days':
+        return <span style={{ color: 'var(--text-secondary)' }}>{p.days != null ? p.days : '—'}</span>;
+      case 'lead':
+        return <span style={{ color: 'var(--text-secondary)' }} title={p.lead || ''}>{p.lead || '—'}</span>;
+      case 'equipment':
+        return <span style={{ color: 'var(--text-secondary)' }} title={p.equipment || ''}>{p.equipment || '—'}</span>;
+      case 'root_cause':
+        return <span style={{ color: 'var(--text-secondary)' }} title={p.root_cause || ''}>{p.root_cause || '—'}</span>;
+      default:
+        return '—';
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -189,33 +285,62 @@ export default function WarrantiesPage() {
             </Panel>
           </div>
 
-          {/* Drill: warranty ↔ install pairs */}
-          <Panel title={`Warranty → install detail (${data.pairs.length})`}>
+          {/* Drill: warranty → install pairs — searchable, sortable, resizable */}
+          <Panel title="Warranty → install detail">
+            <div className="flex items-center flex-wrap gap-2 mb-3">
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search customer, job #, lead, equipment, cause…"
+                className="text-sm rounded-lg px-3 py-1.5 w-full sm:w-80 outline-none"
+                style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+              <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                {([['', 'All'], ['linked', 'Linked'], ['unlinked', 'Unlinked']] as [typeof linkFilter, string][]).map(([v, l]) => (
+                  <button key={v} onClick={() => setLinkFilter(v)} className="px-3 py-1 rounded text-sm"
+                    style={{ backgroundColor: linkFilter === v ? 'var(--christmas-green)' : 'transparent', color: linkFilter === v ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{l}</button>
+                ))}
+              </div>
+              <span className="text-xs ml-auto tabular-nums" style={{ color: 'var(--text-muted)' }}>{visiblePairs.length} of {data.pairs.length}</span>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr style={{ color: 'var(--text-muted)' }}>
-                  {['Warranty Job', 'Type', 'Warranty Date', 'Customer', 'Install Job', 'Installed', 'Days', 'Lead', 'Equipment', 'Root Cause'].map(h => (
-                    <th key={h} className="text-left py-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
-                </tr></thead>
+              <table className="text-sm" style={{ tableLayout: 'fixed', width: PAIR_COLUMNS.reduce((sum, c) => sum + colWidths[c.key], 0) }}>
+                <colgroup>
+                  {PAIR_COLUMNS.map(c => <col key={c.key} style={{ width: colWidths[c.key] }} />)}
+                </colgroup>
+                <thead>
+                  <tr style={{ color: 'var(--text-muted)' }}>
+                    {PAIR_COLUMNS.map(c => (
+                      <th key={c.key}
+                        onClick={() => toggleSort(c.key)}
+                        title="Click to sort · drag right edge to resize"
+                        className={`relative py-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap cursor-pointer select-none ${c.align === 'right' ? 'text-right' : 'text-left'}`}
+                        style={{ color: sortKey === c.key ? 'var(--text-secondary)' : undefined }}>
+                        <span className="hover:underline">{c.label}{sortKey === c.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</span>
+                        <span
+                          onClick={e => e.stopPropagation()}
+                          onMouseDown={e => startResize(c.key, e)}
+                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                          style={{ transform: 'translateX(50%)' }}
+                        />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
-                  {data.pairs.slice(0, 300).map((p, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="py-1.5 px-2">{p.warranty_job ? <a href={JOB(p.warranty_job)} target="_blank" rel="noopener noreferrer" className="font-mono font-semibold hover:underline" style={{ color: 'var(--christmas-green)' }}>{p.warranty_job}</a> : '—'}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{(p.warranty_type || '').replace(/^(H|P)\s*-\s*/, '')}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{p.warranty_date ? formatDate(p.warranty_date) : '—'}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>{p.customer || '—'}</td>
-                      <td className="py-1.5 px-2">{p.install_job ? <a href={JOB(p.install_job)} target="_blank" rel="noopener noreferrer" className="font-mono font-semibold hover:underline" style={{ color: 'var(--christmas-green)' }}>{p.install_job}</a> : <span style={{ color: '#d29922' }}>unlinked</span>}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{p.install_date ? formatDate(p.install_date) : '—'}</td>
-                      <td className="py-1.5 px-2 text-xs text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{p.days != null ? p.days : '—'}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{p.lead || '—'}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{p.equipment || '—'}</td>
-                      <td className="py-1.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{p.root_cause || '—'}</td>
+                  {visiblePairs.slice(0, 500).map((p, i) => (
+                    <tr key={i} className="transition-colors hover:bg-[var(--bg-card-hover)]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                      {PAIR_COLUMNS.map(c => (
+                        <td key={c.key} className={`py-1.5 px-2 text-xs overflow-hidden text-ellipsis whitespace-nowrap ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+                          {renderCell(c.key, p)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {data.pairs.length > 300 && <div className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>Showing first 300 of {data.pairs.length}.</div>}
+              {visiblePairs.length === 0 && <div className="text-xs py-4 text-center" style={{ color: 'var(--text-muted)' }}>No warranties match.</div>}
+              {visiblePairs.length > 500 && <div className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>Showing first 500 of {visiblePairs.length} matches.</div>}
             </div>
           </Panel>
         </div>
