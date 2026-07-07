@@ -269,3 +269,25 @@ button { font: inherit; }
 .pagehead { margin-bottom: 20px; }
 .pagehead h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--christmas-cream); }
 .pagehead .desc { color: var(--text-secondary); font-size: 14px; margin-top: 6px; max-width: 64ch; }
+
+/* ---------- Jobs data grid ---------- */
+.grid-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.grid-search { flex: 1 1 260px; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border-subtle);
+  color: var(--text-primary); border-radius: 8px; padding: 9px 12px; font: inherit; }
+.grid-search::placeholder { color: var(--text-muted); }
+.grid-search:focus-visible { outline: 2px solid var(--christmas-green); outline-offset: 1px; }
+.grid-select { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-primary);
+  border-radius: 8px; padding: 9px 12px; font: inherit; cursor: pointer; }
+.grid-count { color: var(--text-muted); font-size: 12.5px; margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.grid-table { table-layout: fixed; }
+.grid-table th { position: relative; user-select: none; }
+.grid-table th[draggable="true"] { cursor: grab; }
+.grid-table th.col-over { background: var(--bg-card-hover); box-shadow: inset 2px 0 0 var(--christmas-green); }
+.th-inner { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.th-inner:hover { color: var(--text-secondary); }
+.sort-arrow { font-size: 9px; color: var(--christmas-green-light); }
+.col-resize { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; }
+.col-resize:hover { background: color-mix(in srgb, var(--christmas-green) 40%, transparent); }
+.grid-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 14px; }
