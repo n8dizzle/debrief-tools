@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
   return <span style={{ backgroundColor: s.bg, color: s.fg, padding: '2px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{s.label}</span>;
 }
 
-type ColKey = 'review' | 'date' | 'job' | 'customer' | 'tech' | 'days' | 'equipment' | 'status';
+type ColKey = 'review' | 'date' | 'original' | 'job' | 'customer' | 'tech' | 'days' | 'equipment' | 'status';
 
 interface Column {
   key: ColKey;
@@ -78,8 +78,17 @@ const COLUMNS: Record<ColKey, Column> = {
     sortValue: r => r.recall_created_on,
     render: r => <span style={{ whiteSpace: 'nowrap' }}>{r.recall_created_on}</span>,
   },
+  original: {
+    key: 'original', label: 'Initial ticket',
+    sortValue: r => r.st_original_job_id ?? Number.MAX_SAFE_INTEGER,
+    render: r => (
+      r.st_original_job_id != null
+        ? <a href={stJobUrl(r.st_original_job_id)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--christmas-green-light)', whiteSpace: 'nowrap' }}>#{r.st_original_job_id} ↗</a>
+        : <span style={{ color: 'var(--text-muted)' }}>—</span>
+    ),
+  },
   job: {
-    key: 'job', label: 'Job #',
+    key: 'job', label: 'Recall ticket',
     sortValue: r => r.st_recall_job_id,
     render: r => (
       <a href={stJobUrl(r.st_recall_job_id)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: 'var(--christmas-green-light)', whiteSpace: 'nowrap' }}>#{r.st_recall_job_id} ↗</a>
@@ -112,8 +121,10 @@ const COLUMNS: Record<ColKey, Column> = {
   },
 };
 
-const DEFAULT_ORDER: ColKey[] = ['review', 'date', 'job', 'customer', 'tech', 'days', 'equipment', 'status'];
-const ORDER_KEY = 'recall-queue-col-order';
+const DEFAULT_ORDER: ColKey[] = ['review', 'date', 'original', 'job', 'customer', 'tech', 'days', 'equipment', 'status'];
+// v2: added the 'original' (Initial ticket) column + renamed 'job' → Recall ticket. Bumped
+// the key so the new grouped default order applies instead of appending Initial ticket at the far right.
+const ORDER_KEY = 'recall-queue-col-order-v2';
 
 function loadOrder(): ColKey[] {
   if (typeof window === 'undefined') return DEFAULT_ORDER;
