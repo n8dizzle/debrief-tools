@@ -63,25 +63,65 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ node: data });
 }
 
-// PATCH — rename a node. Body: { id, action: 'rename', title }
+type Node = { id: string; parent_id: string | null; depth: number; sort_order: number; title: string; is_archived: boolean };
+
+// Sibling filter: same parent (null-aware), active only.
+function siblingQuery(supabase: NonNullable<ReturnType<typeof getServerSupabase>>, parentId: string | null) {
+  const base = supabase.from('install_nodes').select('id, sort_order').eq('is_archived', false);
+  return parentId ? base.eq('parent_id', parentId) : base.is('parent_id', null);
+}
+
+// PATCH — rename | move | archive | unarchive. Body: { id, action, ... }
 export async function PATCH(request: NextRequest) {
   const g = await guard();
   if (g.error) return g.error;
   const { supabase } = g;
+  const now = new Date().toISOString();
 
   const body = await request.json().catch(() => ({}));
   const { id, action } = body as { id?: string; action?: string };
   if (!id || !action) return NextResponse.json({ error: 'id and action are required.' }, { status: 400 });
 
+  const { data: node } = await supabase
+    .from('install_nodes').select('*').eq('id', id).maybeSingle<Node>();
+  if (!node) return NextResponse.json({ error: 'Node not found.' }, { status: 404 });
+
   if (action === 'rename') {
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     if (!title) return NextResponse.json({ error: 'A title is required.' }, { status: 400 });
     const { data, error } = await supabase
-      .from('install_nodes')
-      .update({ title, updated_at: new Date().toISOString() })
-      .eq('id', id).select().single();
+      .from('install_nodes').update({ title, updated_at: now }).eq('id', id).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!data) return NextResponse.json({ error: 'Node not found.' }, { status: 404 });
+    return NextResponse.json({ node: data });
+  }
+
+  if (action === 'move') {
+    const dir = body.direction === 'up' ? 'up' : body.direction === 'down' ? 'down' : null;
+    if (!dir) return NextResponse.json({ error: "direction must be 'up' or 'down'." }, { status: 400 });
+    // Find the adjacent active sibling in the move direction.
+    const { data: sibs } = await siblingQuery(supabase, node.parent_id)
+      .order('sort_order', { ascending: true });
+    const list = (sibs || []) as { id: string; sort_order: number }[];
+    const idx = list.findIndex((s) => s.id === id);
+    const swapWith = dir === 'up' ? list[idx - 1] : list[idx + 1];
+    if (!swapWith) return NextResponse.json({ node, moved: false }); // already at the edge
+    // Swap sort_order values.
+    await supabase.from('install_nodes').update({ sort_order: swapWith.sort_order, updated_at: now }).eq('id', id);
+    await supabase.from('install_nodes').update({ sort_order: node.sort_order, updated_at: now }).eq('id', swapWith.id);
+    return NextResponse.json({ moved: true });
+  }
+
+  if (action === 'archive') {
+    // Soft-delete this node and cascade-archive its children (sub-steps).
+    await supabase.from('install_nodes').update({ is_archived: true, updated_at: now }).eq('id', id);
+    await supabase.from('install_nodes').update({ is_archived: true, updated_at: now }).eq('parent_id', id);
+    return NextResponse.json({ archived: true });
+  }
+
+  if (action === 'unarchive') {
+    const { data, error } = await supabase
+      .from('install_nodes').update({ is_archived: false, updated_at: now }).eq('id', id).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ node: data });
   }
 

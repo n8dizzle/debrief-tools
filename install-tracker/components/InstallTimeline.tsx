@@ -63,6 +63,23 @@ export default function InstallTimeline({
     if (ok) { setAdding(null); setAddValue(''); }
   }
 
+  async function moveNode(id: string, direction: 'up' | 'down', isStage: boolean) {
+    // Guard at the edges so we don't shift selection when the server no-ops.
+    if (isStage) {
+      if (direction === 'up' && selected === 0) return;
+      if (direction === 'down' && selected === stages.length - 1) return;
+    }
+    const ok = await api('PATCH', { id, action: 'move', direction });
+    if (ok && isStage) setSelected((s) => (direction === 'up' ? s - 1 : s + 1));
+  }
+
+  async function archiveNode(id: string, label: string, isStage: boolean) {
+    const what = isStage ? 'stage (and its sub-steps)' : 'sub-step';
+    if (!confirm(`Archive the ${what} "${label}"? It leaves the board but stays recoverable in the database.`)) return;
+    const ok = await api('PATCH', { id, action: 'archive' });
+    if (ok && isStage) setSelected((s) => Math.max(0, Math.min(s, stages.length - 2)));
+  }
+
   function EditableTitle({ id, text, className }: { id?: string; text: string; className?: string }) {
     if (editable && editingId === id) {
       return (
@@ -160,10 +177,22 @@ export default function InstallTimeline({
 
       <section className="detail">
         <div className="card">
-          <h2>
-            <span className={`pill ${stage.status}`}>{STATUS_LABEL[stage.status]}</span>
-            <EditableTitle id={stage.id} text={stage.name} />
-          </h2>
+          <div className="cardhead">
+            <h2>
+              <span className={`pill ${stage.status}`}>{STATUS_LABEL[stage.status]}</span>
+              <EditableTitle id={stage.id} text={stage.name} />
+            </h2>
+            {editable && stage.id && (
+              <div className="tools">
+                <button className="icon-btn" title="Move earlier" disabled={busy || selected === 0}
+                  onClick={() => moveNode(stage.id!, 'up', true)}>◀</button>
+                <button className="icon-btn" title="Move later" disabled={busy || selected === stages.length - 1}
+                  onClick={() => moveNode(stage.id!, 'down', true)}>▶</button>
+                <button className="icon-btn danger" title="Archive stage" disabled={busy}
+                  onClick={() => archiveNode(stage.id!, stage.name, true)}>🗑</button>
+              </div>
+            )}
+          </div>
           <p className="sub">{stage.summary}</p>
           <ol className="substeps">
             {stage.subSteps.map((step, j) => (
@@ -173,6 +202,16 @@ export default function InstallTimeline({
                   <EditableTitle id={step.id} text={step.title} />
                   {step.detail && <span className="sd">{step.detail}</span>}
                 </span>
+                {editable && step.id && (
+                  <span className="row-tools">
+                    <button className="icon-btn sm" title="Move up" disabled={busy || j === 0}
+                      onClick={() => moveNode(step.id!, 'up', false)}>↑</button>
+                    <button className="icon-btn sm" title="Move down" disabled={busy || j === stage.subSteps.length - 1}
+                      onClick={() => moveNode(step.id!, 'down', false)}>↓</button>
+                    <button className="icon-btn sm danger" title="Archive sub-step" disabled={busy}
+                      onClick={() => archiveNode(step.id!, step.title, false)}>🗑</button>
+                  </span>
+                )}
               </li>
             ))}
           </ol>

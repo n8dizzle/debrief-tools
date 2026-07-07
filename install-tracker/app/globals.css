@@ -153,3 +153,18 @@ button { font: inherit; }
 .mini-btn:hover { background: var(--pine-soft); }
 .mini-btn.ghost { background: transparent; color: var(--ink-3); border: 1px solid var(--line); }
 .mini-btn:disabled { opacity: .5; cursor: default; }
+
+/* ---------- Reorder / archive (Rung 4) ---------- */
+.cardhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.tools { display: flex; gap: 4px; flex: none; }
+.row-tools { display: inline-flex; gap: 2px; margin-left: auto; flex: none;
+  opacity: 0; transition: opacity .12s; }
+.substeps li:hover .row-tools, .row-tools:focus-within { opacity: 1; }
+.icon-btn { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
+  border-radius: 7px; width: 30px; height: 30px; cursor: pointer; font-size: 13px; line-height: 1;
+  display: inline-grid; place-items: center; transition: border-color .12s, color .12s, background .12s; }
+.icon-btn.sm { width: 24px; height: 24px; font-size: 12px; border-radius: 6px; }
+.icon-btn:hover:not(:disabled) { border-color: var(--pine); color: var(--pine); }
+.icon-btn.danger:hover:not(:disabled) { border-color: var(--blocked); color: var(--blocked);
+  background: color-mix(in srgb, var(--blocked) 8%, transparent); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
