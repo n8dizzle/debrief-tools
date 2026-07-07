@@ -13,13 +13,13 @@ export default async function JobsPage() {
         <div className="mark">IA</div>
         <div>
           <div className="title">Install Tracker · Jobs</div>
-          <div className="url">real jobs, from ServiceTitan</div>
+          <div className="url">HVAC installs, from ServiceTitan</div>
         </div>
         <Link className="navlink" href="/">← Pipeline map</Link>
       </header>
 
       <p className="lede">
-        Live install jobs synced from ServiceTitan. Each one is placed on the pipeline you built —
+        Live <b>HVAC install</b> jobs synced from ServiceTitan. Each one is placed on the pipeline you built —
         ServiceTitan advances the stages it can see; the rest is yours to fill in. Click a job to see it.
       </p>
 

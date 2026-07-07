@@ -27,6 +27,9 @@ export interface InstallJob {
   st_equipment_cost: number | null;
 }
 
+// This app tracks HVAC installs only (ap_install_jobs also holds Plumbing/Mims units).
+const HVAC_INSTALL_UNIT = 'HVAC - Install';
+
 const JOB_COLS =
   'st_job_id, job_number, job_status, job_type_name, business_unit_name, customer_name, job_address, ' +
   'job_total, sold_on, sold_by_name, sold_estimate_job_number, component_count, system_count, ' +
@@ -39,6 +42,7 @@ export async function getInstallJobs(limit = 60): Promise<InstallJob[]> {
     .from('ap_install_jobs')
     .select(JOB_COLS)
     .eq('is_ignored', false)
+    .eq('business_unit_name', HVAC_INSTALL_UNIT)
     .order('synced_at', { ascending: false })
     .limit(limit);
   return ((data as unknown) as InstallJob[]) ?? [];
@@ -48,7 +52,10 @@ export async function getInstallJob(stJobId: number): Promise<InstallJob | null>
   const supabase = getServerSupabase();
   if (!supabase) return null;
   const { data } = await supabase
-    .from('ap_install_jobs').select(JOB_COLS).eq('st_job_id', stJobId).maybeSingle();
+    .from('ap_install_jobs').select(JOB_COLS)
+    .eq('st_job_id', stJobId)
+    .eq('business_unit_name', HVAC_INSTALL_UNIT)
+    .maybeSingle();
   return ((data as unknown) as InstallJob) ?? null;
 }
 
