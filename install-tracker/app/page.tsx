@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import InstallTimeline from '@/components/InstallTimeline';
 import { getInstallStages } from '@/lib/install-data';
 
@@ -15,6 +16,7 @@ export default async function Page() {
           <div className="title">Install Tracker</div>
           <div className="url">install.christmasair.com</div>
         </div>
+        <Link className="navlink" href="/jobs">Jobs →</Link>
       </header>
 
       <p className="lede">
