@@ -14,6 +14,7 @@ function getMonthToDateRange(): DateRange {
 export default function RecallQueuePage() {
   const [range, setRange] = useState<DateRange>(getMonthToDateRange());
   const [status, setStatus] = useState('all');
+  const [query, setQuery] = useState('');
   const [rows, setRows] = useState<RecallRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +34,22 @@ export default function RecallQueuePage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>Recall queue</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            <Link href="/recalls" style={{ color: 'var(--christmas-green-light)' }}>← Trends</Link>
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>Recall queue</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+          <Link href="/recalls" style={{ color: 'var(--christmas-green-light)' }}>← Trends</Link>
+        </p>
+      </div>
+
+      {/* One toolbar row: quick filter + status + date range, aligned together */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Quick filter — customer, tech, job #, status…"
+          style={{ flex: '1 1 240px', maxWidth: 360, padding: '7px 12px', borderRadius: 8, fontSize: 13, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
+        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto' }}>
           <select value={status} onChange={e => setStatus(e.target.value)} style={selectStyle}>
             <option value="all">All statuses</option><option value="none">Not started</option><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option>
           </select>
@@ -52,7 +61,7 @@ export default function RecallQueuePage() {
         {loading && <div style={{ padding: 24, color: 'var(--text-muted)' }}>Loading recalls…</div>}
         {error && <div style={{ padding: 24, color: 'var(--status-error)' }}>{error} <button onClick={load} style={{ color: 'var(--christmas-green-light)', marginLeft: 8 }}>Retry</button></div>}
         {!loading && !error && rows.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>No recalls match these filters.</div>}
-        {!loading && !error && rows.length > 0 && <RecallQueueTable rows={rows} />}
+        {!loading && !error && rows.length > 0 && <RecallQueueTable rows={rows} query={query} />}
       </div>
     </div>
   );

@@ -139,9 +139,8 @@ function loadOrder(): ColKey[] {
   } catch { return DEFAULT_ORDER; }
 }
 
-export default function RecallQueueTable({ rows }: { rows: RecallRow[] }) {
+export default function RecallQueueTable({ rows, query = '' }: { rows: RecallRow[]; query?: string }) {
   const [order, setOrder] = useState<ColKey[]>(DEFAULT_ORDER);
-  const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<ColKey>('review'); // triage first: unvalidated + low-confidence on top
   const [sortAsc, setSortAsc] = useState(true);
   const [dragKey, setDragKey] = useState<ColKey | null>(null);
@@ -193,14 +192,6 @@ export default function RecallQueueTable({ rows }: { rows: RecallRow[] }) {
 
   return (
     <div>
-      <div style={{ padding: '12px 12px 0' }}>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Quick filter — customer, tech, job #, status…"
-          style={{ width: '100%', maxWidth: 360, padding: '7px 12px', borderRadius: 8, fontSize: 13, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
-        />
-      </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
           <thead>
