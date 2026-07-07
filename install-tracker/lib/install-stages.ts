@@ -130,3 +130,51 @@ export const STATUS_LABEL: Record<StageStatus, string> = {
   wait: 'Waiting',
   blocked: 'Blocked',
 };
+
+// A flat row from the install_nodes table.
+export interface InstallNode {
+  id: string;
+  parent_id: string | null;
+  depth: number;
+  title: string;
+  sort_order: number;
+  status: string | null;
+  summary: string | null;
+  owner: string | null;
+  tools: string | null;
+  typical_duration: string | null;
+  what_goes_wrong: string | null;
+  notes: string | null;
+  is_archived: boolean;
+}
+
+const VALID_STATUS: StageStatus[] = ['done', 'active', 'wait', 'blocked'];
+function toStatus(s: string | null): StageStatus {
+  return VALID_STATUS.includes(s as StageStatus) ? (s as StageStatus) : 'wait';
+}
+
+// Build the Stage[] view model from flat install_nodes rows.
+// depth 0 = stage, depth 1 = sub-step. Archived rows are excluded by the caller.
+export function nodesToStages(rows: InstallNode[]): Stage[] {
+  const stages = rows
+    .filter((r) => r.depth === 0)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const childrenOf = (parentId: string) =>
+    rows
+      .filter((r) => r.depth === 1 && r.parent_id === parentId)
+      .sort((a, b) => a.sort_order - b.sort_order);
+
+  return stages.map((s) => ({
+    name: s.title,
+    status: toStatus(s.status),
+    who: s.owner ?? '',
+    tools: s.tools ?? '',
+    duration: s.typical_duration ?? '—',
+    summary: s.summary ?? '',
+    risk: s.what_goes_wrong ?? '',
+    subSteps: childrenOf(s.id).map((c) => ({
+      title: c.title,
+      detail: c.notes ?? '',
+    })),
+  }));
+}
