@@ -85,10 +85,17 @@ function buildContext(c: RcaContext): string {
  * Returns a validated root-cause suggestion, or throws. Caller renders it as a
  * suggestion the user accepts/edits — never writes it to the investigation directly.
  */
-export async function suggestRootCause(ctx: RcaContext): Promise<RcaSuggestion> {
+export async function suggestRootCause(
+  ctx: RcaContext,
+  // Active taxonomy labels the AI is allowed to choose from. Callers pass the live list
+  // from sd_recall_root_causes; defaults to the seed constant. Guarded against empty so the
+  // strict-tool enum is never empty (an empty enum is a hard API error).
+  categories: readonly string[] = ROOT_CAUSE_CATEGORIES,
+): Promise<RcaSuggestion> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('AI suggestions are not configured (ANTHROPIC_API_KEY missing).');
   }
+  const allowed = categories.length > 0 ? [...categories] : [...ROOT_CAUSE_CATEGORIES];
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 
   const response = await client.messages.create({
@@ -107,7 +114,7 @@ export async function suggestRootCause(ctx: RcaContext): Promise<RcaSuggestion> 
           properties: {
             root_cause_category: {
               type: 'string',
-              enum: [...ROOT_CAUSE_CATEGORIES],
+              enum: allowed,
               description: 'The single most likely root-cause category.',
             },
             rationale: {
@@ -153,7 +160,7 @@ export async function suggestRootCause(ctx: RcaContext): Promise<RcaSuggestion> 
   }
   const out = block.input as RcaSuggestion;
   // Defensive: strict mode guarantees the enum, but verify before trusting it downstream.
-  if (!ROOT_CAUSE_CATEGORIES.includes(out.root_cause_category as never)) {
+  if (!allowed.includes(out.root_cause_category)) {
     throw new Error(`AI returned an unknown category: ${out.root_cause_category}`);
   }
   const confidence: RcaConfidence = (['high', 'med', 'low'] as const).includes(out.confidence)

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
-import { hasRecallPermission, ROOT_CAUSE_CATEGORIES } from '@/lib/qc-recalls';
+import { hasRecallPermission, getActiveRootCauseCategories, getAllRootCauseLabels } from '@/lib/qc-recalls';
 import { stripHtml } from '@/lib/text';
 
 type Ctx = { params: Promise<{ jobId: string }> };
@@ -72,6 +72,14 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     };
   } catch { jobDetails = null; }
 
+  // Active (non-archived) taxonomy for the picker. An archived cause already stored on this
+  // investigation is added back below so the current value never vanishes from its own dropdown.
+  const activeCategories = await getActiveRootCauseCategories(supabase);
+  const current = (investigation as { root_cause_category?: string | null } | null)?.root_cause_category;
+  const rootCauseCategories = current && !activeCategories.includes(current)
+    ? [...activeCategories, current]
+    : activeCategories;
+
   return NextResponse.json({
     job_id: jobId,
     recall: recall ? { ...recall, tech_name: techName } : null,
@@ -81,7 +89,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     questions,
     activity,
     photos,
-    root_cause_categories: ROOT_CAUSE_CATEGORIES,
+    root_cause_categories: rootCauseCategories,
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
@@ -113,8 +121,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   if (targetStatus === 'resolved' && !targetRootCause) {
     return NextResponse.json({ error: 'A root cause is required to resolve.' }, { status: 400 });
   }
-  if (root_cause_category && !ROOT_CAUSE_CATEGORIES.includes(root_cause_category as never)) {
-    return NextResponse.json({ error: 'Invalid root cause category.' }, { status: 400 });
+  // Validate against every defined label (active + archived): leaving/keeping an archived
+  // cause on a historical recall is legitimate; only freshly-picked causes are limited to
+  // active ones (enforced by the picker showing active-only).
+  if (root_cause_category) {
+    const allLabels = await getAllRootCauseLabels(supabase);
+    if (!allLabels.includes(root_cause_category)) {
+      return NextResponse.json({ error: 'Invalid root cause category.' }, { status: 400 });
+    }
   }
 
   // Validation state: once a human sets/changes the human-facing root_cause_category, the

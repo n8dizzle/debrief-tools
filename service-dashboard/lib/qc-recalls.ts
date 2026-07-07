@@ -20,7 +20,10 @@ import { suggestRootCause, AI_MODEL_ID } from './root-cause-ai';
 
 export const RECALL_RATE_MIN_JOBS = 10; // techs below this are hidden from the rate leaderboard
 
-// Phase-1 root-cause taxonomy (constrained so it rolls up in Trends). Editable later.
+// Root-cause taxonomy SEED. As of 2026-07-07 the live taxonomy lives in the
+// sd_recall_root_causes table (manager-editable from Settings). This constant is the
+// fallback used to seed that table and as a safety net if the table is empty/unreachable
+// (e.g. so the AI's strict-tool enum is never empty — an empty enum is an API error).
 export const ROOT_CAUSE_CATEGORIES = [
   'Install error / workmanship',
   'Misdiagnosis',
@@ -32,6 +35,34 @@ export const ROOT_CAUSE_CATEGORIES = [
   'Other',
 ] as const;
 export type RootCauseCategory = (typeof ROOT_CAUSE_CATEGORIES)[number];
+
+/**
+ * Active (non-archived) root-cause labels, ordered for display. This is what the picker
+ * shows and what the AI is allowed to propose. Falls back to the seed constant if the
+ * table is empty or unreachable so the picker/AI never break.
+ */
+export async function getActiveRootCauseCategories(supabase: SupabaseClient): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('sd_recall_root_causes')
+    .select('label')
+    .is('archived_at', null)
+    .order('sort_order', { ascending: true });
+  const labels = (data || []).map(r => r.label as string).filter(Boolean);
+  if (error || labels.length === 0) return [...ROOT_CAUSE_CATEGORIES];
+  return labels;
+}
+
+/**
+ * Every label ever defined (active + archived). Used to validate a cause being saved on an
+ * investigation: an archived cause is still a valid thing to leave on a historical recall,
+ * it just can't be freshly picked. Falls back to the seed constant on error.
+ */
+export async function getAllRootCauseLabels(supabase: SupabaseClient): Promise<string[]> {
+  const { data, error } = await supabase.from('sd_recall_root_causes').select('label');
+  const labels = (data || []).map(r => r.label as string).filter(Boolean);
+  if (error || labels.length === 0) return [...ROOT_CAUSE_CATEGORIES];
+  return labels;
+}
 
 /**
  * Server-side permission check for the Recalls section. owner + manager always pass;
@@ -324,6 +355,9 @@ async function generateAiForRecalls(
   }
   if (todo.length === 0) return { suggested: 0, errors };
 
+  // Active taxonomy the AI may propose from (fetched once for the whole batch).
+  const activeCategories = await getActiveRootCauseCategories(supabase);
+
   // Equipment details for the AI context (one query for the whole batch).
   const equipIds = Array.from(new Set(todo.map(u => u.equipmentId).filter((e): e is number => e != null)));
   const equipById = new Map<number, { manufacturer: string | null; model: string | null; type: string | null; installed_on: string | null }>();
@@ -356,7 +390,7 @@ async function generateAiForRecalls(
           recallSummary: recallJob?.summaryOfWork || recallJob?.summary || null,
           originalNotes: (origNotes || []).map(n => n.text),
           recallNotes: (recallNotes || []).map(n => n.text),
-        }), AI_PER_RECALL_TIMEOUT_MS, `AI suggestion for recall ${u.recallJobId}`);
+        }, activeCategories), AI_PER_RECALL_TIMEOUT_MS, `AI suggestion for recall ${u.recallJobId}`);
         const { error } = await supabase.from('sd_recall_investigations').upsert({
           st_recall_job_id: u.recallJobId,
           status: 'open',
