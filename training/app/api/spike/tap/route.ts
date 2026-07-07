@@ -32,9 +32,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "error" },
-      { status: 500 }
-    );
+    // Public endpoint: log detail server-side, return a generic message.
+    console.error("spike/tap error:", err);
+    return NextResponse.json({ ok: false, error: "error" }, { status: 500 });
   }
 }
