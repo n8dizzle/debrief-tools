@@ -29,7 +29,7 @@ export default async function Page() {
         <span><i className="sw" style={{ background: 'var(--blocked)' }} />Blocked</span>
       </div>
 
-      <InstallTimeline stages={stages} />
+      <InstallTimeline stages={stages} fromDb={source === 'db'} />
 
       <p className="foot-note">
         {source === 'db'

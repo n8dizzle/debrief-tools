@@ -6,11 +6,13 @@
 export type StageStatus = 'done' | 'active' | 'wait' | 'blocked';
 
 export interface SubStep {
+  id?: string;              // install_nodes.id when loaded from the DB (absent in seed)
   title: string;
   detail: string;
 }
 
 export interface Stage {
+  id?: string;              // install_nodes.id when loaded from the DB (absent in seed)
   name: string;
   status: StageStatus;      // illustrative until Rung 6 wires live ServiceTitan status
   who: string;              // who owns this stage today
@@ -165,6 +167,7 @@ export function nodesToStages(rows: InstallNode[]): Stage[] {
       .sort((a, b) => a.sort_order - b.sort_order);
 
   return stages.map((s) => ({
+    id: s.id,
     name: s.title,
     status: toStatus(s.status),
     who: s.owner ?? '',
@@ -173,6 +176,7 @@ export function nodesToStages(rows: InstallNode[]): Stage[] {
     summary: s.summary ?? '',
     risk: s.what_goes_wrong ?? '',
     subSteps: childrenOf(s.id).map((c) => ({
+      id: c.id,
       title: c.title,
       detail: c.notes ?? '',
     })),

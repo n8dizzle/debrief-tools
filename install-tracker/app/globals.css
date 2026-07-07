@@ -129,3 +129,27 @@ button { font: inherit; }
 .login-btn:hover { border-color: var(--pine); background: var(--surface); }
 .login-btn:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
 .login-foot { color: var(--ink-3); font-size: 12px; margin-top: 20px; }
+
+/* ---------- Editing (Rung 3) ---------- */
+.editable { cursor: text; border-radius: 4px; padding: 0 3px; margin: 0 -3px;
+  transition: background .12s, box-shadow .12s; }
+.editable:hover { background: color-mix(in srgb, var(--ember) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ember) 40%, transparent); }
+.edit-input { font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--ember); border-radius: 6px; padding: 3px 7px; min-width: 140px; }
+.edit-input:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+.add-node { border-style: dashed !important; box-shadow: none !important; align-items: center;
+  justify-content: center; color: var(--ink-3); min-width: 132px; }
+.add-node:hover { color: var(--pine); }
+.add-body { padding: 12px 13px; font-weight: 560; font-size: 13px; }
+.add-step { margin-top: 12px; background: transparent; border: 1px dashed var(--line);
+  color: var(--ink-3); border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px;
+  font-weight: 540; width: 100%; transition: border-color .12s, color .12s; }
+.add-step:hover { border-color: var(--pine); color: var(--pine); }
+.add-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; }
+.add-row .edit-input { flex: 1; }
+.mini-btn { background: var(--pine); color: #fff; border: 0; border-radius: 7px;
+  padding: 7px 13px; font-weight: 560; font-size: 13px; cursor: pointer; }
+.mini-btn:hover { background: var(--pine-soft); }
+.mini-btn.ghost { background: transparent; color: var(--ink-3); border: 1px solid var(--line); }
+.mini-btn:disabled { opacity: .5; cursor: default; }
