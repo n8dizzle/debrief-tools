@@ -27,7 +27,7 @@ APPS=(
   tax-tracker
   video-studio
 )
-# Excluded: gideon-track (never deployed), referrals (other session working on it)
+# Excluded: referrals (other session working on it)
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="/tmp/nextauth-rotation-$(date +%Y%m%d-%H%M%S).log"

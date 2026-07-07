@@ -24,7 +24,7 @@ APPS=(
   tax-tracker
   video-studio
 )
-# Excluded: gideon-track (never deployed), referrals (other session)
+# Excluded: referrals (other session)
 # Note: droplet handled separately at end of script
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"

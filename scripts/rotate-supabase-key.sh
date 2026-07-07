@@ -27,7 +27,7 @@ APPS=(
 )
 # Excluded on purpose:
 #   internal-portal — already rotated and verified
-#   gideon-track, sales-command-center — no .vercel/project.json (not CLI-linked)
+#   sales-command-center — no .vercel/project.json (not CLI-linked)
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="/tmp/supabase-rotation-$(date +%Y%m%d-%H%M%S).log"
