@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient } from '@/lib/servicetitan';
-import { hasRecallPermission } from '@/lib/qc-recalls';
+import { hasRecallPermission, getActiveRootCauseCategories } from '@/lib/qc-recalls';
 import { suggestRootCause, AI_MODEL_ID, type RcaContext } from '@/lib/root-cause-ai';
 
 export const maxDuration = 60;
@@ -71,7 +71,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   };
 
   try {
-    const suggestion = await suggestRootCause(ctx);
+    const activeCategories = await getActiveRootCauseCategories(supabase);
+    const suggestion = await suggestRootCause(ctx, activeCategories);
     // Persist the fresh proposal so a re-run isn't lost on tab close. Never clobber a human
     // decision: only (re)write ai_* + set ai_proposed when the record isn't already validated/overridden.
     const { data: inv } = await supabase.from('sd_recall_investigations')
