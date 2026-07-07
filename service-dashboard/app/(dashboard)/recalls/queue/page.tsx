@@ -11,6 +11,14 @@ function getMonthToDateRange(): DateRange {
   return { start: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)), end: formatLocalDate(now) };
 }
 
+const STATUS_FILTERS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'none', label: 'Not started' },
+  { value: 'open', label: 'Open' },
+  { value: 'investigating', label: 'Investigating' },
+  { value: 'resolved', label: 'Resolved' },
+];
+
 export default function RecallQueuePage() {
   const [range, setRange] = useState<DateRange>(getMonthToDateRange());
   const [status, setStatus] = useState('all');
@@ -30,8 +38,6 @@ export default function RecallQueuePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const selectStyle: React.CSSProperties = { padding: '6px 10px', borderRadius: 8, fontSize: 13, backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' };
-
   return (
     <div style={{ padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
@@ -41,7 +47,7 @@ export default function RecallQueuePage() {
         </p>
       </div>
 
-      {/* One toolbar row: quick filter + status + date range, aligned together */}
+      {/* One toolbar row: search + date on the left, status quick-filters on the right */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
         <input
           value={query}
@@ -49,11 +55,25 @@ export default function RecallQueuePage() {
           placeholder="Quick filter — customer, tech, job #, status…"
           style={{ flex: '1 1 240px', maxWidth: 360, padding: '7px 12px', borderRadius: 8, fontSize: 13, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}
         />
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto' }}>
-          <select value={status} onChange={e => setStatus(e.target.value)} style={selectStyle}>
-            <option value="all">All statuses</option><option value="none">Not started</option><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option>
-          </select>
-          <DateRangePicker value={range} onChange={setRange} />
+        <DateRangePicker value={range} onChange={setRange} />
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto', padding: 4, borderRadius: 10, backgroundColor: 'var(--bg-secondary)' }}>
+          {STATUS_FILTERS.map(o => {
+            const active = status === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => setStatus(o.value)}
+                style={{
+                  padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                  cursor: 'pointer', border: 'none', transition: 'background-color 0.15s',
+                  backgroundColor: active ? 'var(--christmas-green)' : 'transparent',
+                  color: active ? 'white' : 'var(--text-muted)',
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
