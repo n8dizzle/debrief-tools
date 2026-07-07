@@ -4,7 +4,7 @@ import { getServerSupabase, type SpikeTap } from "@/lib/supabase";
 export const runtime = "nodejs";
 
 // GATED (CRON_SECRET). Returns the spike funnel so you can check results with a curl
-// even before Google SSO is configured. The /spike-results dashboard page renders the
+// even before Google SSO is configured. The /admin dashboard page renders the
 // same data behind SSO.
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;

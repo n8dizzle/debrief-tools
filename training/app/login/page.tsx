@@ -44,7 +44,7 @@ function LoginInner() {
           </p>
         )}
         <button
-          onClick={() => signIn("google", { callbackUrl: "/spike-results" })}
+          onClick={() => signIn("google", { callbackUrl: "/admin" })}
           style={{
             width: "100%",
             padding: "12px 16px",
