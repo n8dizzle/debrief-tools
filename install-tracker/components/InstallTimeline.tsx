@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { STATUS_LABEL, type Stage } from '@/lib/install-stages';
 
+type EditTarget = { id: string; field: string } | null;
+
 export default function InstallTimeline({
   stages,
   fromDb,
@@ -21,8 +23,7 @@ export default function InstallTimeline({
   const [selected, setSelected] = useState(firstActive === -1 ? 0 : firstActive);
   const [busy, setBusy] = useState(false);
 
-  // Inline edit state
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<EditTarget>(null);
   const [editValue, setEditValue] = useState('');
   const [adding, setAdding] = useState<null | { parentId: string | null }>(null);
   const [addValue, setAddValue] = useState('');
@@ -49,11 +50,17 @@ export default function InstallTimeline({
     }
   }
 
-  async function commitRename(id: string, original: string) {
-    const title = editValue.trim();
-    setEditingId(null);
-    if (!title || title === original) return;
-    await api('PATCH', { id, action: 'rename', title });
+  async function commitEdit(id: string, field: string, original: string) {
+    const raw = editValue;
+    setEditing(null);
+    if (field === 'title') {
+      const t = raw.trim();
+      if (!t || t === original) return;
+      await api('PATCH', { id, action: 'rename', title: t });
+    } else {
+      if (raw === (original ?? '')) return;
+      await api('PATCH', { id, action: 'edit', fields: { [field]: raw } });
+    }
   }
 
   async function commitAdd(parentId: string | null) {
@@ -64,7 +71,6 @@ export default function InstallTimeline({
   }
 
   async function moveNode(id: string, direction: 'up' | 'down', isStage: boolean) {
-    // Guard at the edges so we don't shift selection when the server no-ops.
     if (isStage) {
       if (direction === 'up' && selected === 0) return;
       if (direction === 'down' && selected === stages.length - 1) return;
@@ -80,30 +86,48 @@ export default function InstallTimeline({
     if (ok && isStage) setSelected((s) => Math.max(0, Math.min(s, stages.length - 2)));
   }
 
-  function EditableTitle({ id, text, className }: { id?: string; text: string; className?: string }) {
-    if (editable && editingId === id) {
-      return (
+  // Click-to-edit text. field 'title' → rename; anything else → edit that column.
+  function Edit({
+    id, field, text, multiline, placeholder, className,
+  }: {
+    id?: string; field: string; text: string; multiline?: boolean; placeholder?: string; className?: string;
+  }) {
+    const active = editable && editing?.id === id && editing?.field === field;
+    if (active) {
+      const common = {
+        autoFocus: true,
+        value: editValue,
+        disabled: busy,
+        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditValue(e.target.value),
+        onBlur: () => commitEdit(id!, field, text),
+      };
+      return multiline ? (
+        <textarea
+          className="edit-input edit-area"
+          rows={3}
+          {...common}
+          onKeyDown={(e) => { if (e.key === 'Escape') setEditing(null); }}
+        />
+      ) : (
         <input
           className="edit-input"
-          autoFocus
-          value={editValue}
-          disabled={busy}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={() => commitRename(id!, text)}
+          {...common}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') commitRename(id!, text);
-            if (e.key === 'Escape') setEditingId(null);
+            if (e.key === 'Enter') commitEdit(id!, field, text);
+            if (e.key === 'Escape') setEditing(null);
           }}
         />
       );
     }
+    const canEdit = editable && !!id;
+    const empty = !text;
     return (
       <span
-        className={`${className ?? ''}${editable && id ? ' editable' : ''}`}
-        onClick={editable && id ? () => { setEditingId(id); setEditValue(text); } : undefined}
-        title={editable && id ? 'Click to rename' : undefined}
+        className={`${className ?? ''}${canEdit ? ' editable' : ''}${empty && canEdit ? ' empty' : ''}`}
+        onClick={canEdit ? () => { setEditing({ id: id!, field }); setEditValue(text ?? ''); } : undefined}
+        title={canEdit ? 'Click to edit' : undefined}
       >
-        {text}
+        {text || (canEdit ? (placeholder ?? 'Add…') : '')}
       </span>
     );
   }
@@ -112,21 +136,17 @@ export default function InstallTimeline({
     return (
       <>
         <p className="lede">No stages yet.</p>
-        {editable && <AddStageButton />}
+        {editable && <AddStageInline />}
       </>
     );
   }
 
-  function AddStageButton() {
+  function AddStageInline() {
     if (adding?.parentId === null) {
       return (
         <div className="add-row">
           <input
-            className="edit-input"
-            autoFocus
-            placeholder="New stage name…"
-            value={addValue}
-            disabled={busy}
+            className="edit-input" autoFocus placeholder="New stage name…" value={addValue} disabled={busy}
             onChange={(e) => setAddValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitAdd(null);
@@ -138,11 +158,7 @@ export default function InstallTimeline({
         </div>
       );
     }
-    return (
-      <button className="node add-node" onClick={() => { setAdding({ parentId: null }); setAddValue(''); }}>
-        <span className="body add-body">＋ Add stage</span>
-      </button>
-    );
+    return null;
   }
 
   return (
@@ -173,14 +189,14 @@ export default function InstallTimeline({
           </button>
         )}
       </div>
-      {editable && adding?.parentId === null && <AddStageButton />}
+      {editable && <AddStageInline />}
 
       <section className="detail">
         <div className="card">
           <div className="cardhead">
             <h2>
               <span className={`pill ${stage.status}`}>{STATUS_LABEL[stage.status]}</span>
-              <EditableTitle id={stage.id} text={stage.name} />
+              <Edit id={stage.id} field="title" text={stage.name} />
             </h2>
             {editable && stage.id && (
               <div className="tools">
@@ -193,14 +209,18 @@ export default function InstallTimeline({
               </div>
             )}
           </div>
-          <p className="sub">{stage.summary}</p>
+
+          <p className="sub">
+            <Edit id={stage.id} field="summary" text={stage.summary} multiline placeholder="Add a one-line summary…" />
+          </p>
+
           <ol className="substeps">
             {stage.subSteps.map((step, j) => (
               <li key={step.id ?? `${step.title}-${j}`}>
                 <span className="n">{j + 1}</span>
                 <span className="st">
-                  <EditableTitle id={step.id} text={step.title} />
-                  {step.detail && <span className="sd">{step.detail}</span>}
+                  <Edit id={step.id} field="title" text={step.title} />
+                  <span className="sd"><Edit id={step.id} field="notes" text={step.detail} placeholder="Add detail…" /></span>
                 </span>
                 {editable && step.id && (
                   <span className="row-tools">
@@ -215,15 +235,12 @@ export default function InstallTimeline({
               </li>
             ))}
           </ol>
+
           {editable && (
             adding?.parentId === stage.id ? (
               <div className="add-row">
                 <input
-                  className="edit-input"
-                  autoFocus
-                  placeholder="New sub-step…"
-                  value={addValue}
-                  disabled={busy}
+                  className="edit-input" autoFocus placeholder="New sub-step…" value={addValue} disabled={busy}
                   onChange={(e) => setAddValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') commitAdd(stage.id ?? null);
@@ -245,19 +262,19 @@ export default function InstallTimeline({
           <div className="facts">
             <div className="fact">
               <div className="k">Who owns it</div>
-              <div className="v">{stage.who}</div>
+              <div className="v"><Edit id={stage.id} field="owner" text={stage.who} placeholder="Who owns this stage?" /></div>
             </div>
             <div className="fact">
               <div className="k">Tools used today</div>
-              <div className="v">{stage.tools}</div>
+              <div className="v"><Edit id={stage.id} field="tools" text={stage.tools} placeholder="What tools hold this today?" /></div>
             </div>
             <div className="fact">
               <div className="k">Typical duration</div>
-              <div className="v dur">{stage.duration}</div>
+              <div className="v dur"><Edit id={stage.id} field="typical_duration" text={stage.duration} placeholder="How long?" /></div>
             </div>
             <div className="fact risk">
               <div className="k">What goes wrong</div>
-              <div className="v">{stage.risk}</div>
+              <div className="v"><Edit id={stage.id} field="what_goes_wrong" text={stage.risk} multiline placeholder="What breaks here?" /></div>
             </div>
           </div>
         </div>

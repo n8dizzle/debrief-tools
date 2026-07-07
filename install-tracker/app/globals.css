@@ -138,6 +138,8 @@ button { font: inherit; }
 .edit-input { font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--ember); border-radius: 6px; padding: 3px 7px; min-width: 140px; }
 .edit-input:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+.edit-area { width: 100%; resize: vertical; min-height: 58px; line-height: 1.45; font-family: var(--sans); }
+.editable.empty { color: var(--ink-3); font-style: italic; font-weight: 400; }
 .add-node { border-style: dashed !important; box-shadow: none !important; align-items: center;
   justify-content: center; color: var(--ink-3); min-width: 132px; }
 .add-node:hover { color: var(--pine); }

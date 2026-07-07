@@ -118,6 +118,26 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ archived: true });
   }
 
+  if (action === 'edit') {
+    // Update whitelisted content fields. Body: { id, action:'edit', fields:{...} }
+    const ALLOWED = ['summary', 'owner', 'tools', 'typical_duration', 'what_goes_wrong', 'notes'];
+    const fields = (body.fields && typeof body.fields === 'object') ? body.fields as Record<string, unknown> : {};
+    const update: Record<string, unknown> = {};
+    for (const k of Object.keys(fields)) {
+      if (!ALLOWED.includes(k)) continue;
+      const v = fields[k];
+      update[k] = typeof v === 'string' ? (v.trim() || null) : null; // empty string clears the field
+    }
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'No editable fields provided.' }, { status: 400 });
+    }
+    update.updated_at = now;
+    const { data, error } = await supabase
+      .from('install_nodes').update(update).eq('id', id).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ node: data });
+  }
+
   if (action === 'unarchive') {
     const { data, error } = await supabase
       .from('install_nodes').update({ is_archived: false, updated_at: now }).eq('id', id).select().single();
