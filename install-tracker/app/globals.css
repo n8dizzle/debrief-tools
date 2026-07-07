@@ -248,11 +248,16 @@ button { font: inherit; }
 ::-webkit-scrollbar-thumb:hover { background: var(--christmas-green-dark); }
 *:focus-visible { outline: 2px solid var(--christmas-green); outline-offset: 2px; }
 
+/* Table sits in a bordered card, like the AR invoices tab */
+.table-card { border: 1px solid var(--border-subtle); border-radius: var(--radius);
+  background: var(--bg-card); overflow: hidden; box-shadow: var(--shadow); }
 .ar-table { width: 100%; border-collapse: collapse; }
 .ar-table th { text-align: left; padding: .75rem 1rem; font-size: .75rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted);
-  background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle); }
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle);
+  position: sticky; top: 0; z-index: 1; }
 .ar-table td { padding: .75rem 1rem; border-bottom: 1px solid var(--border-subtle); text-align: left; }
+.ar-table tbody tr:last-child td { border-bottom: 0; }
 .ar-table tbody tr:hover { background: var(--bg-card-hover); }
 .ar-table th.num, .ar-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 

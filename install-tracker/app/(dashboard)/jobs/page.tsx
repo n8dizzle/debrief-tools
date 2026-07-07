@@ -17,7 +17,7 @@ export default async function JobsPage() {
         </p>
       </div>
 
-      <div className="jobs-scroll">
+      <div className="table-card jobs-scroll">
         <table className="ar-table">
           <thead>
             <tr>
