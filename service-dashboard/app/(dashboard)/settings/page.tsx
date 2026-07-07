@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useServiceDashboardPermissions } from '@/hooks/usePermissions';
 import type { InfractionTypeConfig, AttendanceThreshold } from '@/lib/supabase';
+import RootCausesSettings from '@/components/RootCausesSettings';
 
-type SettingsTab = 'sync' | 'scoring' | 'attendance';
+type SettingsTab = 'sync' | 'scoring' | 'attendance' | 'root_causes';
 
 const WEIGHT_LABELS: Record<string, string> = {
   gross_sales: 'Sales',
@@ -214,6 +215,7 @@ export default function SettingsPage() {
     { id: 'sync', label: 'Data Sync' },
     { id: 'scoring', label: 'Scoring' },
     { id: 'attendance', label: 'Attendance' },
+    { id: 'root_causes', label: 'Recall Root Causes' },
   ];
 
   return (
@@ -677,6 +679,11 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Recall Root Causes Tab */}
+      {activeTab === 'root_causes' && (
+        <RootCausesSettings canEdit={canEdit} />
       )}
     </div>
   );
