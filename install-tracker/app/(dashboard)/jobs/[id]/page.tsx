@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getInstallStages } from '@/lib/install-data';
-import { getInstallJob, deriveJobStages, fmtMoney, stJobUrl, stProjectUrl } from '@/lib/jobs';
+import { getInstallJob, deriveJobStages, getProjectEstimates, fmtMoney, stJobUrl, stProjectUrl } from '@/lib/jobs';
 import JobPipeline from '@/components/JobPipeline';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,20 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   }
 
   const jobStages = deriveJobStages(stages, job);
+  const estimates = await getProjectEstimates(job.st_project_id);
+
+  // Make the collapsed Sold line multi-estimate aware (the ap-resolved single
+  // count is often wrong for multi-system deals).
+  const soldEst = estimates.filter((e) => e.status === 'Sold');
+  if (soldEst.length) {
+    const units = soldEst.reduce((s, e) => s + (e.equipment_count ?? 0), 0);
+    const total = soldEst.reduce((s, e) => s + (e.subtotal ?? 0), 0);
+    const soldStage = jobStages.find((s) => s.name.toLowerCase().includes('sold'));
+    if (soldStage) {
+      soldStage.value = `${soldEst.length} sold estimate${soldEst.length === 1 ? '' : 's'} · ${units} unit${units === 1 ? '' : 's'} · ${fmtMoney(total)}`;
+    }
+  }
+
   const autoCount = jobStages.filter((s) => s.source !== 'manual').length;
   const gapCount = jobStages.filter((s) => s.source === 'manual').length;
 
@@ -60,7 +74,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         are the ones this tracker exists to catch. <b>Click a stage to expand its details.</b>
       </p>
 
-      <JobPipeline stages={jobStages} />
+      <JobPipeline stages={jobStages} estimates={estimates} />
 
       <p className="foot-note">
         Read-only view from ap_install_jobs (synced from ServiceTitan). Stage structure comes from the

@@ -316,3 +316,19 @@ button { font: inherit; }
 .jp-dval { color: var(--text-primary); }
 .jp-dval a { color: var(--christmas-green-light); text-decoration: none; }
 .jp-dval a:hover { text-decoration: underline; }
+
+/* ---------- Estimates block (Sold stage expand) ---------- */
+.ests { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ests-summary { font-size: 12.5px; color: var(--text-secondary); font-weight: 560;
+  padding-bottom: 4px; }
+.est-row { border: 1px solid var(--border-subtle); border-radius: 8px; padding: 9px 11px;
+  background: var(--bg-secondary); }
+.est-head { display: flex; align-items: center; gap: 9px; }
+.est-badge { font: 600 10px/1 var(--sans); padding: 3px 7px; border-radius: 999px; flex: none; }
+.est-badge.sold { background: rgba(93,138,102,.18); color: var(--christmas-green-light); }
+.est-badge.other { background: rgba(107,124,110,.18); color: var(--text-muted); }
+.est-name { font-weight: 560; font-size: 13.5px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.est-amt { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-primary); flex: none; }
+.est-link { color: var(--christmas-green-light); text-decoration: none; flex: none; }
+.est-equip { margin: 7px 0 0; padding-left: 18px; color: var(--text-secondary); font-size: 12.5px; }
+.est-equip li { margin: 2px 0; }

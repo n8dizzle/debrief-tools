@@ -135,7 +135,7 @@ export function deriveJobStages(stages: Stage[], job: InstallJob): JobStage[] {
         if (job.sold_estimate_job_number) {
           details.push({ label: 'Sold estimate', value: `#${job.sold_estimate_job_number} ↗`, href: stJobUrl(job.sold_estimate_job_number) });
         }
-        details.push({ label: 'Note', value: 'One estimate shown. Multi-system deals can have several sold estimates — full multi-estimate view is pending an estimate-line pull from ServiceTitan.' });
+        details.push({ label: 'Note', value: 'The counts above come from ap-payments (one resolved estimate). The full list below is every estimate ServiceTitan has on this project.' });
         return { ...base, source: 'st', status: job.sold_on ? 'done' : 'wait', value: parts.join(' · ') || null, details };
       }
       case 'scheduled':
@@ -176,6 +176,32 @@ export function deriveJobStages(stages: Stage[], job: InstallJob): JobStage[] {
         return { ...base, note: 'No ServiceTitan signal for this stage — manual.' };
     }
   });
+}
+
+export interface ProjectEstimate {
+  estimate_id: number;
+  estimate_job_number: string | null;
+  name: string | null;
+  status: string | null;
+  sold_on: string | null;
+  subtotal: number | null;
+  total_cost: number | null;
+  equipment_count: number | null;
+  items: { type: string; name: string; qty: number }[] | null;
+}
+
+// All estimates on a project (Sold first, then by size). Read from install_estimates.
+export async function getProjectEstimates(projectId: number | null): Promise<ProjectEstimate[]> {
+  if (projectId == null) return [];
+  const supabase = getServerSupabase();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('install_estimates')
+    .select('estimate_id, estimate_job_number, name, status, sold_on, subtotal, total_cost, equipment_count, items')
+    .eq('st_project_id', projectId);
+  const rows = ((data as unknown) as ProjectEstimate[]) ?? [];
+  const rank = (s: string | null) => (s === 'Sold' ? 0 : s === 'Open' ? 1 : 2);
+  return rows.sort((a, b) => rank(a.status) - rank(b.status) || (b.subtotal ?? 0) - (a.subtotal ?? 0));
 }
 
 export function jobCurrentStage(jobStages: JobStage[]): string {

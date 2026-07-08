@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { JobStage } from '@/lib/jobs';
+import type { JobStage, ProjectEstimate } from '@/lib/jobs';
 
 const SOURCE_LABEL: Record<string, string> = {
   st: 'ServiceTitan',
@@ -15,7 +15,44 @@ function dotSymbol(status: JobStage['status']) {
   return '●';
 }
 
-export default function JobPipeline({ stages }: { stages: JobStage[] }) {
+const usd = (n: number | null) =>
+  n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+function EstimatesBlock({ estimates }: { estimates: ProjectEstimate[] }) {
+  if (!estimates.length) return <div className="jp-note">No estimates synced for this project yet.</div>;
+  const sold = estimates.filter((e) => e.status === 'Sold');
+  const units = sold.reduce((s, e) => s + (e.equipment_count ?? 0), 0);
+  return (
+    <div className="ests">
+      <div className="ests-summary">
+        {sold.length} sold estimate{sold.length === 1 ? '' : 's'} · {units} equipment unit{units === 1 ? '' : 's'}
+        {estimates.length > sold.length && ` · ${estimates.length - sold.length} other`}
+      </div>
+      {estimates.map((e) => {
+        const equip = (e.items || []).filter((i) => i.type.toLowerCase() === 'equipment');
+        return (
+          <div className="est-row" key={e.estimate_id}>
+            <div className="est-head">
+              <span className={`est-badge ${e.status === 'Sold' ? 'sold' : 'other'}`}>{e.status || '—'}</span>
+              <span className="est-name">{e.name || `Estimate #${e.estimate_id}`}</span>
+              <span className="est-amt">{usd(e.subtotal)}</span>
+              {e.estimate_job_number && (
+                <a className="est-link" href={`https://go.servicetitan.com/#/Job/Index/${e.estimate_job_number}`} target="_blank" rel="noopener noreferrer">↗</a>
+              )}
+            </div>
+            {equip.length > 0 && (
+              <ul className="est-equip">
+                {equip.map((i, j) => <li key={j}>{i.qty > 1 ? `${i.qty}× ` : ''}{i.name}</li>)}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function JobPipeline({ stages, estimates = [] }: { stages: JobStage[]; estimates?: ProjectEstimate[] }) {
   const [open, setOpen] = useState<Set<number>>(new Set());
 
   function toggle(i: number) {
@@ -62,6 +99,7 @@ export default function JobPipeline({ stages }: { stages: JobStage[] }) {
                       </span>
                     </div>
                   ))}
+                  {s.name.toLowerCase().includes('sold') && <EstimatesBlock estimates={estimates} />}
                   {s.note && <div className="jp-note">{s.note}</div>}
                 </div>
               )}
