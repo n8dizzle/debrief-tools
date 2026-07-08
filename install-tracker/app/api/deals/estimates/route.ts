@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { countEstimate, type EquipItem } from '@/lib/equipment';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +18,19 @@ export async function GET(req: NextRequest) {
 
   const { data } = await supabase
     .from('install_estimates')
-    .select('estimate_id, estimate_job_number, name, status, subtotal, equipment_count')
+    .select('estimate_id, estimate_job_number, name, status, subtotal, sold_on, items')
     .eq('st_project_id', projectId)
     .eq('status', 'Sold')
-    .order('subtotal', { ascending: false });
+    .order('sold_on', { ascending: true });
 
-  return NextResponse.json({ estimates: data ?? [] });
+  // Classify each estimate the same way the deal totals do (systems + components).
+  const estimates = (data ?? []).map((e) => {
+    const { systems, components } = countEstimate((e.items as EquipItem[]) || []);
+    return {
+      estimate_id: e.estimate_id, estimate_job_number: e.estimate_job_number,
+      name: e.name, sold_on: e.sold_on, subtotal: e.subtotal, systems, components,
+    };
+  });
+
+  return NextResponse.json({ estimates });
 }

@@ -8,6 +8,11 @@ import type { Deal, TriageStatus } from '@/lib/deals';
 const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const stProject = (id: number) => `https://go.servicetitan.com/#/Project/${id}`;
+function fmtCloseDate(iso: string | null): string {
+  if (!iso) return 'not dated';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${+m}/${+d}/${y}`;
+}
 
 // Central-safe local date (never toISOString — that shifts to UTC).
 function fmtLocal(d: Date) {
@@ -45,18 +50,19 @@ function presetRange(key: string): { from: string; to: string } | null {
   }
 }
 
-type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'equipment_unit_count' | 'sold_est' | 'contract_total' | 'suggested_class' | 'project';
-interface ColDef { id: ColId; label: string; num?: boolean; width: number; }
+type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'system_count' | 'equipment_unit_count' | 'sold_est' | 'contract_total' | 'suggested_class' | 'project';
+interface ColDef { id: ColId; label: string; num?: boolean; width: number; info?: string }
 
 const DEFAULT_COLUMNS: ColDef[] = [
   { id: 'customer', label: 'Customer', width: 210 },
-  { id: 'sold_on', label: 'Sold', width: 110 },
+  { id: 'sold_on', label: 'Sold', width: 110, info: 'Earliest sold-estimate date on the project.' },
   { id: 'primary_business_unit', label: 'Business unit', width: 160 },
-  { id: 'equipment_unit_count', label: 'Systems', num: true, width: 90 },
-  { id: 'sold_est', label: 'Sold est.', num: true, width: 90 },
-  { id: 'contract_total', label: 'Contract', num: true, width: 120 },
-  { id: 'suggested_class', label: 'Suggestion', width: 130 },
-  { id: 'project', label: 'Project', width: 110 },
+  { id: 'system_count', label: 'Systems', num: true, width: 90, info: 'Complete systems only. A system = condenser + furnace + coil, OR heat pump + air handler, OR a packaged unit. Partials (e.g. AC + coil, furnace-only, standalone condenser) count as 0 systems.' },
+  { id: 'equipment_unit_count', label: 'Components', num: true, width: 110, info: 'Count of individual equipment pieces — condensers, furnaces, coils, air handlers, heat pumps, packaged units. Excludes accessories like thermostats, heat strips, and UV.' },
+  { id: 'sold_est', label: 'Sold est.', num: true, width: 90, info: 'Number of Sold estimates on the project. Click the count to see each estimate, its close date, and value.' },
+  { id: 'contract_total', label: 'Contract', num: true, width: 120, info: 'Sum of the subtotals of all Sold estimates on the project.' },
+  { id: 'suggested_class', label: 'Suggestion', width: 130, info: 'Auto-hint only: Install if the deal has equipment components or the project already has an HVAC-Install job; otherwise Other. You decide with triage.' },
+  { id: 'project', label: 'Project', width: 110, info: 'ServiceTitan project id — opens the project in ServiceTitan.' },
 ];
 const ORDER_KEY = 'install_deals_col_order';
 const WIDTH_KEY = 'install_deals_col_widths';
@@ -66,6 +72,7 @@ function sortVal(d: Deal, id: ColId): string | number {
     case 'customer': return (d.customer_name || '').toLowerCase();
     case 'sold_on': return d.sold_on || '';
     case 'primary_business_unit': return (d.primary_business_unit || '').toLowerCase();
+    case 'system_count': return d.system_count ?? -1;
     case 'equipment_unit_count': return d.equipment_unit_count ?? -1;
     case 'sold_est': return d.sold_estimate_count ?? -1;
     case 'contract_total': return d.contract_total ?? -1;
@@ -126,10 +133,11 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
     : (from || to) ? `${from || '…'} → ${to || '…'}` : 'All dates';
 
   // Sold-estimate drill-down popup
-  type EstRow = { estimate_id: number; estimate_job_number: string | null; name: string | null; subtotal: number | null; equipment_count: number | null };
+  type EstRow = { estimate_id: number; estimate_job_number: string | null; name: string | null; subtotal: number | null; systems: number; components: number; sold_on: string | null };
   const [estFor, setEstFor] = useState<{ pid: number; name: string } | null>(null);
   const [estRows, setEstRows] = useState<EstRow[] | null>(null);
   const [estLoading, setEstLoading] = useState(false);
+  const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null);
   async function openEst(d: Deal) {
     setEstFor({ pid: d.st_project_id, name: d.customer_name || `Project ${d.st_project_id}` });
     setEstRows(null); setEstLoading(true);
@@ -254,6 +262,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       case 'customer': return <Link className="joblink" href={`/deals/${d.st_project_id}`}>{d.customer_name || `Project ${d.st_project_id}`}</Link>;
       case 'sold_on': return <span className="muted">{d.sold_on || '—'}</span>;
       case 'primary_business_unit': return <span className="muted">{d.primary_business_unit || '—'}</span>;
+      case 'system_count': return d.system_count ?? 0;
       case 'equipment_unit_count': return d.equipment_unit_count ?? 0;
       case 'sold_est': return <button className="est-count" onClick={() => openEst(d)} title="View sold estimates">{d.sold_estimate_count ?? 0}</button>;
       case 'contract_total': return usd(d.contract_total);
@@ -365,6 +374,16 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
                   <span className="th-inner" onClick={() => toggleSort(c.id)}>
                     {c.label}<span className="sort-arrow">{sortCol === c.id ? (sortDir === 'asc' ? '▲' : '▼') : ''}</span>
                   </span>
+                  {c.info && (
+                    <span
+                      className="th-info"
+                      aria-label={c.info}
+                      onMouseEnter={(e) => setTip({ text: c.info!, x: e.clientX, y: e.clientY })}
+                      onMouseLeave={() => setTip(null)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); setTip((t) => (t ? null : { text: c.info!, x: e.clientX, y: e.clientY })); }}
+                    >i</span>
+                  )}
                   <span className="col-resize" onMouseDown={(e) => { e.stopPropagation(); resize.current = { id: c.id, startX: e.clientX, startW: c.width }; }} />
                 </th>
               ))}
@@ -388,6 +407,10 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
         {rows.length === 0 && <p className="grid-empty">No matching deals.</p>}
       </div>
 
+      {tip && (
+        <div className="th-tip" style={{ left: tip.x, top: tip.y + 16 }}>{tip.text}</div>
+      )}
+
       {estFor && (
         <div className="modal-overlay" onClick={() => setEstFor(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -398,28 +421,42 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
             {estLoading ? (
               <p className="modal-empty">Loading…</p>
             ) : estRows && estRows.length ? (
-              <>
-                <ul className="est-list">
+              <table className="est-table">
+                <thead>
+                  <tr>
+                    <th className="nowrap">Closed</th>
+                    <th className="nowrap">Estimate&nbsp;#</th>
+                    <th>Name</th>
+                    <th className="num">Systems</th>
+                    <th className="num">Components</th>
+                    <th className="num">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {estRows.map((e) => (
-                    <li key={e.estimate_id}>
-                      <span className="est-name2">
-                        {e.name || `Estimate #${e.estimate_id}`}
-                        {e.equipment_count ? <em> · {e.equipment_count} equip</em> : null}
-                      </span>
-                      <span className="est-right">
-                        <span className="est-v">{usd(e.subtotal)}</span>
-                        {e.estimate_job_number && (
-                          <a className="est-link2" href={`https://go.servicetitan.com/#/Job/Index/${e.estimate_job_number}`} target="_blank" rel="noopener noreferrer">↗</a>
-                        )}
-                      </span>
-                    </li>
+                    <tr key={e.estimate_id}>
+                      <td className="nowrap">{fmtCloseDate(e.sold_on)}</td>
+                      <td className="nowrap">
+                        {e.estimate_job_number ? (
+                          <a className="est-link2" href={`https://go.servicetitan.com/#/Job/Index/${e.estimate_job_number}`} target="_blank" rel="noopener noreferrer">#{e.estimate_id} ↗</a>
+                        ) : `#${e.estimate_id}`}
+                      </td>
+                      <td>{e.name || '—'}</td>
+                      <td className="num">{e.systems}</td>
+                      <td className="num">{e.components}</td>
+                      <td className="num">{usd(e.subtotal)}</td>
+                    </tr>
                   ))}
-                </ul>
-                <div className="est-totalrow">
-                  <span>{estRows.length} sold estimate{estRows.length === 1 ? '' : 's'}</span>
-                  <span>{usd(estRows.reduce((s, e) => s + (e.subtotal || 0), 0))}</span>
-                </div>
-              </>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3}>{estRows.length} sold estimate{estRows.length === 1 ? '' : 's'}</td>
+                    <td className="num">{estRows.reduce((s, e) => s + (e.systems || 0), 0)}</td>
+                    <td className="num">{estRows.reduce((s, e) => s + (e.components || 0), 0)}</td>
+                    <td className="num">{usd(estRows.reduce((s, e) => s + (e.subtotal || 0), 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
             ) : (
               <p className="modal-empty">No sold estimates found for this project.</p>
             )}

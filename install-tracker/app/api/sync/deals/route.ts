@@ -5,8 +5,9 @@ import { getServerSupabase } from '@/lib/supabase';
 import {
   getSoldEstimates, getCustomerNames, getTechnicianNames, getInstallJobForProject,
   getAppointmentStart, getInvoice, toEstimateRow,
-  estimateStatus, estimateEquipmentCount, stConfigured, type STEstimate,
+  estimateStatus, stConfigured, type STEstimate,
 } from '@/lib/servicetitan';
+import { countDeal } from '@/lib/equipment';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -77,7 +78,10 @@ async function handle(req: NextRequest) {
       const sold = (byProject.get(pid) || []).filter((e) => estimateStatus(e) === 'Sold');
       const source = sold.length ? sold : byProject.get(pid)!;
       try {
-        const equipUnits = sold.reduce((s, e) => s + estimateEquipmentCount(e), 0);
+        // Classify each sold estimate's equipment → components + complete systems.
+        const { components, systems } = countDeal(
+          sold.map((e) => (e.items || []).map((i) => ({ type: i.sku?.type, name: i.sku?.displayName || i.sku?.name, qty: i.qty }))),
+        );
         const contract = sold.reduce((s, e) => s + (e.subtotal ?? 0), 0);
         const soldDates = sold.map((e) => e.soldOn).filter(Boolean).sort() as string[];
         const rep = [...source].sort((a, b) => (b.subtotal ?? 0) - (a.subtotal ?? 0))[0];
@@ -89,30 +93,43 @@ async function handle(req: NextRequest) {
               job.invoiceId ? getInvoice(job.invoiceId).catch(() => null) : Promise.resolve(null),
             ])
           : [null, null];
-        const soldByIds = sold.map((e) => e.soldBy).filter(Boolean) as number[];
-        const soldByName = soldByIds.length ? techNames.get(soldByIds[0]) ?? null : null;
+        // The deal's sold date + seller come from the LATEST sold estimate (most
+        // recent sale on the project), not the first.
+        const latestSold = [...sold].filter((e) => e.soldOn).sort((a, b) => (a.soldOn! < b.soldOn! ? 1 : -1))[0];
+        const soldOnDate = latestSold?.soldOn ? latestSold.soldOn.slice(0, 10) : null;
+        const soldByName = latestSold?.soldBy ? techNames.get(latestSold.soldBy) ?? null : null;
         const prior = priorTriage.get(pid);
 
-        // Suggest install when the deal sold equipment OR the project already has an
-        // HVAC-Install job (catches equipment typed as material / add-ons).
-        const suggestInstall = equipUnits > 0 || !!job;
-        const reason = equipUnits > 0
-          ? `${equipUnits} equipment unit${equipUnits === 1 ? '' : 's'} on ${sold.length} sold estimate${sold.length === 1 ? '' : 's'}`
+        // Suggest install when the deal has real equipment components OR the project
+        // already has an HVAC-Install job (catches equipment typed as material / add-ons).
+        const suggestInstall = components > 0 || !!job;
+        const reason = components > 0
+          ? `${systems} system${systems === 1 ? '' : 's'} · ${components} component${components === 1 ? '' : 's'}`
           : job
-            ? `HVAC-Install job ${job.jobNumber} exists (no equipment line on estimate)`
+            ? `HVAC-Install job ${job.jobNumber} exists (no equipment on estimate)`
             : `no equipment · ${rep?.businessUnitName ?? 'unknown BU'}`;
+
+        // Auto-reopen: a deal archived earlier, where a sold estimate closed AFTER it
+        // was triaged and it now suggests Install → back to Needs Triage (new info the
+        // user didn't have when they archived). The "after triaged_at" guard prevents a
+        // re-archive loop.
+        const newSaleAfterTriage = !!(prior?.triaged_at && latestSold?.soldOn && latestSold.soldOn > prior.triaged_at);
+        const reopen = prior?.triage_status === 'archived' && suggestInstall && newSaleAfterTriage;
+        const triageStatus = reopen ? 'untriaged' : (prior?.triage_status ?? 'untriaged');
+
         const row = {
           st_project_id: pid,
-          triage_status: prior?.triage_status ?? 'untriaged',
+          triage_status: triageStatus,
           suggested_class: suggestInstall ? 'install' : 'other',
-          suggestion_reason: reason,
+          suggestion_reason: reopen ? `Re-opened: a system sold after you archived this. ${reason}` : reason,
           customer_id: rep?.customerId ?? null,
           customer_name: rep?.customerId ? names.get(rep.customerId) ?? null : null,
           sold_by_name: soldByName,
           primary_business_unit: rep?.businessUnitName ?? null,
-          sold_on: soldDates[0] ? soldDates[0].slice(0, 10) : null,
+          sold_on: soldOnDate,
           sold_estimate_count: sold.length,
-          equipment_unit_count: equipUnits,
+          equipment_unit_count: components,
+          system_count: systems,
           contract_total: Number(contract.toFixed(2)),
           install_job_number: job?.jobNumber ?? null,
           install_job_status: job?.jobStatus ?? null,
@@ -122,8 +139,8 @@ async function handle(req: NextRequest) {
           invoice_date: invoice?.date ? invoice.date.slice(0, 10) : null,
           invoice_balance: invoice?.balance ?? null,
           invoice_total: invoice?.total ?? null,
-          triaged_by: prior?.triaged_by ?? null,
-          triaged_at: prior?.triaged_at ?? null,
+          triaged_by: reopen ? null : (prior?.triaged_by ?? null),
+          triaged_at: reopen ? null : (prior?.triaged_at ?? null),
           synced_at: now,
         };
         const { error } = await supabase!.from('install_deals').upsert(row, { onConflict: 'st_project_id' });

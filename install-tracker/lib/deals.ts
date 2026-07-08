@@ -13,7 +13,8 @@ export interface Deal {
   primary_business_unit: string | null;
   sold_on: string | null;
   sold_estimate_count: number | null;
-  equipment_unit_count: number | null;
+  equipment_unit_count: number | null; // = Components (real unit pieces)
+  system_count: number | null;         // = complete systems
   contract_total: number | null;
   install_job_number: string | null;
   install_job_status: string | null;
@@ -21,8 +22,8 @@ export interface Deal {
 
 const COLS =
   'st_project_id, triage_status, suggested_class, suggestion_reason, customer_name, ' +
-  'primary_business_unit, sold_on, sold_estimate_count, equipment_unit_count, contract_total, ' +
-  'install_job_number, install_job_status';
+  'primary_business_unit, sold_on, sold_estimate_count, equipment_unit_count, system_count, ' +
+  'contract_total, install_job_number, install_job_status';
 
 export async function getDeals(status: TriageStatus, max = 10000): Promise<Deal[]> {
   const supabase = getServerSupabase();
