@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentTech } from "@/lib/tech-auth";
+import { OTP_RECENT_VERIFY_MINUTES } from "@/lib/otp";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const tech = await getCurrentTech();
   if (!tech) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-  let body: { assignment_id?: string; step_id?: string; answers?: number[]; watch_pct?: number };
+  let body: { assignment_id?: string; step_id?: string; answers?: number[]; watch_pct?: number; typed_name?: string; signature?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: "invalid body" }, { status: 400 }); }
   const { assignment_id, step_id } = body;
   if (!assignment_id || !step_id) return NextResponse.json({ ok: false, error: "assignment_id and step_id required" }, { status: 400 });
@@ -53,12 +54,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Signature step: require a recently-verified OTP + typed name + drawn signature.
+  let verified_via = "link";
+  let signature_typed_name: string | null = null;
+  let signature_image_url: string | null = null;
+  if (step.type === "signature") {
+    const typed = (body.typed_name || "").trim();
+    const sig = body.signature || "";
+    if (!typed || !sig) return NextResponse.json({ ok: false, error: "typed name and signature required" }, { status: 400 });
+    const cut = new Date(Date.now() - OTP_RECENT_VERIFY_MINUTES * 60000).toISOString();
+    const { count } = await supabase
+      .from("train_otp_codes")
+      .select("id", { count: "exact", head: true })
+      .eq("person_id", tech.id).eq("purpose", "signature")
+      .not("consumed_at", "is", null).gte("consumed_at", cut);
+    if (!count) return NextResponse.json({ ok: false, error: "verify your identity first" }, { status: 403 });
+    verified_via = "sms_otp";
+    signature_typed_name = typed;
+    signature_image_url = sig;
+  }
+
   // Record completion (idempotent on assignment+step).
   const fwd = req.headers.get("x-forwarded-for") || "";
   await supabase.from("train_step_completions").upsert({
     assignment_id, step_id,
     quiz_score, watch_pct,
-    verified_via: "link",
+    verified_via,
+    signature_typed_name,
+    signature_image_url,
     ip: fwd.split(",")[0] || null,
     user_agent: req.headers.get("user-agent") || null,
     from_phone: tech.phone,

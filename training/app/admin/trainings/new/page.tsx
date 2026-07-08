@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type StepType = "video" | "document" | "quiz";
+type StepType = "video" | "document" | "quiz" | "signature";
 interface QQ { prompt: string; choices: string[]; correct_index: number; }
-interface Step { type: StepType; url?: string; questions?: QQ[]; pass_threshold?: number; }
+interface Step { type: StepType; url?: string; questions?: QQ[]; pass_threshold?: number; policy_text?: string; }
 
 export default function NewTrainingPage() {
   const router = useRouter();
@@ -16,7 +16,10 @@ export default function NewTrainingPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const addStep = (type: StepType) =>
-    setSteps((s) => [...s, type === "quiz" ? { type, questions: [{ prompt: "", choices: ["", ""], correct_index: 0 }], pass_threshold: 80 } : { type, url: "" }]);
+    setSteps((s) => [...s,
+      type === "quiz" ? { type, questions: [{ prompt: "", choices: ["", ""], correct_index: 0 }], pass_threshold: 80 }
+      : type === "signature" ? { type, policy_text: "" }
+      : { type, url: "" }]);
   const update = (i: number, patch: Partial<Step>) => setSteps((s) => s.map((st, idx) => (idx === i ? { ...st, ...patch } : st)));
   const remove = (i: number) => setSteps((s) => s.filter((_, idx) => idx !== i));
 
@@ -27,6 +30,7 @@ export default function NewTrainingPage() {
     // shape config per step type
     const payloadSteps = steps.map((s) => {
       if (s.type === "quiz") return { type: "quiz", config: { questions: s.questions, pass_threshold: s.pass_threshold ?? 80 } };
+      if (s.type === "signature") return { type: "signature", config: { policy_text: s.policy_text } };
       return { type: s.type, config: { source: "link", url: s.url } };
     });
     setBusy(true);
@@ -61,6 +65,10 @@ export default function NewTrainingPage() {
               placeholder={s.type === "video" ? "Video link (YouTube/Vimeo/mp4)" : "Document link (PDF URL)"} style={inp} />
           )}
           {s.type === "quiz" && <QuizEditor step={s} onChange={(patch) => update(i, patch)} />}
+          {s.type === "signature" && (
+            <textarea value={s.policy_text || ""} onChange={(e) => update(i, { policy_text: e.target.value })}
+              placeholder="Policy text the tech reads and signs (e.g. the safety policy)…" rows={5} style={{ ...inp, resize: "vertical" }} />
+          )}
         </div>
       ))}
 
@@ -68,6 +76,7 @@ export default function NewTrainingPage() {
         <button onClick={() => addStep("video")} style={addBtn}>+ Video</button>
         <button onClick={() => addStep("document")} style={addBtn}>+ Document</button>
         <button onClick={() => addStep("quiz")} style={addBtn}>+ Quiz</button>
+        <button onClick={() => addStep("signature")} style={addBtn}>+ Signature</button>
       </div>
 
       {err && <p style={{ color: "var(--status-error)", marginTop: 16 }}>{err}</p>}
