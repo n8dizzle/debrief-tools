@@ -88,7 +88,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
             {deals.map((d) => (
               <tr key={d.st_project_id} className={sel.has(d.st_project_id) ? 'row-sel' : ''}>
                 <td className="chkcol"><input type="checkbox" checked={sel.has(d.st_project_id)} onChange={() => toggle(d.st_project_id)} /></td>
-                <td className="cust">{d.customer_name || `Project ${d.st_project_id}`}</td>
+                <td className="cust"><Link className="joblink" href={`/deals/${d.st_project_id}`}>{d.customer_name || `Project ${d.st_project_id}`}</Link></td>
                 <td className="muted">{d.sold_on || '—'}</td>
                 <td className="num">{d.equipment_unit_count ?? 0}</td>
                 <td className="num">{usd(d.contract_total)}</td>
@@ -99,7 +99,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
                       {d.suggested_class === 'install' ? 'Install' : 'Other'}
                     </span>
                   ) : d.install_job_number ? (
-                    <Link className="joblink" href={`/jobs/${d.install_job_number}`}>#{d.install_job_number}</Link>
+                    <a className="joblink" href={`https://go.servicetitan.com/#/Job/Index/${d.install_job_number}`} target="_blank" rel="noopener noreferrer">#{d.install_job_number} ↗</a>
                   ) : <span className="muted">—</span>}
                 </td>
                 <td className="actioncol">

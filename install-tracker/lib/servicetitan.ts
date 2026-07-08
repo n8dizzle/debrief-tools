@@ -118,17 +118,67 @@ export async function getCustomerNames(ids: number[]): Promise<Map<number, strin
 
 const HVAC_INSTALL_BU = 610;
 
+export interface InstallJobInfo {
+  jobNumber: string;
+  jobStatus: string;
+  completedOn: string | null;
+  firstAppointmentId: number | null;
+  invoiceId: number | null;
+}
+
 // The HVAC-Install (BU 610) job within a project, if one exists yet.
-export async function getInstallJobForProject(projectId: number): Promise<
-  { jobNumber: string; jobStatus: string; completedOn: string | null } | null
-> {
-  const { data } = await stGet<{ jobNumber: string; businessUnitId: number; jobStatus: string; completedOn?: string }>(
-    `jpm/v2/tenant/${tenantId}/jobs`,
-    { projectId: String(projectId), pageSize: '50' },
-  );
+export async function getInstallJobForProject(projectId: number): Promise<InstallJobInfo | null> {
+  const { data } = await stGet<{
+    jobNumber: string; businessUnitId: number; jobStatus: string; completedOn?: string;
+    firstAppointmentId?: number; invoiceId?: number;
+  }>(`jpm/v2/tenant/${tenantId}/jobs`, { projectId: String(projectId), pageSize: '50' });
   const install = data.find((j) => j.businessUnitId === HVAC_INSTALL_BU);
   if (!install) return null;
-  return { jobNumber: install.jobNumber, jobStatus: install.jobStatus, completedOn: install.completedOn ?? null };
+  return {
+    jobNumber: install.jobNumber,
+    jobStatus: install.jobStatus,
+    completedOn: install.completedOn ?? null,
+    firstAppointmentId: install.firstAppointmentId ?? null,
+    invoiceId: install.invoiceId ?? null,
+  };
+}
+
+// Scheduled date from an appointment.
+export async function getAppointmentStart(appointmentId: number): Promise<string | null> {
+  try {
+    const res = await fetch(`${BASE_URL}/jpm/v2/tenant/${tenantId}/appointments/${appointmentId}`, {
+      headers: { Authorization: `Bearer ${await getToken()}`, 'ST-App-Key': appKey },
+    });
+    if (!res.ok) return null;
+    const a = await res.json();
+    return a.start ?? null;
+  } catch { return null; }
+}
+
+// Invoice number/date/balance/total for the install job's invoice.
+export async function getInvoice(invoiceId: number): Promise<
+  { number: string | null; date: string | null; balance: number | null; total: number | null } | null
+> {
+  const { data } = await stGet<{ id: number; invoiceNumber?: string; invoiceDate?: string; balance?: number; total?: number }>(
+    `accounting/v2/tenant/${tenantId}/invoices`, { ids: String(invoiceId), pageSize: '1' },
+  );
+  const inv = data[0];
+  if (!inv) return null;
+  return { number: inv.invoiceNumber ?? null, date: inv.invoiceDate ?? null, balance: inv.balance ?? null, total: inv.total ?? null };
+}
+
+// Resolve technician ids → names (for sold-by).
+export async function getTechnicianNames(ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const unique = Array.from(new Set(ids.filter((n) => n > 0)));
+  for (let i = 0; i < unique.length; i += 50) {
+    const chunk = unique.slice(i, i + 50);
+    const { data } = await stGet<{ id: number; name: string }>(
+      `settings/v2/tenant/${tenantId}/technicians`, { ids: chunk.join(','), pageSize: '50' },
+    );
+    for (const t of data) out.set(t.id, t.name);
+  }
+  return out;
 }
 
 export interface EstimateRow {

@@ -1,4 +1,6 @@
 import { getServerSupabase } from '@/lib/supabase';
+import { deriveJobStages, type InstallJob } from '@/lib/jobs';
+import type { Stage } from '@/lib/install-stages';
 
 export type TriageStatus = 'untriaged' | 'install' | 'archived';
 
@@ -32,6 +34,54 @@ export async function getDeals(status: TriageStatus, limit = 1200): Promise<Deal
     .order('sold_on', { ascending: false, nullsFirst: false })
     .limit(limit);
   return ((data as unknown) as Deal[]) ?? [];
+}
+
+export interface FullDeal extends Deal {
+  customer_id: number | null;
+  sold_by_name: string | null;
+  scheduled_date: string | null;
+  completed_date: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  invoice_balance: number | null;
+  invoice_total: number | null;
+}
+
+export async function getDeal(projectId: number): Promise<FullDeal | null> {
+  const supabase = getServerSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.from('install_deals').select('*').eq('st_project_id', projectId).maybeSingle();
+  return ((data as unknown) as FullDeal) ?? null;
+}
+
+// Derive the pipeline stages for a deal from OUR data (no ap_install_jobs). Reuses
+// deriveJobStages by shaping the deal into the InstallJob fields it reads.
+export function deriveDealStages(stages: Stage[], deal: FullDeal) {
+  const paid = deal.invoice_number != null && deal.invoice_balance != null && deal.invoice_balance <= 0;
+  const job: InstallJob = {
+    st_job_id: 0,
+    job_number: deal.install_job_number,
+    job_status: deal.install_job_status,
+    job_type_name: null,
+    business_unit_name: deal.primary_business_unit,
+    customer_name: deal.customer_name,
+    job_address: null,
+    job_total: deal.contract_total,
+    sold_on: deal.sold_on,
+    sold_by_name: deal.sold_by_name,
+    sold_estimate_job_number: null,
+    component_count: null,
+    system_count: deal.equipment_unit_count,
+    scheduled_date: deal.scheduled_date,
+    completed_date: deal.completed_date,
+    invoice_number: deal.invoice_number,
+    invoice_date: deal.invoice_date,
+    payment_status: deal.invoice_number ? (paid ? 'paid' : 'open') : null,
+    payment_paid_at: null,
+    st_equipment_cost: null,
+    st_project_id: deal.st_project_id,
+  };
+  return deriveJobStages(stages, job);
 }
 
 export async function getTriageCounts(): Promise<Record<TriageStatus, number>> {

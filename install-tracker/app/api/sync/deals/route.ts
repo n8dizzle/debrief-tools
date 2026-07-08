@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import {
-  getSoldEstimates, getCustomerNames, getInstallJobForProject, toEstimateRow,
+  getSoldEstimates, getCustomerNames, getTechnicianNames, getInstallJobForProject,
+  getAppointmentStart, getInvoice, toEstimateRow,
   estimateStatus, estimateEquipmentCount, stConfigured, type STEstimate,
 } from '@/lib/servicetitan';
 
@@ -51,10 +52,12 @@ async function handle(req: NextRequest) {
   }
   const projectIds = Array.from(byProject.keys()).slice(0, projectLimit);
 
-  // 4) Resolve customer names + existing triage decisions (to preserve them)
+  // 4) Resolve customer + technician names, and existing triage decisions (preserve them)
   const custIds = withProject.map((e) => e.customerId ?? 0);
-  const [names, existing] = await Promise.all([
+  const techIds = withProject.map((e) => e.soldBy ?? 0);
+  const [names, techNames, existing] = await Promise.all([
     getCustomerNames(custIds),
+    getTechnicianNames(techIds),
     supabase.from('install_deals').select('st_project_id, triage_status, triaged_by, triaged_at')
       .in('st_project_id', projectIds),
   ]);
@@ -79,6 +82,15 @@ async function handle(req: NextRequest) {
         const soldDates = sold.map((e) => e.soldOn).filter(Boolean).sort() as string[];
         const rep = [...source].sort((a, b) => (b.subtotal ?? 0) - (a.subtotal ?? 0))[0];
         const job = await getInstallJobForProject(pid).catch(() => null);
+        // Pull the install job's schedule + invoice straight from ST (own data).
+        const [apptStart, invoice] = job
+          ? await Promise.all([
+              job.firstAppointmentId ? getAppointmentStart(job.firstAppointmentId).catch(() => null) : Promise.resolve(null),
+              job.invoiceId ? getInvoice(job.invoiceId).catch(() => null) : Promise.resolve(null),
+            ])
+          : [null, null];
+        const soldByIds = sold.map((e) => e.soldBy).filter(Boolean) as number[];
+        const soldByName = soldByIds.length ? techNames.get(soldByIds[0]) ?? null : null;
         const prior = priorTriage.get(pid);
 
         // Suggest install when the deal sold equipment OR the project already has an
@@ -96,6 +108,7 @@ async function handle(req: NextRequest) {
           suggestion_reason: reason,
           customer_id: rep?.customerId ?? null,
           customer_name: rep?.customerId ? names.get(rep.customerId) ?? null : null,
+          sold_by_name: soldByName,
           primary_business_unit: rep?.businessUnitName ?? null,
           sold_on: soldDates[0] ? soldDates[0].slice(0, 10) : null,
           sold_estimate_count: sold.length,
@@ -103,7 +116,12 @@ async function handle(req: NextRequest) {
           contract_total: Number(contract.toFixed(2)),
           install_job_number: job?.jobNumber ?? null,
           install_job_status: job?.jobStatus ?? null,
+          scheduled_date: apptStart ? apptStart.slice(0, 10) : null,
           completed_date: job?.completedOn ? job.completedOn.slice(0, 10) : null,
+          invoice_number: invoice?.number ?? null,
+          invoice_date: invoice?.date ? invoice.date.slice(0, 10) : null,
+          invoice_balance: invoice?.balance ?? null,
+          invoice_total: invoice?.total ?? null,
           triaged_by: prior?.triaged_by ?? null,
           triaged_at: prior?.triaged_at ?? null,
           synced_at: now,
