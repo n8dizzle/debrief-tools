@@ -292,3 +292,27 @@ button { font: inherit; }
 .col-resize:hover { background: color-mix(in srgb, var(--christmas-green) 40%, transparent); }
 .grid-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grid-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+/* ---------- Job pipeline: expandable detail + ST links ---------- */
+.joblinks { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 12px;
+  padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.stlink { font-size: 12.5px; font-weight: 560; color: var(--christmas-green-light);
+  text-decoration: none; background: rgba(93,138,102,.12); border: 1px solid var(--border-subtle);
+  padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
+.stlink:hover { border-color: var(--christmas-green); background: rgba(93,138,102,.2); }
+
+.jp-headrow { display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: transparent; border: 0; padding: 0; cursor: pointer; color: inherit; text-align: left; }
+.jp-headrow:disabled { cursor: default; }
+.jp-chev { color: var(--text-muted); font-size: 18px; line-height: 1; transition: transform .18s; flex: none; padding-left: 10px; }
+.jp-chev.open { transform: rotate(90deg); color: var(--christmas-green-light); }
+
+.jp-expand { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; gap: 8px; animation: jpfade .16s ease; }
+@keyframes jpfade { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .jp-expand { animation: none; } }
+.jp-drow { display: flex; gap: 14px; font-size: 13px; }
+.jp-dlabel { flex: none; width: 150px; color: var(--text-muted); }
+.jp-dval { color: var(--text-primary); }
+.jp-dval a { color: var(--christmas-green-light); text-decoration: none; }
+.jp-dval a:hover { text-decoration: underline; }
