@@ -45,7 +45,7 @@ function presetRange(key: string): { from: string; to: string } | null {
   }
 }
 
-type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'equipment_unit_count' | 'contract_total' | 'suggested_class' | 'project';
+type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'equipment_unit_count' | 'sold_est' | 'contract_total' | 'suggested_class' | 'project';
 interface ColDef { id: ColId; label: string; num?: boolean; width: number; }
 
 const DEFAULT_COLUMNS: ColDef[] = [
@@ -53,6 +53,7 @@ const DEFAULT_COLUMNS: ColDef[] = [
   { id: 'sold_on', label: 'Sold', width: 110 },
   { id: 'primary_business_unit', label: 'Business unit', width: 160 },
   { id: 'equipment_unit_count', label: 'Systems', num: true, width: 90 },
+  { id: 'sold_est', label: 'Sold est.', num: true, width: 90 },
   { id: 'contract_total', label: 'Contract', num: true, width: 120 },
   { id: 'suggested_class', label: 'Suggestion', width: 130 },
   { id: 'project', label: 'Project', width: 110 },
@@ -66,6 +67,7 @@ function sortVal(d: Deal, id: ColId): string | number {
     case 'sold_on': return d.sold_on || '';
     case 'primary_business_unit': return (d.primary_business_unit || '').toLowerCase();
     case 'equipment_unit_count': return d.equipment_unit_count ?? -1;
+    case 'sold_est': return d.sold_estimate_count ?? -1;
     case 'contract_total': return d.contract_total ?? -1;
     case 'suggested_class': return d.suggested_class || '';
     case 'project': return d.st_project_id;
@@ -122,6 +124,21 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
   const dateLabel = datePreset && datePreset !== 'custom'
     ? DATE_PRESETS.find((p) => p.key === datePreset)?.label ?? 'All dates'
     : (from || to) ? `${from || '…'} → ${to || '…'}` : 'All dates';
+
+  // Sold-estimate drill-down popup
+  type EstRow = { estimate_id: number; estimate_job_number: string | null; name: string | null; subtotal: number | null; equipment_count: number | null };
+  const [estFor, setEstFor] = useState<{ pid: number; name: string } | null>(null);
+  const [estRows, setEstRows] = useState<EstRow[] | null>(null);
+  const [estLoading, setEstLoading] = useState(false);
+  async function openEst(d: Deal) {
+    setEstFor({ pid: d.st_project_id, name: d.customer_name || `Project ${d.st_project_id}` });
+    setEstRows(null); setEstLoading(true);
+    try {
+      const res = await fetch(`/api/deals/estimates?projectId=${d.st_project_id}`);
+      const j = await res.json();
+      setEstRows(j.estimates || []);
+    } catch { setEstRows([]); } finally { setEstLoading(false); }
+  }
 
   // sort + columns
   const [sortCol, setSortCol] = useState<ColId>('sold_on');
@@ -238,6 +255,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       case 'sold_on': return <span className="muted">{d.sold_on || '—'}</span>;
       case 'primary_business_unit': return <span className="muted">{d.primary_business_unit || '—'}</span>;
       case 'equipment_unit_count': return d.equipment_unit_count ?? 0;
+      case 'sold_est': return <button className="est-count" onClick={() => openEst(d)} title="View sold estimates">{d.sold_estimate_count ?? 0}</button>;
       case 'contract_total': return usd(d.contract_total);
       case 'suggested_class':
         return <span className={`badge ${d.suggested_class === 'install' ? 'badge-stage' : 'badge-other'}`} title={d.suggestion_reason || ''}>{d.suggested_class === 'install' ? 'Install' : 'Other'}</span>;
@@ -369,6 +387,45 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
         </table>
         {rows.length === 0 && <p className="grid-empty">No matching deals.</p>}
       </div>
+
+      {estFor && (
+        <div className="modal-overlay" onClick={() => setEstFor(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Sold estimates · {estFor.name}</h3>
+              <button className="modal-x" onClick={() => setEstFor(null)} aria-label="Close">✕</button>
+            </div>
+            {estLoading ? (
+              <p className="modal-empty">Loading…</p>
+            ) : estRows && estRows.length ? (
+              <>
+                <ul className="est-list">
+                  {estRows.map((e) => (
+                    <li key={e.estimate_id}>
+                      <span className="est-name2">
+                        {e.name || `Estimate #${e.estimate_id}`}
+                        {e.equipment_count ? <em> · {e.equipment_count} equip</em> : null}
+                      </span>
+                      <span className="est-right">
+                        <span className="est-v">{usd(e.subtotal)}</span>
+                        {e.estimate_job_number && (
+                          <a className="est-link2" href={`https://go.servicetitan.com/#/Job/Index/${e.estimate_job_number}`} target="_blank" rel="noopener noreferrer">↗</a>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="est-totalrow">
+                  <span>{estRows.length} sold estimate{estRows.length === 1 ? '' : 's'}</span>
+                  <span>{usd(estRows.reduce((s, e) => s + (e.subtotal || 0), 0))}</span>
+                </div>
+              </>
+            ) : (
+              <p className="modal-empty">No sold estimates found for this project.</p>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

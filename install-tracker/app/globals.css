@@ -425,3 +425,27 @@ button { font: inherit; }
 .ms-head button { background: transparent; border: 0; color: var(--christmas-green-light);
   font-size: 12px; font-weight: 560; cursor: pointer; }
 .ms-head button:hover { text-decoration: underline; }
+
+/* sold-estimate count button + drill-down modal */
+.est-count { background: rgba(93,138,102,.14); border: 1px solid var(--border-subtle); color: var(--christmas-green-light);
+  border-radius: 7px; padding: 3px 10px; font: 600 13px/1 var(--mono); cursor: pointer; }
+.est-count:hover { border-color: var(--christmas-green); background: rgba(93,138,102,.24); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100; display: grid; place-items: center; padding: 24px; }
+.modal { width: 100%; max-width: 520px; max-height: 80vh; overflow-y: auto; background: var(--bg-card);
+  border: 1px solid var(--border-subtle); border-radius: 14px; box-shadow: var(--shadow); padding: 20px 22px; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.modal-head h3 { font-size: 16px; font-weight: 640; color: var(--christmas-cream); letter-spacing: -.2px; }
+.modal-x { background: transparent; border: 0; color: var(--text-muted); font-size: 16px; cursor: pointer; }
+.modal-x:hover { color: var(--text-primary); }
+.modal-empty { color: var(--text-muted); font-size: 14px; padding: 12px 0; }
+.est-list { list-style: none; margin: 0; padding: 0; }
+.est-list li { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
+.est-name2 { font-weight: 540; font-size: 14px; }
+.est-name2 em { color: var(--text-muted); font-style: normal; font-size: 12.5px; }
+.est-right { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+.est-v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.est-link2 { color: var(--christmas-green-light); text-decoration: none; }
+.est-totalrow { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 4px;
+  font-weight: 700; color: var(--christmas-cream); font-variant-numeric: tabular-nums; }
