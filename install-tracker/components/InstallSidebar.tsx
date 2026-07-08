@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const links = [
   { href: '/', label: 'Pipeline Map', icon: 'map' },
-  { href: '/jobs', label: 'HVAC Install Jobs', icon: 'jobs' },
+  { href: '/deals', label: 'Deals', icon: 'jobs' },
 ];
 
 function NavIcon({ type }: { type: string }) {

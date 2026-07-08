@@ -46,17 +46,27 @@ interface STEstimateItem {
   total?: number;
   sku?: { name?: string; displayName?: string; type?: string };
 }
-interface STEstimate {
+export interface STEstimate {
   id: number;
   jobNumber?: string;
   jobId?: number;
+  projectId?: number;
   name?: string;
   status?: { name?: string } | string;
   soldBy?: number | null;
   soldOn?: string | null;
   subtotal?: number;
   tax?: number;
+  businessUnitName?: string;
+  customerId?: number;
   items?: STEstimateItem[];
+}
+
+export function estimateStatus(e: STEstimate): string | null {
+  return typeof e.status === 'object' ? e.status?.name ?? null : e.status ?? null;
+}
+export function estimateEquipmentCount(e: STEstimate): number {
+  return (e.items || []).filter((i) => (i.sku?.type || '').toLowerCase() === 'equipment').length;
 }
 
 export async function getEstimatesByProject(projectId: number): Promise<STEstimate[]> {
@@ -72,6 +82,53 @@ export async function getEstimatesByProject(projectId: number): Promise<STEstima
     page++;
   }
   return all;
+}
+
+// All SOLD estimates tenant-wide since a date (every business unit). The entry
+// point for independent deal discovery.
+export async function getSoldEstimates(soldAfterISO: string): Promise<STEstimate[]> {
+  const all: STEstimate[] = [];
+  let page = 1;
+  while (page <= 200) {
+    const { data, hasMore } = await stGet<STEstimate>(
+      `sales/v2/tenant/${tenantId}/estimates`,
+      { soldAfter: soldAfterISO, pageSize: '200', page: String(page) },
+    );
+    all.push(...data);
+    if (!hasMore) break;
+    page++;
+  }
+  return all;
+}
+
+// Resolve customer ids → names (batched).
+export async function getCustomerNames(ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const unique = Array.from(new Set(ids.filter((n) => n > 0)));
+  for (let i = 0; i < unique.length; i += 50) {
+    const chunk = unique.slice(i, i + 50);
+    const { data } = await stGet<{ id: number; name: string }>(
+      `crm/v2/tenant/${tenantId}/customers`,
+      { ids: chunk.join(','), pageSize: '50' },
+    );
+    for (const c of data) out.set(c.id, c.name);
+  }
+  return out;
+}
+
+const HVAC_INSTALL_BU = 610;
+
+// The HVAC-Install (BU 610) job within a project, if one exists yet.
+export async function getInstallJobForProject(projectId: number): Promise<
+  { jobNumber: string; jobStatus: string; completedOn: string | null } | null
+> {
+  const { data } = await stGet<{ jobNumber: string; businessUnitId: number; jobStatus: string; completedOn?: string }>(
+    `jpm/v2/tenant/${tenantId}/jobs`,
+    { projectId: String(projectId), pageSize: '50' },
+  );
+  const install = data.find((j) => j.businessUnitId === HVAC_INSTALL_BU);
+  if (!install) return null;
+  return { jobNumber: install.jobNumber, jobStatus: install.jobStatus, completedOn: install.completedOn ?? null };
 }
 
 export interface EstimateRow {
