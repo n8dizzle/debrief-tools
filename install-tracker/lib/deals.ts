@@ -24,7 +24,7 @@ const COLS =
   'primary_business_unit, sold_on, sold_estimate_count, equipment_unit_count, contract_total, ' +
   'install_job_number, install_job_status';
 
-export async function getDeals(status: TriageStatus, limit = 1200): Promise<Deal[]> {
+export async function getDeals(status: TriageStatus, limit = 2500): Promise<Deal[]> {
   const supabase = getServerSupabase();
   if (!supabase) return [];
   const { data } = await supabase
