@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import DataTable, { type Column } from "@/components/DataTable";
 
 export interface Assignment {
-  id: string; person_name: string; phone: string | null; training_title: string;
+  id: string; person_id: string | null; person_name: string; phone: string | null; training_title: string;
   status: string; assigned_at: string | null; due_at: string | null; completed_at: string | null;
 }
 
@@ -35,7 +36,7 @@ export default function ComplianceView({ rows }: { rows: Assignment[] }) {
   }
 
   const cols: Column<Assignment>[] = [
-    { key: "person_name", label: "Person", width: 200 },
+    { key: "person_name", label: "Person", width: 200, render: (r) => r.person_id ? <Link href={`/admin/people/${r.person_id}`} style={{ color: "var(--christmas-green-light)", textDecoration: "none" }}>{r.person_name}</Link> : r.person_name },
     { key: "training_title", label: "Training", width: 240 },
     { key: "status", label: "Status", width: 130, render: (r) => statusBadge(r.status) },
     { key: "assigned_at", label: "Assigned", width: 120, sortValue: (r) => r.assigned_at || "", render: (r) => fmt(r.assigned_at) },
@@ -62,6 +63,7 @@ export default function ComplianceView({ rows }: { rows: Assignment[] }) {
         <button className="btn btn-primary" onClick={remindAll} disabled={busy || overdue === 0} style={{ opacity: busy || overdue === 0 ? 0.5 : 1 }}>
           {busy ? "Texting…" : `Remind overdue (${overdue})`}
         </button>
+        <a className="btn btn-secondary" href="/api/admin/export/compliance">Export CSV</a>
         {remindMsg && <span style={{ fontSize: 14, color: remindMsg.startsWith("Error") ? "var(--status-error)" : "var(--status-success)" }}>{remindMsg}</span>}
       </div>
       <DataTable columns={cols} rows={rows} storageKey="train-compliance" initialSort={{ key: "status", dir: "asc" }} emptyText="No assignments yet — assign a training." />

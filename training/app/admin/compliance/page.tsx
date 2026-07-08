@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 interface Raw {
   id: string; status: string; assigned_at: string | null; due_at: string | null; completed_at: string | null;
-  person: { name: string; phone: string | null } | null;
+  person: { id: string; name: string; phone: string | null } | null;
   training: { title: string } | null;
 }
 
@@ -16,7 +16,7 @@ export default async function CompliancePage() {
     const supabase = getServerSupabase();
     const { data, error } = await supabase
       .from("train_assignments")
-      .select("id, status, assigned_at, due_at, completed_at, person:train_people(name, phone), training:train_trainings(title)")
+      .select("id, status, assigned_at, due_at, completed_at, person:train_people(id, name, phone), training:train_trainings(title)")
       .neq("status", "revoked")
       .order("assigned_at", { ascending: false });
     if (error) loadErr = error.message;
@@ -26,6 +26,7 @@ export default async function CompliancePage() {
         const overdue = r.status !== "completed" && r.due_at != null && new Date(r.due_at).getTime() < now;
         return {
           id: r.id,
+          person_id: r.person?.id || null,
           person_name: r.person?.name || "—",
           phone: r.person?.phone || null,
           training_title: r.training?.title || "—",
