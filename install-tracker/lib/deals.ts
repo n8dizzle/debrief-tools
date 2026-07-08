@@ -24,16 +24,27 @@ const COLS =
   'primary_business_unit, sold_on, sold_estimate_count, equipment_unit_count, contract_total, ' +
   'install_job_number, install_job_status';
 
-export async function getDeals(status: TriageStatus, limit = 2500): Promise<Deal[]> {
+export async function getDeals(status: TriageStatus, max = 10000): Promise<Deal[]> {
   const supabase = getServerSupabase();
   if (!supabase) return [];
-  const { data } = await supabase
-    .from('install_deals')
-    .select(COLS)
-    .eq('triage_status', status)
-    .order('sold_on', { ascending: false, nullsFirst: false })
-    .limit(limit);
-  return ((data as unknown) as Deal[]) ?? [];
+  // Supabase caps each response at ~1000 rows regardless of .limit(), so page
+  // through with .range() until exhausted — otherwise filtering/bulk-triage
+  // would act on an incomplete set.
+  const PAGE = 1000;
+  const all: Deal[] = [];
+  for (let from = 0; from < max; from += PAGE) {
+    const { data } = await supabase
+      .from('install_deals')
+      .select(COLS)
+      .eq('triage_status', status)
+      .order('sold_on', { ascending: false, nullsFirst: false })
+      .order('st_project_id', { ascending: false })
+      .range(from, from + PAGE - 1);
+    const rows = ((data as unknown) as Deal[]) ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return all;
 }
 
 export interface FullDeal extends Deal {
