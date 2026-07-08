@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,10 @@ export default async function TrainingsPage() {
 
   return (
     <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Trainings</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 4 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Trainings</h1>
+        <Link href="/admin/trainings/new" style={{ padding: "10px 18px", borderRadius: 10, background: "var(--christmas-green)", color: "var(--christmas-cream)", fontWeight: 700, textDecoration: "none" }}>+ New training</Link>
+      </div>
       <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 24 }}>
         A training is an ordered set of steps (video, document, quiz) you text to techs.
       </p>
@@ -45,8 +49,12 @@ export default async function TrainingsPage() {
             </tr></thead>
             <tbody>
               {trainings.map((t) => (
-                <tr key={t.id}><td style={{ padding: "10px 12px", borderTop: "1px solid var(--border-subtle)" }}>{t.title}</td>
-                <td style={{ padding: "10px 12px", borderTop: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}>{t.status}</td></tr>
+                <tr key={t.id}>
+                  <td style={{ padding: "10px 12px", borderTop: "1px solid var(--border-subtle)" }}>
+                    <Link href={`/admin/trainings/${t.id}`} style={{ color: "var(--christmas-green-light)", textDecoration: "none", fontWeight: 600 }}>{t.title}</Link>
+                  </td>
+                  <td style={{ padding: "10px 12px", borderTop: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}>{t.status}</td>
+                </tr>
               ))}
             </tbody>
           </table>
