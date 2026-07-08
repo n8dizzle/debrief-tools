@@ -381,3 +381,39 @@ button { font: inherit; }
 .segmented button:last-child { border-right: 0; }
 .segmented button:hover { background: var(--bg-card-hover); }
 .segmented button.on { background: var(--christmas-green); color: var(--christmas-cream); font-weight: 640; }
+
+/* click-away dropdowns (BU multiselect + date popover) */
+.dd { position: relative; }
+.dd-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-card);
+  border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 8px;
+  padding: 8px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.dd-btn:hover { border-color: var(--christmas-green); }
+.dd-chev { color: var(--text-muted); }
+.dd-pop { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; background: var(--bg-card);
+  border: 1px solid var(--border-subtle); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 8px; min-width: 230px; max-height: 340px; overflow-y: auto; }
+
+.dp-pop { min-width: 300px; padding: 12px; overflow: visible; }
+.dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dp-grid button { text-align: left; background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); border-radius: 8px; padding: 9px 11px; font-size: 13px; cursor: pointer; }
+.dp-grid button:hover { border-color: var(--christmas-green); color: var(--text-primary); }
+.dp-grid button.on { background: var(--christmas-green); color: var(--christmas-cream);
+  border-color: var(--christmas-green); font-weight: 600; }
+.dp-custom { margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+.dp-clabel { font: 600 10.5px/1 var(--sans); text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: 8px; }
+.dp-crow { display: flex; gap: 10px; }
+.dp-crow label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted); flex: 1; }
+.dp-crow input { background: var(--bg-secondary); border: 1px solid var(--border-subtle); color: var(--text-primary);
+  border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; color-scheme: dark; }
+.dp-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 10px; }
+.dp-clear { background: transparent; border: 0; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.dp-clear:hover { color: var(--text-primary); text-decoration: underline; }
+.dp-apply { background: var(--christmas-green); color: var(--christmas-cream); border: 0; border-radius: 8px;
+  padding: 9px 20px; font-weight: 600; font-size: 13px; cursor: pointer; flex: 1; }
+.dp-apply:hover { background: var(--christmas-green-dark); }
+
+/* no spinners on amount inputs */
+.grid-mini[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.grid-mini[type="number"]::-webkit-outer-spin-button,
+.grid-mini[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

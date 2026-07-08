@@ -72,6 +72,23 @@ function sortVal(d: Deal, id: ColId): string | number {
   }
 }
 
+function useOutsideClose(ref: React.RefObject<HTMLElement>, open: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open, ref, onClose]);
+}
+
+function CalIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+}
+
 export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageStatus }) {
   const router = useRouter();
   const [sel, setSel] = useState<Set<number>>(new Set());
@@ -87,13 +104,24 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
   const [minAmt, setMinAmt] = useState('');
   const [maxAmt, setMaxAmt] = useState('');
 
+  const [buOpen, setBuOpen] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
+  const buRef = useRef<HTMLDivElement>(null);
+  const dateRef = useRef<HTMLDivElement>(null);
+  useOutsideClose(buRef, buOpen, () => setBuOpen(false));
+  useOutsideClose(dateRef, dateOpen, () => setDateOpen(false));
+
   function applyPreset(key: string) {
     setDatePreset(key);
-    if (key === 'custom') return;              // keep current from/to, reveal inputs
+    if (key === 'custom') return;              // keep current from/to
     const r = presetRange(key);
     setFrom(r?.from ?? ''); setTo(r?.to ?? '');
   }
   function toggleBu(b: string) { setBus((p) => { const n = new Set(p); n.has(b) ? n.delete(b) : n.add(b); return n; }); }
+
+  const dateLabel = datePreset && datePreset !== 'custom'
+    ? DATE_PRESETS.find((p) => p.key === datePreset)?.label ?? 'All dates'
+    : (from || to) ? `${from || '…'} → ${to || '…'}` : 'All dates';
 
   // sort + columns
   const [sortCol, setSortCol] = useState<ColId>('sold_on');
@@ -224,17 +252,22 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       <div className="grid-toolbar">
         <input className="grid-search" placeholder="Search customer or project…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
-        {/* Business unit — multi-select */}
-        <details className="ms">
-          <summary>{bus.size ? `${bus.size} business unit${bus.size > 1 ? 's' : ''}` : 'All business units'}</summary>
-          <div className="ms-panel">
-            {businessUnits.map((b) => (
-              <label key={b} className="ms-item">
-                <input type="checkbox" checked={bus.has(b)} onChange={() => toggleBu(b)} /> {b}
-              </label>
-            ))}
-          </div>
-        </details>
+        {/* Business unit — multi-select (click-away closes) */}
+        <div className="dd" ref={buRef}>
+          <button className="dd-btn" onClick={() => setBuOpen((o) => !o)}>
+            {bus.size ? `${bus.size} business unit${bus.size > 1 ? 's' : ''}` : 'All business units'}
+            <span className="dd-chev">{buOpen ? '▴' : '▾'}</span>
+          </button>
+          {buOpen && (
+            <div className="dd-pop">
+              {businessUnits.map((b) => (
+                <label key={b} className="ms-item">
+                  <input type="checkbox" checked={bus.has(b)} onChange={() => toggleBu(b)} /> {b}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Suggestion — quick-filter buttons */}
         <div className="segmented">
@@ -243,16 +276,33 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
           <button className={sugg === 'other' ? 'on' : ''} onClick={() => setSugg('other')}>Other</button>
         </div>
 
-        {/* Sold date — presets */}
-        <select className="grid-mini" value={datePreset} onChange={(e) => applyPreset(e.target.value)}>
-          {DATE_PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-        </select>
-        {datePreset === 'custom' && (
-          <>
-            <input className="grid-mini" type="date" title="Sold on or after" value={from} onChange={(e) => setFrom(e.target.value)} />
-            <input className="grid-mini" type="date" title="Sold on or before" value={to} onChange={(e) => setTo(e.target.value)} />
-          </>
-        )}
+        {/* Sold date — preset popover */}
+        <div className="dd" ref={dateRef}>
+          <button className="dd-btn" onClick={() => setDateOpen((o) => !o)}>
+            <CalIcon /> {dateLabel} <span className="dd-chev">{dateOpen ? '▴' : '▾'}</span>
+          </button>
+          {dateOpen && (
+            <div className="dd-pop dp-pop">
+              <div className="dp-grid">
+                {DATE_PRESETS.filter((p) => p.key && p.key !== 'custom').map((p) => (
+                  <button key={p.key} className={datePreset === p.key ? 'on' : ''}
+                    onClick={() => { applyPreset(p.key); setDateOpen(false); }}>{p.label}</button>
+                ))}
+              </div>
+              <div className="dp-custom">
+                <div className="dp-clabel">Custom range</div>
+                <div className="dp-crow">
+                  <label>Start<input type="date" value={from} onChange={(e) => { setDatePreset('custom'); setFrom(e.target.value); }} /></label>
+                  <label>End<input type="date" value={to} onChange={(e) => { setDatePreset('custom'); setTo(e.target.value); }} /></label>
+                </div>
+              </div>
+              <div className="dp-foot">
+                <button className="dp-clear" onClick={() => { applyPreset(''); setDateOpen(false); }}>All dates</button>
+                <button className="dp-apply" onClick={() => setDateOpen(false)}>Apply</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <input className="grid-mini" type="number" placeholder="Min $" value={minAmt} onChange={(e) => setMinAmt(e.target.value)} />
         <input className="grid-mini" type="number" placeholder="Max $" value={maxAmt} onChange={(e) => setMaxAmt(e.target.value)} />
