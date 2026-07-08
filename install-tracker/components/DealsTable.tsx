@@ -9,6 +9,42 @@ const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const stProject = (id: number) => `https://go.servicetitan.com/#/Project/${id}`;
 
+// Central-safe local date (never toISOString — that shifts to UTC).
+function fmtLocal(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const DATE_PRESETS: { key: string; label: string }[] = [
+  { key: '', label: 'All dates' },
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'thisWeek', label: 'Week to date' },
+  { key: 'lastWeek', label: 'Last week' },
+  { key: 'mtd', label: 'Month to date' },
+  { key: 'lastMonth', label: 'Last month' },
+  { key: 'qtd', label: 'Quarter to date' },
+  { key: 'lastQuarter', label: 'Last quarter' },
+  { key: 'ytd', label: 'Year to date' },
+  { key: 'lastYear', label: 'Last year' },
+  { key: 'custom', label: 'Custom…' },
+];
+function presetRange(key: string): { from: string; to: string } | null {
+  const now = new Date();
+  const today = fmtLocal(now);
+  switch (key) {
+    case 'today': return { from: today, to: today };
+    case 'yesterday': { const y = new Date(now); y.setDate(now.getDate() - 1); return { from: fmtLocal(y), to: fmtLocal(y) }; }
+    case 'thisWeek': { const s = new Date(now); s.setDate(now.getDate() - now.getDay()); return { from: fmtLocal(s), to: today }; }
+    case 'lastWeek': { const e = new Date(now); e.setDate(now.getDate() - now.getDay() - 1); const s = new Date(e); s.setDate(e.getDate() - 6); return { from: fmtLocal(s), to: fmtLocal(e) }; }
+    case 'mtd': return { from: fmtLocal(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
+    case 'lastMonth': return { from: fmtLocal(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: fmtLocal(new Date(now.getFullYear(), now.getMonth(), 0)) };
+    case 'qtd': { const q = Math.floor(now.getMonth() / 3) * 3; return { from: fmtLocal(new Date(now.getFullYear(), q, 1)), to: today }; }
+    case 'lastQuarter': { const q = Math.floor(now.getMonth() / 3) * 3; return { from: fmtLocal(new Date(now.getFullYear(), q - 3, 1)), to: fmtLocal(new Date(now.getFullYear(), q, 0)) }; }
+    case 'ytd': return { from: `${now.getFullYear()}-01-01`, to: today };
+    case 'lastYear': return { from: `${now.getFullYear() - 1}-01-01`, to: `${now.getFullYear() - 1}-12-31` };
+    default: return null;
+  }
+}
+
 type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'equipment_unit_count' | 'contract_total' | 'suggested_class' | 'project';
 interface ColDef { id: ColId; label: string; num?: boolean; width: number; }
 
@@ -43,12 +79,21 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
 
   // filters
   const [search, setSearch] = useState('');
-  const [bu, setBu] = useState('');
+  const [bus, setBus] = useState<Set<string>>(new Set());
   const [sugg, setSugg] = useState('');
+  const [datePreset, setDatePreset] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [minAmt, setMinAmt] = useState('');
   const [maxAmt, setMaxAmt] = useState('');
+
+  function applyPreset(key: string) {
+    setDatePreset(key);
+    if (key === 'custom') return;              // keep current from/to, reveal inputs
+    const r = presetRange(key);
+    setFrom(r?.from ?? ''); setTo(r?.to ?? '');
+  }
+  function toggleBu(b: string) { setBus((p) => { const n = new Set(p); n.has(b) ? n.delete(b) : n.add(b); return n; }); }
 
   // sort + columns
   const [sortCol, setSortCol] = useState<ColId>('sold_on');
@@ -92,7 +137,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
     const hi = maxAmt ? Number(maxAmt) : null;
     let out = deals.filter((d) => {
       if (q && !(`${d.customer_name || ''}`.toLowerCase().includes(q) || String(d.st_project_id).includes(q))) return false;
-      if (bu && d.primary_business_unit !== bu) return false;
+      if (bus.size && !bus.has(d.primary_business_unit || '')) return false;
       if (sugg && (d.suggested_class || 'other') !== sugg) return false;
       if (from && (d.sold_on || '') < from) return false;
       if (to && (d.sold_on || '') > to) return false;
@@ -107,10 +152,10 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
     });
     return out;
-  }, [deals, search, bu, sugg, from, to, minAmt, maxAmt, sortCol, sortDir]);
+  }, [deals, search, bus, sugg, from, to, minAmt, maxAmt, sortCol, sortDir]);
 
-  const anyFilter = search || bu || sugg || from || to || minAmt || maxAmt;
-  function clearFilters() { setSearch(''); setBu(''); setSugg(''); setFrom(''); setTo(''); setMinAmt(''); setMaxAmt(''); }
+  const anyFilter = search || bus.size || sugg || from || to || minAmt || maxAmt;
+  function clearFilters() { setSearch(''); setBus(new Set()); setSugg(''); setDatePreset(''); setFrom(''); setTo(''); setMinAmt(''); setMaxAmt(''); }
 
   function toggle(id: number) { setSel((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function toggleAll() { setSel((p) => (p.size === rows.length ? new Set() : new Set(rows.map((d) => d.st_project_id)))); }
@@ -178,17 +223,37 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
     <>
       <div className="grid-toolbar">
         <input className="grid-search" placeholder="Search customer or project…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="grid-mini" value={bu} onChange={(e) => setBu(e.target.value)}>
-          <option value="">All business units</option>
-          {businessUnits.map((b) => <option key={b} value={b}>{b}</option>)}
+
+        {/* Business unit — multi-select */}
+        <details className="ms">
+          <summary>{bus.size ? `${bus.size} business unit${bus.size > 1 ? 's' : ''}` : 'All business units'}</summary>
+          <div className="ms-panel">
+            {businessUnits.map((b) => (
+              <label key={b} className="ms-item">
+                <input type="checkbox" checked={bus.has(b)} onChange={() => toggleBu(b)} /> {b}
+              </label>
+            ))}
+          </div>
+        </details>
+
+        {/* Suggestion — quick-filter buttons */}
+        <div className="segmented">
+          <button className={sugg === '' ? 'on' : ''} onClick={() => setSugg('')}>All</button>
+          <button className={sugg === 'install' ? 'on' : ''} onClick={() => setSugg('install')}>Install</button>
+          <button className={sugg === 'other' ? 'on' : ''} onClick={() => setSugg('other')}>Other</button>
+        </div>
+
+        {/* Sold date — presets */}
+        <select className="grid-mini" value={datePreset} onChange={(e) => applyPreset(e.target.value)}>
+          {DATE_PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
         </select>
-        <select className="grid-mini" value={sugg} onChange={(e) => setSugg(e.target.value)}>
-          <option value="">Any suggestion</option>
-          <option value="install">Install</option>
-          <option value="other">Other</option>
-        </select>
-        <input className="grid-mini" type="date" title="Sold on or after" value={from} onChange={(e) => setFrom(e.target.value)} />
-        <input className="grid-mini" type="date" title="Sold on or before" value={to} onChange={(e) => setTo(e.target.value)} />
+        {datePreset === 'custom' && (
+          <>
+            <input className="grid-mini" type="date" title="Sold on or after" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <input className="grid-mini" type="date" title="Sold on or before" value={to} onChange={(e) => setTo(e.target.value)} />
+          </>
+        )}
+
         <input className="grid-mini" type="number" placeholder="Min $" value={minAmt} onChange={(e) => setMinAmt(e.target.value)} />
         <input className="grid-mini" type="number" placeholder="Max $" value={maxAmt} onChange={(e) => setMaxAmt(e.target.value)} />
         {anyFilter ? <button className="mini-btn ghost" onClick={clearFilters}>Clear</button> : null}

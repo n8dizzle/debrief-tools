@@ -359,3 +359,25 @@ button { font: inherit; }
 .grid-mini[type="number"] { width: 92px; cursor: text; }
 .grid-mini[type="date"] { color-scheme: dark; }
 .grid-mini:focus-visible { outline: 2px solid var(--christmas-green); outline-offset: 1px; }
+
+/* multi-select (business units) */
+.ms { position: relative; }
+.ms > summary { list-style: none; cursor: pointer; background: var(--bg-card); border: 1px solid var(--border-subtle);
+  color: var(--text-primary); border-radius: 8px; padding: 8px 12px; font-size: 13px; white-space: nowrap; }
+.ms > summary::-webkit-details-marker { display: none; }
+.ms > summary::after { content: ' ▾'; color: var(--text-muted); }
+.ms[open] > summary { border-color: var(--christmas-green); }
+.ms-panel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 230px; max-height: 300px;
+  overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 8px; }
+.ms-item { display: flex; align-items: center; gap: 8px; padding: 6px 6px; font-size: 13px; color: var(--text-secondary);
+  white-space: nowrap; border-radius: 6px; cursor: pointer; }
+.ms-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+/* segmented quick-filter buttons (suggestion) */
+.segmented { display: inline-flex; border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
+.segmented button { border: 0; background: var(--bg-card); color: var(--text-secondary); padding: 8px 13px;
+  font-size: 13px; font-weight: 540; cursor: pointer; border-right: 1px solid var(--border-subtle); }
+.segmented button:last-child { border-right: 0; }
+.segmented button:hover { background: var(--bg-card-hover); }
+.segmented button.on { background: var(--christmas-green); color: var(--christmas-cream); font-weight: 640; }
