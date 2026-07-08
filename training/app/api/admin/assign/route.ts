@@ -13,11 +13,14 @@ export async function POST(req: NextRequest) {
   const email = await requireManager();
   if (!email) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
-  let body: { training_id?: string; person_ids?: string[]; notify?: boolean };
+  let body: { training_id?: string; person_ids?: string[]; notify?: boolean; due_days?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: "invalid body" }, { status: 400 }); }
   const trainingId = body.training_id;
   const personIds = body.person_ids || [];
   const notify = body.notify !== false;
+  const dueAt = body.due_days && body.due_days > 0
+    ? new Date(Date.now() + body.due_days * 86400000).toISOString()
+    : null;
   if (!trainingId || !personIds.length) return NextResponse.json({ ok: false, error: "training_id and person_ids required" }, { status: 400 });
 
   const supabase = getServerSupabase();
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
     // Create assignment (dedup: one per training/person/cycle). ignoreDuplicates → no re-text on re-assign.
     const { data: created } = await supabase
       .from("train_assignments")
-      .upsert({ training_id: trainingId, person_id: p.id, assigned_by: null, source: "adhoc", cycle_key: "once" },
+      .upsert({ training_id: trainingId, person_id: p.id, assigned_by: null, source: "adhoc", cycle_key: "once", due_at: dueAt },
               { onConflict: "training_id,person_id,cycle_key", ignoreDuplicates: true })
       .select("id");
     const isNew = !!(created && created.length);

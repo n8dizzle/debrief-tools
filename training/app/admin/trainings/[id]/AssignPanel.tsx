@@ -13,6 +13,7 @@ export default function AssignPanel({ trainingId, roster }: { trainingId: string
   const techs = roster.filter((p) => p.source === "servicetitan");
   const office = roster.filter((p) => p.source === "portal");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dueDays, setDueDays] = useState<number>(7);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -26,7 +27,7 @@ export default function AssignPanel({ trainingId, roster }: { trainingId: string
     try {
       const res = await fetch("/api/admin/assign", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ training_id: trainingId, person_ids: [...selected], notify: true }),
+        body: JSON.stringify({ training_id: trainingId, person_ids: [...selected], notify: true, due_days: dueDays }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) { setResult(`Error: ${data.error || "failed"}`); }
@@ -69,6 +70,16 @@ export default function AssignPanel({ trainingId, roster }: { trainingId: string
       </div>
 
       <div style={{ padding: 14, borderTop: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <label style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+          Due in
+          <select className="input" style={{ width: "auto", padding: "6px 8px" }} value={dueDays} onChange={(e) => setDueDays(Number(e.target.value))}>
+            <option value={0}>no due date</option>
+            <option value={3}>3 days</option>
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+            <option value={30}>30 days</option>
+          </select>
+        </label>
         <button onClick={assign} disabled={busy || !selected.size} style={{ padding: "12px 20px", borderRadius: 10, border: "none", background: "var(--christmas-green)", color: "var(--christmas-cream)", fontWeight: 700, cursor: busy || !selected.size ? "default" : "pointer", opacity: busy || !selected.size ? 0.5 : 1 }}>
           {busy ? "Sending…" : `Assign & text ${selected.size || ""}`}
         </button>
