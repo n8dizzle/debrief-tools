@@ -260,6 +260,10 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
           </button>
           {buOpen && (
             <div className="dd-pop">
+              <div className="ms-head">
+                <button onClick={() => setBus(new Set(businessUnits))}>Select all</button>
+                <button onClick={() => setBus(new Set())}>Clear</button>
+              </div>
               {businessUnits.map((b) => (
                 <label key={b} className="ms-item">
                   <input type="checkbox" checked={bus.has(b)} onChange={() => toggleBu(b)} /> {b}

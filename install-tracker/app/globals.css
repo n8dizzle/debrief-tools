@@ -417,3 +417,11 @@ button { font: inherit; }
 .grid-mini[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .grid-mini[type="number"]::-webkit-outer-spin-button,
 .grid-mini[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* multi-select header actions (Select all / Clear) */
+.ms-head { display: flex; gap: 8px; justify-content: space-between; padding: 2px 6px 8px;
+  margin-bottom: 4px; border-bottom: 1px solid var(--border-subtle); position: sticky; top: -8px;
+  background: var(--bg-card); }
+.ms-head button { background: transparent; border: 0; color: var(--christmas-green-light);
+  font-size: 12px; font-weight: 560; cursor: pointer; }
+.ms-head button:hover { text-decoration: underline; }
