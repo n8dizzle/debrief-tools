@@ -25,6 +25,7 @@ export interface Deal {
   contract_total: number | null;
   install_job_number: string | null;
   install_job_status: string | null;
+  debrief_payment_type: string[]; // from the Estimate Debrief form; [] = none/blank → advisor to fill
 }
 
 const COLS =
@@ -52,7 +53,36 @@ export async function getDeals(status: TriageStatus, max = 10000): Promise<Deal[
     all.push(...rows);
     if (rows.length < PAGE) break;
   }
+  const payMap = await getDebriefPayments(all.map((d) => d.st_project_id));
+  for (const d of all) d.debrief_payment_type = payMap.get(d.st_project_id) ?? [];
   return all;
+}
+
+// Payment type per project from the Estimate Debrief form. A project can have several
+// debriefs; take the payment type from the most recent submission that actually has one.
+export async function getDebriefPayments(projectIds: number[]): Promise<Map<number, string[]>> {
+  const out = new Map<number, string[]>();
+  const supabase = getServerSupabase();
+  const ids = Array.from(new Set(projectIds.filter((n) => n != null)));
+  if (!supabase || ids.length === 0) return out;
+  const latest = new Map<number, string>(); // project → submitted_on of the chosen row
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    const { data } = await supabase
+      .from('install_debriefs')
+      .select('st_project_id, payment_type, submitted_on')
+      .in('st_project_id', chunk);
+    for (const r of ((data as unknown) as { st_project_id: number; payment_type: string[] | null; submitted_on: string | null }[]) || []) {
+      const pay = r.payment_type ?? [];
+      if (pay.length === 0) continue;
+      const when = r.submitted_on ?? '';
+      if (!out.has(r.st_project_id) || when > (latest.get(r.st_project_id) ?? '')) {
+        out.set(r.st_project_id, pay);
+        latest.set(r.st_project_id, when);
+      }
+    }
+  }
+  return out;
 }
 
 export interface FullDeal extends Deal {
@@ -70,7 +100,10 @@ export async function getDeal(projectId: number): Promise<FullDeal | null> {
   const supabase = getServerSupabase();
   if (!supabase) return null;
   const { data } = await supabase.from('install_deals').select('*').eq('st_project_id', projectId).maybeSingle();
-  return ((data as unknown) as FullDeal) ?? null;
+  if (!data) return null;
+  const deal = (data as unknown) as FullDeal;
+  deal.debrief_payment_type = (await getDebriefPayments([projectId])).get(projectId) ?? [];
+  return deal;
 }
 
 // Derive the pipeline stages for a deal from OUR data (no ap_install_jobs). Reuses

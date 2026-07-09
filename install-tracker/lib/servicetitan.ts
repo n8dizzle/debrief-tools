@@ -181,6 +181,63 @@ export async function getTechnicianNames(ids: number[]): Promise<Map<number, str
   return out;
 }
 
+// ---- Forms API (Estimate Debrief HVAC, form 2709) ----
+
+export interface STFormUnit {
+  name?: string;
+  type?: string;
+  value?: string | null;
+  values?: string[] | null;   // multi-select (Checkbox) answers live here, not in `value`
+}
+export interface STFormSubmission {
+  id: number;
+  formId: number;
+  formName?: string;
+  status?: string;            // "Started" | "Completed" | ...
+  submittedOn?: string | null;
+  owners?: { type: string; id: number }[];
+  units?: STFormUnit[];
+}
+
+// All submissions for a form. Note: the Forms API reports totalCount: 0 even when rows
+// exist, so paginate purely on hasMore.
+export async function getFormSubmissions(formId: number): Promise<STFormSubmission[]> {
+  const out: STFormSubmission[] = [];
+  let page = 1;
+  for (;;) {
+    const { data, hasMore } = await stGet<STFormSubmission>(
+      `forms/v2/tenant/${tenantId}/submissions`,
+      { formIds: String(formId), pageSize: '100', page: String(page) },
+    );
+    out.push(...data);
+    if (!hasMore) break;
+    page++;
+    if (page > 200) break; // safety
+  }
+  return out;
+}
+
+// Resolve owner-job ids → their projectId. jpm/v2/jobs has no batch-by-ids, so this is
+// one GET per job, run with a small worker pool. Returns null for jobs with no project.
+export async function getJobProjectMap(jobIds: number[], concurrency = 8): Promise<Map<number, number | null>> {
+  const out = new Map<number, number | null>();
+  const unique = Array.from(new Set(jobIds.filter((n) => n > 0)));
+  let idx = 0;
+  async function worker() {
+    while (idx < unique.length) {
+      const id = unique[idx++];
+      try {
+        const res = await fetch(`${BASE_URL}/jpm/v2/tenant/${tenantId}/jobs/${id}`, {
+          headers: { Authorization: `Bearer ${await getToken()}`, 'ST-App-Key': appKey },
+        });
+        out.set(id, res.ok ? ((await res.json()).projectId ?? null) : null);
+      } catch { out.set(id, null); }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  return out;
+}
+
 export interface EstimateRow {
   estimate_id: number;
   st_project_id: number;

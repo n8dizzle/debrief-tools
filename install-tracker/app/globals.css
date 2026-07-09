@@ -355,6 +355,12 @@ button { font: inherit; }
 .chk-tag.auto { background: rgba(93,138,102,.16); color: var(--christmas-green-light); }
 .chk-tag.manual { background: rgba(107,124,110,.16); color: var(--text-muted); }
 
+/* ---------- Debrief payment type ---------- */
+.pay-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.pay-chip { font: 560 11px/1.4 var(--sans); padding: 3px 8px; border-radius: 999px;
+  background: rgba(93,138,102,.16); color: var(--christmas-green-light); white-space: nowrap; }
+.pay-missing { font: 600 11px/1 var(--sans); color: var(--warn, #c9862b); white-space: nowrap; }
+
 /* ---------- Deals triage ---------- */
 .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--border-subtle); }
 .tab { text-decoration: none; color: var(--text-secondary); font-weight: 560; font-size: 14px;

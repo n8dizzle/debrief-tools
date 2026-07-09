@@ -62,7 +62,7 @@ function presetRange(key: string): { from: string; to: string } | null {
   }
 }
 
-type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'system_count' | 'equipment_unit_count' | 'sold_est' | 'contract_total' | 'suggested_class' | 'project';
+type ColId = 'customer' | 'sold_on' | 'primary_business_unit' | 'system_count' | 'equipment_unit_count' | 'sold_est' | 'contract_total' | 'payment' | 'suggested_class' | 'project';
 interface ColDef { id: ColId; label: string; num?: boolean; width: number; info?: string }
 
 const DEFAULT_COLUMNS: ColDef[] = [
@@ -73,6 +73,7 @@ const DEFAULT_COLUMNS: ColDef[] = [
   { id: 'equipment_unit_count', label: 'Components', num: true, width: 110, info: 'Count of individual equipment pieces — condensers, furnaces, coils, air handlers, heat pumps, packaged units. Excludes accessories like thermostats, heat strips, and UV.' },
   { id: 'sold_est', label: 'Sold est.', num: true, width: 90, info: 'Number of Sold estimates on the project. Click the count to see each estimate, its close date, and value.' },
   { id: 'contract_total', label: 'Contract', num: true, width: 120, info: 'Sum of the subtotals of all Sold estimates on the project.' },
+  { id: 'payment', label: 'Payment', width: 175, info: 'Payment type from the "Estimate Debrief HVAC / Instructions for Installers" form (Cash/Check, Credit Card, Wells Fargo, Ally, Wisetack, etc.). "Not filled" means the debrief has no payment type yet — the comfort advisor needs to complete it in ServiceTitan.' },
   { id: 'suggested_class', label: 'Suggestion', width: 130, info: 'Auto-hint only: Install if the deal has equipment components or the project already has an HVAC-Install job; otherwise Other. You decide with triage.' },
   { id: 'project', label: 'Project', width: 110, info: 'ServiceTitan project id — opens the project in ServiceTitan.' },
 ];
@@ -88,6 +89,7 @@ function sortVal(d: Deal, id: ColId): string | number {
     case 'equipment_unit_count': return d.equipment_unit_count ?? -1;
     case 'sold_est': return d.sold_estimate_count ?? -1;
     case 'contract_total': return d.contract_total ?? -1;
+    case 'payment': return d.debrief_payment_type.length ? d.debrief_payment_type.join(', ').toLowerCase() : '~'; // blanks sort last
     case 'suggested_class': return d.suggested_class || '';
     case 'project': return d.st_project_id;
   }
@@ -284,6 +286,11 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       case 'equipment_unit_count': return d.equipment_unit_count ?? 0;
       case 'sold_est': return <button className="est-count" onClick={() => openEst(d)} title="View sold estimates">{d.sold_estimate_count ?? 0}</button>;
       case 'contract_total': return usd(d.contract_total);
+      case 'payment': {
+        const p = d.debrief_payment_type;
+        if (!p.length) return <span className="pay-missing" title="No payment type on the Estimate Debrief — comfort advisor to complete it">⚠ Not filled</span>;
+        return <span className="pay-chips">{p.map((v) => <span className="pay-chip" key={v}>{v}</span>)}</span>;
+      }
       case 'suggested_class': {
         const c = d.suggested_class || 'other';
         const cls = c === 'full_system' ? 'badge-stage' : c === 'partial' ? 'badge-partial' : c === 'warranty' ? 'badge-warranty' : 'badge-other';

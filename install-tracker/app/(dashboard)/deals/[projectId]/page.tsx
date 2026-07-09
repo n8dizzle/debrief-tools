@@ -42,6 +42,7 @@ export default async function DealPage({ params }: { params: Promise<{ projectId
           <span>Contract <b>{fmtMoney(deal.contract_total) ?? '—'}</b></span>
           <span>Systems <b>{deal.system_count ?? 0}</b></span>
           <span>Components <b>{deal.equipment_unit_count ?? 0}</b></span>
+          <span>Payment <b>{deal.debrief_payment_type.length ? deal.debrief_payment_type.join(', ') : <span className="pay-missing">⚠ Not filled</span>}</b></span>
           {deal.install_job_status && <span>Install job <b>{deal.install_job_status}</b></span>}
         </div>
         <div className="joblinks">
