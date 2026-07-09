@@ -155,7 +155,7 @@ export interface PipelineStage {
   isSold: boolean;
 }
 
-type AutoSignal = 'sold' | 'job' | 'scheduled' | 'installed' | 'invoiced' | 'paid';
+type AutoSignal = 'sold' | 'job' | 'scheduled' | 'installed' | 'invoiced' | 'paid' | 'payment_type';
 
 // Map a sub-step title to a known ServiceTitan signal (hardcoded for now; could
 // become a per-node setting later). Null = manual checkbox.
@@ -167,6 +167,7 @@ function autoSignalFor(title: string): AutoSignal | null {
   if (/job created|created in servicetitan|st job/.test(t)) return 'job';
   if (/install date/.test(t)) return 'scheduled';
   if (/system installed|\binstalled\b|startup|commission/.test(t)) return 'installed';
+  if (/payment type/.test(t)) return 'payment_type'; // "payment TYPE captured" — before the generic payment→paid rule
   if (/invoice/.test(t)) return 'invoiced';
   if (/\bpaid\b|balance|payment/.test(t)) return 'paid';
   return null;
@@ -179,6 +180,7 @@ function autoState(signal: AutoSignal, deal: FullDeal): { done: boolean; evidenc
     case 'installed': return { done: !!deal.completed_date, evidence: deal.completed_date ? `completed ${deal.completed_date}` : null };
     case 'invoiced': return { done: !!deal.invoice_number, evidence: deal.invoice_number ? `invoice #${deal.invoice_number}` : null };
     case 'paid': { const p = deal.invoice_number != null && deal.invoice_balance != null && deal.invoice_balance <= 0; return { done: p, evidence: p ? 'balance $0' : null }; }
+    case 'payment_type': { const has = deal.debrief_payment_type.length > 0; return { done: has, evidence: has ? deal.debrief_payment_type.join(', ') : null }; }
   }
 }
 
