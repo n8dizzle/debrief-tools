@@ -2,12 +2,19 @@ import { getServerSupabase } from '@/lib/supabase';
 import { deriveJobStages, type InstallJob } from '@/lib/jobs';
 import type { Stage } from '@/lib/install-stages';
 
-export type TriageStatus = 'untriaged' | 'install' | 'archived';
+// A deal's assigned workflow (plus the two meta-states). "untriaged" = not yet routed;
+// "archived" = deliberately not tracked. The rest are workflows.
+export type TriageStatus = 'untriaged' | 'full_system' | 'partial' | 'warranty' | 'archived';
+export type Workflow = 'full_system' | 'partial' | 'warranty';
+export const WORKFLOW_LABEL: Record<string, string> = {
+  full_system: 'Full System', partial: 'Partial', warranty: 'Warranty',
+  other: 'Other', untriaged: 'Needs Triage', archived: 'Archived',
+};
 
 export interface Deal {
   st_project_id: number;
   triage_status: TriageStatus;
-  suggested_class: 'install' | 'other' | 'warranty' | null;
+  suggested_class: 'full_system' | 'partial' | 'warranty' | 'other' | null;
   suggestion_reason: string | null;
   customer_name: string | null;
   primary_business_unit: string | null;
@@ -96,11 +103,13 @@ export function deriveDealStages(stages: Stage[], deal: FullDeal) {
   return deriveJobStages(stages, job);
 }
 
+export const TRIAGE_STATUSES: TriageStatus[] = ['untriaged', 'full_system', 'partial', 'warranty', 'archived'];
+
 export async function getTriageCounts(): Promise<Record<TriageStatus, number>> {
   const supabase = getServerSupabase();
-  const out: Record<TriageStatus, number> = { untriaged: 0, install: 0, archived: 0 };
+  const out: Record<TriageStatus, number> = { untriaged: 0, full_system: 0, partial: 0, warranty: 0, archived: 0 };
   if (!supabase) return out;
-  for (const s of ['untriaged', 'install', 'archived'] as TriageStatus[]) {
+  for (const s of TRIAGE_STATUSES) {
     const { count } = await supabase
       .from('install_deals').select('*', { count: 'exact', head: true }).eq('triage_status', s);
     out[s] = count ?? 0;

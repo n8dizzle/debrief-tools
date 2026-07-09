@@ -5,7 +5,7 @@ import { getServerSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-const VALID = ['untriaged', 'install', 'archived'];
+const VALID = ['untriaged', 'full_system', 'partial', 'warranty', 'archived'];
 
 // Triage deals. Body: { projectIds: number[], status }. Owner/manager only.
 export async function PATCH(request: NextRequest) {

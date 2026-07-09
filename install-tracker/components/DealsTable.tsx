@@ -8,6 +8,18 @@ import type { Deal, TriageStatus } from '@/lib/deals';
 const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const stProject = (id: number) => `https://go.servicetitan.com/#/Project/${id}`;
+
+const WF_LABEL: Record<string, string> = {
+  full_system: 'Full System', partial: 'Partial', warranty: 'Warranty',
+  other: 'Other', untriaged: 'Needs Triage', archived: 'Archived',
+};
+const ASSIGN_TARGETS: { value: TriageStatus; label: string }[] = [
+  { value: 'full_system', label: 'Full System' },
+  { value: 'partial', label: 'Partial' },
+  { value: 'warranty', label: 'Warranty' },
+  { value: 'archived', label: 'Archive' },
+  { value: 'untriaged', label: 'Needs Triage' },
+];
 function fmtCloseDate(iso: string | null): string {
   if (!iso) return 'not dated';
   const [y, m, d] = iso.slice(0, 10).split('-');
@@ -244,14 +256,20 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
     } finally { setBusy(false); }
   }
   function applyAllSuggestions() {
-    const toInstall = rows.filter((d) => d.suggested_class === 'install').map((d) => d.st_project_id);
-    const toArchive = rows.filter((d) => d.suggested_class !== 'install').map((d) => d.st_project_id);
-    if (!confirm(`Apply suggestions to the ${rows.length} filtered deal${rows.length === 1 ? '' : 's'}? → ${toInstall.length} Install, ${toArchive.length} Archived.`)) return;
+    // Route each deal to the workflow its suggestion implies ('other' → Archived).
+    const groups: Record<string, number[]> = {};
+    for (const d of rows) {
+      const target = !d.suggested_class || d.suggested_class === 'other' ? 'archived' : d.suggested_class;
+      (groups[target] ||= []).push(d.st_project_id);
+    }
+    const summary = Object.entries(groups).map(([k, v]) => `${v.length} → ${WF_LABEL[k] ?? k}`).join(', ');
+    if (!confirm(`Apply suggestions to the ${rows.length} filtered deal${rows.length === 1 ? '' : 's'}?\n${summary}`)) return;
     (async () => {
       setBusy(true);
       try {
-        if (toInstall.length) await fetch('/api/deals', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectIds: toInstall, status: 'install' }) });
-        if (toArchive.length) await fetch('/api/deals', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectIds: toArchive, status: 'archived' }) });
+        for (const [status, ids] of Object.entries(groups)) {
+          if (ids.length) await fetch('/api/deals', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectIds: ids, status }) });
+        }
         setSel(new Set()); router.refresh();
       } finally { setBusy(false); }
     })();
@@ -267,9 +285,9 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       case 'sold_est': return <button className="est-count" onClick={() => openEst(d)} title="View sold estimates">{d.sold_estimate_count ?? 0}</button>;
       case 'contract_total': return usd(d.contract_total);
       case 'suggested_class': {
-        const cls = d.suggested_class === 'install' ? 'badge-stage' : d.suggested_class === 'warranty' ? 'badge-warranty' : 'badge-other';
-        const label = d.suggested_class === 'install' ? 'Install' : d.suggested_class === 'warranty' ? 'Warranty' : 'Other';
-        return <span className={`badge ${cls}`} title={d.suggestion_reason || ''}>{label}</span>;
+        const c = d.suggested_class || 'other';
+        const cls = c === 'full_system' ? 'badge-stage' : c === 'partial' ? 'badge-partial' : c === 'warranty' ? 'badge-warranty' : 'badge-other';
+        return <span className={`badge ${cls}`} title={d.suggestion_reason || ''}>{WF_LABEL[c]}</span>;
       }
       case 'project': return <a className="joblink" href={stProject(d.st_project_id)} target="_blank" rel="noopener noreferrer">#{d.st_project_id} ↗</a>;
     }
@@ -306,7 +324,8 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
         {/* Suggestion — quick-filter buttons */}
         <div className="segmented">
           <button className={sugg === '' ? 'on' : ''} onClick={() => setSugg('')}>All</button>
-          <button className={sugg === 'install' ? 'on' : ''} onClick={() => setSugg('install')}>Install</button>
+          <button className={sugg === 'full_system' ? 'on' : ''} onClick={() => setSugg('full_system')}>Full</button>
+          <button className={sugg === 'partial' ? 'on' : ''} onClick={() => setSugg('partial')}>Partial</button>
           <button className={sugg === 'warranty' ? 'on' : ''} onClick={() => setSugg('warranty')}>Warranty</button>
           <button className={sugg === 'other' ? 'on' : ''} onClick={() => setSugg('other')}>Other</button>
         </div>
@@ -354,9 +373,11 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
         {sel.size > 0 && (
           <>
             <span className="triage-selcount">{sel.size} selected</span>
-            {tab !== 'install' && <button className="mini-btn" disabled={busy} onClick={() => triage(selIds, 'install')}>→ Install</button>}
-            {tab !== 'archived' && <button className="mini-btn ghost" disabled={busy} onClick={() => triage(selIds, 'archived')}>Archive</button>}
-            {tab !== 'untriaged' && <button className="mini-btn ghost" disabled={busy} onClick={() => triage(selIds, 'untriaged')}>↩ Triage</button>}
+            <select className="assign-sel" value="" disabled={busy}
+              onChange={(e) => { if (e.target.value) triage(selIds, e.target.value as TriageStatus); }}>
+              <option value="">Move selected to…</option>
+              {ASSIGN_TARGETS.filter((t) => t.value !== tab).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </>
         )}
       </div>
@@ -366,7 +387,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
           <colgroup>
             <col style={{ width: 34 }} />
             {columns.map((c) => <col key={c.id} style={{ width: c.width }} />)}
-            <col style={{ width: 96 }} />
+            <col style={{ width: 130 }} />
           </colgroup>
           <thead>
             <tr>
@@ -400,9 +421,11 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
                 <td className="chkcol"><input type="checkbox" checked={sel.has(d.st_project_id)} onChange={() => toggle(d.st_project_id)} /></td>
                 {columns.map((c) => <td key={c.id} className={c.num ? 'num' : ''}>{cell(d, c.id)}</td>)}
                 <td className="actioncol">
-                  {tab !== 'install' && <button className="icon-btn sm" title="Dispatch to Install" disabled={busy} onClick={() => triage([d.st_project_id], 'install')}>→</button>}
-                  {tab !== 'archived' && <button className="icon-btn sm danger" title="Archive" disabled={busy} onClick={() => triage([d.st_project_id], 'archived')}>🗑</button>}
-                  {tab !== 'untriaged' && <button className="icon-btn sm" title="Back to triage" disabled={busy} onClick={() => triage([d.st_project_id], 'untriaged')}>↩</button>}
+                  <select className="assign-sel" value="" disabled={busy} title="Assign to a workflow"
+                    onChange={(e) => { if (e.target.value) triage([d.st_project_id], e.target.value as TriageStatus); }}>
+                    <option value="">Assign…</option>
+                    {ASSIGN_TARGETS.filter((t) => t.value !== tab).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
                 </td>
               </tr>
             ))}

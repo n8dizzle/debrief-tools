@@ -486,3 +486,10 @@ button { font: inherit; }
 
 /* warranty suggestion badge */
 .badge-warranty { background: rgba(184,149,107,.20); color: var(--christmas-gold); }
+
+/* workflow assignment dropdown + partial badge */
+.assign-sel { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-secondary);
+  border-radius: 7px; padding: 6px 8px; font-size: 12.5px; cursor: pointer; max-width: 120px; }
+.assign-sel:hover { border-color: var(--christmas-green); color: var(--text-primary); }
+.actioncol { display: table-cell; white-space: nowrap; }
+.badge-partial { background: rgba(184,149,107,.16); color: var(--christmas-gold); }

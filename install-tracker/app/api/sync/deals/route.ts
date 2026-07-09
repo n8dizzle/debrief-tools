@@ -112,17 +112,30 @@ async function handle(req: NextRequest) {
         // warranty estimate.
         const isWarranty = sold.length > 0 && sold.every((e) => /warrant/i.test(e.name || ''));
 
-        // Suggest install when the deal has real equipment components OR the project
-        // already has an HVAC-Install job (catches equipment typed as material / add-ons).
-        const suggestInstall = !isWarranty && (components > 0 || !!job);
-        const suggestedClass = isWarranty ? 'warranty' : suggestInstall ? 'install' : 'other';
+        // The classifier routes each deal to a suggested WORKFLOW:
+        //   warranty  → all sold estimates are warranty work
+        //   full_system → at least one complete system, OR an HVAC-Install job exists
+        //                  (job-fallback: likely a full install with mis-typed equipment)
+        //   partial   → equipment components but no complete system (e.g. AC + coil)
+        //   other     → no equipment, no install job (service / not an install)
+        const suggestedClass = isWarranty
+          ? 'warranty'
+          : systems > 0
+            ? 'full_system'
+            : components > 0
+              ? 'partial'         // equipment pieces but no complete system (e.g. AC + coil) — even if a job exists
+              : job
+                ? 'full_system'   // 0 equipment on estimate but has an HVAC-Install job → likely mis-typed full install, revisit
+                : 'other';
         const reason = isWarranty
-          ? 'Warranty work — separate workflow (archive for now)'
-          : components > 0
-            ? `${systems} system${systems === 1 ? '' : 's'} · ${components} component${components === 1 ? '' : 's'}`
-            : job
-              ? `HVAC-Install job ${job.jobNumber} exists (no equipment on estimate)`
-              : `no equipment · ${rep?.businessUnitName ?? 'unknown BU'}`;
+          ? 'Warranty work — its own workflow'
+          : systems > 0
+            ? `${systems} full system${systems === 1 ? '' : 's'} · ${components} component${components === 1 ? '' : 's'}`
+            : components > 0
+              ? `partial — ${components} component${components === 1 ? '' : 's'}, no complete system`
+              : job
+                ? `HVAC-Install job ${job.jobNumber} exists (no equipment on estimate)`
+                : `no equipment · ${rep?.businessUnitName ?? 'unknown BU'}`;
 
         // Auto-reopen: if ANY sold estimate closes on an archived deal AFTER it was
         // archived, bring it back to Needs Triage for another look (the user re-archives
