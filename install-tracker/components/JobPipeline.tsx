@@ -21,11 +21,12 @@ const usd = (n: number | null) =>
 function EstimatesBlock({ estimates }: { estimates: ProjectEstimate[] }) {
   if (!estimates.length) return <div className="jp-note">No estimates synced for this project yet.</div>;
   const sold = estimates.filter((e) => e.status === 'Sold');
-  const units = sold.reduce((s, e) => s + (e.equipment_count ?? 0), 0);
+  const sys = sold.reduce((s, e) => s + (e.systems ?? 0), 0);
+  const comp = sold.reduce((s, e) => s + (e.components ?? 0), 0);
   return (
     <div className="ests">
       <div className="ests-summary">
-        {sold.length} sold estimate{sold.length === 1 ? '' : 's'} · {units} equipment unit{units === 1 ? '' : 's'}
+        {sold.length} sold estimate{sold.length === 1 ? '' : 's'} · {sys} system{sys === 1 ? '' : 's'} · {comp} component{comp === 1 ? '' : 's'}
         {estimates.length > sold.length && ` · ${estimates.length - sold.length} other`}
       </div>
       {estimates.map((e) => {

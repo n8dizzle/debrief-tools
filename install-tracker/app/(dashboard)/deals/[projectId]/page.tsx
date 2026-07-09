@@ -27,13 +27,14 @@ export default async function DealPage({ params }: { params: Promise<{ projectId
   const estimates = await getProjectEstimates(pid);
   const jobStages = deriveDealStages(stages, deal);
 
-  // Multi-estimate-aware Sold summary line.
+  // Multi-estimate-aware Sold summary line — systems/components from the deal's classified counts.
   const soldEst = estimates.filter((e) => e.status === 'Sold');
   if (soldEst.length) {
-    const units = soldEst.reduce((s, e) => s + (e.equipment_count ?? 0), 0);
     const total = soldEst.reduce((s, e) => s + (e.subtotal ?? 0), 0);
+    const sys = deal.system_count ?? 0;
+    const comp = deal.equipment_unit_count ?? 0;
     const soldStage = jobStages.find((s) => s.name.toLowerCase().includes('sold'));
-    if (soldStage) soldStage.value = `${soldEst.length} sold estimate${soldEst.length === 1 ? '' : 's'} · ${units} unit${units === 1 ? '' : 's'} · ${fmtMoney(total)}`;
+    if (soldStage) soldStage.value = `${soldEst.length} sold estimate${soldEst.length === 1 ? '' : 's'} · ${sys} system${sys === 1 ? '' : 's'} · ${comp} component${comp === 1 ? '' : 's'} · ${fmtMoney(total)}`;
   }
 
   const autoCount = jobStages.filter((s) => s.source !== 'manual').length;
@@ -52,7 +53,8 @@ export default async function DealPage({ params }: { params: Promise<{ projectId
           <span>Sold by <b>{deal.sold_by_name || '—'}</b></span>
           <span>Business unit <b>{deal.primary_business_unit || '—'}</b></span>
           <span>Contract <b>{fmtMoney(deal.contract_total) ?? '—'}</b></span>
-          <span>Systems <b>{deal.equipment_unit_count ?? 0}</b></span>
+          <span>Systems <b>{deal.system_count ?? 0}</b></span>
+          <span>Components <b>{deal.equipment_unit_count ?? 0}</b></span>
           {deal.install_job_status && <span>Install job <b>{deal.install_job_status}</b></span>}
         </div>
         <div className="joblinks">
