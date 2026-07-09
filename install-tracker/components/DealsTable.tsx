@@ -266,8 +266,11 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       case 'equipment_unit_count': return d.equipment_unit_count ?? 0;
       case 'sold_est': return <button className="est-count" onClick={() => openEst(d)} title="View sold estimates">{d.sold_estimate_count ?? 0}</button>;
       case 'contract_total': return usd(d.contract_total);
-      case 'suggested_class':
-        return <span className={`badge ${d.suggested_class === 'install' ? 'badge-stage' : 'badge-other'}`} title={d.suggestion_reason || ''}>{d.suggested_class === 'install' ? 'Install' : 'Other'}</span>;
+      case 'suggested_class': {
+        const cls = d.suggested_class === 'install' ? 'badge-stage' : d.suggested_class === 'warranty' ? 'badge-warranty' : 'badge-other';
+        const label = d.suggested_class === 'install' ? 'Install' : d.suggested_class === 'warranty' ? 'Warranty' : 'Other';
+        return <span className={`badge ${cls}`} title={d.suggestion_reason || ''}>{label}</span>;
+      }
       case 'project': return <a className="joblink" href={stProject(d.st_project_id)} target="_blank" rel="noopener noreferrer">#{d.st_project_id} ↗</a>;
     }
   }
@@ -304,6 +307,7 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
         <div className="segmented">
           <button className={sugg === '' ? 'on' : ''} onClick={() => setSugg('')}>All</button>
           <button className={sugg === 'install' ? 'on' : ''} onClick={() => setSugg('install')}>Install</button>
+          <button className={sugg === 'warranty' ? 'on' : ''} onClick={() => setSugg('warranty')}>Warranty</button>
           <button className={sugg === 'other' ? 'on' : ''} onClick={() => setSugg('other')}>Other</button>
         </div>
 

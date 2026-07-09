@@ -483,3 +483,6 @@ button { font: inherit; }
   color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 8px;
   padding: 9px 12px; font: 400 12.5px/1.45 var(--sans); box-shadow: var(--shadow);
   transform: translate(-50%, 0); pointer-events: none; white-space: normal; }
+
+/* warranty suggestion badge */
+.badge-warranty { background: rgba(184,149,107,.20); color: var(--christmas-gold); }

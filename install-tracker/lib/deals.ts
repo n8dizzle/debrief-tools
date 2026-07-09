@@ -7,7 +7,7 @@ export type TriageStatus = 'untriaged' | 'install' | 'archived';
 export interface Deal {
   st_project_id: number;
   triage_status: TriageStatus;
-  suggested_class: 'install' | 'other' | null;
+  suggested_class: 'install' | 'other' | 'warranty' | null;
   suggestion_reason: string | null;
   customer_name: string | null;
   primary_business_unit: string | null;

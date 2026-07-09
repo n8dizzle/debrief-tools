@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 const TABS: { key: TriageStatus; label: string }[] = [
   { key: 'untriaged', label: 'Needs Triage' },
-  { key: 'install', label: 'Install Pipeline' },
+  { key: 'install', label: 'Full Install Pipeline' },
   { key: 'archived', label: 'Archived' },
 ];
 
@@ -17,7 +17,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
 
   const desc: Record<TriageStatus, string> = {
     untriaged: 'Every sold deal from ServiceTitan lands here. Confirm the suggestion or override — dispatch real installs into the pipeline, archive the rest. Nothing is dropped.',
-    install: 'Deals you dispatched into the install pipeline.',
+    install: 'Complete-system installs dispatched into the pipeline. Partials and warranty stay in Archived — this tab is full installs only.',
     archived: 'Deals set aside as not-install. Recoverable anytime.',
   };
 

@@ -53,18 +53,24 @@ async function handle(req: NextRequest) {
   }
   const projectIds = Array.from(byProject.keys()).slice(0, projectLimit);
 
-  // 4) Resolve customer + technician names, and existing triage decisions (preserve them)
+  // 4) Resolve customer + technician names
   const custIds = withProject.map((e) => e.customerId ?? 0);
   const techIds = withProject.map((e) => e.soldBy ?? 0);
-  const [names, techNames, existing] = await Promise.all([
+  const [names, techNames] = await Promise.all([
     getCustomerNames(custIds),
     getTechnicianNames(techIds),
-    supabase.from('install_deals').select('st_project_id, triage_status, triaged_by, triaged_at')
-      .in('st_project_id', projectIds),
   ]);
-  const priorTriage = new Map<number, { triage_status: string; triaged_by: string | null; triaged_at: string | null }>();
-  for (const r of (existing.data || []) as { st_project_id: number; triage_status: string; triaged_by: string | null; triaged_at: string | null }[]) {
-    priorTriage.set(r.st_project_id, r);
+
+  // Existing triage decisions — MUST fetch every one so re-sync preserves them.
+  // Supabase caps a response at ~1000 rows, so chunk the id list (a single .in()
+  // over all ~1400 projects would silently drop ~400 → their archive status lost).
+  type PriorRow = { st_project_id: number; triage_status: string; triaged_by: string | null; triaged_at: string | null };
+  const priorTriage = new Map<number, PriorRow>();
+  for (let i = 0; i < projectIds.length; i += 300) {
+    const chunk = projectIds.slice(i, i + 300);
+    const { data } = await supabase
+      .from('install_deals').select('st_project_id, triage_status, triaged_by, triaged_at').in('st_project_id', chunk);
+    for (const r of ((data as unknown) as PriorRow[]) || []) priorTriage.set(r.st_project_id, r);
   }
 
   // 5) Build a deal per project (install-job lookup is concurrent)
@@ -100,28 +106,37 @@ async function handle(req: NextRequest) {
         const soldByName = latestSold?.soldBy ? techNames.get(latestSold.soldBy) ?? null : null;
         const prior = priorTriage.get(pid);
 
+        // Warranty work (go-backs) comes through ST as Sold estimates too, but it's a
+        // separate workflow — flag it distinctly so it stays out of the install pipeline
+        // and out of auto-reopen. A deal is warranty when EVERY sold estimate is a
+        // warranty estimate.
+        const isWarranty = sold.length > 0 && sold.every((e) => /warrant/i.test(e.name || ''));
+
         // Suggest install when the deal has real equipment components OR the project
         // already has an HVAC-Install job (catches equipment typed as material / add-ons).
-        const suggestInstall = components > 0 || !!job;
-        const reason = components > 0
-          ? `${systems} system${systems === 1 ? '' : 's'} · ${components} component${components === 1 ? '' : 's'}`
-          : job
-            ? `HVAC-Install job ${job.jobNumber} exists (no equipment on estimate)`
-            : `no equipment · ${rep?.businessUnitName ?? 'unknown BU'}`;
+        const suggestInstall = !isWarranty && (components > 0 || !!job);
+        const suggestedClass = isWarranty ? 'warranty' : suggestInstall ? 'install' : 'other';
+        const reason = isWarranty
+          ? 'Warranty work — separate workflow (archive for now)'
+          : components > 0
+            ? `${systems} system${systems === 1 ? '' : 's'} · ${components} component${components === 1 ? '' : 's'}`
+            : job
+              ? `HVAC-Install job ${job.jobNumber} exists (no equipment on estimate)`
+              : `no equipment · ${rep?.businessUnitName ?? 'unknown BU'}`;
 
-        // Auto-reopen: a deal archived earlier, where a sold estimate closed AFTER it
-        // was triaged and it now suggests Install → back to Needs Triage (new info the
-        // user didn't have when they archived). The "after triaged_at" guard prevents a
-        // re-archive loop.
+        // Auto-reopen: if ANY sold estimate closes on an archived deal AFTER it was
+        // archived, bring it back to Needs Triage for another look (the user re-archives
+        // if it's still not an install; warranty is one-time so it won't nag). Guarded
+        // on triaged_at so re-archiving doesn't loop.
         const newSaleAfterTriage = !!(prior?.triaged_at && latestSold?.soldOn && latestSold.soldOn > prior.triaged_at);
-        const reopen = prior?.triage_status === 'archived' && suggestInstall && newSaleAfterTriage;
+        const reopen = prior?.triage_status === 'archived' && newSaleAfterTriage;
         const triageStatus = reopen ? 'untriaged' : (prior?.triage_status ?? 'untriaged');
 
         const row = {
           st_project_id: pid,
           triage_status: triageStatus,
-          suggested_class: suggestInstall ? 'install' : 'other',
-          suggestion_reason: reopen ? `Re-opened: a system sold after you archived this. ${reason}` : reason,
+          suggested_class: suggestedClass,
+          suggestion_reason: reopen ? `Re-opened: a new estimate sold after you archived this. ${reason}` : reason,
           customer_id: rep?.customerId ?? null,
           customer_name: rep?.customerId ? names.get(rep.customerId) ?? null : null,
           sold_by_name: soldByName,
