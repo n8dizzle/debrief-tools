@@ -105,6 +105,83 @@ export function deriveDealStages(stages: Stage[], deal: FullDeal) {
 
 export const TRIAGE_STATUSES: TriageStatus[] = ['untriaged', 'full_system', 'partial', 'warranty', 'archived'];
 
+// ---- Phase 2: per-deal sub-step checklist ----
+
+export interface PipelineSubStep {
+  id: string | null;
+  title: string;
+  detail: string;
+  auto: boolean;            // ServiceTitan fills it, vs. a manual checkbox
+  done: boolean;
+  evidence: string | null;  // for auto steps, the ST fact that satisfied it
+}
+export interface PipelineStage {
+  name: string;
+  status: 'done' | 'active' | 'wait';
+  subSteps: PipelineSubStep[];
+  isSold: boolean;
+}
+
+type AutoSignal = 'sold' | 'job' | 'scheduled' | 'installed' | 'invoiced' | 'paid';
+
+// Map a sub-step title to a known ServiceTitan signal (hardcoded for now; could
+// become a per-node setting later). Null = manual checkbox.
+function autoSignalFor(title: string): AutoSignal | null {
+  const t = (title || '').toLowerCase();
+  // Word boundaries matter: "as-signed" must not match "signed", "contract-or" must
+  // not match "contract", and "Inspection scheduled" must not borrow the install date.
+  if (/\bcontract\b|\bsigned\b|\bsold\b/.test(t)) return 'sold';
+  if (/job created|created in servicetitan|st job/.test(t)) return 'job';
+  if (/install date/.test(t)) return 'scheduled';
+  if (/system installed|\binstalled\b|startup|commission/.test(t)) return 'installed';
+  if (/invoice/.test(t)) return 'invoiced';
+  if (/\bpaid\b|balance|payment/.test(t)) return 'paid';
+  return null;
+}
+function autoState(signal: AutoSignal, deal: FullDeal): { done: boolean; evidence: string | null } {
+  switch (signal) {
+    case 'sold': return { done: !!deal.sold_on, evidence: deal.sold_on ? `sold ${deal.sold_on}` : null };
+    case 'job': return { done: !!deal.install_job_number, evidence: deal.install_job_number ? `job #${deal.install_job_number}` : null };
+    case 'scheduled': return { done: !!deal.scheduled_date, evidence: deal.scheduled_date ? `scheduled ${deal.scheduled_date}` : null };
+    case 'installed': return { done: !!deal.completed_date, evidence: deal.completed_date ? `completed ${deal.completed_date}` : null };
+    case 'invoiced': return { done: !!deal.invoice_number, evidence: deal.invoice_number ? `invoice #${deal.invoice_number}` : null };
+    case 'paid': { const p = deal.invoice_number != null && deal.invoice_balance != null && deal.invoice_balance <= 0; return { done: p, evidence: p ? 'balance $0' : null }; }
+  }
+}
+
+export async function getDealStepStatus(projectId: number): Promise<Map<string, { done: boolean; note: string | null }>> {
+  const m = new Map<string, { done: boolean; note: string | null }>();
+  const supabase = getServerSupabase();
+  if (!supabase) return m;
+  const { data } = await supabase.from('install_deal_steps').select('node_id, done, note').eq('st_project_id', projectId);
+  for (const r of ((data as unknown) as { node_id: string; done: boolean; note: string | null }[]) || []) {
+    m.set(r.node_id, { done: r.done, note: r.note });
+  }
+  return m;
+}
+
+// Build the per-deal checklist: each sub-step's done state (auto from ST, manual from
+// stored status), and each stage's status rolled up from its sub-steps.
+export function deriveDealPipeline(
+  stages: Stage[], deal: FullDeal, status: Map<string, { done: boolean; note: string | null }>,
+): PipelineStage[] {
+  return stages.map((s) => {
+    const subSteps: PipelineSubStep[] = s.subSteps.map((ss) => {
+      const sig = autoSignalFor(ss.title);
+      if (sig) {
+        const a = autoState(sig, deal);
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: true, done: a.done, evidence: a.evidence };
+      }
+      const st = ss.id ? status.get(ss.id) : undefined;
+      return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, done: !!st?.done, evidence: null };
+    });
+    const doneCount = subSteps.filter((x) => x.done).length;
+    const stStatus: PipelineStage['status'] =
+      subSteps.length === 0 ? 'wait' : doneCount === subSteps.length ? 'done' : doneCount > 0 ? 'active' : 'wait';
+    return { name: s.name, status: stStatus, subSteps, isSold: s.name.toLowerCase().includes('sold') };
+  });
+}
+
 export async function getTriageCounts(): Promise<Record<TriageStatus, number>> {
   const supabase = getServerSupabase();
   const out: Record<TriageStatus, number> = { untriaged: 0, full_system: 0, partial: 0, warranty: 0, archived: 0 };
