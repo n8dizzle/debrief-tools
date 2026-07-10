@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { SUPPLIERS, TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS, INSTALL_TEAMS } from '@/lib/constants';
+import { SUPPLIERS, TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
 import { formatLocalDate } from '@/lib/pe-utils';
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function EditDetailModal({ orderId, onClose }: Props) {
-  const { orders, saveOrderDebounced, logAudit, showToast } = useOrders();
+  const { orders, saveOrderDebounced, logAudit, showToast, installTeams } = useOrders();
   const order = orders.find(o => o.id === orderId);
 
   const [changedBy, setChangedBy] = useState('');
@@ -156,7 +156,8 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
               {isInstall && fieldGroup('Install Team', (
                 <select style={inputStyle} value={order.install_team || ''} onChange={e => saveField('install_team', e.target.value)}>
                   <option value="">—</option>
-                  {INSTALL_TEAMS.map(t => <option key={t}>{t}</option>)}
+                  {order.install_team && !installTeams.includes(order.install_team) && <option value={order.install_team}>{order.install_team}</option>}
+                  {installTeams.map(t => <option key={t}>{t}</option>)}
                 </select>
               ))}
               {isInstall && fieldGroup('Sub Rate', (

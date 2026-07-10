@@ -17,7 +17,9 @@ export interface OrdersContextValue {
   setAuditLog: React.Dispatch<React.SetStateAction<PEAuditLog[]>>;
   isLoading: boolean;
   lastSync: Date | null;
+  installTeams: string[];
   refresh: () => Promise<void>;
+  refreshInstallTeams: () => Promise<void>;
   updateOrder: (id: number, changes: Partial<PEOrder>) => void;
   saveOrderDebounced: (id: number, changes: Partial<PEOrder>) => void;
   createOrder: (order: Partial<PEOrder>) => Promise<PEOrder | null>;
@@ -46,6 +48,7 @@ export function useOrdersProvider(): OrdersContextValue {
   const [auditLog, setAuditLog] = useState<PEAuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [installTeams, setInstallTeams] = useState<string[]>([]);
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
 
   // Debounce timers: one per order ID
@@ -56,6 +59,22 @@ export function useOrdersProvider(): OrdersContextValue {
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type, visible: true });
     setTimeout(() => setToast(t => ({ ...t, visible: false })), 3000);
+  }, []);
+
+  const refreshInstallTeams = useCallback(async () => {
+    try {
+      const res = await fetch('/api/install-teams');
+      if (res.ok) {
+        const { teams } = await res.json();
+        setInstallTeams(
+          (teams || [])
+            .filter((t: { active: boolean }) => t.active)
+            .map((t: { name: string }) => t.name)
+        );
+      }
+    } catch (e) {
+      console.error('Failed to load install teams:', e);
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -87,7 +106,8 @@ export function useOrdersProvider(): OrdersContextValue {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshInstallTeams();
+  }, [refresh, refreshInstallTeams]);
 
   const updateOrder = useCallback((id: number, changes: Partial<PEOrder>) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o));
@@ -171,7 +191,9 @@ export function useOrdersProvider(): OrdersContextValue {
     setAuditLog,
     isLoading,
     lastSync,
+    installTeams,
     refresh,
+    refreshInstallTeams,
     updateOrder,
     saveOrderDebounced,
     createOrder,

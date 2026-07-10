@@ -136,14 +136,8 @@ export const TECHS = [
   'Other',
 ];
 
-export const INSTALL_TEAMS = [
-  'Team A',
-  'Team B',
-  'Team C',
-  'Team D',
-  'Team E',
-  'Sub',
-];
+// NOTE: Install teams are now managed in Settings (pe_install_teams table),
+// fetched via /api/install-teams. See app/settings and useOrders.installTeams.
 
 export const SVC_SUBTYPES = [
   'HVAC',
