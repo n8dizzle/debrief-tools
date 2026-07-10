@@ -19,19 +19,33 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const projectId = Number(body.projectId);
   const nodeId: string = body.nodeId;
-  const done: boolean = !!body.done;
   const note: string | null = typeof body.note === 'string' ? body.note : null;
+  // Two shapes: a sub-step checkbox ({done}) or a stage gate ({state: required|not_required|null}).
+  const hasState = 'state' in body;
+  const state: string | null = hasState ? (body.state ?? null) : undefined as unknown as string | null;
+  const done: boolean = !!body.done;
   if (!projectId || !nodeId) return NextResponse.json({ error: 'projectId and nodeId required' }, { status: 400 });
+  if (hasState && state !== null && state !== 'required' && state !== 'not_required') {
+    return NextResponse.json({ error: 'invalid state' }, { status: 400 });
+  }
 
-  const { error } = await supabase.from('install_deal_steps').upsert({
+  const row: Record<string, unknown> = {
     st_project_id: projectId,
     node_id: nodeId,
-    done,
     note,
-    done_by: done ? user.id ?? null : null,
-    done_at: done ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'st_project_id,node_id' });
+  };
+  if (hasState) {
+    row.state = state;
+    row.done_by = state ? user.id ?? null : null;
+    row.done_at = state ? new Date().toISOString() : null;
+  } else {
+    row.done = done;
+    row.done_by = done ? user.id ?? null : null;
+    row.done_at = done ? new Date().toISOString() : null;
+  }
+
+  const { error } = await supabase.from('install_deal_steps').upsert(row, { onConflict: 'st_project_id,node_id' });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, done });
+  return NextResponse.json({ ok: true });
 }

@@ -149,10 +149,19 @@ export interface PipelineSubStep {
   evidence: string | null;  // for auto steps, the ST fact that satisfied it
 }
 export interface PipelineStage {
+  stageId: string | null;
   name: string;
-  status: 'done' | 'active' | 'wait';
+  status: 'done' | 'active' | 'wait' | 'na';
   subSteps: PipelineSubStep[];
   isSold: boolean;
+  gated: boolean;        // conditional stage that can be marked "Not required" for a job
+  notRequired: boolean;  // the gate is set to not_required → stage closed as N/A
+}
+
+// Stages that don't apply to every job. A human sets a Required?/Not-required gate; when
+// "Not required" the stage closes as N/A. Hardcoded for now (like the auto-signal matcher).
+function isGatedStage(name: string): boolean {
+  return /permit|inspection/i.test(name || '');
 }
 
 type AutoSignal = 'sold' | 'job' | 'scheduled' | 'installed' | 'invoiced' | 'paid' | 'payment_type';
@@ -184,24 +193,32 @@ function autoState(signal: AutoSignal, deal: FullDeal): { done: boolean; evidenc
   }
 }
 
-export async function getDealStepStatus(projectId: number): Promise<Map<string, { done: boolean; note: string | null }>> {
-  const m = new Map<string, { done: boolean; note: string | null }>();
+type StepStatus = { done: boolean; note: string | null; state: string | null };
+
+export async function getDealStepStatus(projectId: number): Promise<Map<string, StepStatus>> {
+  const m = new Map<string, StepStatus>();
   const supabase = getServerSupabase();
   if (!supabase) return m;
-  const { data } = await supabase.from('install_deal_steps').select('node_id, done, note').eq('st_project_id', projectId);
-  for (const r of ((data as unknown) as { node_id: string; done: boolean; note: string | null }[]) || []) {
-    m.set(r.node_id, { done: r.done, note: r.note });
+  const { data } = await supabase.from('install_deal_steps').select('node_id, done, note, state').eq('st_project_id', projectId);
+  for (const r of ((data as unknown) as { node_id: string; done: boolean; note: string | null; state: string | null }[]) || []) {
+    m.set(r.node_id, { done: r.done, note: r.note, state: r.state });
   }
   return m;
 }
 
 // Build the per-deal checklist: each sub-step's done state (auto from ST, manual from
-// stored status), and each stage's status rolled up from its sub-steps.
+// stored status), each stage's status rolled up from its sub-steps, and the N/A gate for
+// conditional stages (Permit, Inspection).
 export function deriveDealPipeline(
-  stages: Stage[], deal: FullDeal, status: Map<string, { done: boolean; note: string | null }>,
+  stages: Stage[], deal: FullDeal, status: Map<string, StepStatus>,
 ): PipelineStage[] {
   return stages.map((s) => {
-    const subSteps: PipelineSubStep[] = s.subSteps.map((ss) => {
+    const gated = isGatedStage(s.name);
+    const notRequired = gated && (s.id ? status.get(s.id)?.state : undefined) === 'not_required';
+    // On a gated stage the header Required? gate replaces the "determine if needed" sub-step.
+    const src = gated ? s.subSteps.filter((ss) => !/determine if .*need/i.test(ss.title)) : s.subSteps;
+
+    const subSteps: PipelineSubStep[] = src.map((ss) => {
       const sig = autoSignalFor(ss.title);
       if (sig) {
         const a = autoState(sig, deal);
@@ -210,10 +227,14 @@ export function deriveDealPipeline(
       const st = ss.id ? status.get(ss.id) : undefined;
       return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, done: !!st?.done, evidence: null };
     });
+
+    const base = { stageId: s.id ?? null, name: s.name, subSteps, isSold: s.name.toLowerCase().includes('sold'), gated };
+    if (notRequired) return { ...base, status: 'na' as const, notRequired: true };
+
     const doneCount = subSteps.filter((x) => x.done).length;
     const stStatus: PipelineStage['status'] =
       subSteps.length === 0 ? 'wait' : doneCount === subSteps.length ? 'done' : doneCount > 0 ? 'active' : 'wait';
-    return { name: s.name, status: stStatus, subSteps, isSold: s.name.toLowerCase().includes('sold') };
+    return { ...base, status: stStatus, notRequired: false };
   });
 }
 

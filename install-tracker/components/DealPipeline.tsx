@@ -10,7 +10,7 @@ const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 function dot(status: PipelineStage['status']) {
-  return status === 'done' ? '✓' : status === 'active' ? '●' : '○';
+  return status === 'done' ? '✓' : status === 'na' ? '–' : status === 'active' ? '●' : '○';
 }
 
 export default function DealPipeline({
@@ -23,25 +23,27 @@ export default function DealPipeline({
   const role = (session?.user as { role?: string } | undefined)?.role;
   const canEdit = role === 'owner' || role === 'manager';
 
-  // Open the first stage that isn't fully done (where the work is).
-  const firstOpen = Math.max(0, stages.findIndex((s) => s.status !== 'done'));
+  // Open the first stage still needing work (done and N/A both count as settled).
+  const firstOpen = Math.max(0, stages.findIndex((s) => s.status !== 'done' && s.status !== 'na'));
   const [open, setOpen] = useState<Set<number>>(new Set([firstOpen === -1 ? 0 : firstOpen]));
   const [busy, setBusy] = useState<string | null>(null);
 
   function toggle(i: number) {
     setOpen((p) => { const n = new Set(p); n.has(i) ? n.delete(i) : n.add(i); return n; });
   }
-  async function setStep(nodeId: string, done: boolean) {
+  async function patch(nodeId: string, payload: Record<string, unknown>) {
     setBusy(nodeId);
     try {
       const res = await fetch('/api/deal-steps', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, nodeId, done }),
+        body: JSON.stringify({ projectId, nodeId, ...payload }),
       });
       if (!res.ok) { alert((await res.json().catch(() => ({}))).error || 'Failed'); return; }
       router.refresh();
     } finally { setBusy(null); }
   }
+  const setStep = (nodeId: string, done: boolean) => patch(nodeId, { done });
+  const setGate = (nodeId: string, state: 'required' | 'not_required') => patch(nodeId, { state });
 
   const soldEst = estimates.filter((e) => e.status === 'Sold');
 
@@ -57,13 +59,29 @@ export default function DealPipeline({
               <button className="jp-headrow" onClick={() => toggle(i)} aria-expanded={isOpen}>
                 <span className="jp-head">
                   <span className="jp-name">{s.name}</span>
-                  {s.subSteps.length > 0 && <span className="jp-progress">{doneCount}/{s.subSteps.length}</span>}
+                  {s.status === 'na'
+                    ? <span className="jp-progress na">Not required</span>
+                    : s.subSteps.length > 0 && <span className="jp-progress">{doneCount}/{s.subSteps.length}</span>}
                 </span>
                 <span className={`jp-chev ${isOpen ? 'open' : ''}`}>›</span>
               </button>
 
               {isOpen && (
                 <div className="jp-expand">
+                  {s.gated && s.notRequired ? (
+                    <div className="gate na-row">
+                      <span className="na-label">Not required for this job</span>
+                      {canEdit && s.stageId && (
+                        <button className="gate-btn" onClick={() => setGate(s.stageId!, 'required')} disabled={busy === s.stageId}>Mark required</button>
+                      )}
+                    </div>
+                  ) : (<>
+                  {s.gated && canEdit && s.stageId && (
+                    <div className="gate">
+                      <span className="gate-q">Not every job needs this stage.</span>
+                      <button className="gate-btn" onClick={() => setGate(s.stageId!, 'not_required')} disabled={busy === s.stageId}>Mark not required</button>
+                    </div>
+                  )}
                   <ul className="checklist">
                     {s.subSteps.map((ss, j) => (
                       <li key={ss.id ?? j} className={ss.done ? 'done' : ''}>
@@ -107,6 +125,7 @@ export default function DealPipeline({
                       ))}
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
             </div>
