@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils';
-import { SUPPLIERS, INSTALL_TEAMS } from '@/lib/constants';
+import { SUPPLIERS } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
 const INSTALL_TECHS = ['Brett', 'Christina', 'John', 'Luke', 'Mark', 'Other'];
@@ -18,7 +18,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams } = ctx;
 
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
@@ -111,7 +111,7 @@ export default function InstallPage() {
         </div>
         <select className="filter" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
           <option value="">All teams</option>
-          {INSTALL_TEAMS.map(t => <option key={t}>{t}</option>)}
+          {installTeams.map(t => <option key={t}>{t}</option>)}
         </select>
         <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
           <option value="open">Open</option>
@@ -249,7 +249,8 @@ export default function InstallPage() {
                       <td>
                         <select className="si-sel" value={o.install_team || ''} onChange={e => save(o.id, { install_team: e.target.value })} style={{ minWidth: 90 }}>
                           <option value="">— select —</option>
-                          {INSTALL_TEAMS.map(t => <option key={t}>{t}</option>)}
+                          {o.install_team && !installTeams.includes(o.install_team) && <option value={o.install_team}>{o.install_team}</option>}
+                          {installTeams.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>
 
