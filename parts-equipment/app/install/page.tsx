@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils';
+import { rowClass, ownerForLocation, daysSince, ageColor, looksLikeCurrency } from '@/lib/pe-utils';
 import { SUPPLIERS } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
@@ -249,7 +249,7 @@ export default function InstallPage() {
                       <td>
                         <select className="si-sel" value={o.install_team || ''} onChange={e => save(o.id, { install_team: e.target.value })} style={{ minWidth: 90 }}>
                           <option value="">— select —</option>
-                          {o.install_team && !installTeams.includes(o.install_team) && <option value={o.install_team}>{o.install_team}</option>}
+                          {o.install_team && !installTeams.includes(o.install_team) && !looksLikeCurrency(o.install_team) && <option value={o.install_team}>{o.install_team}</option>}
                           {installTeams.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>
