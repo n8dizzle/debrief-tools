@@ -119,6 +119,13 @@ export function hasPEPermission(session: any, perm: string): boolean {
   return !!session.user.permissions?.parts_equipment?.[perm];
 }
 
+// A stored install_team value that looks like a number/currency is bad data —
+// a rate that landed in the team field. Don't surface it as a selectable "team".
+export function looksLikeCurrency(v: string | null | undefined): boolean {
+  if (!v) return false;
+  return /^\$?\s*[\d,]+(\.\d+)?$/.test(v.trim());
+}
+
 export function isValidCronRequest(request: Request): boolean {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;

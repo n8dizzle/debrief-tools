@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import { SUPPLIERS, TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
-import { formatLocalDate } from '@/lib/pe-utils';
+import { formatLocalDate, looksLikeCurrency } from '@/lib/pe-utils';
 
 interface Props {
   orderId: number;
@@ -156,7 +156,7 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
               {isInstall && fieldGroup('Install Team', (
                 <select style={inputStyle} value={order.install_team || ''} onChange={e => saveField('install_team', e.target.value)}>
                   <option value="">—</option>
-                  {order.install_team && !installTeams.includes(order.install_team) && <option value={order.install_team}>{order.install_team}</option>}
+                  {order.install_team && !installTeams.includes(order.install_team) && !looksLikeCurrency(order.install_team) && <option value={order.install_team}>{order.install_team}</option>}
                   {installTeams.map(t => <option key={t}>{t}</option>)}
                 </select>
               ))}
