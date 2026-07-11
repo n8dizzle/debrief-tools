@@ -366,6 +366,7 @@ button { font: inherit; }
   padding: 3px 6px; border-radius: 999px; align-self: center; }
 .chk-tag.auto { background: rgba(93,138,102,.16); color: var(--christmas-green-light); }
 .chk-tag.manual { background: rgba(107,124,110,.16); color: var(--text-muted); }
+.chk-tag.orders { background: rgba(74,124,177,.16); color: #7aa6d6; }
 
 /* ---------- Debrief payment type ---------- */
 .pay-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }

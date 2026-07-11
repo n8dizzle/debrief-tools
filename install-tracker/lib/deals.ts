@@ -94,6 +94,41 @@ export interface FullDeal extends Deal {
   invoice_date: string | null;
   invoice_balance: number | null;
   invoice_total: number | null;
+  equip_signals: EquipSignals | null; // from the orders app (parts-equipment), keyed via ST estimate id
+}
+
+// Equipment-order signals for a deal, from the parts-equipment app (orders.christmasair.com).
+// Aggregated across every install order linked to the deal's estimates. A deliberate,
+// scoped cross-app read — the orders app is the only system of record for equipment
+// ordering (ST tracks none of it). May be absorbed into this app later.
+export interface EquipSignals {
+  poConfirmed: boolean;   // every linked order has a PO cut (order_num or bo_ordered)
+  ordered: boolean;       // every linked order moved off "Place Order"
+  staged: boolean;        // every linked order is at the shop
+  orderCount: number;
+  locations: string[];    // distinct kanban locations, for evidence
+}
+
+export async function getEquipmentSignals(projectId: number): Promise<EquipSignals | null> {
+  const supabase = getServerSupabase();
+  if (!supabase) return null;
+  const { data: est } = await supabase.from('install_estimates').select('estimate_id').eq('st_project_id', projectId);
+  const ids = ((est as unknown) as { estimate_id: number }[] || []).map((e) => e.estimate_id);
+  if (ids.length === 0) return null;
+  const { data: ord } = await supabase
+    .from('pe_orders').select('location, order_num, bo_ordered, parts_ordered, parts_at_shop')
+    .eq('order_type', 'install').in('st_estimate_id', ids);
+  type O = { location: string | null; order_num: string | null; bo_ordered: boolean; parts_ordered: boolean; parts_at_shop: boolean };
+  const os = ((ord as unknown) as O[]) || [];
+  if (os.length === 0) return null;
+  const moved = (l: string | null) => !!l && l !== 'Place Order';
+  return {
+    poConfirmed: os.every((o) => (o.order_num && o.order_num !== '') || o.bo_ordered),
+    ordered: os.every((o) => moved(o.location) || o.parts_ordered),
+    staged: os.every((o) => o.location === 'Lewisville Shop' || o.parts_at_shop),
+    orderCount: os.length,
+    locations: Array.from(new Set(os.map((o) => o.location).filter((l): l is string => !!l))),
+  };
 }
 
 export async function getDeal(projectId: number): Promise<FullDeal | null> {
@@ -102,7 +137,9 @@ export async function getDeal(projectId: number): Promise<FullDeal | null> {
   const { data } = await supabase.from('install_deals').select('*').eq('st_project_id', projectId).maybeSingle();
   if (!data) return null;
   const deal = (data as unknown) as FullDeal;
-  deal.debrief_payment_type = (await getDebriefPayments([projectId])).get(projectId) ?? [];
+  const [pay, equip] = await Promise.all([getDebriefPayments([projectId]), getEquipmentSignals(projectId)]);
+  deal.debrief_payment_type = pay.get(projectId) ?? [];
+  deal.equip_signals = equip;
   return deal;
 }
 
@@ -144,9 +181,10 @@ export interface PipelineSubStep {
   id: string | null;
   title: string;
   detail: string;
-  auto: boolean;            // ServiceTitan fills it, vs. a manual checkbox
-  done: boolean;
-  evidence: string | null;  // for auto steps, the ST fact that satisfied it
+  auto: boolean;            // true = ServiceTitan-derived, read-only (locked). false = checkbox.
+  tag: 'auto' | 'manual' | 'orders'; // signal source shown to the user
+  done: boolean;            // effective state
+  evidence: string | null;  // the fact that satisfied it (ST or orders app)
 }
 export interface PipelineStage {
   stageId: string | null;
@@ -162,6 +200,24 @@ export interface PipelineStage {
 // "Not required" the stage closes as N/A. Hardcoded for now (like the auto-signal matcher).
 function isGatedStage(name: string): boolean {
   return /permit|inspection/i.test(name || '');
+}
+
+// The Equipment stage keys off the orders app (auto-with-override). Map its sub-steps to
+// an orders signal; null = leave as a normal manual/ST step.
+type EquipSignal = 'po_confirmed' | 'ordered' | 'staged';
+function equipmentSignalFor(title: string): EquipSignal | null {
+  const t = (title || '').toLowerCase();
+  if (/\bpo\b|purchase order|confirmed/.test(t)) return 'po_confirmed';
+  if (/deliver|staged|at shop/.test(t)) return 'staged';
+  if (/order/.test(t)) return 'ordered';
+  return null;
+}
+function equipAuto(sig: EquipSignal, es: EquipSignals | null): { done: boolean; evidence: string | null } {
+  if (!es) return { done: false, evidence: null };
+  const locs = es.locations.join(', ');
+  if (sig === 'po_confirmed') return { done: es.poConfirmed, evidence: es.poConfirmed ? 'PO cut in orders app' : null };
+  if (sig === 'ordered') return { done: es.ordered, evidence: es.ordered ? (locs || 'ordered') : null };
+  return { done: es.staged, evidence: es.staged ? (locs || 'at shop') : null };
 }
 
 type AutoSignal = 'sold' | 'job' | 'scheduled' | 'installed' | 'invoiced' | 'paid' | 'payment_type';
@@ -214,18 +270,28 @@ export function deriveDealPipeline(
 ): PipelineStage[] {
   return stages.map((s) => {
     const gated = isGatedStage(s.name);
+    const isEquip = /equipment/i.test(s.name);
     const notRequired = gated && (s.id ? status.get(s.id)?.state : undefined) === 'not_required';
     // On a gated stage the header Required? gate replaces the "determine if needed" sub-step.
     const src = gated ? s.subSteps.filter((ss) => !/determine if .*need/i.test(ss.title)) : s.subSteps;
 
     const subSteps: PipelineSubStep[] = src.map((ss) => {
+      // Equipment stage: auto-tick from the orders app, but a manager can override by hand.
+      const equipSig = isEquip ? equipmentSignalFor(ss.title) : null;
+      if (equipSig) {
+        const a = equipAuto(equipSig, deal.equip_signals);
+        const override = ss.id ? status.get(ss.id) : undefined;
+        const done = override ? override.done : a.done;
+        const evidence = override ? 'set by hand' : a.evidence;
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', done, evidence };
+      }
       const sig = autoSignalFor(ss.title);
       if (sig) {
         const a = autoState(sig, deal);
-        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: true, done: a.done, evidence: a.evidence };
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: true, tag: 'auto', done: a.done, evidence: a.evidence };
       }
       const st = ss.id ? status.get(ss.id) : undefined;
-      return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, done: !!st?.done, evidence: null };
+      return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'manual', done: !!st?.done, evidence: null };
     });
 
     const base = { stageId: s.id ?? null, name: s.name, subSteps, isSold: s.name.toLowerCase().includes('sold'), gated };

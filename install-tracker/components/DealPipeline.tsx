@@ -97,9 +97,9 @@ export default function DealPipeline({
                         )}
                         <span className="chk-body">
                           <span className="chk-title">{ss.title}</span>
-                          <span className="chk-sub">{ss.auto ? (ss.evidence || 'from ServiceTitan') : ss.detail}</span>
+                          <span className="chk-sub">{ss.auto ? (ss.evidence || 'from ServiceTitan') : (ss.evidence || ss.detail)}</span>
                         </span>
-                        <span className={`chk-tag ${ss.auto ? 'auto' : 'manual'}`}>{ss.auto ? 'auto' : 'manual'}</span>
+                        <span className={`chk-tag ${ss.tag}`}>{ss.tag}</span>
                       </li>
                     ))}
                     {s.subSteps.length === 0 && <li className="chk-empty">No sub-steps defined for this stage yet.</li>}
