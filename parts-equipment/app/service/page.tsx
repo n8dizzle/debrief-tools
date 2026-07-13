@@ -17,7 +17,7 @@ function fmtMD(d: string | null | undefined): string {
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
   const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading,
-    warrantyOrders, setWarrantyOrders, showToast, suppliers } = ctx;
+    warrantyOrders, setWarrantyOrders, showToast, suppliers, validities } = ctx;
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
@@ -256,6 +256,7 @@ export default function ServicePage() {
                   </th>
                   <th style={{ minWidth: 170 }}>WH Notes</th>
                   <th style={{ minWidth: 170 }}>CXR Notes</th>
+                  <th style={{ minWidth: 120 }}>Validity</th>
                   <th style={{ width: 36 }}></th>
                 </tr>
               </thead>
@@ -418,6 +419,14 @@ export default function ServicePage() {
 
                       <td>
                         <input className="si" value={o.note_cxr || ''} onChange={e => save(o.id, { note_cxr: e.target.value })} placeholder="CXR notes..." />
+                      </td>
+
+                      <td>
+                        <select className="si-sel" value={o.validity || ''} onChange={e => save(o.id, { validity: e.target.value })} style={{ minWidth: 110 }}>
+                          <option value="">— select —</option>
+                          {o.validity && !validities.includes(o.validity) && <option value={o.validity}>{o.validity}</option>}
+                          {validities.map(v => <option key={v}>{v}</option>)}
+                        </select>
                       </td>
 
                       <td>

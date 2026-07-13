@@ -59,7 +59,6 @@ const INST_COLS: ColDef[] = [
   { key: 'equip_cost', label: 'Equip. Cost', visible: true },
   { key: 'location', label: 'Location', visible: true },
   { key: 'install_team', label: 'Install Team', visible: true },
-  { key: 'sub_rate', label: 'Sub Rate', visible: true },
   { key: 'sched_date', label: 'Date Sched.', visible: true },
   { key: 'call_booked', label: 'Call Booked?', visible: true },
   { key: 'qc_scheduled', label: 'QC Scheduled?', visible: true },

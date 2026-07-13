@@ -220,7 +220,6 @@ export default function InstallPage() {
                   <th>Equip. Cost</th>
                   <th>Location</th>
                   <th>Install Team</th>
-                  <th>Sub Rate</th>
                   <th style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4 }}>{vrt('Date Sched.')}</th>
                   <th style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4 }}>{vrt('Call Booked?')}</th>
                   <th style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4 }}>{vrt('QC Scheduled?')}</th>
@@ -345,8 +344,6 @@ export default function InstallPage() {
                           {installTeams.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>
-
-                      <td><input className="si" value={o.sub_rate || ''} onChange={e => save(o.id, { sub_rate: e.target.value })} onBlur={e => save(o.id, { sub_rate: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.sched_date)}</span>

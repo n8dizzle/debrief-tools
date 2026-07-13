@@ -166,9 +166,6 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
                   {installTeams.map(t => <option key={t}>{t}</option>)}
                 </select>
               ))}
-              {isInstall && fieldGroup('Sub Rate', (
-                <input style={inputStyle} value={order.sub_rate || ''} onChange={e => saveField('sub_rate', e.target.value)} placeholder="$0.00" />
-              ))}
               {fieldGroup('ServiceTitan URL', (
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input style={{ ...inputStyle, flex: 1 }} value={order.st_url || ''} onChange={e => saveField('st_url', e.target.value)} placeholder="https://..." />
