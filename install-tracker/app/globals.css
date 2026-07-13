@@ -46,6 +46,24 @@
   --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Light theme — flipped by the portal master switch via <html data-theme="light">.
+   Only the neutral bg/text/border tokens change; the christmas-green accent carries
+   over. Green heading text darkens for contrast on light surfaces. */
+:root[data-theme="light"] {
+  --bg-primary: #ECE9E1;
+  --bg-secondary: #F6F4EE;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F2EFE8;
+  --text-primary: #1E2420;
+  --text-secondary: #4C574E;
+  --text-muted: #79847B;
+  --border-subtle: #E4E0D6;
+  --border-default: #D2CDC1;
+  --christmas-green-light: #3E7048;
+  --shadow: 0 1px 2px rgba(50, 45, 30, .05), 0 8px 22px rgba(50, 45, 30, .09);
+}
+:root[data-theme="light"] .chk-tag.orders { color: #2f6aa8; }
+
 * { box-sizing: border-box; }
 html, body { padding: 0; margin: 0; }
 body {
@@ -268,7 +286,7 @@ button { font: inherit; }
 
 /* Page header inside the shell */
 .pagehead { margin-bottom: 20px; }
-.pagehead h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--christmas-cream); }
+.pagehead h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--text-primary); }
 .pagehead .desc { color: var(--text-secondary); font-size: 14px; margin-top: 6px; max-width: 64ch; }
 
 /* ---------- Jobs data grid ---------- */
@@ -379,7 +397,7 @@ button { font: inherit; }
 .tab { text-decoration: none; color: var(--text-secondary); font-weight: 560; font-size: 14px;
   padding: 9px 15px; border-radius: 8px 8px 0 0; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tab:hover { color: var(--text-primary); }
-.tab.on { color: var(--christmas-cream); border-bottom-color: var(--christmas-green); background: var(--bg-secondary); }
+.tab.on { color: var(--text-primary); border-bottom-color: var(--christmas-green); background: var(--bg-secondary); }
 .tab-count { font: 600 11px/1 var(--mono); color: var(--text-muted); background: var(--bg-card);
   padding: 2px 7px; border-radius: 999px; margin-left: 4px; }
 .tab.on .tab-count { color: var(--christmas-green-light); }
@@ -477,7 +495,7 @@ button { font: inherit; }
   border: 1px solid var(--border-subtle); border-radius: 14px; box-shadow: var(--shadow); padding: 20px 22px; }
 .est-table td:nth-child(3) { white-space: normal; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.modal-head h3 { font-size: 16px; font-weight: 640; color: var(--christmas-cream); letter-spacing: -.2px; }
+.modal-head h3 { font-size: 16px; font-weight: 640; color: var(--text-primary); letter-spacing: -.2px; }
 .modal-x { background: transparent; border: 0; color: var(--text-muted); font-size: 16px; cursor: pointer; }
 .modal-x:hover { color: var(--text-primary); }
 .modal-empty { color: var(--text-muted); font-size: 14px; padding: 12px 0; }
@@ -490,7 +508,7 @@ button { font: inherit; }
 .est-v { font-variant-numeric: tabular-nums; font-weight: 600; }
 .est-link2 { color: var(--christmas-green-light); text-decoration: none; }
 .est-totalrow { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 4px;
-  font-weight: 700; color: var(--christmas-cream); font-variant-numeric: tabular-nums; }
+  font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
 /* estimate row: name + close-date sub-line */
 .est-l { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -509,7 +527,7 @@ button { font: inherit; }
 .est-table th:nth-child(4) { width: 12%; } /* Systems */
 .est-table th:nth-child(5) { width: 18%; } /* Components */
 .est-table th:nth-child(6) { width: 12%; } /* Value */
-.est-table tfoot td { font-weight: 700; color: var(--christmas-cream); border-bottom: 0; padding-top: 12px; }
+.est-table tfoot td { font-weight: 700; color: var(--text-primary); border-bottom: 0; padding-top: 12px; }
 .est-link2 { color: var(--christmas-green-light); text-decoration: none; }
 
 /* info "i" on column headers */
