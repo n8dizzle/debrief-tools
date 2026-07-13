@@ -18,7 +18,32 @@ export default function ProfileDropdown({
   const { update } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [savingTheme, setSavingTheme] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Seed from what the server already stamped on <html data-theme>.
+  useEffect(() => {
+    const t = document.documentElement.getAttribute("data-theme");
+    if (t === "light" || t === "dark") setTheme(t);
+  }, []);
+
+  const setAppTheme = async (next: "light" | "dark") => {
+    setSavingTheme(true);
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next); // instant, this app
+    try {
+      await fetch("/api/me/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: next }),
+      });
+    } catch (err) {
+      console.error("Failed to save theme:", err);
+    } finally {
+      setSavingTheme(false);
+    }
+  };
 
   const handleRefreshSession = async () => {
     setRefreshing(true);
@@ -105,6 +130,35 @@ export default function ProfileDropdown({
             </p>
             <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
               {userEmail}
+            </p>
+          </div>
+
+          {/* Appearance (theme master switch — applies across apps as they adopt it) */}
+          <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
+            <p className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>
+              Appearance
+            </p>
+            <div
+              className="flex rounded-lg overflow-hidden"
+              style={{ border: "1px solid var(--border-subtle)" }}
+            >
+              {(["light", "dark"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setAppTheme(opt)}
+                  disabled={savingTheme}
+                  className="flex-1 py-1.5 text-xs font-medium capitalize transition-colors"
+                  style={{
+                    background: theme === opt ? "var(--christmas-green)" : "transparent",
+                    color: theme === opt ? "var(--christmas-cream)" : "var(--text-secondary)",
+                  }}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] mt-1.5" style={{ color: "var(--text-muted)" }}>
+              Applies across Christmas Air apps as each is updated.
             </p>
           </div>
 
