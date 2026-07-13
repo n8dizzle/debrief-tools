@@ -398,6 +398,16 @@ button { font: inherit; }
   background: rgba(93,138,102,.16); color: var(--christmas-green-light); white-space: nowrap; }
 .pay-missing { font: 600 11px/1 var(--sans); color: var(--warn, #c9862b); white-space: nowrap; }
 
+/* ---------- Workflow pipeline stub (Partial / Warranty, not built yet) ---------- */
+.wf-stub { border: 1px dashed var(--border-default); border-radius: var(--radius);
+  background: var(--bg-secondary); padding: 48px 32px; text-align: center; max-width: 620px;
+  margin: 8px auto 0; }
+.wf-stub-mark { font-size: 34px; margin-bottom: 12px; }
+.wf-stub h2 { font-size: 20px; letter-spacing: -.3px; margin-bottom: 12px; }
+.wf-stub-blurb { color: var(--text-secondary); font-size: 14.5px; max-width: 46ch; margin: 0 auto 8px; }
+.wf-stub-note { color: var(--text-muted); font-size: 13px; max-width: 46ch; margin: 0 auto 20px; }
+.wf-stub-foot { color: var(--text-muted); font-size: 13px; }
+
 /* ---------- Deals triage ---------- */
 .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--border-subtle); }
 .tab { text-decoration: none; color: var(--text-secondary); font-weight: 560; font-size: 14px;
