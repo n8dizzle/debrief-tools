@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
-import { formatLocalDate, looksLikeCurrency } from '@/lib/pe-utils';
+import { SUPPLIERS, TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS, INSTALL_TEAMS } from '@/lib/constants';
+import { formatLocalDate } from '@/lib/pe-utils';
 
 interface Props {
   orderId: number;
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function EditDetailModal({ orderId, onClose }: Props) {
-  const { orders, saveOrderDebounced, logAudit, showToast, installTeams, suppliers } = useOrders();
+  const { orders, saveOrderDebounced, logAudit, showToast } = useOrders();
   const order = orders.find(o => o.id === orderId);
 
   const [changedBy, setChangedBy] = useState('');
@@ -162,8 +162,7 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
               {isInstall && fieldGroup('Install Team', (
                 <select style={inputStyle} value={order.install_team || ''} onChange={e => saveField('install_team', e.target.value)}>
                   <option value="">—</option>
-                  {order.install_team && !installTeams.includes(order.install_team) && !looksLikeCurrency(order.install_team) && <option value={order.install_team}>{order.install_team}</option>}
-                  {installTeams.map(t => <option key={t}>{t}</option>)}
+                  {INSTALL_TEAMS.map(t => <option key={t}>{t}</option>)}
                 </select>
               ))}
               {isInstall && fieldGroup('Sub Rate', (
@@ -188,11 +187,12 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
                 <input style={inputStyle} value={order.part || ''} onChange={e => saveField('part', e.target.value)} placeholder="Part or equipment description" />
               ))}
               {fieldGroup('Supplier', (
-                <select style={inputStyle} value={order.supplier || ''} onChange={e => saveField('supplier', e.target.value)}>
-                  <option value="">—</option>
-                  {order.supplier && !suppliers.includes(order.supplier) && <option value={order.supplier}>{order.supplier}</option>}
-                  {suppliers.map(s => <option key={s}>{s}</option>)}
-                </select>
+                <>
+                  <input style={inputStyle} list="pe-suppliers-modal" value={order.supplier || ''} onChange={e => saveField('supplier', e.target.value)} placeholder="Select or type…" />
+                  <datalist id="pe-suppliers-modal">
+                    {SUPPLIERS.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </>
               ))}
               {fieldGroup('Order #', <input style={inputStyle} value={order.order_num || ''} onChange={e => saveField('order_num', e.target.value)} />)}
               {fieldGroup(isInstall ? 'Equip. Cost' : 'Actual Cost', (

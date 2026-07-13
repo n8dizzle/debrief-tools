@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { OrdersContext, useOrdersProvider } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { usePEPermissions } from '@/hooks/usePEPermissions';
 
 // Dynamic imports for all modals — no SSR
 const NewOrderWizard = dynamic(() => import('./NewOrderWizard'), { ssr: false });
@@ -20,7 +19,6 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   const { data: session } = useSession();
-  const { canManage } = usePEPermissions();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -63,7 +61,6 @@ export default function AppShell({ children }: AppShellProps) {
     { path: '/service', label: 'Service' },
     { path: '/install', label: 'Install' },
     { path: '/warranty', label: 'Warranty Tracker' },
-    ...(canManage ? [{ path: '/settings', label: 'Settings' }] : []),
   ];
 
   const { toast } = ordersBase;
