@@ -89,6 +89,13 @@ export interface PartsEquipmentPermissions {
   can_sync_data?: boolean;
 }
 
+export interface InstallTrackerPermissions {
+  can_access?: boolean;
+  can_triage_deals?: boolean;
+  can_edit_workflow?: boolean;
+  can_sync_data?: boolean;
+}
+
 export interface MembershipManagerPermissions {
   can_access?: boolean;
   can_view_memberships?: boolean;
@@ -170,6 +177,7 @@ export interface UserPermissions {
   job_tracker?: JobTrackerPermissions;
   ap_payments?: APPaymentsPermissions;
   parts_equipment?: PartsEquipmentPermissions;
+  install_tracker?: InstallTrackerPermissions;
   membership_manager?: MembershipManagerPermissions;
   celebrations?: CelebrationsPermissions;
   doc_dispatch?: DocDispatchPermissions;
@@ -456,6 +464,32 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Manually trigger the ServiceTitan estimate sync',
+      },
+    ],
+  },
+  {
+    app: 'install_tracker',
+    label: 'Install Tracker',
+    permissions: [
+      {
+        key: 'can_access',
+        label: 'Can access',
+        description: 'Access the Install Tracker app (install.christmasair.com)',
+      },
+      {
+        key: 'can_triage_deals',
+        label: 'Triage deals',
+        description: 'Assign deals to workflows and change their triage status',
+      },
+      {
+        key: 'can_edit_workflow',
+        label: 'Edit workflows',
+        description: 'Edit the workflow map — stages, sub-steps, and checklist items',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger the ServiceTitan / orders syncs',
       },
     ],
   },
