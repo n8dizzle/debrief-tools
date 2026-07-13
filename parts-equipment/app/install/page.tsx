@@ -1,11 +1,11 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor, looksLikeCurrency } from '@/lib/pe-utils';
+import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, looksLikeCurrency } from '@/lib/pe-utils';
 import type { PEOrder } from '@/types';
 
-const INSTALL_TECHS = ['Brett', 'Christina', 'John', 'Luke', 'Mark', 'Other'];
+const INSTALL_TECHS = ['Luke', 'Brett', 'Christina', 'John', 'Daniel', 'Other'];
 
 function fmtMD(d: string | null | undefined): string {
   if (!d) return '—';
@@ -23,6 +23,33 @@ export default function InstallPage() {
   const [teamFilter, setTeamFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'all'>('open');
   const [statFilter, setStatFilter] = useState<string>('all');
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+
+  function toggleSort(col: 'date' | 'customer') {
+    if (sortCol === col) {
+      setSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setSortCol(col);
+      setSortDir(1);
+    }
+  }
+  const sortArrow = (col: 'date' | 'customer') =>
+    sortCol === col ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
+
+  // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('focus');
+    const id = raw ? parseInt(raw, 10) : NaN;
+    if (isNaN(id)) return;
+    setFocusId(id);
+    const t = setTimeout(() => {
+      document.getElementById(`inst-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+    const clear = setTimeout(() => setFocusId(null), 4000);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+  }, []);
 
   function save(id: number, changes: Partial<PEOrder>) {
     saveOrderDebounced(id, changes);
@@ -33,9 +60,17 @@ export default function InstallPage() {
     save(id, { location: loc, ...(newOwner ? { owner: newOwner } : {}) });
   }
 
+  function onBOStatusChange(id: number, val: string) {
+    // B/O = Yes → location Backordered (amber) + Install Dispatcher owns it.
+    const changes: Partial<PEOrder> = { bo_status: val };
+    if (val === 'Yes') { changes.location = 'Backordered'; changes.owner = 'Install Dispatcher'; }
+    save(id, changes);
+  }
+
   function onBOInformedChange(id: number, checked: boolean) {
+    // Customer informed → hand back to Parts Coordinator; row stays Backordered.
     const changes: Partial<PEOrder> = { bo_informed: checked };
-    if (checked) changes.owner = 'Warehouse';
+    if (checked) changes.owner = 'Parts Coordinator';
     save(id, changes);
   }
 
@@ -73,6 +108,41 @@ export default function InstallPage() {
       return true;
     });
   }, [instOrders, search, teamFilter, statusFilter, statFilter]);
+
+  // Auto-link: open estimates sharing an originating job number must be booked
+  // together (this is where Scott Crowder's second job was missed).
+  const linkGroups = useMemo(() => {
+    const byJob = new Map<string, PEOrder[]>();
+    for (const o of instOrders) {
+      if (o.status !== 'open') continue;
+      const j = (o.job || '').trim();
+      if (!j) continue;
+      if (!byJob.has(j)) byJob.set(j, []);
+      byJob.get(j)!.push(o);
+    }
+    const info = new Map<number, { idx: number; total: number; job: string }>();
+    byJob.forEach((arr, j) => {
+      if (arr.length < 2) return;
+      arr.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+      arr.forEach((o, i) => info.set(o.id, { idx: i + 1, total: arr.length, job: j }));
+    });
+    return info;
+  }, [instOrders]);
+
+  const sorted = useMemo(() => {
+    if (!sortCol) return filtered;
+    const arr = [...filtered];
+    arr.sort((a: PEOrder, b: PEOrder) => {
+      let cmp = 0;
+      if (sortCol === 'date') {
+        cmp = (a.date || '').localeCompare(b.date || '');
+      } else {
+        cmp = (a.customer || '').localeCompare(b.customer || '', 'en', { sensitivity: 'base' });
+      }
+      return cmp * sortDir;
+    });
+    return arr;
+  }, [filtered, sortCol, sortDir]);
 
   function setActiveStatFilter(key: string, status: 'open' | 'completed') {
     setStatFilter(key);
@@ -132,9 +202,9 @@ export default function InstallPage() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }}>✎</th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4 }}>{vrt('Date')}</th>
+                  <th onClick={() => toggleSort('date')} style={{ textAlign: 'center', minWidth: 36, height: 60, verticalAlign: 'bottom', paddingBottom: 4, cursor: 'pointer', userSelect: 'none' }} title="Sort by date">{vrt('Date')}<span style={{ fontSize: 10, opacity: sortCol === 'date' ? 1 : 0.4 }}>{sortArrow('date')}</span></th>
                   <th>Job #</th>
-                  <th>Customer</th>
+                  <th onClick={() => toggleSort('customer')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by customer name">Customer<span style={{ fontSize: 10, opacity: sortCol === 'customer' ? 1 : 0.4 }}>{sortArrow('customer')}</span></th>
                   <th>Sold By</th>
                   <th>Job Cost</th>
                   <th>Owner</th>
@@ -160,29 +230,50 @@ export default function InstallPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o: PEOrder) => {
+                {sorted.map((o: PEOrder) => {
                   const rc = rowClass(o);
+                  const link = linkGroups.get(o.id);
+                  const trStyle: React.CSSProperties = {};
+                  if (link) trStyle.boxShadow = 'inset 4px 0 0 #d48a0a';
+                  if (focusId === o.id) { trStyle.outline = '2px solid var(--accent)'; trStyle.outlineOffset = -2; }
                   return (
-                    <tr key={o.id} className={rc}>
+                    <tr key={o.id} id={`inst-row-${o.id}`} className={rc}
+                      style={Object.keys(trStyle).length ? trStyle : undefined}>
                       <td><button className="detail-open-btn" style={{ background: '#7a1c2e' }} onClick={() => openEditDetail?.(o.id)}>✎</button></td>
 
                       <td style={{ textAlign: 'center' }}>
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: ageColor(daysSince(o.date)) }}>{fmtMD(o.date)}</span>
                       </td>
 
-                      <td><input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })} style={{ minWidth: 95, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} /></td>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })} style={{ minWidth: 95, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
+                          {o.st_url && (
+                            <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+                              onClick={e => e.stopPropagation()}
+                              style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
+                          )}
+                          {link && (
+                            <span onClick={() => setSearch(o.job || '')}
+                              title={`Book together — ${link.total} estimates on job #${link.job}. Click to show them all.`}
+                              style={{ background: '#d48a0a', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 10, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              ‼ {link.idx}/{link.total}
+                            </span>
+                          )}
+                        </span>
+                      </td>
 
                       <td><input className="si" value={o.customer || ''} onChange={e => save(o.id, { customer: e.target.value })} style={{ minWidth: 130 }} /></td>
 
                       <td>
-                        <select className="si-sel" style={{ minWidth: 90 }} value={INSTALL_TECHS.includes(o.tech ?? '') ? (o.tech ?? '') : 'Other'} onChange={e => {
-                          if (e.target.value !== 'Other') save(o.id, { tech: e.target.value });
-                        }}>
+                        <select className="si-sel" style={{ minWidth: 90 }} value={o.tech || ''} onChange={e => save(o.id, { tech: e.target.value })}>
+                          <option value="">— tech —</option>
+                          {o.tech && !INSTALL_TECHS.includes(o.tech) && <option value={o.tech}>{o.tech}</option>}
                           {INSTALL_TECHS.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>
 
-                      <td><input className="si" value={o.job_cost || ''} onChange={e => save(o.id, { job_cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
+                      <td><input className="si" value={o.job_cost || ''} onChange={e => save(o.id, { job_cost: e.target.value })} onBlur={e => save(o.id, { job_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <select className="si-sel" value={o.owner || ''} onChange={e => save(o.id, { owner: e.target.value })} style={{ minWidth: 130 }}>
@@ -191,6 +282,7 @@ export default function InstallPage() {
                           <option>Parts Coordinator</option>
                           <option>Warehouse</option>
                           <option>Install Dispatcher</option>
+                          <option>Christina</option>
                         </select>
                       </td>
 
@@ -201,7 +293,7 @@ export default function InstallPage() {
                         </select>
                       </td>
 
-                      <td><input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} placeholder="Equipment..." style={{ minWidth: 150 }} /></td>
+                      <td><input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} title={o.part || ''} placeholder="Equipment..." style={{ minWidth: 150 }} /></td>
 
                       <td style={{ textAlign: 'center' }}>
                         <select className="si-sel" value={o.equip_avail || ''} onChange={e => save(o.id, { equip_avail: e.target.value })}>
@@ -210,13 +302,13 @@ export default function InstallPage() {
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
-                        <select className="si-sel" value={o.bo_status || ''} onChange={e => save(o.id, { bo_status: e.target.value })}>
+                        <select className="si-sel" value={o.bo_status || ''} onChange={e => onBOStatusChange(o.id, e.target.value)}>
                           <option value="">—</option><option>Yes</option><option>No</option>
                         </select>
                       </td>
 
                       <td>
-                        <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.eta)}</span>
+                        <input className="si" type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })} style={{ minWidth: 130 }} />
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
@@ -237,12 +329,12 @@ export default function InstallPage() {
 
                       <td><input className="si" value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })} style={{ minWidth: 90, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} /></td>
 
-                      <td><input className="si" value={o.equip_cost || ''} onChange={e => save(o.id, { equip_cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
+                      <td><input className="si" value={o.equip_cost || ''} onChange={e => save(o.id, { equip_cost: e.target.value })} onBlur={e => save(o.id, { equip_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value, o)} style={{ minWidth: 140 }}>
                           <option value="">— select —</option>
-                          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Cancel PO'].map(l => <option key={l}>{l}</option>)}
+                          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Cancel PO','Shipping to Supplier'].map(l => <option key={l}>{l}</option>)}
                         </select>
                       </td>
 
@@ -254,7 +346,7 @@ export default function InstallPage() {
                         </select>
                       </td>
 
-                      <td><input className="si" value={o.sub_rate || ''} onChange={e => save(o.id, { sub_rate: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
+                      <td><input className="si" value={o.sub_rate || ''} onChange={e => save(o.id, { sub_rate: e.target.value })} onBlur={e => save(o.id, { sub_rate: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.sched_date)}</span>

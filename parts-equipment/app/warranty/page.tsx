@@ -97,7 +97,8 @@ export default function WarrantyPage() {
       <table className={`wt-table${isCompleted ? ' wt-completed' : ''}`}>
         <thead>
           <tr>
-            <th style={{ minWidth: 90 }}>Last Name</th>
+            <th style={{ minWidth: 110 }}>Ticket #</th>
+            <th style={{ minWidth: 130 }}>Full Name</th>
             <th style={{ minWidth: 90 }}>MFGR</th>
             <th style={{ minWidth: 110 }}>Fail Date</th>
             <th style={{ minWidth: 110 }}>Repair Date</th>
@@ -121,7 +122,17 @@ export default function WarrantyPage() {
         <tbody>
           {rows.map(w => (
             <tr key={w.id}>
-              <td>{inp(w, 'last_name')}</td>
+              <td>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <input className="wt-input" value={w.job || ''} onChange={e => save(w.id, 'job', e.target.value)} style={{ minWidth: 80 }} />
+                  {w.job && (
+                    <a href={`https://go.servicetitan.com/#/Job/Index/${w.job}`} target="_blank" rel="noopener noreferrer"
+                      title="Open job in ServiceTitan" onClick={e => e.stopPropagation()}
+                      style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
+                  )}
+                </span>
+              </td>
+              <td>{inp(w, 'customer')}</td>
               <td>{inp(w, 'mfgr')}</td>
               <td>{inp(w, 'fail_date', 'date')}</td>
               <td>{inp(w, 'repair_date', 'date')}</td>
@@ -156,7 +167,7 @@ export default function WarrantyPage() {
           ))}
           {!isCompleted && (
             <tr className="wt-totals-row">
-              <td colSpan={15} style={{ textAlign: 'right', paddingRight: 12, fontWeight: 700 }}>TOTALS</td>
+              <td colSpan={16} style={{ textAlign: 'right', paddingRight: 12, fontWeight: 700 }}>TOTALS</td>
               <td>${totCharged.toFixed(2)}</td>
               <td style={{ color: '#1a7a4a' }}>${totRefunded.toFixed(2)}</td>
               <td colSpan={2}></td>

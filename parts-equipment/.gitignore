@@ -1,1 +1,6 @@
 .vercel
+.env*
+
+# Supabase CLI local cache/scratch
+supabase/.temp
+supabase/.branches

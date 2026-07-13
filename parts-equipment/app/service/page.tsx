@@ -1,10 +1,10 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils';
-import { OWNERS, TECHS, SVC_SUBTYPES, SVC_OWNERS_CONFIG } from '@/lib/constants';
-import type { PEOrder } from '@/types';
+import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
+import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
+import type { PEOrder, PEWarrantyClaim } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
   if (!d) return '—';
@@ -16,11 +16,39 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading, suppliers } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading,
+    warrantyOrders, setWarrantyOrders, showToast, suppliers } = ctx;
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'cancelled'>('open');
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+
+  function toggleSort(col: 'date' | 'customer') {
+    if (sortCol === col) {
+      setSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setSortCol(col);
+      setSortDir(1);
+    }
+  }
+  const sortArrow = (col: 'date' | 'customer') =>
+    sortCol === col ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
+
+  // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('focus');
+    const id = raw ? parseInt(raw, 10) : NaN;
+    if (isNaN(id)) return;
+    setFocusId(id);
+    const t = setTimeout(() => {
+      document.getElementById(`svc-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+    const clear = setTimeout(() => setFocusId(null), 4000);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+  }, []);
 
   function save(id: number, changes: Partial<PEOrder>) {
     saveOrderDebounced(id, changes);
@@ -32,14 +60,17 @@ export default function ServicePage() {
   }
 
   function onPartBOChange(id: number, checked: boolean, order: PEOrder) {
+    // Part backordered → location Backordered (drives amber color) + CXR Team owns it.
     const changes: Partial<PEOrder> = { part_bo: checked };
-    if (checked && !order.bo_informed && !order.parts_at_shop) changes.owner = 'Service Dispatcher';
+    if (checked) { changes.location = 'Backordered'; changes.owner = 'CXR Team'; }
     save(id, changes);
   }
 
   function onBOInformedChange(id: number, checked: boolean, order: PEOrder) {
+    // Customer informed of the backorder → hand back to Parts Coordinator.
+    // Row stays the backordered color until the part arrives (parts_at_shop).
     const changes: Partial<PEOrder> = { bo_informed: checked };
-    if (checked && !order.parts_at_shop) changes.owner = 'Warehouse';
+    if (checked) changes.owner = 'Parts Coordinator';
     save(id, changes);
   }
 
@@ -47,6 +78,40 @@ export default function ServicePage() {
     const changes: Partial<PEOrder> = { parts_at_shop: checked };
     if (checked) changes.owner = 'CXR Team';
     save(id, changes);
+  }
+
+  // Jobs that already have a warranty claim started (avoid duplicates).
+  const warrantyJobs = useMemo(
+    () => new Set(((warrantyOrders as PEWarrantyClaim[]) || []).map(w => String(w.job || '').trim()).filter(Boolean)),
+    [warrantyOrders]
+  );
+
+  // When a ticket is marked warranty Parts (P) or Part & Labor (P/L), auto-start a
+  // warranty claim on the Warranty tab pre-filled with the customer + ticket number.
+  function onWTypeChange(o: PEOrder, val: string) {
+    const changes: Partial<PEOrder> = { warranty_type: val };
+    if (val === 'P' || val === 'P/L') changes.warranty = 'Yes';
+    save(o.id, changes);
+
+    if ((val === 'P' || val === 'P/L') && o.job && !warrantyJobs.has(String(o.job).trim())) {
+      const newW = {
+        last_name: '', mfgr: '', fail_date: null, repair_date: null,
+        main_model_num: '', main_unit_sn: '', failed_part_num: '', failed_part_serial: '',
+        mfg_invoice_num: '', repl_part_num: '', repl_part_serial: '',
+        date_of_claim: formatLocalDate(new Date()), claim_num: '',
+        credit_approved: '', return_required: '', amt_charged: '', amt_refunded: '', paid: '',
+        job: o.job || '', tech: o.tech || '', customer: o.customer || '', status: 'active',
+      };
+      fetch('/api/warranty', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newW) })
+        .then(r => r.json())
+        .then(({ claim }) => {
+          if (claim) {
+            setWarrantyOrders?.((prev: PEWarrantyClaim[]) => [claim, ...prev]);
+            showToast?.(`Warranty claim started for ${o.customer || 'job #' + o.job}`);
+          }
+        })
+        .catch(() => showToast?.('Failed to start warranty claim', 'error'));
+    }
   }
 
   const svcOrders = useMemo(() => orders.filter((o: PEOrder) => o.order_type === 'service'), [orders]);
@@ -63,6 +128,41 @@ export default function ServicePage() {
       return true;
     });
   }, [svcOrders, search, ownerFilter, statusFilter]);
+
+  // Auto-link: open estimates that share an originating job number must be booked
+  // together. Build {orderId -> {idx, total, job}} for any job with 2+ open rows.
+  const linkGroups = useMemo(() => {
+    const byJob = new Map<string, PEOrder[]>();
+    for (const o of svcOrders) {
+      if (o.status !== 'open') continue;
+      const j = (o.job || '').trim();
+      if (!j) continue;
+      if (!byJob.has(j)) byJob.set(j, []);
+      byJob.get(j)!.push(o);
+    }
+    const info = new Map<number, { idx: number; total: number; job: string }>();
+    byJob.forEach((arr, j) => {
+      if (arr.length < 2) return;
+      arr.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+      arr.forEach((o, i) => info.set(o.id, { idx: i + 1, total: arr.length, job: j }));
+    });
+    return info;
+  }, [svcOrders]);
+
+  const sorted = useMemo(() => {
+    if (!sortCol) return filtered;
+    const arr = [...filtered];
+    arr.sort((a: PEOrder, b: PEOrder) => {
+      let cmp = 0;
+      if (sortCol === 'date') {
+        cmp = (a.date || '').localeCompare(b.date || ''); // YYYY-MM-DD sorts chronologically
+      } else {
+        cmp = (a.customer || '').localeCompare(b.customer || '', 'en', { sensitivity: 'base' });
+      }
+      return cmp * sortDir;
+    });
+    return arr;
+  }, [filtered, sortCol, sortDir]);
 
   const vrt = (label: string) => (
     <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 4 }}>{label}</div>
@@ -123,13 +223,14 @@ export default function ServicePage() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }}>✎</th>
-                  <th>Date</th>
+                  <th onClick={() => toggleSort('date')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by date">Date<span style={{ fontSize: 10, opacity: sortCol === 'date' ? 1 : 0.4 }}>{sortArrow('date')}</span></th>
                   <th>Job #</th>
                   <th>Sold By</th>
                   <th>Est. Cost</th>
-                  <th>Customer</th>
+                  <th onClick={() => toggleSort('customer')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by customer name">Customer<span style={{ fontSize: 10, opacity: sortCol === 'customer' ? 1 : 0.4 }}>{sortArrow('customer')}</span></th>
                   <th>Owner</th>
                   <th>Type</th>
+                  <th style={{ minWidth: 90 }}>Parts/Repair</th>
                   <th style={{ textAlign: 'center', minWidth: 44 }}>War?</th>
                   <th style={{ textAlign: 'center', minWidth: 55 }}>W.Type</th>
                   <th style={{ minWidth: 150 }}>Part/Description</th>
@@ -159,13 +260,18 @@ export default function ServicePage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o: PEOrder) => {
+                {sorted.map((o: PEOrder) => {
                   const rc = rowClass(o);
                   const age = daysSince(o.date);
                   const linkedCount = o.linked_jobs?.length || 0;
+                  const link = linkGroups.get(o.id);
                   const isWarranty = ['Yes', 'P', 'P/L', 'L'].includes(o.warranty ?? '');
+                  const trStyle: React.CSSProperties = {};
+                  if (link) trStyle.boxShadow = 'inset 4px 0 0 #d48a0a';
+                  if (focusId === o.id) { trStyle.outline = '2px solid var(--accent)'; trStyle.outlineOffset = -2; }
                   return (
-                    <tr key={o.id} className={rc}>
+                    <tr key={o.id} id={`svc-row-${o.id}`} className={rc}
+                      style={Object.keys(trStyle).length ? trStyle : undefined}>
                       <td><button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button></td>
 
                       <td>
@@ -173,20 +279,35 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })}
-                          style={{ minWidth: 100, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
-                        {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })}
+                            style={{ minWidth: 100, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
+                          {o.st_url && (
+                            <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+                              onClick={e => e.stopPropagation()}
+                              style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
+                          )}
+                          {link && (
+                            <span onClick={() => setSearch(o.job || '')}
+                              title={`Book together — ${link.total} estimates on job #${link.job}. Click to show them all.`}
+                              style={{ background: '#d48a0a', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 10, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              ‼ {link.idx}/{link.total}
+                            </span>
+                          )}
+                          {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
+                        </span>
                       </td>
 
                       <td>
                         <select className="si-sel" value={o.tech || ''} onChange={e => save(o.id, { tech: e.target.value })} style={{ minWidth: 100 }}>
                           <option value="">— tech —</option>
+                          {o.tech && !TECHS.includes(o.tech) && <option value={o.tech}>{o.tech}</option>}
                           {TECHS.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>
 
                       <td>
-                        <input className="si" value={o.estimate_cost || ''} onChange={e => save(o.id, { estimate_cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} />
+                        <input className="si" value={o.estimate_cost || ''} onChange={e => save(o.id, { estimate_cost: e.target.value })} onBlur={e => save(o.id, { estimate_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} />
                       </td>
 
                       <td>
@@ -201,9 +322,24 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <select className="si-sel" value={o.subtype || ''} onChange={e => save(o.id, { subtype: e.target.value })} style={{ minWidth: 90 }}>
+                        <select className="si-sel" value={o.subtype || ''} onChange={e => {
+                          const v = e.target.value;
+                          const patch: Partial<PEOrder> = { subtype: v };
+                          if (v === 'Membership') patch.owner = 'CXR Team';
+                          else if (v === 'Duct Cleaning') patch.owner = 'Install Dispatcher';
+                          else if (v === 'Plumbing') patch.owner = 'Plumbing Dispatcher';
+                          save(o.id, patch);
+                        }} style={{ minWidth: 90 }}>
                           <option value="">— type —</option>
+                          {o.subtype && !SVC_SUBTYPES.includes(o.subtype) && <option value={o.subtype}>{o.subtype}</option>}
                           {SVC_SUBTYPES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      </td>
+
+                      <td>
+                        <select className="si-sel" value={o.tech_type || ''} onChange={e => save(o.id, { tech_type: e.target.value })} style={{ minWidth: 90 }}>
+                          <option value="">—</option>
+                          {PARTS_REPAIR.map(s => <option key={s}>{s}</option>)}
                         </select>
                       </td>
 
@@ -213,7 +349,7 @@ export default function ServicePage() {
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
-                        <select className="si-sel" value={o.warranty_type || ''} onChange={e => save(o.id, { warranty_type: e.target.value })}
+                        <select className="si-sel" value={o.warranty_type || ''} onChange={e => onWTypeChange(o, e.target.value)}
                           style={{ minWidth: 50, opacity: isWarranty ? 1 : .3 }}>
                           <option value="">—</option>
                           {['P', 'L', 'P/L'].map(w => <option key={w}>{w}</option>)}
@@ -221,7 +357,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} placeholder="Part description..." style={{ minWidth: 150 }} />
+                        <input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} title={o.part || ''} placeholder="Part description..." style={{ minWidth: 150 }} />
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
@@ -235,7 +371,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace' }}>{fmtMD(o.eta)}</span>
+                        <input className="si" type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })} style={{ minWidth: 130 }} />
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
@@ -256,7 +392,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} placeholder="$0.00" style={{ minWidth: 85 }} />
+                        <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} onBlur={e => save(o.id, { cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} />
                       </td>
 
                       <td>

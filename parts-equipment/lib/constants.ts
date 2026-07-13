@@ -2,14 +2,15 @@
 // /api/suppliers. See app/settings/suppliers and useOrders.suppliers.
 
 export const OWNERS = [
-  'Service Dispatcher',
-  'Warehouse',
-  'CXR Team',
-  'Install Manager',
   'Install Dispatcher',
-  'Parts Coordinator',
+  'Warehouse',
   'Service Manager',
-  'Rachel',
+  'CXR Team',
+  'Parts Coordinator',
+  'Install Manager',
+  'Service Dispatcher',
+  'Plumbing Dispatcher',
+  'Commercial',
   'Unassigned',
 ];
 
@@ -19,11 +20,13 @@ export interface OwnerConfig {
 }
 
 export const SVC_OWNERS_CONFIG: OwnerConfig[] = [
-  { name: 'Service Dispatcher', dot: '#e65100' },
+  { name: 'Parts Coordinator', dot: '#00838f' },
   { name: 'Warehouse', dot: '#1976d2' },
   { name: 'CXR Team', dot: '#6a0dad' },
-  { name: 'Service Manager', dot: '#1565c0' },
-  { name: 'Rachel', dot: '#1a9aaa' },
+  { name: 'Service Dispatcher', dot: '#a1887f' },
+  { name: 'Service Manager', dot: '#c0392b' },
+  { name: 'Install Dispatcher', dot: '#c2185b' },
+  { name: 'Plumbing Dispatcher', dot: '#ef6c00' },
   { name: 'Unassigned', dot: '#95a5a6' },
 ];
 
@@ -60,34 +63,30 @@ export const INSTALL_LOCATIONS = [
 ];
 
 export const TECHS = [
-  'Chris',
-  'Brandon',
-  'Derek',
-  'Edgar',
-  'George',
-  'Ivan',
-  'Jason',
-  'Jesse',
-  'Joel',
-  'Jose',
-  'Josh',
-  'Juan',
-  'Kevin',
-  'Luis',
-  'Marco',
-  'Mark',
-  'Michael',
-  'Mike',
-  'Nathan',
-  'Pedro',
-  'Robert',
-  'Ron',
-  'Scott',
-  'Steve',
-  'Tim',
-  'Todd',
-  'Tony',
-  'Victor',
+  'Ash',
+  'Bill',
+  'Braulio',
+  'Demetrius',
+  'Dylan',
+  'Eduardo',
+  'Eric',
+  'Jack',
+  'Jacob',
+  'Jonathan (JP)',
+  'Kaileb',
+  'Keith',
+  'Microphil (Phil)',
+  'Ozzy',
+  'Santiago',
+  'Walter',
+  'David',
+  'Garrick',
+  'Syres',
+  'Brett',
+  'Luke',
+  'Christina',
+  'John',
+  'Daniel',
   'Other',
 ];
 
@@ -95,13 +94,15 @@ export const TECHS = [
 // fetched via /api/install-teams. See app/settings and useOrders.installTeams.
 
 export const SVC_SUBTYPES = [
-  'HVAC',
+  'Service',
   'Plumbing',
-  'Duct',
-  'IAQ',
-  'Electrical',
+  'Duct Cleaning',
+  'Membership',
   'Other',
 ];
+
+// Options for the Parts/Repair column (stored in the tech_type field).
+export const PARTS_REPAIR = ['Parts', 'Repair'];
 
 export const INST_SUBTYPES = [
   'HVAC Install',
