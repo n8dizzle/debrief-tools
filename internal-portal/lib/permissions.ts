@@ -156,12 +156,6 @@ export interface ReferralsPermissions {
   can_approve_donations?: boolean;
 }
 
-export interface PartsEquipmentPermissions {
-  can_view?: boolean;
-  can_manage?: boolean;
-  can_sync_data?: boolean;
-}
-
 // ============================================
 // COMBINED PERMISSIONS TYPE
 // ============================================
@@ -185,7 +179,6 @@ export interface UserPermissions {
   sales_command_center?: SalesCommandCenterPermissions;
   st_audit?: STAuditPermissions;
   referrals?: ReferralsPermissions;
-  parts_equipment?: PartsEquipmentPermissions;
 }
 
 export type UserRole = 'employee' | 'manager' | 'owner';
@@ -717,27 +710,6 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_approve_donations',
         label: 'Approve donations',
         description: 'Approve or deny pending Triple Win charity donations',
-      },
-    ],
-  },
-  {
-    app: 'parts_equipment',
-    label: 'Parts & Equipment',
-    permissions: [
-      {
-        key: 'can_view',
-        label: 'Can view / access',
-        description: 'Access the Parts & Equipment dashboard and view orders',
-      },
-      {
-        key: 'can_manage',
-        label: 'Manage orders',
-        description: 'Edit orders, owners, locations, warranty claims, and closeouts',
-      },
-      {
-        key: 'can_sync_data',
-        label: 'Sync data',
-        description: 'Manually trigger the ServiceTitan sync',
       },
     ],
   },
