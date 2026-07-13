@@ -6,6 +6,7 @@ import { usePEPermissions } from '@/hooks/usePEPermissions';
 // app/settings/<slug>/page.tsx + one entry here.
 const SECTIONS = [
   { href: '/settings/install-teams', label: 'Install Teams' },
+  { href: '/settings/suppliers', label: 'Suppliers' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
