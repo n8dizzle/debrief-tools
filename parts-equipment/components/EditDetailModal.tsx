@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { SUPPLIERS, TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
+import { TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
 import { formatLocalDate, looksLikeCurrency } from '@/lib/pe-utils';
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function EditDetailModal({ orderId, onClose }: Props) {
-  const { orders, saveOrderDebounced, logAudit, showToast, installTeams } = useOrders();
+  const { orders, saveOrderDebounced, logAudit, showToast, installTeams, suppliers } = useOrders();
   const order = orders.find(o => o.id === orderId);
 
   const [changedBy, setChangedBy] = useState('');
@@ -184,7 +184,8 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
               {fieldGroup('Supplier', (
                 <select style={inputStyle} value={order.supplier || ''} onChange={e => saveField('supplier', e.target.value)}>
                   <option value="">—</option>
-                  {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
+                  {order.supplier && !suppliers.includes(order.supplier) && <option value={order.supplier}>{order.supplier}</option>}
+                  {suppliers.map(s => <option key={s}>{s}</option>)}
                 </select>
               ))}
               {fieldGroup('Order #', <input style={inputStyle} value={order.order_num || ''} onChange={e => saveField('order_num', e.target.value)} />)}
