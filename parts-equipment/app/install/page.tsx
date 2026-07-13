@@ -3,7 +3,6 @@ import { useState, useMemo } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import { rowClass, ownerForLocation, daysSince, ageColor, looksLikeCurrency } from '@/lib/pe-utils';
-import { SUPPLIERS } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
 const INSTALL_TECHS = ['Brett', 'Christina', 'John', 'Luke', 'Mark', 'Other'];
@@ -18,7 +17,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams, suppliers } = ctx;
 
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
@@ -231,7 +230,8 @@ export default function InstallPage() {
                       <td>
                         <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} style={{ minWidth: 150 }}>
                           <option value="">— select —</option>
-                          {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
+                          {o.supplier && !suppliers.includes(o.supplier) && <option value={o.supplier}>{o.supplier}</option>}
+                          {suppliers.map(s => <option key={s}>{s}</option>)}
                         </select>
                       </td>
 

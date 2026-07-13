@@ -18,8 +18,10 @@ export interface OrdersContextValue {
   isLoading: boolean;
   lastSync: Date | null;
   installTeams: string[];
+  suppliers: string[];
   refresh: () => Promise<void>;
   refreshInstallTeams: () => Promise<void>;
+  refreshSuppliers: () => Promise<void>;
   updateOrder: (id: number, changes: Partial<PEOrder>) => void;
   saveOrderDebounced: (id: number, changes: Partial<PEOrder>) => void;
   createOrder: (order: Partial<PEOrder>) => Promise<PEOrder | null>;
@@ -49,6 +51,7 @@ export function useOrdersProvider(): OrdersContextValue {
   const [isLoading, setIsLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [installTeams, setInstallTeams] = useState<string[]>([]);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
 
   // Debounce timers: one per order ID
@@ -74,6 +77,22 @@ export function useOrdersProvider(): OrdersContextValue {
       }
     } catch (e) {
       console.error('Failed to load install teams:', e);
+    }
+  }, []);
+
+  const refreshSuppliers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/suppliers');
+      if (res.ok) {
+        const { suppliers: data } = await res.json();
+        setSuppliers(
+          (data || [])
+            .filter((s: { active: boolean }) => s.active)
+            .map((s: { name: string }) => s.name)
+        );
+      }
+    } catch (e) {
+      console.error('Failed to load suppliers:', e);
     }
   }, []);
 
@@ -107,7 +126,8 @@ export function useOrdersProvider(): OrdersContextValue {
   useEffect(() => {
     refresh();
     refreshInstallTeams();
-  }, [refresh, refreshInstallTeams]);
+    refreshSuppliers();
+  }, [refresh, refreshInstallTeams, refreshSuppliers]);
 
   const updateOrder = useCallback((id: number, changes: Partial<PEOrder>) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o));
@@ -192,8 +212,10 @@ export function useOrdersProvider(): OrdersContextValue {
     isLoading,
     lastSync,
     installTeams,
+    suppliers,
     refresh,
     refreshInstallTeams,
+    refreshSuppliers,
     updateOrder,
     saveOrderDebounced,
     createOrder,

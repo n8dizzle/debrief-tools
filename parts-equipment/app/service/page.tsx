@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import { rowClass, ownerForLocation, daysSince, ageColor } from '@/lib/pe-utils';
-import { OWNERS, SUPPLIERS, TECHS, SVC_SUBTYPES, SVC_OWNERS_CONFIG } from '@/lib/constants';
+import { OWNERS, TECHS, SVC_SUBTYPES, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
@@ -16,7 +16,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading, suppliers } = ctx;
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
@@ -246,7 +246,8 @@ export default function ServicePage() {
                       <td>
                         <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} style={{ minWidth: 150 }}>
                           <option value="">— select —</option>
-                          {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
+                          {o.supplier && !suppliers.includes(o.supplier) && <option value={o.supplier}>{o.supplier}</option>}
+                          {suppliers.map(s => <option key={s}>{s}</option>)}
                         </select>
                       </td>
 
