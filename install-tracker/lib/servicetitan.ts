@@ -159,12 +159,15 @@ export async function getAppointmentStart(appointmentId: number): Promise<string
 export async function getInvoice(invoiceId: number): Promise<
   { number: string | null; date: string | null; balance: number | null; total: number | null } | null
 > {
-  const { data } = await stGet<{ id: number; invoiceNumber?: string; invoiceDate?: string; balance?: number; total?: number }>(
+  const { data } = await stGet<{ id: number; referenceNumber?: string; invoiceDate?: string; balance?: string | number; total?: string | number }>(
     `accounting/v2/tenant/${tenantId}/invoices`, { ids: String(invoiceId), pageSize: '1' },
   );
   const inv = data[0];
   if (!inv) return null;
-  return { number: inv.invoiceNumber ?? null, date: inv.invoiceDate ?? null, balance: inv.balance ?? null, total: inv.total ?? null };
+  // ST has no `number` field; the user-facing invoice number is `referenceNumber` (= the
+  // job number). balance/total come back as strings ("0.00"), so coerce to numbers.
+  const num = (v: string | number | undefined) => (v == null ? null : Number(v));
+  return { number: inv.referenceNumber ?? null, date: inv.invoiceDate ?? null, balance: num(inv.balance), total: num(inv.total) };
 }
 
 // Resolve technician ids → names (for sold-by).
