@@ -107,6 +107,7 @@ export interface EquipSignals {
   staged: boolean;        // every linked order is at the shop
   orderCount: number;
   locations: string[];    // distinct kanban locations, for evidence
+  crew: string[];         // distinct install_team names (the crew/sub doing the install)
 }
 
 export async function getEquipmentSignals(projectId: number): Promise<EquipSignals | null> {
@@ -116,9 +117,9 @@ export async function getEquipmentSignals(projectId: number): Promise<EquipSigna
   const ids = ((est as unknown) as { estimate_id: number }[] || []).map((e) => e.estimate_id);
   if (ids.length === 0) return null;
   const { data: ord } = await supabase
-    .from('pe_orders').select('location, order_num, bo_ordered, parts_ordered, parts_at_shop')
+    .from('pe_orders').select('location, order_num, bo_ordered, parts_ordered, parts_at_shop, install_team')
     .eq('order_type', 'install').in('st_estimate_id', ids);
-  type O = { location: string | null; order_num: string | null; bo_ordered: boolean; parts_ordered: boolean; parts_at_shop: boolean };
+  type O = { location: string | null; order_num: string | null; bo_ordered: boolean; parts_ordered: boolean; parts_at_shop: boolean; install_team: string | null };
   const os = ((ord as unknown) as O[]) || [];
   if (os.length === 0) return null;
   const moved = (l: string | null) => !!l && l !== 'Place Order';
@@ -128,6 +129,7 @@ export async function getEquipmentSignals(projectId: number): Promise<EquipSigna
     staged: os.every((o) => o.location === 'Lewisville Shop' || o.parts_at_shop),
     orderCount: os.length,
     locations: Array.from(new Set(os.map((o) => o.location).filter((l): l is string => !!l))),
+    crew: Array.from(new Set(os.map((o) => (o.install_team || '').trim()).filter((t) => t !== ''))),
   };
 }
 
@@ -283,6 +285,14 @@ export function deriveDealPipeline(
         const override = ss.id ? status.get(ss.id) : undefined;
         const done = override ? override.done : a.done;
         const evidence = override ? 'set by hand' : a.evidence;
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', done, evidence };
+      }
+      // "Crew assigned" (Scheduled): auto from the orders app's install_team, with override.
+      if (/crew assigned/i.test(ss.title)) {
+        const crew = deal.equip_signals?.crew ?? [];
+        const override = ss.id ? status.get(ss.id) : undefined;
+        const done = override ? override.done : crew.length > 0;
+        const evidence = override ? 'set by hand' : (crew.length ? crew.join(', ') : null);
         return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', done, evidence };
       }
       const sig = autoSignalFor(ss.title);
