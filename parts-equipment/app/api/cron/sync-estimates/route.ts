@@ -92,26 +92,59 @@ export async function GET(request: Request) {
       reportRows.map(r => r.estimateId).filter((id): id is number => id != null)
     );
 
-    // --- Part A: close in-window open orders that dropped out of the report ---
+    // --- Part A: reconcile statuses against the report (the source of truth) ---
     // Only touch orders inside the report window; the windowed report cannot speak to
     // older orders, so those are left alone.
     let closed = 0;
-    const { data: openOrders } = await supabase
-      .from('pe_orders')
-      .select('id, st_estimate_id, date')
-      .eq('status', 'open')
-      .not('st_estimate_id', 'is', null)
-      .gte('date', fromDate)
-      .lte('date', today);
+    let reopened = 0;
 
-    if (openOrders && openOrders.length > 0) {
-      for (const order of openOrders) {
+    // GUARDRAIL: an empty report almost always means the fetch failed (rate limit /
+    // timeout / transient error), NOT "every order got booked." Closing on an empty
+    // report is exactly what mass-completed ~250 active orders on Jul 6 & 10. So when
+    // the report comes back empty, change nothing and wait for the next run.
+    if (currentEstimateIds.size === 0) {
+      console.warn('Parts report returned 0 estimates — skipping status reconciliation (guardrail against mass close).');
+    } else {
+      // Close: in-window OPEN orders whose estimate is no longer in the report
+      // (it got booked / an install job was created).
+      const { data: openOrders } = await supabase
+        .from('pe_orders')
+        .select('id, st_estimate_id')
+        .eq('status', 'open')
+        .not('st_estimate_id', 'is', null)
+        .gte('date', fromDate)
+        .lte('date', today);
+
+      for (const order of openOrders || []) {
         if (order.st_estimate_id != null && !currentEstimateIds.has(order.st_estimate_id)) {
           await supabase
             .from('pe_orders')
             .update({ status: 'completed', completed_at: new Date().toISOString() })
             .eq('id', order.id);
           closed++;
+        }
+      }
+
+      // Reopen: in-window COMPLETED orders whose estimate is STILL in the report.
+      // The report is the source of truth for "open" — if a completed order is still
+      // listed, it was closed by mistake (an earlier empty/partial report), so put it
+      // back. This self-heals the batch that was wrongly auto-completed, and makes a
+      // stray bad close self-correcting on the next healthy run.
+      const { data: closedOrders } = await supabase
+        .from('pe_orders')
+        .select('id, st_estimate_id')
+        .eq('status', 'completed')
+        .not('st_estimate_id', 'is', null)
+        .gte('date', fromDate)
+        .lte('date', today);
+
+      for (const order of closedOrders || []) {
+        if (order.st_estimate_id != null && currentEstimateIds.has(order.st_estimate_id)) {
+          await supabase
+            .from('pe_orders')
+            .update({ status: 'open', completed_at: null })
+            .eq('id', order.id);
+          reopened++;
         }
       }
     }
@@ -286,7 +319,7 @@ export async function GET(request: Request) {
       console.error('Warranty estimate sync failed:', err);
     }
 
-    console.log(`Parts report sync: scanned=${reportRows.length} created=${created} skipped=${skipped} closed=${closed} warrantyCreated=${warrantyCreated} warrantyFlagged=${warrantyFlagged} warrantyClaims=${warrantyClaimsStarted}`);
+    console.log(`Parts report sync: scanned=${reportRows.length} created=${created} skipped=${skipped} closed=${closed} reopened=${reopened} warrantyCreated=${warrantyCreated} warrantyFlagged=${warrantyFlagged} warrantyClaims=${warrantyClaimsStarted}`);
     return NextResponse.json({
       ok: true,
       source: 'report-54646792',
@@ -296,6 +329,7 @@ export async function GET(request: Request) {
       created,
       skipped,
       closed,
+      reopened,
       warrantyCreated,
       warrantyFlagged,
       warrantyClaimsStarted,
