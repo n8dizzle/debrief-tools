@@ -52,11 +52,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
 
       {active === 'full_system' ? (
         <>
-          <div className="legend" aria-hidden="true">
-            <span><i className="sw" style={{ background: 'var(--good)' }} />Done</span>
-            <span><i className="sw" style={{ background: 'var(--ember)' }} />Active now</span>
-            <span><i className="sw" style={{ background: 'var(--wait)' }} />Waiting</span>
-            <span><i className="sw" style={{ background: 'var(--blocked)' }} />Blocked</span>
+          <div className="legend">
+            <span className="legend-lead">How each step gets filled:</span>
+            <span><i className="sw src-servicetitan" />ServiceTitan</span>
+            <span><i className="sw src-orders" />Orders app</span>
+            <span><i className="sw src-debrief" />Debrief form</span>
+            <span><i className="sw src-manual" />Manual</span>
           </div>
 
           <InstallTimeline stages={stages} fromDb={source === 'db'} />

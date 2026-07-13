@@ -1,6 +1,7 @@
 import { getServerSupabase } from '@/lib/supabase';
 import { deriveJobStages, type InstallJob } from '@/lib/jobs';
 import type { Stage } from '@/lib/install-stages';
+import { autoSignalFor, equipmentSignalFor, type AutoSignal, type EquipSignal } from '@/lib/step-source';
 
 // A deal's assigned workflow (plus the two meta-states). "untriaged" = not yet routed;
 // "archived" = deliberately not tracked. The rest are workflows.
@@ -204,16 +205,8 @@ function isGatedStage(name: string): boolean {
   return /permit|inspection/i.test(name || '');
 }
 
-// The Equipment stage keys off the orders app (auto-with-override). Map its sub-steps to
-// an orders signal; null = leave as a normal manual/ST step.
-type EquipSignal = 'po_confirmed' | 'ordered' | 'staged';
-function equipmentSignalFor(title: string): EquipSignal | null {
-  const t = (title || '').toLowerCase();
-  if (/\bpo\b|purchase order|confirmed/.test(t)) return 'po_confirmed';
-  if (/deliver|staged|at shop/.test(t)) return 'staged';
-  if (/order/.test(t)) return 'ordered';
-  return null;
-}
+// The Equipment stage keys off the orders app (auto-with-override). equipmentSignalFor is
+// imported from step-source (shared with the workflow map).
 function equipAuto(sig: EquipSignal, es: EquipSignals | null): { done: boolean; evidence: string | null } {
   if (!es) return { done: false, evidence: null };
   const locs = es.locations.join(', ');
@@ -222,23 +215,7 @@ function equipAuto(sig: EquipSignal, es: EquipSignals | null): { done: boolean; 
   return { done: es.staged, evidence: es.staged ? (locs || 'at shop') : null };
 }
 
-type AutoSignal = 'sold' | 'job' | 'scheduled' | 'installed' | 'invoiced' | 'paid' | 'payment_type';
-
-// Map a sub-step title to a known ServiceTitan signal (hardcoded for now; could
-// become a per-node setting later). Null = manual checkbox.
-function autoSignalFor(title: string): AutoSignal | null {
-  const t = (title || '').toLowerCase();
-  // Word boundaries matter: "as-signed" must not match "signed", "contract-or" must
-  // not match "contract", and "Inspection scheduled" must not borrow the install date.
-  if (/\bcontract\b|\bsigned\b|\bsold\b/.test(t)) return 'sold';
-  if (/job created|created in servicetitan|st job/.test(t)) return 'job';
-  if (/install date/.test(t)) return 'scheduled';
-  if (/system installed|\binstalled\b|startup|commission/.test(t)) return 'installed';
-  if (/payment type/.test(t)) return 'payment_type'; // "payment TYPE captured" — before the generic payment→paid rule
-  if (/invoice/.test(t)) return 'invoiced';
-  if (/\bpaid\b|balance|payment/.test(t)) return 'paid';
-  return null;
-}
+// autoSignalFor is imported from step-source (shared with the workflow map).
 function autoState(signal: AutoSignal, deal: FullDeal): { done: boolean; evidence: string | null } {
   switch (signal) {
     case 'sold': return { done: !!deal.sold_on, evidence: deal.sold_on ? `sold ${deal.sold_on}` : null };

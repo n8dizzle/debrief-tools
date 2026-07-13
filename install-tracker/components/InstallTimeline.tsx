@@ -3,7 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { STATUS_LABEL, type Stage } from '@/lib/install-stages';
+import { type Stage } from '@/lib/install-stages';
+import { classifyStepSource, SOURCE_META } from '@/lib/step-source';
+
+function stepCounts(s: Stage) {
+  let auto = 0, manual = 0;
+  for (const step of s.subSteps) classifyStepSource(s.name, step.title).auto ? auto++ : manual++;
+  return { auto, manual };
+}
 
 type EditTarget = { id: string; field: string } | null;
 
@@ -164,25 +171,32 @@ export default function InstallTimeline({
   return (
     <>
       <div className="rail" role="tablist" aria-label="Install stages">
-        {stages.map((s, i) => (
-          <button
-            key={s.id ?? s.name}
-            className="node"
-            role="tab"
-            aria-selected={i === selected}
-            onClick={() => setSelected(i)}
-          >
-            <span className={`strip ${s.status}`} />
-            <span className="body">
-              <span className="idx">STAGE {i + 1}</span>
-              <div className="nm">{s.name}</div>
-              <span className="foot">
-                <span className={`pill ${s.status}`}>{STATUS_LABEL[s.status]}</span>
-                <span className="caret">›</span>
+        {stages.map((s, i) => {
+          const c = stepCounts(s);
+          return (
+            <button
+              key={s.id ?? s.name}
+              className="node"
+              role="tab"
+              aria-selected={i === selected}
+              onClick={() => setSelected(i)}
+            >
+              <span className="strip neutral" />
+              <span className="body">
+                <span className="idx">STAGE {i + 1}</span>
+                <div className="nm">{s.name}</div>
+                <span className="foot">
+                  <span className="src-summary">
+                    {c.auto > 0 && <span className="src-auto">{c.auto} auto</span>}
+                    {c.auto > 0 && c.manual > 0 && ' · '}
+                    {c.manual > 0 && <span className="src-man">{c.manual} manual</span>}
+                  </span>
+                  <span className="caret">›</span>
+                </span>
               </span>
-            </span>
-          </button>
-        ))}
+            </button>
+          );
+        })}
         {editable && adding?.parentId !== null && (
           <button className="node add-node" onClick={() => { setAdding({ parentId: null }); setAddValue(''); }}>
             <span className="body add-body">＋ Add stage</span>
@@ -195,7 +209,6 @@ export default function InstallTimeline({
         <div className="card">
           <div className="cardhead">
             <h2>
-              <span className={`pill ${stage.status}`}>{STATUS_LABEL[stage.status]}</span>
               <Edit id={stage.id} field="title" text={stage.name} />
             </h2>
             {editable && stage.id && (
@@ -215,12 +228,17 @@ export default function InstallTimeline({
           </p>
 
           <ol className="substeps">
-            {stage.subSteps.map((step, j) => (
+            {stage.subSteps.map((step, j) => {
+              const src = classifyStepSource(stage.name, step.title);
+              return (
               <li key={step.id ?? `${step.title}-${j}`}>
                 <span className="n">{j + 1}</span>
                 <span className="st">
                   <Edit id={step.id} field="title" text={step.title} />
                   <span className="sd"><Edit id={step.id} field="notes" text={step.detail} placeholder="Add detail…" /></span>
+                </span>
+                <span className={`src-badge ${src.source}`} title={SOURCE_META[src.source].hint}>
+                  {SOURCE_META[src.source].label}
                 </span>
                 {editable && step.id && (
                   <span className="row-tools">
@@ -233,7 +251,8 @@ export default function InstallTimeline({
                   </span>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ol>
 
           {editable && (
