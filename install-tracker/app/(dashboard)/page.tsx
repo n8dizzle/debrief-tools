@@ -32,11 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   return (
     <div className="wrap">
       <div className="pagehead">
-        <h1>Install Pipeline</h1>
-        <p className="desc">
-          The install process, end to end — one pipeline per workflow. Full System is built out;
-          Partial and Warranty come next.
-        </p>
+        <h1>Install Workflows</h1>
       </div>
 
       <div className="tabs" role="tablist">
@@ -64,17 +60,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
           </div>
 
           <InstallTimeline stages={stages} fromDb={source === 'db'} />
-
-          <p className="foot-note">
-            {source === 'db'
-              ? 'Map loaded from the install_nodes table. Statuses are illustrative.'
-              : 'Showing seed data (database not reachable). Statuses are illustrative.'}
-          </p>
         </>
       ) : (
         <div className="wf-stub">
           <div className="wf-stub-mark">🛠️</div>
-          <h2>{WORKFLOWS.find((w) => w.key === active)!.label} Pipeline</h2>
+          <h2>{WORKFLOWS.find((w) => w.key === active)!.label} Workflow</h2>
           <p className="wf-stub-blurb">{STUB[active].blurb}</p>
           <p className="wf-stub-note">{STUB[active].note}</p>
           <p className="wf-stub-foot">
