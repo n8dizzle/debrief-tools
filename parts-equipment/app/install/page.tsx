@@ -2,8 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney } from '@/lib/pe-utils';
-import { SUPPLIERS, INSTALL_TEAMS } from '@/lib/constants';
+import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, looksLikeCurrency } from '@/lib/pe-utils';
 import type { PEOrder } from '@/types';
 
 const INSTALL_TECHS = ['Luke', 'Brett', 'Christina', 'John', 'Daniel', 'Other'];
@@ -18,7 +17,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams, suppliers } = ctx;
 
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
@@ -181,7 +180,7 @@ export default function InstallPage() {
         </div>
         <select className="filter" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
           <option value="">All teams</option>
-          {INSTALL_TEAMS.map(t => <option key={t}>{t}</option>)}
+          {installTeams.map(t => <option key={t}>{t}</option>)}
         </select>
         <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
           <option value="open">Open</option>
@@ -192,9 +191,6 @@ export default function InstallPage() {
       </div>
 
       {/* Table */}
-      <datalist id="pe-suppliers">
-        {SUPPLIERS.map(s => <option key={s} value={s} />)}
-      </datalist>
       <div className="table-wrap" style={{ padding: '0 24px 12px' }}>
         {isLoading ? (
           <div className="empty"><div className="empty-icon">◎</div><p>Loading...</p></div>
@@ -324,7 +320,11 @@ export default function InstallPage() {
                       </td>
 
                       <td>
-                        <input className="si" list="pe-suppliers" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} placeholder="— select or type —" title={o.supplier || ''} style={{ minWidth: 150 }} />
+                        <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} style={{ minWidth: 150 }}>
+                          <option value="">— select —</option>
+                          {o.supplier && !suppliers.includes(o.supplier) && <option value={o.supplier}>{o.supplier}</option>}
+                          {suppliers.map(s => <option key={s}>{s}</option>)}
+                        </select>
                       </td>
 
                       <td><input className="si" value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })} style={{ minWidth: 90, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} /></td>
@@ -341,7 +341,8 @@ export default function InstallPage() {
                       <td>
                         <select className="si-sel" value={o.install_team || ''} onChange={e => save(o.id, { install_team: e.target.value })} style={{ minWidth: 90 }}>
                           <option value="">— select —</option>
-                          {INSTALL_TEAMS.map(t => <option key={t}>{t}</option>)}
+                          {o.install_team && !installTeams.includes(o.install_team) && !looksLikeCurrency(o.install_team) && <option value={o.install_team}>{o.install_team}</option>}
+                          {installTeams.map(t => <option key={t}>{t}</option>)}
                         </select>
                       </td>
 

@@ -3,6 +3,8 @@
  * Adapted from job-tracker, focused on install job syncing.
  */
 
+import { countComponents, countSystems } from './hvac-equipment';
+
 interface TokenResponse {
   access_token: string;
   expires_in: number;
@@ -59,6 +61,7 @@ export interface STTechnician {
   active: boolean;
   businessUnitId?: number;
   team?: string; // free-text team; set even when businessUnitId is null
+  roleIds?: number[]; // ST user-role ids (e.g. "HVAC Install - Lead")
 }
 
 export interface STAppointment {
@@ -326,6 +329,60 @@ export class ServiceTitanClient {
     }
 
     return allTechnicians;
+  }
+
+  /**
+   * Count installed components/systems from each job's INVOICE (the source of truth for
+   * what was actually installed — sold estimates carry revision noise and multi-system
+   * jobs get split across several "Sold" estimates). Counts Equipment-type invoice lines
+   * only (excludes labor/service/accessories via the classifier). Returns
+   * stJobId → { components, systems, hasEquipment }.
+   */
+  async getEquipmentCountsByJobs(stJobIds: number[]): Promise<Map<number, { components: number; systems: number; hasEquipment: boolean }>> {
+    const out = new Map<number, { components: number; systems: number; hasEquipment: boolean }>();
+    const ids = Array.from(new Set(stJobIds.filter(Boolean)));
+    const fetchOne = async (jobId: number) => {
+      try {
+        const resp = await this.request<STPagedResponse<any>>(
+          'GET', `accounting/v2/tenant/${this.tenantId}/invoices`, { params: { jobId: String(jobId), pageSize: '50' } }
+        );
+        const items = (resp.data || []).flatMap((inv: any) => inv.items || [])
+          .filter((it: any) => String(it.type || '').toLowerCase() === 'equipment')
+          .map((it: any) => ({ sku: it.skuName || '', name: it.description || it.displayName || '', qty: it.quantity }));
+        out.set(jobId, { components: countComponents(items), systems: countSystems(items), hasEquipment: items.length > 0 });
+      } catch { /* leave unset → caller falls back to estimate counts */ }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+    return out;
+  }
+
+  /** All ServiceTitan user roles (id → name), e.g. "HVAC Install - Lead". */
+  async getUserRoles(): Promise<{ id: number; name: string }[]> {
+    const roles: { id: number; name: string }[] = [];
+    let page = 1, hasMore = true;
+    while (hasMore) {
+      const response = await this.request<STPagedResponse<any>>(
+        'GET',
+        `settings/v2/tenant/${this.tenantId}/user-roles`,
+        { params: { pageSize: '200', page: page.toString() } }
+      );
+      roles.push(...(response.data || []).map((r: any) => ({ id: r.id, name: r.name })));
+      hasMore = response.hasMore;
+      page++;
+      if (page > 10) break;
+    }
+    return roles;
+  }
+
+  /** Resolve the user-role id for a role name (case-insensitive). */
+  async getRoleIdByName(name: string): Promise<number | null> {
+    const target = name.trim().toLowerCase();
+    const roles = await this.getUserRoles();
+    const match = roles.find(r => (r.name || '').trim().toLowerCase() === target);
+    return match ? match.id : null;
   }
 
   /** Get a single BU by ID (works for deleted/inactive BUs too). */
@@ -931,6 +988,68 @@ export class ServiceTitanClient {
     let idx = 0;
     const worker = async () => { while (idx < jobs.length) { const my = idx++; await fetchOne(jobs[my]); } };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, () => worker()));
+    return out;
+  }
+
+  /** Fetch projectId for a set of ST jobs (by id). Used to backfill st_project_id. */
+  async getProjectIdsForJobs(stJobIds: number[]): Promise<Map<number, number>> {
+    const out = new Map<number, number>();
+    const ids = Array.from(new Set(stJobIds.filter(Boolean)));
+    const fetchOne = async (jid: number) => {
+      try {
+        const j = await this.request<any>('GET', `jpm/v2/tenant/${this.tenantId}/jobs/${jid}`, {});
+        if (j?.projectId) out.set(jid, j.projectId);
+      } catch (err) { console.error(`Job projectId fetch failed for ${jid}:`, err); }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+    return out;
+  }
+
+  /**
+   * Who sold each project: the Sold estimate's soldBy (comfort advisor tech id), the
+   * estimate job #, and sold date. Returns projectId → {sold_by_st_id, estimate_job_number, sold_on}.
+   */
+  async getSalesInfoByProject(projectIds: number[]): Promise<Map<number, {
+    sold_by_st_id: number | null; estimate_job_number: string | null; sold_on: string | null;
+    component_count: number; system_count: number;
+  }>> {
+    const out = new Map<number, any>();
+    const ids = Array.from(new Set(projectIds.filter(Boolean)));
+    const statusName = (e: any) => (e.status && typeof e.status === 'object' ? e.status.name : e.status) || null;
+    const fetchOne = async (pid: number) => {
+      try {
+        const ests = await this.requestAllPages<any>(
+          `sales/v2/tenant/${this.tenantId}/estimates`, { projectId: String(pid) }
+        );
+        if (!ests.length) return;
+        const equipOf = (e: any) => (e.items || [])
+          .filter((i: any) => (i.sku?.type || '').toLowerCase() === 'equipment')
+          .map((i: any) => ({ sku: i.sku?.name || '', name: i.sku?.displayName || i.description || '', qty: i.qty }));
+        // A project can have several estimates left in "Sold" status: the real system plus
+        // small add-on/ducting/warranty upsells. Picking the most-recent grabs the trivial
+        // upsell (0 equipment). Instead pick the Sold estimate that actually contains a
+        // system: most components, tie-break highest subtotal, then most recently sold.
+        const candidates = (ests.filter(e => statusName(e) === 'Sold').length ? ests.filter(e => statusName(e) === 'Sold') : ests)
+          .map((e: any) => { const equip = equipOf(e); return { e, equip, comp: countComponents(equip), sub: Number(e.subtotal || 0) }; })
+          .sort((a, b) => b.comp - a.comp || b.sub - a.sub || (b.e.soldOn || b.e.modifiedOn || '').localeCompare(a.e.soldOn || a.e.modifiedOn || ''));
+        const best = candidates[0];
+        const pick = best.e;
+        out.set(pid, {
+          sold_by_st_id: pick.soldBy ?? null,
+          estimate_job_number: pick.jobNumber ?? (pick.jobId != null ? String(pick.jobId) : null),
+          sold_on: pick.soldOn ? pick.soldOn.slice(0, 10) : null,
+          component_count: best.comp,
+          system_count: countSystems(best.equip),
+        });
+      } catch (err) { console.error(`Sales info fetch failed for project ${pid}:`, err); }
+    };
+    const CONCURRENCY = 8;
+    let idx = 0;
+    const worker = async () => { while (idx < ids.length) { const my = idx++; await fetchOne(ids[my]); } };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
     return out;
   }
 

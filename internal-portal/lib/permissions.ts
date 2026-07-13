@@ -83,6 +83,12 @@ export interface APPaymentsPermissions {
   can_view_margin?: boolean;
 }
 
+export interface PartsEquipmentPermissions {
+  can_view?: boolean;
+  can_manage?: boolean;
+  can_sync_data?: boolean;
+}
+
 export interface MembershipManagerPermissions {
   can_access?: boolean;
   can_view_memberships?: boolean;
@@ -169,6 +175,7 @@ export interface UserPermissions {
   ar_collections?: ARCollectionsPermissions;
   job_tracker?: JobTrackerPermissions;
   ap_payments?: APPaymentsPermissions;
+  parts_equipment?: PartsEquipmentPermissions;
   membership_manager?: MembershipManagerPermissions;
   celebrations?: CelebrationsPermissions;
   doc_dispatch?: DocDispatchPermissions;
@@ -435,6 +442,27 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_view_margin',
         label: 'View gross margin',
         description: 'View the Gross Margin report (revenue, costs, true margin per job)',
+      },
+    ],
+  },
+  {
+    app: 'parts_equipment',
+    label: 'Parts & Equipment',
+    permissions: [
+      {
+        key: 'can_view',
+        label: 'Can access / view',
+        description: 'Access the Parts & Equipment app and view orders',
+      },
+      {
+        key: 'can_manage',
+        label: 'Manage orders & settings',
+        description: 'Create and edit orders, and manage Settings (e.g. Install Teams)',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger the ServiceTitan estimate sync',
       },
     ],
   },

@@ -6,15 +6,18 @@
     "packages/*",
     "daily-dash",
     "marketing-hub",
-    "internal-portal"
+    "internal-portal",
+    "estimate-tool"
   ],
   "scripts": {
     "dev:dash": "npm run dev --workspace=daily-dash",
     "dev:marketing": "npm run dev --workspace=marketing-hub",
     "dev:portal": "npm run dev --workspace=internal-portal",
+    "dev:estimate": "npm run dev --workspace=estimate-tool",
     "build:dash": "npm run build --workspace=daily-dash",
     "build:marketing": "npm run build --workspace=marketing-hub",
     "build:portal": "npm run build --workspace=internal-portal",
+    "build:estimate": "npm run build --workspace=estimate-tool",
     "lint": "npm run lint --workspaces --if-present"
   }
 }

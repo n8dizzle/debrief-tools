@@ -7,6 +7,7 @@ import { useServiceDashboardPermissions } from '@/hooks/usePermissions';
 const mainLinks = [
   { href: '/', label: 'Leaderboard', icon: 'trophy' },
   { href: '/attendance', label: 'Attendance', icon: 'clipboard' },
+  { href: '/recalls', label: 'Recalls', icon: 'recall', requiresRecalls: true },
 ];
 
 const managementLinks = [
@@ -36,6 +37,11 @@ function NavIcon({ type }: { type: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
     ),
+    recall: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
   };
 
   return icons[type] || icons.trophy;
@@ -48,12 +54,16 @@ interface ServiceSidebarProps {
 
 export default function ServiceSidebar({ isOpen = true, onClose }: ServiceSidebarProps) {
   const pathname = usePathname();
-  const { isManager, isOwner } = useServiceDashboardPermissions();
+  const { isManager, isOwner, canViewRecalls } = useServiceDashboardPermissions();
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     return pathname.startsWith(href);
   };
+
+  const filteredMainLinks = mainLinks.filter(
+    link => !('requiresRecalls' in link && link.requiresRecalls) || canViewRecalls
+  );
 
   const filteredManagementLinks = managementLinks.filter(
     link => !link.requiresManager || isManager || isOwner
@@ -117,7 +127,7 @@ export default function ServiceSidebar({ isOpen = true, onClose }: ServiceSideba
               Dashboard
             </div>
             <div className="space-y-1">
-              {mainLinks.map((link) => (
+              {filteredMainLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

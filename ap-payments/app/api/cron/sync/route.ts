@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
   const errors: string[] = [];
 
   try {
-    const [businessUnits, jobTypes, stTechnicians] = await Promise.all([
+    const [businessUnits, jobTypes, stTechnicians, installLeadRoleId] = await Promise.all([
       st.getAllBusinessUnits(),
       st.getJobTypes(),
       st.getTechnicians(false),
+      st.getRoleIdByName('HVAC Install - Lead').catch(() => null),
     ]);
 
     // Upsert technicians (preserve manually-entered hourly_rate and trade)
@@ -70,6 +71,8 @@ export async function POST(request: NextRequest) {
               // report shows a real home team instead of "No team").
               business_unit_name: buName || tech.team || null,
               team: tech.team || null,
+              st_role_ids: tech.roleIds || null,
+              is_install_lead: installLeadRoleId != null && (tech.roleIds || []).includes(installLeadRoleId),
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'st_technician_id', ignoreDuplicates: false }
@@ -479,6 +482,57 @@ export async function POST(request: NextRequest) {
 
     // Enrich invoice numbers for jobs that have invoiceId but no invoice_number
     await enrichInvoiceNumbers(st, supabase, allJobs);
+
+    // Auto-resolve the comfort advisor (sold-by) for install jobs not yet resolved.
+    // Incremental + capped so each run chips away without timing out; the intraday
+    // crons catch up over the day. Replaces the need for a manual "Resolve" click.
+    try {
+      const { data: pending } = await supabase
+        .from('ap_install_jobs')
+        .select('id, st_job_id, st_project_id')
+        .eq('business_unit_name', 'HVAC - Install')
+        .neq('job_status', 'Canceled')
+        .is('sales_resolved_at', null)
+        .limit(75);
+      if (pending && pending.length > 0) {
+        const needProj = pending.filter((j: any) => !j.st_project_id && j.st_job_id).map((j: any) => j.st_job_id);
+        const projForJob = needProj.length ? await st.getProjectIdsForJobs(needProj) : new Map<number, number>();
+        for (const j of pending as any[]) if (!j.st_project_id && j.st_job_id && projForJob.has(j.st_job_id)) j.st_project_id = projForJob.get(j.st_job_id);
+
+        const projectIds = Array.from(new Set(pending.map((j: any) => j.st_project_id).filter(Boolean)));
+        const salesByProject = await st.getSalesInfoByProject(projectIds as number[]);
+        const soldTechIds = Array.from(new Set(Array.from(salesByProject.values()).map(v => v.sold_by_st_id).filter(Boolean)));
+        const nameById = new Map<number, string>();
+        if (soldTechIds.length) {
+          const { data: techs } = await supabase.from('ap_technicians').select('st_technician_id, name').in('st_technician_id', soldTechIds);
+          for (const t of (techs || []) as any[]) nameById.set(t.st_technician_id, t.name);
+        }
+        // Component/system counts come from the INVOICE (what was actually installed),
+        // not the sold estimate — multi-system jobs split their systems across several
+        // Sold estimates, so the estimate undercounts. Fall back to estimate if no invoice.
+        const invoiceCounts = await st.getEquipmentCountsByJobs(pending.map((j: any) => j.st_job_id).filter(Boolean));
+        for (const j of pending as any[]) {
+          const sales = j.st_project_id ? salesByProject.get(j.st_project_id) : null;
+          const soldById = sales?.sold_by_st_id ?? null;
+          const inv = j.st_job_id ? invoiceCounts.get(j.st_job_id) : null;
+          const componentCount = inv?.hasEquipment ? inv.components : (sales?.component_count ?? null);
+          const systemCount = inv?.hasEquipment ? inv.systems : (sales?.system_count ?? null);
+          await supabase.from('ap_install_jobs').update({
+            st_project_id: j.st_project_id ?? null,
+            sold_by_st_technician_id: soldById,
+            sold_by_name: soldById != null ? (nameById.get(soldById) || null) : null,
+            sold_estimate_job_number: sales?.estimate_job_number ?? null,
+            sold_on: sales?.sold_on ?? null,
+            component_count: componentCount,
+            system_count: systemCount,
+            sales_resolved_at: new Date().toISOString(),
+          }).eq('id', j.id);
+        }
+        console.log(`Auto-resolved sold-by for ${pending.length} install jobs`);
+      }
+    } catch (err) {
+      console.error('Sold-by auto-resolve failed:', err);
+    }
 
     if (syncId) {
       await supabase

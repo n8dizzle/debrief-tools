@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/targets/sync",
+      "schedule": "0 12 * * *"
+    },
+    {
       "path": "/api/analytics/sync",
       "schedule": "0 12 * * *"
     },

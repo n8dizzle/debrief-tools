@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { SUPPLIERS, TECHS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES } from '@/lib/constants';
+import { TECHS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES } from '@/lib/constants';
 import { formatLocalDate } from '@/lib/pe-utils';
 
 interface Props {
@@ -12,7 +12,7 @@ type OrderStep1Type = 'service' | 'install' | 'duct';
 type Step = 1 | 2;
 
 export default function NewOrderWizard({ onClose }: Props) {
-  const { createOrder, showToast } = useOrders();
+  const { createOrder, showToast, suppliers } = useOrders();
   const [step, setStep] = useState<Step>(1);
   const [orderType, setOrderType] = useState<OrderStep1Type | null>(null);
   const [saving, setSaving] = useState(false);
@@ -235,7 +235,7 @@ export default function NewOrderWizard({ onClose }: Props) {
                   <label style={labelStyle}>Supplier</label>
                   <select style={inputStyle} value={sSupplier} onChange={e => setSSupplier(e.target.value)}>
                     <option value="">— select —</option>
-                    {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
+                    {suppliers.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={groupStyle}>
@@ -306,7 +306,7 @@ export default function NewOrderWizard({ onClose }: Props) {
                   <label style={labelStyle}>Ordered From</label>
                   <select style={inputStyle} value={iSupplier} onChange={e => setISupplier(e.target.value)}>
                     <option value="">— select —</option>
-                    {SUPPLIERS.map(s => <option key={s}>{s}</option>)}
+                    {suppliers.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={groupStyle}>

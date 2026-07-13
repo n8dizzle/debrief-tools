@@ -7,6 +7,7 @@ import { useAPPermissions } from '@/hooks/useAPPermissions';
 import { DateRangePicker, DateRange, DateRangePreset } from '@/components/DateRangePicker';
 import JobsTable from '@/components/JobsTable';
 import WorkflowModal from '@/components/WorkflowModal';
+import PayRunModal from '@/components/PayRunModal';
 
 const FILTER_KEY = 'ap-jobs-filters';
 
@@ -19,7 +20,8 @@ function getSavedFilters(): Record<string, any> | null {
 }
 
 export default function JobsPage() {
-  const { canSyncData, canManageAssignments, canManagePayments, canApprovePayments } = useAPPermissions();
+  const { canSyncData, canManageAssignments, canManagePayments, canApprovePayments, canIssuePayments } = useAPPermissions();
+  const [showPayRun, setShowPayRun] = useState(false);
   const [jobs, setJobs] = useState<APInstallJob[]>([]);
   const [contractors, setContractors] = useState<APContractor[]>([]);
   const [businessUnitOptions, setBusinessUnitOptions] = useState<string[]>([]);
@@ -288,6 +290,14 @@ export default function JobsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {canIssuePayments && (
+            <button onClick={() => setShowPayRun(true)} className="btn" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }} title="Record a lump payment across multiple approved contractor jobs">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Record Lump Payment
+            </button>
+          )}
           {canSyncData && (
             <button
               onClick={handleSync}
@@ -688,6 +698,7 @@ export default function JobsPage() {
       )}
 
       <WorkflowModal isOpen={showWorkflow} onClose={() => setShowWorkflow(false)} />
+      {showPayRun && <PayRunModal onClose={() => setShowPayRun(false)} onDone={() => { setShowPayRun(false); loadJobs(); }} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
-import { OWNERS, SUPPLIERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
+import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
@@ -17,7 +17,7 @@ function fmtMD(d: string | null | undefined): string {
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
   const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading,
-    warrantyOrders, setWarrantyOrders, showToast } = ctx;
+    warrantyOrders, setWarrantyOrders, showToast, suppliers } = ctx;
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
@@ -212,9 +212,6 @@ export default function ServicePage() {
       </div>
 
       {/* Table */}
-      <datalist id="pe-suppliers">
-        {SUPPLIERS.map(s => <option key={s} value={s} />)}
-      </datalist>
       <div className="table-wrap" style={{ padding: '0 24px 12px' }}>
         {isLoading ? (
           <div className="empty"><div className="empty-icon">◎</div><p>Loading...</p></div>
@@ -383,7 +380,11 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <input className="si" list="pe-suppliers" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} placeholder="— select or type —" title={o.supplier || ''} style={{ minWidth: 150 }} />
+                        <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} style={{ minWidth: 150 }}>
+                          <option value="">— select —</option>
+                          {o.supplier && !suppliers.includes(o.supplier) && <option value={o.supplier}>{o.supplier}</option>}
+                          {suppliers.map(s => <option key={s}>{s}</option>)}
+                        </select>
                       </td>
 
                       <td>

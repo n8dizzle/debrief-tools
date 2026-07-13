@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Snowflake, Bell, Settings, User, Calendar, ChevronDown } from 'lucide-react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { DateRangePreset } from '@/types';
-import { LeadPolling } from '@/components/LeadPolling';
 
 const DATE_PRESETS: { value: DateRangePreset; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -130,11 +129,6 @@ export function Header({ onSettingsClick }: HeaderProps) {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Lead Polling Status */}
-        <div className="border-l border-border pl-4">
-          <LeadPolling />
         </div>
 
         <button

@@ -22,7 +22,7 @@ function TestSMSForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone.trim(),
-          message: 'Test message from AP Payments (Dialpad)',
+          message: 'Test message from AP Payments (Quo)',
         }),
       });
       const data = await res.json();
@@ -837,7 +837,9 @@ export default function SettingsPage() {
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
-  if (!isManager && !isOwner) {
+  // Gate on the permissions the settings tabs actually use (matches the API auth),
+  // not role alone — so anyone granted can_sync_data / can_manage_contractors gets in.
+  if (!isOwner && !isManager && !canSyncData && !canManageContractors) {
     return (
       <div className="flex items-center justify-center h-64">
         <p style={{ color: 'var(--text-muted)' }}>You don&apos;t have permission to access settings.</p>
@@ -1466,10 +1468,10 @@ export default function SettingsPage() {
         {/* Test SMS */}
         <div className="card">
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
-            Test SMS (Dialpad)
+            Test SMS (Quo)
           </h2>
           <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-            Send a test message to verify Dialpad SMS is working.
+            Send a test message to verify Quo SMS is working.
           </p>
           <TestSMSForm />
         </div>

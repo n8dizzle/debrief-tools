@@ -10,10 +10,13 @@ const mainLinks = [
   { href: '/jobs', label: 'Payment Tracker', icon: 'briefcase', section: 'payments' },
   { href: '/install-jobs', label: 'Install Jobs', icon: 'clipboard', section: 'payments' },
   { href: '/contractors', label: 'Contractors', icon: 'users', permission: 'canManageContractors' as const, section: 'payments' },
+  { href: '/pay-runs', label: 'Pay Runs', icon: 'card', permission: 'canManagePayments' as const, section: 'payments' },
   { href: '/board', label: 'Payment Board', icon: 'board', section: 'wip' },
   { href: '/margin', label: 'Gross Margin', icon: 'chart', permission: 'canViewMargin' as const, section: 'wip' },
   { href: '/equipment', label: 'Equipment', icon: 'box', permission: 'canManagePayments' as const, section: 'wip' },
-  { href: '/reports', label: 'Payment Reports', icon: 'document', permission: 'canManagePayments' as const, section: 'reports' },
+  { href: '/job-costs', label: 'Deal Margin', icon: 'chart', permission: 'canManagePayments' as const, section: 'wip' },
+  { href: '/leaderboard', label: 'Installer Leaderboard', icon: 'trophy', permission: 'canViewJobs' as const, section: 'reports' },
+  { href: '/warranties', label: 'Warranties', icon: 'shield', permission: 'canViewJobs' as const, section: 'reports' },
   { href: '/reports/labor', label: 'Labor by Tech', icon: 'users', permission: 'canViewJobs' as const, section: 'reports' },
   { href: '/reports/equipment', label: 'Equipment by Job', icon: 'box', permission: 'canManagePayments' as const, section: 'reports' },
   { href: '/settings', label: 'Settings', icon: 'settings', permission: 'canSyncData' as const, section: 'manage' },
@@ -21,8 +24,8 @@ const mainLinks = [
 
 const SECTIONS: { key: string; heading: string | null; wip?: boolean }[] = [
   { key: 'payments', heading: 'Payments' },
-  { key: 'wip', heading: 'Work In Progress', wip: true },
   { key: 'reports', heading: 'Reports' },
+  { key: 'wip', heading: 'Work In Progress', wip: true },
   { key: 'manage', heading: null },
 ];
 
@@ -81,6 +84,22 @@ function NavIcon({ type }: { type: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
     ),
+    trophy: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 21h8m-4-4v4m-5-17h10v4a5 5 0 01-10 0V4zm0 2H5a2 2 0 002 4m10-4h2a2 2 0 01-2 4" />
+      </svg>
+    ),
+    card: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="2" strokeWidth={1.5} />
+        <path strokeLinecap="round" strokeWidth={1.5} d="M3 10h18" />
+      </svg>
+    ),
+    shield: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+      </svg>
+    ),
   };
 
   return icons[type] || icons.home;
@@ -89,11 +108,15 @@ function NavIcon({ type }: { type: string }) {
 interface APSidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  desktopCollapsed?: boolean;
+  onToggleDesktopCollapsed?: () => void;
 }
 
-export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
+export default function APSidebar({ isOpen = true, onClose, desktopCollapsed = false, onToggleDesktopCollapsed }: APSidebarProps) {
   const pathname = usePathname();
   const perms = useAPPermissions();
+  // When collapsed (desktop only): hide labels/section headings, center icons.
+  const lgHide = desktopCollapsed ? 'lg:hidden' : '';
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -124,24 +147,25 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
       <aside
         className={`
           fixed left-0 top-0 h-screen w-64 flex flex-col z-50
-          transform transition-transform duration-300 ease-in-out
+          transform transition-all duration-300 ease-in-out
           lg:translate-x-0
+          ${desktopCollapsed ? 'lg:w-16' : 'lg:w-64'}
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
         style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)' }}
       >
         {/* Logo Section */}
-        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className={`p-4 border-b flex items-center justify-between ${desktopCollapsed ? 'lg:justify-center lg:px-2' : ''}`} style={{ borderColor: 'var(--border-subtle)' }}>
           <Link href="/" className="flex items-center gap-3" onClick={handleLinkClick}>
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
               style={{ backgroundColor: 'var(--christmas-green)' }}
             >
               <svg className="w-6 h-6" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <div>
+            <div className={lgHide}>
               <div className="font-bold text-lg" style={{ color: 'var(--christmas-cream)' }}>
                 Christmas Air
               </div>
@@ -164,6 +188,21 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
           )}
         </div>
 
+        {/* Desktop collapse toggle */}
+        {onToggleDesktopCollapsed && (
+          <button
+            onClick={onToggleDesktopCollapsed}
+            className="hidden lg:flex items-center justify-end pr-3 py-2 border-b hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
+            aria-label={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <svg className={`w-4 h-4 transition-transform ${desktopCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">
           {SECTIONS.map((section) => {
@@ -173,7 +212,7 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
               <div key={section.key} className="mb-6">
                 {section.heading && (
                   <div
-                    className="text-xs font-semibold uppercase tracking-wider mb-2 px-3 flex items-center gap-1.5"
+                    className={`text-xs font-semibold uppercase tracking-wider mb-2 px-3 flex items-center gap-1.5 ${lgHide}`}
                     style={{ color: section.wip ? 'var(--christmas-gold)' : 'var(--text-muted)' }}
                   >
                     {section.heading}
@@ -188,7 +227,8 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
                         key={link.href}
                         href={link.href}
                         onClick={handleLinkClick}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                        title={desktopCollapsed ? link.label : undefined}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${desktopCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
                         style={{
                           backgroundColor: active ? 'var(--christmas-green)' : 'transparent',
                           color: active ? 'var(--christmas-cream)' : 'var(--text-secondary)',
@@ -197,7 +237,7 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
                       >
                         <NavIcon type={link.icon} />
                         <span
-                          className={`text-sm ${active ? 'font-medium' : ''} ${section.wip ? 'italic' : ''}`}
+                          className={`text-sm ${active ? 'font-medium' : ''} ${section.wip ? 'italic' : ''} ${lgHide}`}
                           style={section.wip ? { fontWeight: 300 } : undefined}
                         >
                           {link.label}
@@ -215,11 +255,12 @@ export default function APSidebar({ isOpen = true, onClose }: APSidebarProps) {
         <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <a
             href="https://portal.christmasair.com"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+            title={desktopCollapsed ? 'Back to Portal' : undefined}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${desktopCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
             style={{ color: 'var(--text-secondary)' }}
           >
             <NavIcon type="arrow" />
-            <span className="text-sm">Back to Portal</span>
+            <span className={`text-sm ${lgHide}`}>Back to Portal</span>
           </a>
         </div>
       </aside>

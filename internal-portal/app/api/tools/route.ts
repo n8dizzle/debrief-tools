@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerSupabase, getPortalUser } from "@/lib/supabase";
-import { hasAppAccess } from "@/lib/permissions";
 import type { UserPermissions, UserRole } from "@/lib/permissions";
 
 // Map tool URLs to their app permission key
@@ -15,6 +14,7 @@ const TOOL_APP_MAP: Record<string, keyof UserPermissions> = {
   "https://debrief.christmasair.com": "debrief_qa",
   "https://track.christmasair.com": "job_tracker",
   "https://ap.christmasair.com": "ap_payments",
+  "https://orders.christmasair.com": "parts_equipment",
   "https://memberships.christmasair.com": "membership_manager",
   "https://celebrate.christmasair.com": "celebrations",
   "https://docs.christmasair.com": "doc_dispatch",
@@ -22,6 +22,12 @@ const TOOL_APP_MAP: Record<string, keyof UserPermissions> = {
   "https://hr.christmasair.com": "hr_hub",
   "https://sales.christmasair.com": "sales_command_center",
   "https://audit.christmasair.com": "st_audit",
+};
+
+// Most apps gate access on `can_access`. A few use a different key as their
+// access gate — list those here so the homepage tile matches the app's own check.
+const APP_ACCESS_PERM: Partial<Record<keyof UserPermissions, string>> = {
+  parts_equipment: "can_view",
 };
 
 // GET /api/tools - Get tools filtered by user's app access permissions
@@ -85,8 +91,11 @@ export async function GET(request: NextRequest) {
       const appKey = TOOL_APP_MAP[tool.url];
       // No mapping = external link (ServiceTitan, Slack, etc.) — show to everyone
       if (!appKey) return true;
-      // Check can_access for internal apps
-      return hasAppAccess(userRole, permissions, appKey);
+      if (userRole === "owner") return true;
+      // Check the app's access permission (can_access by default; some apps differ)
+      const accessPerm = APP_ACCESS_PERM[appKey] ?? "can_access";
+      const appPerms = permissions?.[appKey] as Record<string, boolean> | undefined;
+      return appPerms?.[accessPerm] === true;
     });
 
     return NextResponse.json(filteredTools);

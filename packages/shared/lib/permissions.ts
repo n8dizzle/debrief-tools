@@ -83,6 +83,12 @@ export interface APPaymentsPermissions {
   can_view_margin?: boolean;
 }
 
+export interface PartsEquipmentPermissions {
+  can_view?: boolean;
+  can_manage?: boolean;
+  can_sync_data?: boolean;
+}
+
 export interface MembershipManagerPermissions {
   can_access?: boolean;
   can_view_memberships?: boolean;
@@ -119,6 +125,8 @@ export interface ServiceDashboardPermissions {
   can_manage_settings?: boolean;
   can_manage_attendance?: boolean;
   can_sync_data?: boolean;
+  can_view_recalls?: boolean;   // Quality / Recalls section — view trends + queue
+  can_investigate?: boolean;    // open/answer/resolve investigations + assign questions
 }
 
 export interface HRHubPermissions {
@@ -167,6 +175,7 @@ export interface UserPermissions {
   ar_collections?: ARCollectionsPermissions;
   job_tracker?: JobTrackerPermissions;
   ap_payments?: APPaymentsPermissions;
+  parts_equipment?: PartsEquipmentPermissions;
   membership_manager?: MembershipManagerPermissions;
   celebrations?: CelebrationsPermissions;
   doc_dispatch?: DocDispatchPermissions;
@@ -436,6 +445,27 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
     ],
   },
   {
+    app: 'parts_equipment',
+    label: 'Parts & Equipment',
+    permissions: [
+      {
+        key: 'can_view',
+        label: 'Can access / view',
+        description: 'Access the Parts & Equipment app and view orders',
+      },
+      {
+        key: 'can_manage',
+        label: 'Manage orders & settings',
+        description: 'Create and edit orders, and manage Settings (e.g. Install Teams)',
+      },
+      {
+        key: 'can_sync_data',
+        label: 'Sync data',
+        description: 'Manually trigger the ServiceTitan estimate sync',
+      },
+    ],
+  },
+  {
     app: 'membership_manager',
     label: 'Membership Manager',
     permissions: [
@@ -577,6 +607,16 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
         key: 'can_sync_data',
         label: 'Sync data',
         description: 'Manually trigger ServiceTitan data sync',
+      },
+      {
+        key: 'can_view_recalls',
+        label: 'View recalls / quality',
+        description: 'View the Quality / Recalls section (recall trends and queue)',
+      },
+      {
+        key: 'can_investigate',
+        label: 'Investigate recalls',
+        description: 'Open root-cause investigations, assign and answer research questions, set root cause',
       },
     ],
   },

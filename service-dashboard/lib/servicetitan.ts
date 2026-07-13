@@ -14,6 +14,8 @@ export interface STTechnician {
   name: string;
   active: boolean;
   businessUnitId?: number;
+  mobilePhone?: string;
+  phoneNumber?: string;
 }
 
 export interface STJob {
@@ -22,12 +24,31 @@ export interface STJob {
   businessUnitId: number;
   jobStatus: string;
   customerId: number;
+  locationId?: number;
   completedOn?: string;
   createdOn?: string;
+  summary?: string;        // job-type boilerplate/description
+  summaryOfWork?: string;  // the actual work write-up
   total?: number;
   // ST sets this when the job is a recall — points back to the original job
   // whose work caused the callback. Used for "Recalls Caused" attribution.
   recallForId?: number | null;
+}
+
+// Installed equipment at a location. Field quality is excellent where present;
+// coverage on recall locations is partial (verified 2026-06-30). The locationIds
+// (PLURAL) query param filters correctly — the documented ST bug is the singular form.
+export interface STInstalledEquipment {
+  id: number;
+  locationId: number;
+  customerId?: number;
+  name?: string;
+  manufacturer?: string;
+  model?: string;
+  type?: string;
+  serialNumber?: string;
+  installedOn?: string;
+  cost?: number;
 }
 
 export interface STAppointmentAssignment {
@@ -257,6 +278,17 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Look up a technician's phone (mobile preferred) by ST technician id.
+   * Returns null if the tech isn't found or has no number. Used to text a recall's
+   * original tech via the ask-the-tech magic link.
+   */
+  async getTechnicianPhone(techId: number): Promise<string | null> {
+    const techs = await this.getTechnicians();
+    const t = techs.find(x => x.id === techId);
+    return (t?.mobilePhone || t?.phoneNumber || null) as string | null;
+  }
+
+  /**
    * Get completed jobs for a date range within specific business units.
    */
   async getCompletedJobs(startDate: string, endDate: string, businessUnitIds: number[]): Promise<STJob[]> {
@@ -308,10 +340,66 @@ export class ServiceTitanClient {
   }
 
   /**
+   * Like getRecallJobsCreatedInRange but across ALL business units (no BU filter).
+   * Used by the QC Recalls sync, which covers HVAC + plumbing + installs. Each recall
+   * is later tagged is_service_bu so the HVAC-service-scoped leaderboard metric is preserved.
+   */
+  async getAllRecallJobsCreatedInRange(startDate: string, endDate: string): Promise<STJob[]> {
+    const jobs = await this.requestAllPages<STJob>(
+      `jpm/v2/tenant/${this.tenantId}/jobs`,
+      {
+        createdOnOrAfter: `${startDate}T00:00:00`, // no Z — ST interprets as tenant local time
+        createdBefore: `${endDate}T23:59:59`,
+      }
+    );
+    return jobs.filter(j => j.recallForId != null);
+  }
+
+  /**
+   * Installed equipment for a set of locations. Uses the locationIds (PLURAL) param,
+   * which filters correctly (verified) — no fetch-all client-filter workaround needed.
+   * Chunks the location list to keep query strings sane.
+   */
+  async getInstalledEquipmentByLocations(locationIds: number[]): Promise<STInstalledEquipment[]> {
+    const out: STInstalledEquipment[] = [];
+    const CHUNK = 50;
+    for (let i = 0; i < locationIds.length; i += CHUNK) {
+      const chunk = locationIds.slice(i, i + CHUNK);
+      const items = await this.requestAllPages<STInstalledEquipment>(
+        `equipmentsystems/v2/tenant/${this.tenantId}/installed-equipment`,
+        { locationIds: chunk.join(',') },
+        10
+      );
+      // Defensive: keep only the locations we asked for (in case a tenant ignores the filter).
+      const want = new Set(chunk);
+      out.push(...items.filter(e => want.has(e.locationId)));
+    }
+    return out;
+  }
+
+  /**
    * Fetch a single job by ID. Used to look up recall originals that fall
    * outside the local sd_completed_jobs window.
    * Returns null if the job is not found.
    */
+  /** Customer name by id (crm/v2 customers). Returns null if not found. */
+  async getCustomer(customerId: number): Promise<{ name: string } | null> {
+    try {
+      const c = await this.request<{ name?: string }>('GET', `crm/v2/tenant/${this.tenantId}/customers/${customerId}`);
+      return c?.name ? { name: c.name } : null;
+    } catch { return null; }
+  }
+
+  /** Job notes (jpm/v2 jobs/{id}/notes). Returns [] on error. Newest-ish order as ST returns. */
+  async getJobNotes(jobId: number): Promise<{ text: string; createdOn?: string }[]> {
+    try {
+      const r = await this.request<STPagedResponse<{ text?: string; createdOn?: string }>>(
+        'GET', `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}/notes`, { params: { pageSize: '50' } }
+      );
+      return (r.data || []).filter(n => n.text && n.text.trim()).map(n => ({ text: n.text as string, createdOn: n.createdOn }));
+    } catch { return []; }
+  }
+
   async getJobById(jobId: number): Promise<STJob | null> {
     try {
       return await this.request<STJob>(

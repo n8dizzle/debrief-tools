@@ -230,6 +230,28 @@ export function usePortalUsers() {
   return { users: data?.users, error, isLoading };
 }
 
+export type RigorStatus = 'active' | 'slipping' | 'dormant' | 'unknown';
+
+export interface RigorApp {
+  key: string;
+  name: string;
+  purpose: string;
+  url: string | null;
+  actionLabel: string;
+  lastAction: string | null;
+  count7d: number;
+  count30d: number;
+  status: RigorStatus;
+}
+
+export function useRigor() {
+  const { data, error, isLoading, mutate } = useSWR<{
+    apps: RigorApp[];
+  }>('/api/l10/rigor', fetcher, CACHE_OPTIONS);
+
+  return { apps: data?.apps, error, isLoading, mutate };
+}
+
 export function useDepartments() {
   const { data, error, isLoading } = useSWR<{ id: string; name: string; slug: string }[]>(
     '/api/departments',
