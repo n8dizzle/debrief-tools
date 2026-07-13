@@ -90,7 +90,7 @@ export default function AuditLogPage() {
   if (error) {
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
           Audit Log
         </h1>
         <div
@@ -121,7 +121,7 @@ export default function AuditLogPage() {
           </svg>
           Back to Admin
         </Link>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Audit Log
         </h1>
         <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -161,7 +161,7 @@ export default function AuditLogPage() {
                       </span>
                     </div>
 
-                    <p className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                       {entry.actor ? (
                         <>
                           <span className="font-medium">{entry.actor.name || entry.actor.email}</span>

@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
         <div>
           <h1
             className="text-2xl font-bold"
-            style={{ color: "var(--christmas-cream)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             App Analytics
           </h1>
@@ -134,7 +134,7 @@ export default function AnalyticsPage() {
                     : "var(--bg-card)",
                 color:
                   days === opt.value
-                    ? "var(--christmas-cream)"
+                    ? "var(--text-primary)"
                     : "var(--text-secondary)",
                 border: "1px solid var(--border-subtle)",
               }}
@@ -223,7 +223,7 @@ export default function AnalyticsPage() {
         >
           <h2
             className="text-lg font-semibold mb-4"
-            style={{ color: "var(--christmas-cream)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             Daily Page Views
           </h2>
@@ -248,7 +248,7 @@ export default function AnalyticsPage() {
                     className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10"
                     style={{
                       background: "var(--bg-secondary)",
-                      color: "var(--christmas-cream)",
+                      color: "var(--text-primary)",
                       border: "1px solid var(--border-default)",
                     }}
                   >
@@ -281,7 +281,7 @@ export default function AnalyticsPage() {
         >
           <h2
             className="text-lg font-semibold mb-6"
-            style={{ color: "var(--christmas-cream)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             Views by App
           </h2>
@@ -302,7 +302,7 @@ export default function AnalyticsPage() {
                         color:
                           selectedApp === app.app
                             ? APP_COLORS[app.app] || "var(--christmas-green)"
-                            : "var(--christmas-cream)",
+                            : "var(--text-primary)",
                       }}
                     >
                       {app.label}
@@ -345,7 +345,7 @@ export default function AnalyticsPage() {
         >
           <h2
             className="text-lg font-semibold mb-6"
-            style={{ color: "var(--christmas-cream)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             Users
           </h2>
@@ -362,7 +362,7 @@ export default function AnalyticsPage() {
                       className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
                       style={{
                         background: "var(--christmas-green)",
-                        color: "var(--christmas-cream)",
+                        color: "var(--on-accent)",
                       }}
                     >
                       {user.name
@@ -374,7 +374,7 @@ export default function AnalyticsPage() {
                     <div className="min-w-0">
                       <p
                         className="text-sm font-medium truncate"
-                        style={{ color: "var(--christmas-cream)" }}
+                        style={{ color: "var(--text-primary)" }}
                       >
                         {user.name}
                       </p>
@@ -389,7 +389,7 @@ export default function AnalyticsPage() {
                   <div className="text-right flex-shrink-0 ml-3">
                     <p
                       className="text-sm font-semibold"
-                      style={{ color: "var(--christmas-cream)" }}
+                      style={{ color: "var(--text-primary)" }}
                     >
                       {user.views}
                     </p>
@@ -421,7 +421,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between mb-6">
             <h2
               className="text-lg font-semibold"
-              style={{ color: "var(--christmas-cream)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               Top Pages
               {selectedApp && (
@@ -525,7 +525,7 @@ function SummaryCard({
       </div>
       <p
         className="text-3xl font-bold"
-        style={{ color: "var(--christmas-cream)" }}
+        style={{ color: "var(--text-primary)" }}
       >
         {value.toLocaleString()}
       </p>

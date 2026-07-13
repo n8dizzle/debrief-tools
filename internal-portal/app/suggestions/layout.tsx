@@ -50,7 +50,7 @@ export default function SuggestionsLayout({ children }: { children: React.ReactN
                   className="h-12 w-auto"
                 />
                 <div>
-                  <h1 className="text-lg font-semibold" style={{ color: "var(--christmas-cream)" }}>
+                  <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
                     Idea Board
                   </h1>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>

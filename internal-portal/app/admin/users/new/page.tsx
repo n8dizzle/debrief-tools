@@ -169,7 +169,7 @@ export default function NewUserPage() {
           </svg>
           Back to Users
         </Link>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           Add New User
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -194,7 +194,7 @@ export default function NewUserPage() {
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Email Address *
             </label>
             <input
@@ -206,7 +206,7 @@ export default function NewUserPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -217,7 +217,7 @@ export default function NewUserPage() {
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Full Name
             </label>
             <input
@@ -228,7 +228,7 @@ export default function NewUserPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -236,7 +236,7 @@ export default function NewUserPage() {
 
           {/* Department */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Department *
             </label>
             <select
@@ -247,7 +247,7 @@ export default function NewUserPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
                 opacity: !isOwner ? 0.7 : 1,
               }}
@@ -268,7 +268,7 @@ export default function NewUserPage() {
 
           {/* Role */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Role *
             </label>
             <select
@@ -278,7 +278,7 @@ export default function NewUserPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             >
@@ -298,7 +298,7 @@ export default function NewUserPage() {
             <div className="pt-6 border-t" style={{ borderColor: "var(--border-subtle)" }}>
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold" style={{ color: "var(--christmas-cream)" }}>
+                  <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                     App Permissions
                   </h3>
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
@@ -359,7 +359,7 @@ export default function NewUserPage() {
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                        <span className="text-sm font-medium flex-1" style={{ color: "var(--christmas-cream)" }}>
+                        <span className="text-sm font-medium flex-1" style={{ color: "var(--text-primary)" }}>
                           {group.label}
                         </span>
                         <span
@@ -412,7 +412,7 @@ export default function NewUserPage() {
                                   className="w-3.5 h-3.5 rounded shrink-0"
                                   style={{ accentColor: "var(--christmas-green)" }}
                                 />
-                                <span className="text-sm" style={{ color: "var(--christmas-cream)" }}>
+                                <span className="text-sm" style={{ color: "var(--text-primary)" }}>
                                   {perm.label}
                                 </span>
                                 <span className="text-xs ml-auto hidden sm:block" style={{ color: "var(--text-muted)" }}>
@@ -463,7 +463,7 @@ export default function NewUserPage() {
             className="px-4 py-2 rounded-lg text-sm transition-colors"
             style={{
               background: "var(--christmas-green)",
-              color: "var(--christmas-cream)",
+              color: "var(--on-accent)",
               opacity: loading ? 0.7 : 1,
             }}
           >

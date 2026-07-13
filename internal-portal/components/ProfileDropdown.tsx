@@ -83,7 +83,7 @@ export default function ProfileDropdown({
         className="flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors"
         style={{
           background: isOpen ? "var(--bg-card-hover)" : "transparent",
-          color: "var(--christmas-cream)",
+          color: "var(--text-primary)",
         }}
         onMouseOver={(e) => {
           if (!isOpen) e.currentTarget.style.background = "var(--bg-card)";
@@ -97,7 +97,7 @@ export default function ProfileDropdown({
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
           style={{
             background: "var(--christmas-green)",
-            color: "var(--christmas-cream)",
+            color: "var(--on-accent)",
           }}
         >
           {initials}
@@ -125,7 +125,7 @@ export default function ProfileDropdown({
         >
           {/* User Info */}
           <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-sm font-medium" style={{ color: "var(--christmas-cream)" }}>
+            <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
               {displayName}
             </p>
             <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
@@ -150,7 +150,7 @@ export default function ProfileDropdown({
                   className="flex-1 py-1.5 text-xs font-medium capitalize transition-colors"
                   style={{
                     background: theme === opt ? "var(--christmas-green)" : "transparent",
-                    color: theme === opt ? "var(--christmas-cream)" : "var(--text-secondary)",
+                    color: theme === opt ? "var(--on-accent)" : "var(--text-secondary)",
                   }}
                 >
                   {opt}
@@ -172,7 +172,7 @@ export default function ProfileDropdown({
                 style={{ color: "var(--text-secondary)" }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.background = "var(--bg-card-hover)";
-                  e.currentTarget.style.color = "var(--christmas-cream)";
+                  e.currentTarget.style.color = "var(--text-primary)";
                 }}
                 onMouseOut={(e) => {
                   e.currentTarget.style.background = "transparent";
@@ -196,7 +196,7 @@ export default function ProfileDropdown({
                 style={{ color: "var(--text-secondary)" }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.background = "var(--bg-card-hover)";
-                  e.currentTarget.style.color = "var(--christmas-cream)";
+                  e.currentTarget.style.color = "var(--text-primary)";
                 }}
                 onMouseOut={(e) => {
                   e.currentTarget.style.background = "transparent";
@@ -231,7 +231,7 @@ export default function ProfileDropdown({
               style={{ color: "var(--text-secondary)", opacity: refreshing ? 0.6 : 1 }}
               onMouseOver={(e) => {
                 e.currentTarget.style.background = "var(--bg-card-hover)";
-                e.currentTarget.style.color = "var(--christmas-cream)";
+                e.currentTarget.style.color = "var(--text-primary)";
               }}
               onMouseOut={(e) => {
                 e.currentTarget.style.background = "transparent";

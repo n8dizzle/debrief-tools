@@ -100,7 +100,7 @@ export default function SuggestionsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
             Idea Board
           </h1>
           <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -111,7 +111,7 @@ export default function SuggestionsPage() {
           onClick={handleNewIdea}
           disabled={creating}
           className="inline-flex items-center px-4 py-2 rounded-lg transition-colors"
-          style={{ background: "var(--christmas-green)", color: "var(--christmas-cream)" }}
+          style={{ background: "var(--christmas-green)", color: "var(--on-accent)" }}
         >
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -132,7 +132,7 @@ export default function SuggestionsPage() {
             className="px-3 py-2 rounded-lg text-sm"
             style={{
               background: "var(--bg-card)",
-              color: "var(--christmas-cream)",
+              color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
           >
@@ -156,7 +156,7 @@ export default function SuggestionsPage() {
             className="px-3 py-2 rounded-lg text-sm"
             style={{
               background: "var(--bg-card)",
-              color: "var(--christmas-cream)",
+              color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
           >
@@ -240,7 +240,7 @@ export default function SuggestionsPage() {
                       <Link
                         href={`/suggestions/${s.id}`}
                         className="text-lg font-medium hover:underline"
-                        style={{ color: "var(--christmas-cream)" }}
+                        style={{ color: "var(--text-primary)" }}
                       >
                         {s.title || "Untitled idea"}
                       </Link>

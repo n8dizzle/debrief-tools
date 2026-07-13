@@ -26,6 +26,28 @@
   /* Border Colors */
   --border-subtle: #2A3530;
   --border-default: #3A4840;
+
+  /* Text that always sits on the green accent — stays light in both themes. */
+  --on-accent: #F5F0E1;
+}
+
+/* Light theme — flipped by the portal Appearance switch via <html data-theme="light">.
+   Matches the install tracker's brand palette: white surfaces, punchy green, maroon.
+   Only neutral tokens flip; --on-accent stays light so green buttons keep light text. */
+:root[data-theme="light"] {
+  --bg-primary: #FAFBF8;
+  --bg-secondary: #F1F4EF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F4F7F2;
+  --text-primary: #20261F;
+  --text-secondary: #4C574E;
+  --text-muted: #79847B;
+  --border-subtle: #E6E8E1;
+  --border-default: #D4D8CE;
+  --christmas-green: #4E7D54;
+  --christmas-green-light: #3E7048;
+  --christmas-brown: #8A2E2E;
+  --christmas-brown-light: #A24444;
 }
 
 body {

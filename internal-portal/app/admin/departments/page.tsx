@@ -87,7 +87,7 @@ export default function DepartmentsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
             Departments
           </h1>
           <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -98,7 +98,7 @@ export default function DepartmentsPage() {
           <button
             onClick={() => setShowNewModal(true)}
             className="px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
-            style={{ background: "var(--christmas-green)", color: "var(--christmas-cream)" }}
+            style={{ background: "var(--christmas-green)", color: "var(--on-accent)" }}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -125,7 +125,7 @@ export default function DepartmentsPage() {
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{ background: "var(--christmas-green)" }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="var(--on-accent)" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -138,7 +138,7 @@ export default function DepartmentsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
-            <h3 className="font-semibold mb-1" style={{ color: "var(--christmas-cream)" }}>
+            <h3 className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
               {dept.name}
             </h3>
             {dept.description && (
@@ -175,7 +175,7 @@ export default function DepartmentsPage() {
             <button
               onClick={() => setShowNewModal(true)}
               className="mt-4 px-4 py-2 rounded-lg text-sm"
-              style={{ background: "var(--christmas-green)", color: "var(--christmas-cream)" }}
+              style={{ background: "var(--christmas-green)", color: "var(--on-accent)" }}
             >
               Create First Department
             </button>
@@ -190,7 +190,7 @@ export default function DepartmentsPage() {
             className="rounded-xl p-6 max-w-md w-full mx-4"
             style={{ background: "var(--bg-secondary)" }}
           >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--christmas-cream)" }}>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
               New Department
             </h2>
 
@@ -205,7 +205,7 @@ export default function DepartmentsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
                   Name *
                 </label>
                 <input
@@ -216,13 +216,13 @@ export default function DepartmentsPage() {
                   className="w-full px-4 py-2.5 rounded-lg text-sm"
                   style={{
                     background: "var(--bg-primary)",
-                    color: "var(--christmas-cream)",
+                    color: "var(--text-primary)",
                     border: "1px solid var(--border-subtle)",
                   }}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
                   Description
                 </label>
                 <textarea
@@ -233,7 +233,7 @@ export default function DepartmentsPage() {
                   className="w-full px-4 py-2.5 rounded-lg text-sm resize-none"
                   style={{
                     background: "var(--bg-primary)",
-                    color: "var(--christmas-cream)",
+                    color: "var(--text-primary)",
                     border: "1px solid var(--border-subtle)",
                   }}
                 />
@@ -258,7 +258,7 @@ export default function DepartmentsPage() {
                 className="px-4 py-2 rounded-lg text-sm"
                 style={{
                   background: "var(--christmas-green)",
-                  color: "var(--christmas-cream)",
+                  color: "var(--on-accent)",
                   opacity: creating ? 0.7 : 1,
                 }}
               >

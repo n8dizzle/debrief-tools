@@ -269,7 +269,7 @@ export default function SuggestionDetailPage() {
             </svg>
           </Link>
           <div>
-            <h1 className="text-lg font-semibold" style={{ color: "var(--christmas-cream)" }}>
+            <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
               {suggestion.title || "New Idea"}
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -314,7 +314,7 @@ export default function SuggestionDetailPage() {
               className="px-3 py-1.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-card)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             >
@@ -357,7 +357,7 @@ export default function SuggestionDetailPage() {
                 }}
               >
                 <div className="text-4xl mb-4">💡</div>
-                <p className="text-lg font-medium" style={{ color: "var(--christmas-cream)" }}>
+                <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
                   What's on your mind?
                 </p>
                 <p className="mt-2 text-sm max-w-md mx-auto px-4" style={{ color: "var(--text-secondary)" }}>
@@ -380,7 +380,7 @@ export default function SuggestionDetailPage() {
                         : "var(--bg-card)",
                     color:
                       msg.role === "user"
-                        ? "var(--christmas-cream)"
+                        ? "var(--text-primary)"
                         : "var(--text-primary)",
                     border:
                       msg.role === "assistant"
@@ -440,7 +440,7 @@ export default function SuggestionDetailPage() {
                     className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                     style={{
                       background: "var(--christmas-green)",
-                      color: "var(--christmas-cream)",
+                      color: "var(--on-accent)",
                     }}
                   >
                     {publishing ? "Publishing..." : "Publish"}
@@ -459,7 +459,7 @@ export default function SuggestionDetailPage() {
                   className="flex-1 px-4 py-3 rounded-xl text-sm resize-none"
                   style={{
                     background: "var(--bg-card)",
-                    color: "var(--christmas-cream)",
+                    color: "var(--text-primary)",
                     border: "1px solid var(--border-subtle)",
                   }}
                   onInput={(e) => {
@@ -479,7 +479,7 @@ export default function SuggestionDetailPage() {
                         : "var(--bg-card-hover)",
                     color:
                       input.trim() && !sending
-                        ? "var(--christmas-cream)"
+                        ? "var(--text-primary)"
                         : "var(--text-muted)",
                   }}
                 >
@@ -513,7 +513,7 @@ export default function SuggestionDetailPage() {
                 <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>
                   Title
                 </label>
-                <p className="text-sm font-medium" style={{ color: "var(--christmas-cream)" }}>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                   {suggestion.title}
                 </p>
               </div>

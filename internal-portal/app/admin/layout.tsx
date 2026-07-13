@@ -132,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="h-10 w-auto"
             />
             <div>
-              <h1 className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Admin Panel
               </h1>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -161,12 +161,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 `}
                 style={{
                   background: isActive ? 'var(--christmas-green)' : 'transparent',
-                  color: isActive ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                  color: isActive ? 'var(--on-accent)' : 'var(--text-secondary)',
                 }}
                 onMouseOver={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.background = 'var(--bg-card-hover)';
-                    e.currentTarget.style.color = 'var(--christmas-cream)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
                   }
                 }}
                 onMouseOut={(e) => {

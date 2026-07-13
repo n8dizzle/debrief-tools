@@ -198,7 +198,7 @@ export default function BusinessUnitGroupsPage() {
   return (
     <div className="p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           Business Unit Groups
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -276,7 +276,7 @@ export default function BusinessUnitGroupsPage() {
                             className="flex-1 px-3 py-1.5 rounded text-sm"
                             style={{
                               backgroundColor: "var(--bg-tertiary)",
-                              color: "var(--christmas-cream)",
+                              color: "var(--on-accent)",
                               border: "1px solid var(--christmas-green)",
                             }}
                             autoFocus
@@ -303,7 +303,7 @@ export default function BusinessUnitGroupsPage() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
-                          <h3 className="font-semibold" style={{ color: "var(--christmas-cream)" }}>
+                          <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>
                             {group.label}
                           </h3>
                           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -385,7 +385,7 @@ export default function BusinessUnitGroupsPage() {
                         className="flex-1 px-3 py-1.5 rounded text-sm"
                         style={{
                           backgroundColor: "var(--bg-tertiary)",
-                          color: "var(--christmas-cream)",
+                          color: "var(--text-primary)",
                           border: "1px solid var(--border-subtle)",
                         }}
                         autoFocus
@@ -439,7 +439,7 @@ export default function BusinessUnitGroupsPage() {
           </div>
 
           <div className="card">
-            <h3 className="font-semibold mb-3" style={{ color: "var(--christmas-cream)" }}>
+            <h3 className="font-semibold mb-3" style={{ color: "var(--text-primary)" }}>
               Add New Group
             </h3>
             <div className="flex gap-2">
@@ -454,7 +454,7 @@ export default function BusinessUnitGroupsPage() {
                 className="flex-1 px-3 py-2 rounded text-sm"
                 style={{
                   backgroundColor: "var(--bg-tertiary)",
-                  color: "var(--christmas-cream)",
+                  color: "var(--text-primary)",
                   border: "1px solid var(--border-subtle)",
                 }}
               />
@@ -470,7 +470,7 @@ export default function BusinessUnitGroupsPage() {
 
           <div className="card">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold" style={{ color: "var(--christmas-cream)" }}>
+              <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>
                 Unassigned Business Units
               </h3>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>

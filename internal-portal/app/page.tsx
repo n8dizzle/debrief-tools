@@ -152,7 +152,7 @@ export default function Home() {
               <div>
                 <h1
                   className="text-lg font-semibold"
-                  style={{ color: 'var(--christmas-cream)' }}
+                  style={{ color: 'var(--text-primary)' }}
                 >
                   Internal Tools
                 </h1>
@@ -183,7 +183,7 @@ export default function Home() {
         <div className="mb-10">
           <h2
             className="text-3xl font-bold"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             Welcome{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
           </h2>
@@ -217,12 +217,12 @@ export default function Home() {
               className="flex items-center justify-center w-10 h-10 rounded-lg"
               style={{ background: 'var(--christmas-green)' }}
             >
-              <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="var(--on-accent)" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Idea Board</h3>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Idea Board</h3>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 Share ideas for new features, vote on what matters
               </p>
@@ -245,13 +245,13 @@ export default function Home() {
                   className="flex items-center justify-center w-8 h-8 rounded-lg mr-3"
                   style={{ background: sectionConfig[section]?.color || 'var(--christmas-green)' }}
                 >
-                  <span style={{ color: section === "Marketing" ? 'var(--dark-bg)' : 'var(--christmas-cream)' }}>
+                  <span style={{ color: section === "Marketing" ? 'var(--dark-bg)' : 'var(--on-accent)' }}>
                     {sectionConfig[section]?.icon}
                   </span>
                 </div>
                 <h3
                   className="text-xl font-semibold"
-                  style={{ color: 'var(--christmas-cream)' }}
+                  style={{ color: 'var(--text-primary)' }}
                 >
                   {section}
                 </h3>

@@ -145,11 +145,11 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
       >
         <div
           className="flex items-center justify-center w-8 h-8 rounded-lg"
-          style={{ background: "var(--christmas-green)", color: "var(--christmas-cream)" }}
+          style={{ background: "var(--christmas-green)", color: "var(--on-accent)" }}
         >
           {ICONS[value] || ICONS["bolt"]}
         </div>
-        <span className="flex-1 text-left text-sm" style={{ color: "var(--christmas-cream)" }}>
+        <span className="flex-1 text-left text-sm" style={{ color: "var(--text-primary)" }}>
           {value}
         </span>
         <svg
@@ -184,7 +184,7 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
                 className="flex items-center justify-center w-10 h-10 rounded-lg transition-colors"
                 style={{
                   background: value === name ? "var(--christmas-green)" : "var(--bg-card)",
-                  color: value === name ? "var(--christmas-cream)" : "var(--text-secondary)",
+                  color: value === name ? "var(--on-accent)" : "var(--text-secondary)",
                 }}
                 title={name}
               >

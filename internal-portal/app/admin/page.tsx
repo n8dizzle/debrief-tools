@@ -37,7 +37,7 @@ export default function AdminDashboard() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Admin Dashboard
         </h1>
         <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
 
           {/* Quick Actions */}
           <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Quick Actions
             </h2>
             <div className="flex flex-wrap gap-3">
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
                 className="inline-flex items-center px-4 py-2 rounded-lg transition-colors"
                 style={{
                   background: 'var(--christmas-green)',
-                  color: 'var(--christmas-cream)'
+                  color: 'var(--on-accent)'
                 }}
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                 border: '1px solid var(--border-subtle)'
               }}
             >
-              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                 Top Tools (30 days)
               </h2>
               {stats.topTools.length > 0 ? (
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
                         >
                           {index + 1}
                         </span>
-                        <span style={{ color: 'var(--christmas-cream)' }}>{tool.name}</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{tool.name}</span>
                       </div>
                       <span style={{ color: 'var(--text-muted)' }}>{tool.count} clicks</span>
                     </div>
@@ -159,14 +159,14 @@ export default function AdminDashboard() {
                 border: '1px solid var(--border-subtle)'
               }}
             >
-              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                 Users by Department
               </h2>
               {stats.usersByDepartment.length > 0 ? (
                 <div className="space-y-3">
                   {stats.usersByDepartment.map((dept) => (
                     <div key={dept.id} className="flex items-center justify-between">
-                      <span style={{ color: 'var(--christmas-cream)' }}>{dept.name}</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{dept.name}</span>
                       <span
                         className="px-2 py-0.5 rounded-full text-sm"
                         style={{
@@ -243,7 +243,7 @@ function StatCard({
           </svg>
         )}
       </div>
-      <p className="text-3xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+      <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
         {value}
       </p>
       <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>

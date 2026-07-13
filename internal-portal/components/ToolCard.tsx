@@ -131,7 +131,7 @@ export default function ToolCard({ name, description, url, icon, category, onCli
           className="flex items-center justify-center w-10 h-10 rounded-lg"
           style={{
             background: isDisabled ? 'var(--bg-card-hover)' : 'var(--christmas-green)',
-            color: 'var(--christmas-cream)'
+            color: 'var(--on-accent)'
           }}
         >
           <ToolIcon name={icon} />
@@ -148,7 +148,7 @@ export default function ToolCard({ name, description, url, icon, category, onCli
       </div>
       <h4
         className="mt-4 font-semibold"
-        style={{ color: 'var(--christmas-cream)' }}
+        style={{ color: 'var(--text-primary)' }}
       >
         {name}
       </h4>

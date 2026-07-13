@@ -187,7 +187,7 @@ export default function EditDepartmentPage() {
           </svg>
           Back to Departments
         </Link>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           Edit Department
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -212,7 +212,7 @@ export default function EditDepartmentPage() {
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Name *
             </label>
             <input
@@ -223,7 +223,7 @@ export default function EditDepartmentPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -231,7 +231,7 @@ export default function EditDepartmentPage() {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Description
             </label>
             <textarea
@@ -241,7 +241,7 @@ export default function EditDepartmentPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm resize-none"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -250,7 +250,7 @@ export default function EditDepartmentPage() {
           {/* Visible Tools */}
           <div className="pt-6 border-t" style={{ borderColor: "var(--border-subtle)" }}>
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-semibold" style={{ color: "var(--christmas-cream)" }}>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                 Visible Tools
               </h3>
               <div className="flex gap-2">
@@ -316,7 +316,7 @@ export default function EditDepartmentPage() {
                           className="w-4 h-4 rounded mr-3"
                           style={{ accentColor: "var(--christmas-green)" }}
                         />
-                        <span style={{ color: "var(--christmas-cream)" }}>{tool.name}</span>
+                        <span style={{ color: "var(--text-primary)" }}>{tool.name}</span>
                       </label>
                     ))}
                   </div>
@@ -327,7 +327,7 @@ export default function EditDepartmentPage() {
 
           {/* Default Permissions */}
           <div className="pt-6 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
               Default Permissions
             </h3>
             <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
@@ -364,7 +364,7 @@ export default function EditDepartmentPage() {
                             style={{ accentColor: "var(--christmas-green)" }}
                           />
                           <div>
-                            <div className="text-sm" style={{ color: "var(--christmas-cream)" }}>
+                            <div className="text-sm" style={{ color: "var(--text-primary)" }}>
                               {perm.label}
                             </div>
                             <div className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -411,7 +411,7 @@ export default function EditDepartmentPage() {
               className="px-4 py-2 rounded-lg text-sm transition-colors"
               style={{
                 background: "var(--christmas-green)",
-                color: "var(--christmas-cream)",
+                color: "var(--on-accent)",
                 opacity: saving ? 0.7 : 1,
               }}
             >
@@ -428,7 +428,7 @@ export default function EditDepartmentPage() {
             className="rounded-xl p-6 max-w-md w-full mx-4"
             style={{ background: "var(--bg-secondary)" }}
           >
-            <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
               Delete Department?
             </h2>
             <p className="mb-6" style={{ color: "var(--text-secondary)" }}>

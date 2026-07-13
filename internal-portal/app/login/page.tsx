@@ -41,7 +41,7 @@ function LoginContent() {
           </div>
           <h1
             className="text-2xl font-bold"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             Internal Tools
           </h1>
@@ -89,7 +89,7 @@ function LoginContent() {
             borderWidth: '1px',
             borderStyle: 'solid',
             borderColor: 'var(--border-default)',
-            color: 'var(--christmas-cream)'
+            color: 'var(--text-primary)'
           }}
           onMouseOver={(e) => {
             e.currentTarget.style.background = 'var(--bg-card-hover)';

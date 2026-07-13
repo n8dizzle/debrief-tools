@@ -204,7 +204,7 @@ export default function AccessPage() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           App Access
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -227,7 +227,7 @@ export default function AccessPage() {
             className="w-full px-3 py-2 rounded-lg text-sm"
             style={{
               background: "var(--bg-card)",
-              color: "var(--christmas-cream)",
+              color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
           >
@@ -250,7 +250,7 @@ export default function AccessPage() {
             className="w-full px-3 py-2 rounded-lg text-sm"
             style={{
               background: "var(--bg-card)",
-              color: "var(--christmas-cream)",
+              color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
           />
@@ -350,7 +350,7 @@ export default function AccessPage() {
                         className="px-4 py-2.5 sticky left-0 z-10"
                         style={{ background: anyChanged ? "rgba(34, 197, 94, 0.03)" : "var(--bg-card)" }}
                       >
-                        <div className="text-sm font-medium" style={{ color: "var(--christmas-cream)" }}>
+                        <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                           {user.name || "—"}
                         </div>
                         <div className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -449,7 +449,7 @@ export default function AccessPage() {
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               style={{
                 background: "var(--christmas-green)",
-                color: "var(--christmas-cream)",
+                color: "var(--on-accent)",
                 opacity: saving ? 0.7 : 1,
               }}
             >

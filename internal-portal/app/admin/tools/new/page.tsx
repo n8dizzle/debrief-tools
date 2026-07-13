@@ -108,7 +108,7 @@ export default function NewToolPage() {
           </svg>
           Back to Tools
         </Link>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           Add New Tool
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -133,7 +133,7 @@ export default function NewToolPage() {
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Name *
             </label>
             <input
@@ -145,7 +145,7 @@ export default function NewToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -153,7 +153,7 @@ export default function NewToolPage() {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Description
             </label>
             <textarea
@@ -164,7 +164,7 @@ export default function NewToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm resize-none"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -172,7 +172,7 @@ export default function NewToolPage() {
 
           {/* URL */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               URL *
             </label>
             <input
@@ -184,7 +184,7 @@ export default function NewToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -195,7 +195,7 @@ export default function NewToolPage() {
 
           {/* Icon */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Icon
             </label>
             <IconPicker
@@ -206,7 +206,7 @@ export default function NewToolPage() {
 
           {/* Section */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Section *
             </label>
             <select
@@ -216,7 +216,7 @@ export default function NewToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             >
@@ -233,7 +233,7 @@ export default function NewToolPage() {
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Category Tag
             </label>
             <input
@@ -244,7 +244,7 @@ export default function NewToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -256,7 +256,7 @@ export default function NewToolPage() {
           {/* Department Permissions */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium" style={{ color: "var(--christmas-cream)" }}>
+              <label className="block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                 Visible to Departments
               </label>
               <div className="flex gap-2">
@@ -301,7 +301,7 @@ export default function NewToolPage() {
                     className="w-4 h-4 rounded mr-3"
                     style={{ accentColor: "var(--christmas-green)" }}
                   />
-                  <span style={{ color: "var(--christmas-cream)" }}>{dept.name}</span>
+                  <span style={{ color: "var(--text-primary)" }}>{dept.name}</span>
                 </label>
               ))}
             </div>
@@ -330,7 +330,7 @@ export default function NewToolPage() {
             className="px-4 py-2 rounded-lg text-sm transition-colors"
             style={{
               background: "var(--christmas-green)",
-              color: "var(--christmas-cream)",
+              color: "var(--on-accent)",
               opacity: loading ? 0.7 : 1,
             }}
           >

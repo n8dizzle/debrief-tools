@@ -160,7 +160,7 @@ export default function EditToolPage() {
           </svg>
           Back to Tools
         </Link>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           Edit Tool
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -185,7 +185,7 @@ export default function EditToolPage() {
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Name *
             </label>
             <input
@@ -196,7 +196,7 @@ export default function EditToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -204,7 +204,7 @@ export default function EditToolPage() {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Description
             </label>
             <textarea
@@ -214,7 +214,7 @@ export default function EditToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm resize-none"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -222,7 +222,7 @@ export default function EditToolPage() {
 
           {/* URL */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               URL *
             </label>
             <input
@@ -233,7 +233,7 @@ export default function EditToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -244,7 +244,7 @@ export default function EditToolPage() {
 
           {/* Icon */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Icon
             </label>
             <IconPicker
@@ -255,7 +255,7 @@ export default function EditToolPage() {
 
           {/* Section */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Section *
             </label>
             <select
@@ -265,7 +265,7 @@ export default function EditToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             >
@@ -279,7 +279,7 @@ export default function EditToolPage() {
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
               Category Tag
             </label>
             <input
@@ -289,7 +289,7 @@ export default function EditToolPage() {
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 background: "var(--bg-primary)",
-                color: "var(--christmas-cream)",
+                color: "var(--text-primary)",
                 border: "1px solid var(--border-subtle)",
               }}
             />
@@ -305,7 +305,7 @@ export default function EditToolPage() {
                 className="w-4 h-4 rounded mr-3"
                 style={{ accentColor: "var(--christmas-green)" }}
               />
-              <span style={{ color: "var(--christmas-cream)" }}>Active</span>
+              <span style={{ color: "var(--text-primary)" }}>Active</span>
             </label>
             <p className="mt-1 text-xs ml-7" style={{ color: "var(--text-muted)" }}>
               Inactive tools are hidden from the portal
@@ -315,7 +315,7 @@ export default function EditToolPage() {
           {/* Department Permissions */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium" style={{ color: "var(--christmas-cream)" }}>
+              <label className="block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                 Visible to Departments
               </label>
               <div className="flex gap-2">
@@ -360,7 +360,7 @@ export default function EditToolPage() {
                     className="w-4 h-4 rounded mr-3"
                     style={{ accentColor: "var(--christmas-green)" }}
                   />
-                  <span style={{ color: "var(--christmas-cream)" }}>{dept.name}</span>
+                  <span style={{ color: "var(--text-primary)" }}>{dept.name}</span>
                 </label>
               ))}
             </div>
@@ -395,7 +395,7 @@ export default function EditToolPage() {
               className="px-4 py-2 rounded-lg text-sm transition-colors"
               style={{
                 background: "var(--christmas-green)",
-                color: "var(--christmas-cream)",
+                color: "var(--on-accent)",
                 opacity: saving ? 0.7 : 1,
               }}
             >
@@ -412,7 +412,7 @@ export default function EditToolPage() {
             className="rounded-xl p-6 max-w-md w-full mx-4"
             style={{ background: "var(--bg-secondary)" }}
           >
-            <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--christmas-cream)" }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
               Delete Tool?
             </h2>
             <p className="mb-6" style={{ color: "var(--text-secondary)" }}>

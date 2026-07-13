@@ -51,7 +51,7 @@ export default function StatsPage() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           Usage Statistics
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -91,7 +91,7 @@ export default function StatsPage() {
           className="rounded-xl p-6"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
         >
-          <h2 className="text-lg font-semibold mb-6" style={{ color: "var(--christmas-cream)" }}>
+          <h2 className="text-lg font-semibold mb-6" style={{ color: "var(--text-primary)" }}>
             Most Used Tools (30 days)
           </h2>
           {stats.topTools.length > 0 ? (
@@ -99,7 +99,7 @@ export default function StatsPage() {
               {stats.topTools.map((tool, index) => (
                 <div key={tool.id}>
                   <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium" style={{ color: "var(--christmas-cream)" }}>
+                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {index + 1}. {tool.name}
                     </span>
                     <span className="text-sm" style={{ color: "var(--text-muted)" }}>
@@ -135,7 +135,7 @@ export default function StatsPage() {
           className="rounded-xl p-6"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
         >
-          <h2 className="text-lg font-semibold mb-6" style={{ color: "var(--christmas-cream)" }}>
+          <h2 className="text-lg font-semibold mb-6" style={{ color: "var(--text-primary)" }}>
             Users by Department
           </h2>
           {stats.usersByDepartment.length > 0 ? (
@@ -155,12 +155,12 @@ export default function StatsPage() {
                         className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold"
                         style={{
                           background: "var(--christmas-green)",
-                          color: "var(--christmas-cream)",
+                          color: "var(--on-accent)",
                         }}
                       >
                         {dept.count}
                       </div>
-                      <span style={{ color: "var(--christmas-cream)" }}>{dept.name}</span>
+                      <span style={{ color: "var(--text-primary)" }}>{dept.name}</span>
                     </div>
                     <span className="text-sm" style={{ color: "var(--text-muted)" }}>
                       {percentage}%
@@ -228,7 +228,7 @@ function StatCard({
       <div className="flex items-center justify-between mb-3">
         <span style={{ color: "var(--christmas-green)" }}>{icons[icon]}</span>
       </div>
-      <p className="text-3xl font-bold" style={{ color: "var(--christmas-cream)" }}>
+      <p className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
         {value}
       </p>
       <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
