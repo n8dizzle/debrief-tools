@@ -14,6 +14,55 @@ function stepCounts(s: Stage) {
 
 type EditTarget = { id: string; field: string } | null;
 
+// Inline click-to-edit field. MUST be module-level (stable component identity) — when it
+// was defined inside InstallTimeline, every keystroke recreated its type and remounted the
+// input, bouncing the caret to the end ("Permit ApprovedA").
+function EditField({
+  id, field, text, multiline, placeholder, className,
+  editable, editing, editValue, busy, setEditValue, setEditing, commitEdit,
+}: {
+  id?: string; field: string; text: string; multiline?: boolean; placeholder?: string; className?: string;
+  editable: boolean; editing: EditTarget; editValue: string; busy: boolean;
+  setEditValue: (v: string) => void; setEditing: (e: EditTarget) => void;
+  commitEdit: (id: string, field: string, original: string) => void;
+}) {
+  const active = editable && editing?.id === id && editing?.field === field;
+  if (active) {
+    const common = {
+      autoFocus: true,
+      value: editValue,
+      disabled: busy,
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditValue(e.target.value),
+      onBlur: () => commitEdit(id!, field, text),
+    };
+    return multiline ? (
+      <textarea
+        className="edit-input edit-area" rows={3} {...common}
+        onKeyDown={(e) => { if (e.key === 'Escape') setEditing(null); }}
+      />
+    ) : (
+      <input
+        className="edit-input" {...common}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commitEdit(id!, field, text);
+          if (e.key === 'Escape') setEditing(null);
+        }}
+      />
+    );
+  }
+  const canEdit = editable && !!id;
+  const empty = !text;
+  return (
+    <span
+      className={`${className ?? ''}${canEdit ? ' editable' : ''}${empty && canEdit ? ' empty' : ''}`}
+      onClick={canEdit ? () => { setEditing({ id: id!, field }); setEditValue(text ?? ''); } : undefined}
+      title={canEdit ? 'Click to edit' : undefined}
+    >
+      {text || (canEdit ? (placeholder ?? 'Add…') : '')}
+    </span>
+  );
+}
+
 export default function InstallTimeline({
   stages,
   fromDb,
@@ -93,57 +142,21 @@ export default function InstallTimeline({
     if (ok && isStage) setSelected((s) => Math.max(0, Math.min(s, stages.length - 2)));
   }
 
-  // Click-to-edit text. field 'title' → rename; anything else → edit that column.
-  function Edit({
-    id, field, text, multiline, placeholder, className,
-  }: {
-    id?: string; field: string; text: string; multiline?: boolean; placeholder?: string; className?: string;
-  }) {
-    const active = editable && editing?.id === id && editing?.field === field;
-    if (active) {
-      const common = {
-        autoFocus: true,
-        value: editValue,
-        disabled: busy,
-        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditValue(e.target.value),
-        onBlur: () => commitEdit(id!, field, text),
-      };
-      return multiline ? (
-        <textarea
-          className="edit-input edit-area"
-          rows={3}
-          {...common}
-          onKeyDown={(e) => { if (e.key === 'Escape') setEditing(null); }}
-        />
-      ) : (
-        <input
-          className="edit-input"
-          {...common}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitEdit(id!, field, text);
-            if (e.key === 'Escape') setEditing(null);
-          }}
-        />
-      );
-    }
-    const canEdit = editable && !!id;
-    const empty = !text;
-    return (
-      <span
-        className={`${className ?? ''}${canEdit ? ' editable' : ''}${empty && canEdit ? ' empty' : ''}`}
-        onClick={canEdit ? () => { setEditing({ id: id!, field }); setEditValue(text ?? ''); } : undefined}
-        title={canEdit ? 'Click to edit' : undefined}
-      >
-        {text || (canEdit ? (placeholder ?? 'Add…') : '')}
-      </span>
-    );
-  }
+  // Bind the shared edit state to the module-level EditField (called as a function so the
+  // input's element type stays EditField — stable, no remount, caret preserved).
+  const edit = (p: { id?: string; field: string; text: string; multiline?: boolean; placeholder?: string; className?: string }) => (
+    <EditField
+      {...p}
+      editable={editable} editing={editing} editValue={editValue} busy={busy}
+      setEditValue={setEditValue} setEditing={setEditing} commitEdit={commitEdit}
+    />
+  );
 
   if (!stage) {
     return (
       <>
         <p className="lede">No stages yet.</p>
-        {editable && <AddStageInline />}
+        {editable && AddStageInline()}
       </>
     );
   }
@@ -203,13 +216,13 @@ export default function InstallTimeline({
           </button>
         )}
       </div>
-      {editable && <AddStageInline />}
+      {editable && AddStageInline()}
 
       <section className="detail">
         <div className="card">
           <div className="cardhead">
             <h2>
-              <Edit id={stage.id} field="title" text={stage.name} />
+              {edit({ id: stage.id, field: 'title', text: stage.name })}
             </h2>
             {editable && stage.id && (
               <div className="tools">
@@ -224,7 +237,7 @@ export default function InstallTimeline({
           </div>
 
           <p className="sub">
-            <Edit id={stage.id} field="summary" text={stage.summary} multiline placeholder="Add a one-line summary…" />
+            {edit({ id: stage.id, field: 'summary', text: stage.summary, multiline: true, placeholder: 'Add a one-line summary…' })}
           </p>
 
           <ol className="substeps">
@@ -234,8 +247,8 @@ export default function InstallTimeline({
               <li key={step.id ?? `${step.title}-${j}`}>
                 <span className="n">{j + 1}</span>
                 <span className="st">
-                  <Edit id={step.id} field="title" text={step.title} />
-                  <span className="sd"><Edit id={step.id} field="notes" text={step.detail} placeholder="Add detail…" /></span>
+                  {edit({ id: step.id, field: 'title', text: step.title })}
+                  <span className="sd">{edit({ id: step.id, field: 'notes', text: step.detail, placeholder: 'Add detail…' })}</span>
                 </span>
                 <span className={`src-badge ${src.source}`} title={SOURCE_META[src.source].hint}>
                   {SOURCE_META[src.source].label}
