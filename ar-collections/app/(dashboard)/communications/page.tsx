@@ -57,7 +57,7 @@ export default function CommunicationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Communications
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -101,7 +101,7 @@ export default function CommunicationsPage() {
             <div className="space-y-8">
               {/* Email Templates */}
               <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   Email Templates
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -117,7 +117,7 @@ export default function CommunicationsPage() {
                         style={{ backgroundColor: 'var(--bg-secondary)' }}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          <h4 className="font-medium" style={{ color: 'var(--text-primary)' }}>
                             {template.name}
                           </h4>
                           <span className={`badge badge-${template.is_active ? 'current' : '90'}`}>
@@ -141,7 +141,7 @@ export default function CommunicationsPage() {
 
               {/* SMS Templates */}
               <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   SMS Templates
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -157,7 +157,7 @@ export default function CommunicationsPage() {
                         style={{ backgroundColor: 'var(--bg-secondary)' }}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          <h4 className="font-medium" style={{ color: 'var(--text-primary)' }}>
                             {template.name}
                           </h4>
                           <span className={`badge badge-${template.is_active ? 'current' : '90'}`}>
@@ -183,7 +183,7 @@ export default function CommunicationsPage() {
             <div className="space-y-8">
               {/* Recent Emails */}
               <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   Recent Emails
                 </h3>
                 <div className="space-y-2">
@@ -199,7 +199,7 @@ export default function CommunicationsPage() {
                         style={{ backgroundColor: 'var(--bg-secondary)' }}
                       >
                         <div>
-                          <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                             {email.subject}
                           </div>
                           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -217,7 +217,7 @@ export default function CommunicationsPage() {
 
               {/* Recent SMS */}
               <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   Recent SMS
                 </h3>
                 <div className="space-y-2">
@@ -233,7 +233,7 @@ export default function CommunicationsPage() {
                         style={{ backgroundColor: 'var(--bg-secondary)' }}
                       >
                         <div>
-                          <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                             {sms.message.substring(0, 50)}...
                           </div>
                           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>

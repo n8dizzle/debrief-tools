@@ -198,7 +198,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             AR Collections Dashboard
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
               <span
                 className="absolute top-1 left-1 w-4 h-4 rounded-full transition-transform"
                 style={{
-                  backgroundColor: 'var(--christmas-cream)',
+                  backgroundColor: 'var(--on-accent)',
                   transform: excludeFinancing ? 'translateX(20px)' : 'translateX(0)',
                 }}
               />
@@ -252,7 +252,7 @@ export default function DashboardPage() {
           <div className="text-xs sm:text-sm font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             Total Outstanding
           </div>
-          <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="mt-2 text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {formatCurrency(displayStats.total_outstanding)}
           </div>
         </div>
@@ -395,8 +395,8 @@ export default function DashboardPage() {
                     borderRadius: '8px',
                     padding: '8px 12px',
                   }}
-                  labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                  itemStyle={{ color: 'var(--christmas-cream)' }}
+                  labelStyle={{ color: 'var(--text-primary)', fontWeight: 'bold', marginBottom: '4px' }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
                 />
                 <Bar
                   dataKey="total"
@@ -468,8 +468,8 @@ export default function DashboardPage() {
                     borderRadius: '8px',
                     padding: '8px 12px',
                   }}
-                  labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                  itemStyle={{ color: 'var(--christmas-cream)' }}
+                  labelStyle={{ color: 'var(--text-primary)', fontWeight: 'bold', marginBottom: '4px' }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
                 />
                 <Bar
                   dataKey="total"
@@ -503,14 +503,14 @@ export default function DashboardPage() {
 
           {/* Chart 1: AR $ Outstanding (Total / Actionable / Pending Closures) */}
           <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>AR Outstanding</h3>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>AR Outstanding</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={snapshots.map((s) => ({ date: s.snapshot_date, total: Number(s.total_outstanding), actionable: Number(s.actionable_ar), pending: Number(s.pending_closures) }))} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="total" name="Total" stroke="#a78bfa" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="actionable" name="Actionable" stroke="#4ade80" strokeWidth={2} dot={false} />
@@ -522,14 +522,14 @@ export default function DashboardPage() {
 
           {/* Chart 2: Aging Buckets (stacked area) */}
           <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>Aging Buckets</h3>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Aging Buckets</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={snapshots.map((s) => ({ date: s.snapshot_date, current: Number(s.bucket_current), d30: Number(s.bucket_30), d60: Number(s.bucket_60), d90: Number(s.bucket_90_plus) }))} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Area type="monotone" dataKey="current" name="Current" stackId="a" stroke="#4ade80" fill="#4ade80" fillOpacity={0.5} />
                   <Area type="monotone" dataKey="d30" name="31-60" stackId="a" stroke="#fcd34d" fill="#fcd34d" fillOpacity={0.5} />
@@ -542,14 +542,14 @@ export default function DashboardPage() {
 
           {/* Chart 3: True DSO */}
           <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>True DSO (days)</h3>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>True DSO (days)</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={snapshots.map((s) => ({ date: s.snapshot_date, total: Number(s.true_dso_total), actionable: Number(s.true_dso_actionable), pending: Number(s.true_dso_pending) }))} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `${v}d`} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => `${Number(v) || 0} days`} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} formatter={(v: unknown) => `${Number(v) || 0} days`} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="total" name="Total" stroke="#a78bfa" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="actionable" name="Actionable" stroke="#4ade80" strokeWidth={2} dot={false} />
@@ -575,14 +575,14 @@ export default function DashboardPage() {
             const palette = ['#4ade80', '#60a5fa', '#a78bfa', '#fb923c', '#f87171', '#fcd34d', '#14b8a6', '#8b5cf6'];
             return (
               <div className="p-4 sm:p-5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>AR by Business Unit Group</h3>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>AR by Business Unit Group</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 5, right: 15, left: 5, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
                       <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} minTickGap={20} tickFormatter={(d) => d.slice(5)} />
                       <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={{ stroke: 'var(--border-subtle)' }} tickLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--christmas-cream)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} formatter={(v: unknown) => formatCurrency(Number(v) || 0)} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       {groupInfo.map((g, i) => (
                         <Line key={g.id} type="monotone" dataKey={g.label} stroke={palette[i % palette.length]} strokeWidth={2} dot={false} />
@@ -655,8 +655,8 @@ export default function DashboardPage() {
                         borderRadius: '8px',
                         padding: '8px 12px',
                       }}
-                      labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                      itemStyle={{ color: 'var(--christmas-cream)' }}
+                      labelStyle={{ color: 'var(--text-primary)', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: 'var(--text-primary)' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -724,8 +724,8 @@ export default function DashboardPage() {
                         borderRadius: '8px',
                         padding: '8px 12px',
                       }}
-                      labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                      itemStyle={{ color: 'var(--christmas-cream)' }}
+                      labelStyle={{ color: 'var(--text-primary)', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: 'var(--text-primary)' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -813,8 +813,8 @@ export default function DashboardPage() {
                         borderRadius: '8px',
                         padding: '8px 12px',
                       }}
-                      labelStyle={{ color: 'var(--christmas-cream)', fontWeight: 'bold', marginBottom: '4px' }}
-                      itemStyle={{ color: 'var(--christmas-cream)' }}
+                      labelStyle={{ color: 'var(--text-primary)', fontWeight: 'bold', marginBottom: '4px' }}
+                      itemStyle={{ color: 'var(--text-primary)' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -842,7 +842,7 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
               {displayStats.inhouse_financing_count}
             </div>
             <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -928,7 +928,7 @@ export default function DashboardPage() {
                         {index + 1}
                       </span>
                       <div>
-                        <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                           {invoice.customer_name}
                         </div>
                         <div className="text-sm" style={{ color: 'var(--text-muted)' }}>

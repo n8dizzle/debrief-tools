@@ -287,7 +287,7 @@ export default function InvoiceDetailPage() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                   Invoice #{invoice.invoice_number}
                 </h1>
                 <a
@@ -337,7 +337,7 @@ export default function InvoiceDetailPage() {
           {/* Invoice Details */}
           <div className="card">
             <div className="flex items-start justify-between mb-4">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Invoice Details
               </h2>
               {/* Customer Tags */}
@@ -369,7 +369,7 @@ export default function InvoiceDetailPage() {
               </div>
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Original Total</div>
-                <div className="text-lg font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
                   {formatCurrency(invoice.invoice_total)}
                 </div>
               </div>
@@ -386,7 +386,7 @@ export default function InvoiceDetailPage() {
 
           {/* Job Details */}
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Job Details
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -501,7 +501,7 @@ export default function InvoiceDetailPage() {
           {/* Invoice Line Items */}
           {stDetails && (stDetails.lineItems.length > 0 || stDetails.invoiceSummary) && (
             <div className="card">
-              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                 Invoice Items
               </h2>
 
@@ -540,14 +540,14 @@ export default function InvoiceDetailPage() {
                           </td>
                           <td className="text-right py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{item.quantity}</td>
                           <td className="text-right py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(item.unitPrice)}</td>
-                          <td className="text-right py-2 px-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>{formatCurrency(item.total)}</td>
+                          <td className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(item.total)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr>
                         <td colSpan={3} className="text-right py-2 px-2 font-medium" style={{ color: 'var(--text-muted)' }}>Total:</td>
-                        <td className="text-right py-2 px-2 font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                        <td className="text-right py-2 px-2 font-bold" style={{ color: 'var(--text-primary)' }}>
                           {formatCurrency(stDetails.lineItems.reduce((sum, item) => sum + item.total, 0))}
                         </td>
                       </tr>
@@ -568,7 +568,7 @@ export default function InvoiceDetailPage() {
           {invoice.has_inhouse_financing && (
             <div className="card">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                   In-House Financing
                 </h2>
                 {canUpdateWorkflow && !financingEditing && (
@@ -686,7 +686,7 @@ export default function InvoiceDetailPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
                         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Monthly Payment</div>
-                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {financingData.financing_monthly_amount
                             ? formatCurrency(financingData.financing_monthly_amount)
                             : 'Not set'}
@@ -694,7 +694,7 @@ export default function InvoiceDetailPage() {
                       </div>
                       <div>
                         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Due Day</div>
-                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {financingData.financing_due_day
                             ? formatDueDay(financingData.financing_due_day)
                             : 'Not set'}
@@ -708,7 +708,7 @@ export default function InvoiceDetailPage() {
                       </div>
                       <div>
                         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Projected Payoff</div>
-                        <div className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                        <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {financingData.projected_payoff_date
                             ? formatDate(financingData.projected_payoff_date)
                             : 'N/A'}
@@ -744,7 +744,7 @@ export default function InvoiceDetailPage() {
                   {/* Payment Schedule Tracker */}
                   {(financingData.financing_monthly_amount && financingData.financing_due_day) && (
                     <div id="schedule">
-                      <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                      <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
                         Payment Schedule
                       </h3>
                       <ExpectedPaymentSchedule
@@ -758,7 +758,7 @@ export default function InvoiceDetailPage() {
                   {/* Notes */}
                   {financingData.financing_notes && (
                     <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                         Notes
                       </h3>
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>

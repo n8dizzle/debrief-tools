@@ -33,7 +33,7 @@ export default function PaymentSchedule({ schedule, compact = false }: PaymentSc
             style={{
               color: nextPayment.is_overdue
                 ? 'var(--status-error)'
-                : 'var(--christmas-cream)',
+                : 'var(--text-primary)',
             }}
           >
             {formatCurrency(nextPayment.amount)}
@@ -74,7 +74,7 @@ export default function PaymentSchedule({ schedule, compact = false }: PaymentSc
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Projected Payoff
             </span>
-            <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
               {formatDate(schedule.projected_payoff_date)}
             </span>
           </div>
@@ -132,7 +132,7 @@ export default function PaymentSchedule({ schedule, compact = false }: PaymentSc
                   </span>
                   <span
                     className="font-medium"
-                    style={{ color: 'var(--christmas-cream)' }}
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     {formatCurrency(payment.amount)}
                   </span>

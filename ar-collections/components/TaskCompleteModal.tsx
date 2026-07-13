@@ -94,7 +94,7 @@ export default function TaskCompleteModal({
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Complete Task
             </h2>
             <button
@@ -130,7 +130,7 @@ export default function TaskCompleteModal({
                 className="w-full px-3 py-2 rounded-lg"
                 style={{
                   backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--christmas-cream)',
+                  color: 'var(--text-primary)',
                   border: '1px solid var(--border-subtle)',
                 }}
               >
@@ -154,7 +154,7 @@ export default function TaskCompleteModal({
                 className="w-full px-3 py-2 rounded-lg resize-none"
                 style={{
                   backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--christmas-cream)',
+                  color: 'var(--text-primary)',
                   border: '1px solid var(--border-subtle)',
                 }}
               />
@@ -186,7 +186,7 @@ export default function TaskCompleteModal({
                     className="w-full px-3 py-2 rounded-lg"
                     style={{
                       backgroundColor: 'var(--bg-card)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                     }}
                   />

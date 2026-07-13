@@ -89,7 +89,7 @@ function TaskDetailModal({ task, isOpen, onClose, taskTypes, taskSources, employ
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Task Details
             </h2>
             {task.st_task_id && (
@@ -125,7 +125,7 @@ function TaskDetailModal({ task, isOpen, onClose, taskTypes, taskSources, employ
             <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Task Name
             </label>
-            <div className="text-base font-medium" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>
               {task.title || '-'}
             </div>
           </div>
@@ -400,7 +400,7 @@ function MultiSelectDropdown({
         className="px-3 py-2 text-sm rounded-lg flex items-center justify-between gap-2 min-w-[140px]"
         style={{
           backgroundColor: 'var(--bg-secondary)',
-          color: selected.length > 0 ? 'var(--christmas-cream)' : 'var(--text-muted)',
+          color: selected.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
           border: '1px solid var(--border-subtle)',
         }}
         onClick={() => setIsOpen(!isOpen)}
@@ -668,7 +668,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
               Task Management
             </h1>
             <a
@@ -720,7 +720,7 @@ export default function TasksPage() {
             onClick={() => setActiveTab(tab.id)}
             className="px-4 py-2 text-sm font-medium transition-colors relative"
             style={{
-              color: activeTab === tab.id ? 'var(--christmas-cream)' : 'var(--text-muted)',
+              color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
             }}
           >
             {tab.label}
@@ -752,7 +752,7 @@ export default function TasksPage() {
             className="px-3 py-2 text-sm rounded-lg flex items-center gap-2"
             style={{
               backgroundColor: 'var(--bg-secondary)',
-              color: filters.dueDateFrom || filters.dueDateTo ? 'var(--christmas-cream)' : 'var(--text-muted)',
+              color: filters.dueDateFrom || filters.dueDateTo ? 'var(--text-primary)' : 'var(--text-muted)',
               border: '1px solid var(--border-subtle)',
             }}
           >
@@ -780,7 +780,7 @@ export default function TasksPage() {
                     className="px-3 py-2 text-sm rounded-lg"
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                     }}
                   />
@@ -794,7 +794,7 @@ export default function TasksPage() {
                     className="px-3 py-2 text-sm rounded-lg"
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                     }}
                   />
@@ -915,7 +915,7 @@ export default function TasksPage() {
                       )}
                     </td>
                     <td>
-                      <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {task.title}
                       </span>
                     </td>

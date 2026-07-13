@@ -81,7 +81,7 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             AR Reports
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -98,7 +98,7 @@ export default function ReportsPage() {
       {/* Current Aging Breakdown */}
       {currentTotals && (
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Current Aging Breakdown
           </h2>
           <div className="overflow-x-auto">
@@ -134,7 +134,7 @@ export default function ReportsPage() {
       {currentTotals && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               By Job Type
             </h3>
             <div className="space-y-4">
@@ -143,7 +143,7 @@ export default function ReportsPage() {
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--christmas-green)' }} />
                   <span style={{ color: 'var(--text-secondary)' }}>Install</span>
                 </div>
-                <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {formatCurrency(currentTotals.install)}
                 </span>
               </div>
@@ -152,7 +152,7 @@ export default function ReportsPage() {
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--status-info)' }} />
                   <span style={{ color: 'var(--text-secondary)' }}>Service</span>
                 </div>
-                <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {formatCurrency(currentTotals.service)}
                 </span>
               </div>
@@ -160,7 +160,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               By Control Bucket
             </h3>
             <div className="space-y-4">
@@ -189,7 +189,7 @@ export default function ReportsPage() {
 
       {/* Historical Trend */}
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           Historical Trend (Last 30 Days)
         </h2>
         {snapshots.length === 0 ? (
