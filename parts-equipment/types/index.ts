@@ -22,6 +22,7 @@ export interface PEOrder {
   scheduled_date: string | null;
   note_wh: string | null;
   note_cxr: string | null;
+  validity: string | null;
   status: PEOrderStatus;
   is_equipment: boolean;
   cancel_source: string | null;
