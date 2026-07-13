@@ -131,8 +131,7 @@ button { font: inherit; }
 .pill.blocked { background: color-mix(in srgb, var(--blocked) 16%, transparent); color: var(--blocked); }
 @media (prefers-color-scheme: dark) { .pill.wait { color: var(--wait); } }
 
-.detail { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; margin-top: 8px; }
-@media (max-width: 760px) { .detail { grid-template-columns: 1fr; } }
+.detail { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 8px; }
 .card { background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .card h2 { font-size: 19px; letter-spacing: -.3px; display: flex; align-items: center; gap: 10px; }

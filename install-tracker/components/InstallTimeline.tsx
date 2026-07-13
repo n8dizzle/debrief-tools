@@ -257,27 +257,6 @@ export default function InstallTimeline({
             )
           )}
         </div>
-
-        <div className="card">
-          <div className="facts">
-            <div className="fact">
-              <div className="k">Who owns it</div>
-              <div className="v"><Edit id={stage.id} field="owner" text={stage.who} placeholder="Who owns this stage?" /></div>
-            </div>
-            <div className="fact">
-              <div className="k">Tools used today</div>
-              <div className="v"><Edit id={stage.id} field="tools" text={stage.tools} placeholder="What tools hold this today?" /></div>
-            </div>
-            <div className="fact">
-              <div className="k">Typical duration</div>
-              <div className="v dur"><Edit id={stage.id} field="typical_duration" text={stage.duration} placeholder="How long?" /></div>
-            </div>
-            <div className="fact risk">
-              <div className="k">What goes wrong</div>
-              <div className="v"><Edit id={stage.id} field="what_goes_wrong" text={stage.risk} multiline placeholder="What breaks here?" /></div>
-            </div>
-          </div>
-        </div>
       </section>
     </>
   );
