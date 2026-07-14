@@ -1,8 +1,9 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import PresenceBadge from '@/components/PresenceBadge';
+import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
 import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
 import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
@@ -23,6 +24,11 @@ export default function ServicePage() {
   // Clear my presence when leaving this board (route change removes the focused
   // input without firing blur, so onBlur alone would leave my avatar stuck here).
   useEffect(() => () => setEditing('service', null), [setEditing]);
+
+  // Pin the table's scroll box to fill the viewport so its horizontal scrollbar
+  // stays in view (no scrolling past every row to reach it).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useFillViewportHeight(scrollRef, [isLoading]);
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
@@ -223,7 +229,7 @@ export default function ServicePage() {
         ) : filtered.length === 0 ? (
           <div className="empty"><div className="empty-icon">◎</div><p>No service orders.</p></div>
         ) : (
-          <div className="svc-container">
+          <div className="svc-container" ref={scrollRef}>
             <table className="st-table">
               <thead>
                 <tr>
