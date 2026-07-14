@@ -632,7 +632,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           ) : (
             <h1
               className="text-xl font-bold truncate cursor-pointer hover:opacity-80"
-              style={{ color: 'var(--christmas-cream)' }}
+              style={{ color: 'var(--text-primary)' }}
               onClick={() => { setTitleInput(doc.title || ''); setEditingTitle(true); }}
               title="Click to edit title"
             >
@@ -1254,7 +1254,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                           className="max-w-[85%] rounded-lg px-3 py-2 text-sm"
                           style={{
                             backgroundColor: msg.role === 'user' ? 'var(--christmas-green)' : 'var(--bg-secondary)',
-                            color: msg.role === 'user' ? 'var(--christmas-cream)' : 'var(--text-primary)',
+                            color: msg.role === 'user' ? 'var(--on-accent)' : 'var(--text-primary)',
                           }}
                         >
                           <p className="whitespace-pre-wrap">{mainContent}</p>
@@ -1336,7 +1336,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
           >
             <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <h3 className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Email Document</h3>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Email Document</h3>
               <button onClick={() => setEmailModalOpen(false)} style={{ color: 'var(--text-muted)' }}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1627,7 +1627,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             className="w-full max-w-sm rounded-xl p-6"
             style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
           >
-            <h3 className="font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>Assign Document</h3>
+            <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Assign Document</h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Assign this document to <strong style={{ color: 'var(--text-primary)' }}>{ownerConfirm.userName}</strong>?
             </p>
@@ -1663,7 +1663,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             className="w-full max-w-sm rounded-xl p-6"
             style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
           >
-            <h3 className="font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>Delete Document?</h3>
+            <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Delete Document?</h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
               This will permanently delete this document, its action items, chat history, and uploaded images. This cannot be undone.
             </p>

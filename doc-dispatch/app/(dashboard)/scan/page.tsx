@@ -20,7 +20,7 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
           className="sticky top-0 flex items-center justify-between p-4 border-b"
           style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
         >
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             How to Add Documents
           </h2>
           <button
@@ -351,7 +351,7 @@ export default function ScanPage() {
   return (
     <div className="max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Scan Document
         </h1>
         <button
