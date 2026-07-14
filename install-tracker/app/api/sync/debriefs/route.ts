@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getFormSubmissions, getJobProjectMap, stConfigured, type STFormSubmission } from '@/lib/servicetitan';
+import { can, type AccessUser } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -13,8 +14,8 @@ const DEBRIEF_FORM_ID = 2709;
 async function authorized(req: NextRequest): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get('authorization') === `Bearer ${secret}`) return true;
-  const role = (await getServerSession(authOptions))?.user as { role?: string } | undefined;
-  return role?.role === 'owner' || role?.role === 'manager';
+  const user = (await getServerSession(authOptions))?.user as AccessUser;
+  return can(user, 'can_sync_data');
 }
 
 function ownerJob(s: STFormSubmission): number | null {

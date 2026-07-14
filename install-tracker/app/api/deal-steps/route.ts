@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { can, type AccessUser } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 
-// Toggle a manual sub-step on a deal. Body: { projectId, nodeId, done, note? }
+// Toggle a manual sub-step on a deal. Body: { projectId, nodeId, done, note? }.
+// Checklist edits need install_tracker.can_edit_workflow.
 export async function PATCH(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { id?: string; role?: string } | undefined;
+  const user = session?.user as (AccessUser & { id?: string }) | undefined;
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (user.role !== 'owner' && user.role !== 'manager') {
+  if (!can(user, 'can_edit_workflow')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const supabase = getServerSupabase();

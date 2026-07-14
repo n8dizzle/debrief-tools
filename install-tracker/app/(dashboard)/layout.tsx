@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
+import { can, type AccessUser } from '@/lib/access';
 import DashboardShell from '@/components/DashboardShell';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -9,9 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Access is controlled by feature, managed from the portal: owners always in;
   // everyone else needs install_tracker.can_access granted on their portal account.
-  const user = session.user as { role?: string; permissions?: { install_tracker?: { can_access?: boolean } } };
-  const hasAccess = user.role === 'owner' || user.permissions?.install_tracker?.can_access === true;
-  if (!hasAccess) {
+  if (!can(session.user as AccessUser, 'can_access')) {
     return (
       <div className="noaccess">
         <div className="noaccess-card">

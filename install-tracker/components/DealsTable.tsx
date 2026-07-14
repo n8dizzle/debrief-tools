@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import type { Deal, TriageStatus } from '@/lib/deals';
+import { can, type AccessUser } from '@/lib/access';
 
 const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -114,6 +116,8 @@ function CalIcon() {
 
 export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageStatus }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const canTriage = can(session?.user as AccessUser, 'can_triage_deals');
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
 
@@ -372,12 +376,12 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
       </div>
 
       <div className="triage-bar">
-        {tab === 'untriaged' && (
+        {canTriage && tab === 'untriaged' && (
           <button className="mini-btn" disabled={busy || !rows.length} onClick={applyAllSuggestions}>
             ✨ Apply suggestions to {anyFilter ? 'filtered' : 'all'} ({rows.length})
           </button>
         )}
-        {sel.size > 0 && (
+        {canTriage && sel.size > 0 && (
           <>
             <span className="triage-selcount">{sel.size} selected</span>
             <select className="assign-sel" value="" disabled={busy}
@@ -428,11 +432,13 @@ export default function DealsTable({ deals, tab }: { deals: Deal[]; tab: TriageS
                 <td className="chkcol"><input type="checkbox" checked={sel.has(d.st_project_id)} onChange={() => toggle(d.st_project_id)} /></td>
                 {columns.map((c) => <td key={c.id} className={c.num ? 'num' : ''}>{cell(d, c.id)}</td>)}
                 <td className="actioncol">
-                  <select className="assign-sel" value="" disabled={busy} title="Assign to a workflow"
-                    onChange={(e) => { if (e.target.value) triage([d.st_project_id], e.target.value as TriageStatus); }}>
-                    <option value="">Assign…</option>
-                    {ASSIGN_TARGETS.filter((t) => t.value !== tab).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
+                  {canTriage && (
+                    <select className="assign-sel" value="" disabled={busy} title="Assign to a workflow"
+                      onChange={(e) => { if (e.target.value) triage([d.st_project_id], e.target.value as TriageStatus); }}>
+                      <option value="">Assign…</option>
+                      {ASSIGN_TARGETS.filter((t) => t.value !== tab).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  )}
                 </td>
               </tr>
             ))}

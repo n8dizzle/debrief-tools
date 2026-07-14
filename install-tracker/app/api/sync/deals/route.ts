@@ -8,6 +8,7 @@ import {
   estimateStatus, stConfigured, type STEstimate,
 } from '@/lib/servicetitan';
 import { countDeal } from '@/lib/equipment';
+import { can, type AccessUser } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -15,8 +16,8 @@ export const maxDuration = 300;
 async function authorized(req: NextRequest): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get('authorization') === `Bearer ${secret}`) return true;
-  const role = (await getServerSession(authOptions))?.user as { role?: string } | undefined;
-  return role?.role === 'owner' || role?.role === 'manager';
+  const user = (await getServerSession(authOptions))?.user as AccessUser;
+  return can(user, 'can_sync_data');
 }
 
 // Independent deal discovery: pull ALL sold estimates since a date, group into

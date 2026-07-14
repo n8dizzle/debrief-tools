@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getEstimatesByProject, toEstimateRow, stConfigured } from '@/lib/servicetitan';
+import { can, type AccessUser } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -10,9 +11,8 @@ export const maxDuration = 300;
 async function authorized(req: NextRequest): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get('authorization') === `Bearer ${secret}`) return true;
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  return role === 'owner' || role === 'manager';
+  const user = (await getServerSession(authOptions))?.user as AccessUser;
+  return can(user, 'can_sync_data');
 }
 
 // Pull all ServiceTitan estimates for install-job projects into install_estimates.

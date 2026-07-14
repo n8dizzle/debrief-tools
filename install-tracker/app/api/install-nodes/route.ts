@@ -2,17 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { can, type AccessUser } from '@/lib/access';
 
-// Manager/owner-editable install map (install_nodes). Mirrors the gating of
-// service-dashboard's /api/settings/root-causes: everyone but 'employee'.
-// Rung 3 supports create (POST) and rename (PATCH action:'rename').
-// Reorder / archive land in Rung 4.
+// Editable install map (install_nodes). Needs install_tracker.can_edit_workflow.
+// Supports create (POST) and rename/move/archive/edit (PATCH).
 
 const MAX_DEPTH = 1; // 0 = stage, 1 = sub-step (cap at sub-steps for now)
 
-function canManage(session: { user?: { role?: string } } | null): boolean {
-  const role = session?.user?.role;
-  return role === 'owner' || role === 'manager';
+function canManage(session: { user?: unknown } | null): boolean {
+  return can(session?.user as AccessUser, 'can_edit_workflow');
 }
 
 async function guard() {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { type Stage } from '@/lib/install-stages';
 import { classifyStepSource, SOURCE_META } from '@/lib/step-source';
+import { can, type AccessUser } from '@/lib/access';
 
 function stepCounts(s: Stage) {
   let auto = 0, manual = 0;
@@ -72,8 +73,7 @@ export default function InstallTimeline({
 }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const role = session?.user?.role;
-  const editable = fromDb && (role === 'owner' || role === 'manager');
+  const editable = fromDb && can(session?.user as AccessUser, 'can_edit_workflow');
 
   const firstActive = stages.findIndex((s) => s.status !== 'done');
   const [selected, setSelected] = useState(firstActive === -1 ? 0 : firstActive);

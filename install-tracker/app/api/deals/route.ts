@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { can, type AccessUser } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 
 const VALID = ['untriaged', 'full_system', 'partial', 'warranty', 'archived'];
 
-// Triage deals. Body: { projectIds: number[], status }. Owner/manager only.
+// Triage deals. Body: { projectIds: number[], status }. Needs install_tracker.can_triage_deals.
 export async function PATCH(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { id?: string; role?: string } | undefined;
+  const user = session?.user as (AccessUser & { id?: string }) | undefined;
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (user.role !== 'owner' && user.role !== 'manager') {
+  if (!can(user, 'can_triage_deals')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const supabase = getServerSupabase();

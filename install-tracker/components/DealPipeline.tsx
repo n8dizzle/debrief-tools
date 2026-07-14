@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import type { PipelineStage } from '@/lib/deals';
 import type { ProjectEstimate } from '@/lib/jobs';
+import { can, type AccessUser } from '@/lib/access';
 
 const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -20,8 +21,7 @@ export default function DealPipeline({
 }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const canEdit = role === 'owner' || role === 'manager';
+  const canEdit = can(session?.user as AccessUser, 'can_edit_workflow');
 
   // Open the first stage still needing work (done and N/A both count as settled).
   const firstOpen = Math.max(0, stages.findIndex((s) => s.status !== 'done' && s.status !== 'na'));
