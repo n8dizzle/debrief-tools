@@ -87,7 +87,7 @@ function MultiSelect({
         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
         style={{
           backgroundColor: selected.length ? 'var(--christmas-green)' : 'var(--bg-card)',
-          color: selected.length ? '#fff' : 'var(--christmas-cream)',
+          color: selected.length ? '#fff' : 'var(--text-primary)',
           border: `1px solid ${selected.length ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
         }}
       >
@@ -115,7 +115,7 @@ function MultiSelect({
               key={opt.value}
               onClick={() => toggle(opt.value)}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors hover:bg-white/5"
-              style={{ color: 'var(--christmas-cream)' }}
+              style={{ color: 'var(--text-primary)' }}
             >
               <span
                 className="w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center"
@@ -171,7 +171,7 @@ function NotesTooltip({ notes }: { notes: string }) {
           style={{
             backgroundColor: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
-            color: 'var(--christmas-cream)',
+            color: 'var(--text-primary)',
             top: pos.top,
             left: pos.left,
             transform: 'translate(-50%, -100%)',
@@ -232,7 +232,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
         style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           {rock?.id ? 'Edit Rock' : 'Add Rock'}
         </h3>
 
@@ -244,7 +244,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
             />
           </div>
 
@@ -264,7 +264,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-left transition-colors"
                   style={{
                     backgroundColor: selectedOwnerIds.includes(u.id) ? 'var(--christmas-green)' : 'transparent',
-                    color: selectedOwnerIds.includes(u.id) ? '#fff' : 'var(--christmas-cream)',
+                    color: selectedOwnerIds.includes(u.id) ? '#fff' : 'var(--text-primary)',
                   }}
                 >
                   <span
@@ -290,7 +290,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
               >
                 <option value="">None</option>
                 {departments.map((d) => (
@@ -304,7 +304,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
                 value={targetQuarter}
                 onChange={(e) => setTargetQuarter(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
               >
                 {quarters.map((q) => (
                   <option key={q} value={q}>{q}</option>
@@ -340,7 +340,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
             />
           </div>
         </div>
@@ -357,7 +357,7 @@ function RockModal({ rock, quarters, users, departments, onSave, onClose }: Rock
             onClick={handleSubmit}
             disabled={!title.trim() || !selectedOwnerIds.length}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
           >
             {rock?.id ? 'Save' : 'Add Rock'}
           </button>
@@ -641,7 +641,7 @@ export default function RocksTab() {
           value={selectedQuarter}
           onChange={(e) => setSelectedQuarter(e.target.value)}
           className="px-3 py-2 rounded-lg text-sm"
-          style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+          style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
         >
           {(quarters || [getCurrentQuarter()]).map((q) => (
             <option key={q} value={q}>{q}</option>
@@ -655,7 +655,7 @@ export default function RocksTab() {
           <button
             onClick={() => { setModalRock({}); setShowModal(true); }}
             className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap"
-            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
           >
             + Add Rock
           </button>
@@ -688,7 +688,7 @@ export default function RocksTab() {
                         <button
                           onClick={() => handleSort(col.id as SortKey)}
                           className="flex items-center gap-1 hover:text-white/80 transition-colors"
-                          style={{ color: sortKey === col.id ? 'var(--christmas-cream)' : undefined }}
+                          style={{ color: sortKey === col.id ? 'var(--text-primary)' : undefined }}
                         >
                           {col.label}
                           <span className="text-[10px] opacity-60">{sortIcon(col.id as SortKey)}</span>
@@ -734,12 +734,12 @@ export default function RocksTab() {
                             if (e.key === 'Escape') cancelEdit();
                           }}
                           className="w-full px-1.5 py-0.5 rounded text-xs font-medium"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
                         />
                       ) : (
                         <span
                           className="text-xs font-medium cursor-pointer hover:underline"
-                          style={{ color: 'var(--christmas-cream)' }}
+                          style={{ color: 'var(--text-primary)' }}
                           onClick={() => startEdit(rock.id, 'title', rock.title)}
                           title="Click to edit"
                         >
@@ -757,7 +757,7 @@ export default function RocksTab() {
                           onBlur={() => cancelEdit()}
                           onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
                           className="w-full px-1 py-0.5 rounded text-xs"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
                         >
                           {(users || []).map((u) => (
                             <option key={u.id} value={u.name || u.email}>{u.name || u.email}</option>
@@ -787,7 +787,7 @@ export default function RocksTab() {
                           onBlur={() => cancelEdit()}
                           onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
                           className="w-full px-1 py-0.5 rounded text-xs"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
                         >
                           <option value="">None</option>
                           {departmentNames.map((d) => (
@@ -815,7 +815,7 @@ export default function RocksTab() {
                           onBlur={() => cancelEdit()}
                           onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit(); }}
                           className="w-full px-1 py-0.5 rounded text-xs"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
                         >
                           <option value="on_track">On Track</option>
                           <option value="off_track">Off Track</option>
@@ -847,7 +847,7 @@ export default function RocksTab() {
                           }}
                           rows={2}
                           className="w-full px-1.5 py-0.5 rounded text-xs resize-none"
-                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+                          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
                         />
                       ) : (
                         <div

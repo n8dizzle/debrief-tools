@@ -77,7 +77,7 @@ function PacingCard({ label, revenue, sales, target, pacing }: {
       {/* Revenue | Sales centered */}
       <div className="flex items-center justify-center mb-3">
         <div className="flex-1 text-center">
-          <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-cream)' }}>
+          <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
             {formatCurrencyCompact(revenue)}
           </span>
           <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Revenue</span>
@@ -107,7 +107,7 @@ function PacingCard({ label, revenue, sales, target, pacing }: {
         {pacing !== undefined && pacing > 0 && (
           <div
             className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-all duration-300"
-            style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.9 }}
+            style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--text-primary)', opacity: 0.9 }}
           />
         )}
       </div>
@@ -141,7 +141,7 @@ export default function PacingSection({ data, title = 'Goal Pacing' }: PacingSec
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>{title}</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

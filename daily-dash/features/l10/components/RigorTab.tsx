@@ -43,12 +43,12 @@ function RigorCard({ app }: { app: RigorApp }) {
               target="_blank"
               rel="noopener noreferrer"
               className="text-base font-semibold hover:underline"
-              style={{ color: 'var(--christmas-cream)' }}
+              style={{ color: 'var(--text-primary)' }}
             >
               {app.name}
             </a>
           ) : (
-            <span className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               {app.name}
             </span>
           )}
@@ -70,7 +70,7 @@ function RigorCard({ app }: { app: RigorApp }) {
         <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-muted)' }}>
           Last action
         </div>
-        <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           {formatLastAction(app.lastAction)}
         </div>
       </div>
@@ -86,7 +86,7 @@ function RigorCard({ app }: { app: RigorApp }) {
           </div>
         </div>
         <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {app.count30d}
           </div>
           <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>

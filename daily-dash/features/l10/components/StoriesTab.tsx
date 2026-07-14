@@ -133,7 +133,7 @@ export default function StoriesTab() {
         value={editMemberId}
         onChange={(e) => setEditMemberId(e.target.value)}
         className={`w-full rounded ${compact ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'}`}
-        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
       >
         <option value="">Select person...</option>
         {activeMembers.map((m) => (
@@ -145,14 +145,14 @@ export default function StoriesTab() {
         value={editDate}
         onChange={(e) => setEditDate(e.target.value)}
         className={`w-full rounded ${compact ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'}`}
-        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
       />
       <div className="flex gap-1">
         <button
           onClick={() => handleSaveEdit(week.week_date)}
           disabled={!editMemberId}
           className={`flex-1 rounded font-medium disabled:opacity-50 ${compact ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'}`}
-          style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+          style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
         >
           Save
         </button>
@@ -194,7 +194,7 @@ export default function StoriesTab() {
                 onClick={() => startEdit(stories.current_week)}
                 className="block text-left mb-4 group"
               >
-                <div className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                   {stories.current_week.member_name}
                 </div>
                 <div className="text-xs mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)' }}>
@@ -206,7 +206,7 @@ export default function StoriesTab() {
                 className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: stories.current_week.is_told ? 'var(--christmas-green)' : 'var(--bg-secondary)',
-                  color: stories.current_week.is_told ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                  color: stories.current_week.is_told ? 'var(--on-accent)' : 'var(--text-secondary)',
                   border: `1px solid ${stories.current_week.is_told ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
                 }}
               >
@@ -241,7 +241,7 @@ export default function StoriesTab() {
                       onClick={() => startEdit(week)}
                       className="w-full text-left group"
                     >
-                      <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {week.member_name}
                       </div>
                       <div className="text-xs mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)' }}>
@@ -281,7 +281,7 @@ export default function StoriesTab() {
                 <span className="text-xs w-28" style={{ color: 'var(--text-muted)' }}>
                   {formatWeekLabel(entry.week_date)}
                 </span>
-                <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   {entry.member_name}
                 </span>
               </div>
@@ -319,7 +319,7 @@ export default function StoriesTab() {
                 value={newMemberUserId}
                 onChange={(e) => setNewMemberUserId(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
               >
                 <option value="">Add team member...</option>
                 {users
@@ -332,7 +332,7 @@ export default function StoriesTab() {
                 onClick={handleAddMember}
                 disabled={!newMemberUserId}
                 className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
               >
                 Add
               </button>
@@ -352,7 +352,7 @@ export default function StoriesTab() {
                   <span className="text-xs w-6 text-center" style={{ color: 'var(--text-muted)' }}>
                     {index + 1}
                   </span>
-                  <span className="flex-1 text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                  <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>
                     {member.member_name}
                   </span>
 

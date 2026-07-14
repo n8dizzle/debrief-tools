@@ -101,14 +101,14 @@ export default function DepartmentSection({
             className="flex items-center justify-center w-7 h-7 rounded-lg"
             style={{
               backgroundColor: 'var(--christmas-green)',
-              color: 'var(--christmas-cream)',
+              color: 'var(--text-primary)',
             }}
           >
             <DepartmentIcon name={department.icon} />
           </div>
           <h3
             className="font-semibold"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             {department.name}
           </h3>
