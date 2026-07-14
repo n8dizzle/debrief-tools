@@ -19,6 +19,12 @@ export interface PresencePeer {
   rowId: number;
 }
 
+/** One person currently connected to the app (deduped across their tabs). */
+export interface ActiveUser {
+  name: string;
+  self: boolean;
+}
+
 export type BoardName = 'service' | 'install' | 'warranty';
 
 export interface OrdersContextValue {
@@ -34,6 +40,7 @@ export interface OrdersContextValue {
   suppliers: string[];
   validities: string[];
   presence: PresencePeer[];
+  activeUsers: ActiveUser[];
   setEditing: (board: BoardName, rowId: number | null) => void;
   refresh: () => Promise<void>;
   refreshInstallTeams: () => Promise<void>;
@@ -71,6 +78,7 @@ export function useOrdersProvider(): OrdersContextValue {
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [validities, setValidities] = useState<string[]>([]);
   const [presence, setPresence] = useState<PresencePeer[]>([]);
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
 
   // Who am I (for presence)? App uses NextAuth, so grab the display name from the session.
@@ -227,15 +235,23 @@ export function useOrdersProvider(): OrdersContextValue {
           Array<{ name: string; board: BoardName | null; rowId: number | null }>
         >;
         const peers: PresencePeer[] = [];
+        // Roster of everyone connected, deduped by name (one person, many tabs = one entry).
+        const roster = new Map<string, ActiveUser>();
         for (const key of Object.keys(state)) {
-          if (key === myKey) continue;
           const metas = state[key];
           const m = metas && metas[metas.length - 1];
-          if (m && m.board && m.rowId != null) {
-            peers.push({ key, name: m.name || 'Someone', board: m.board, rowId: m.rowId });
+          if (!m) continue;
+          const name = m.name || 'Someone';
+          const isSelf = key === myKey;
+          const existing = roster.get(name);
+          roster.set(name, { name, self: existing?.self || isSelf });
+          // Line-level presence: only OTHER people actively editing a specific row.
+          if (!isSelf && m.board && m.rowId != null) {
+            peers.push({ key, name, board: m.board, rowId: m.rowId });
           }
         }
         setPresence(peers);
+        setActiveUsers(Array.from(roster.values()));
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIBED') {
@@ -356,6 +372,7 @@ export function useOrdersProvider(): OrdersContextValue {
     suppliers,
     validities,
     presence,
+    activeUsers,
     setEditing,
     refresh,
     refreshInstallTeams,

@@ -13,6 +13,7 @@ const EditDetailModal = dynamic(() => import('./EditDetailModal'), { ssr: false 
 const CloseoutModal = dynamic(() => import('./CloseoutModal'), { ssr: false });
 const AuditPanel = dynamic(() => import('./AuditPanel'), { ssr: false });
 const ColSettingsPanel = dynamic(() => import('./ColSettingsPanel'), { ssr: false });
+const PresenceBar = dynamic(() => import('./PresenceBar'), { ssr: false });
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -81,6 +82,7 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </div>
         <div className="header-right">
+          <PresenceBar users={ordersBase.activeUsers} />
           <div className="last-sync">
             <span className="sync-dot" />
             {ordersBase.lastSync

@@ -2,12 +2,12 @@
 
 const COLORS = ['#1565c0', '#2e7d32', '#6a0dad', '#e65100', '#00838f', '#c2185b', '#5d4037'];
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return (((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase()) || '?';
 }
 
-function colorFor(name: string): string {
+export function colorFor(name: string): string {
   let h = 0;
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return COLORS[h % COLORS.length];
