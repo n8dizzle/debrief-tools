@@ -12,6 +12,9 @@
   --christmas-brown-light: #9B5555;
   --christmas-gold: #B8956B;
 
+  /* Text that sits ON the green accent — always light, never flips with the theme */
+  --on-accent: #F5F0E1;
+
   /* Dark Mode Background Colors */
   --bg-primary: #0F1210;
   --bg-secondary: #161B18;
@@ -36,6 +39,28 @@
   /* Trade Colors */
   --trade-hvac: #5D8A66;
   --trade-plumbing: #B8956B;
+}
+
+/* Light theme — flipped by the portal master switch via <html data-theme="light">.
+   Redefines only the neutral bg/text/border tokens + green/brown accents; the Tailwind
+   color classes (bg-bg-*, text-text-*, bg-christmas-green) point at these vars, so the
+   staff app flips automatically. The public tracker uses default Tailwind (no tokens),
+   so it stays light regardless. Brand light palette matches the marketing site. */
+:root[data-theme="light"] {
+  --bg-primary: #FAFBF8;        /* near-white page */
+  --bg-secondary: #F1F4EF;      /* faint green-gray panels */
+  --bg-card: #FFFFFF;           /* pure white cards */
+  --bg-card-hover: #F4F7F2;
+  --text-primary: #20261F;
+  --text-secondary: #4C574E;
+  --text-muted: #79847B;
+  --border-subtle: #E6E8E1;
+  --border-default: #D4D8CE;
+  --christmas-green: #4E7D54;       /* punch the green for white surfaces */
+  --christmas-green-dark: #3E7048;
+  --christmas-green-light: #3E7048;
+  --christmas-brown: #8A2E2E;       /* punchy brand maroon (matches the marketing site) */
+  --christmas-brown-light: #A64444;
 }
 
 body {
@@ -106,7 +131,7 @@ a:hover {
 
 .btn-primary {
   background: var(--christmas-green);
-  color: var(--christmas-cream);
+  color: var(--on-accent);
 }
 
 .btn-primary:hover {
