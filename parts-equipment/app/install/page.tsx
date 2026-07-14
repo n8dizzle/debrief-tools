@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
+import PresenceBadge from '@/components/PresenceBadge';
 import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, looksLikeCurrency } from '@/lib/pe-utils';
 import type { PEOrder } from '@/types';
 
@@ -17,7 +18,11 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams, suppliers } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams, suppliers, presence, setEditing } = ctx;
+
+  // Clear my presence when leaving this board (route change removes the focused
+  // input without firing blur, so onBlur alone would leave my avatar stuck here).
+  useEffect(() => () => setEditing('install', null), [setEditing]);
 
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
@@ -231,14 +236,20 @@ export default function InstallPage() {
               <tbody>
                 {sorted.map((o: PEOrder) => {
                   const rc = rowClass(o);
+                  const editors = presence.filter(p => p.board === 'install' && p.rowId === o.id);
                   const link = linkGroups.get(o.id);
                   const trStyle: React.CSSProperties = {};
                   if (link) trStyle.boxShadow = 'inset 4px 0 0 #d48a0a';
                   if (focusId === o.id) { trStyle.outline = '2px solid var(--accent)'; trStyle.outlineOffset = -2; }
                   return (
                     <tr key={o.id} id={`inst-row-${o.id}`} className={rc}
+                      onFocus={() => setEditing('install', o.id)}
+                      onBlur={() => setEditing('install', null)}
                       style={Object.keys(trStyle).length ? trStyle : undefined}>
-                      <td><button className="detail-open-btn" style={{ background: '#7a1c2e' }} onClick={() => openEditDetail?.(o.id)}>✎</button></td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button className="detail-open-btn" style={{ background: '#7a1c2e' }} onClick={() => openEditDetail?.(o.id)}>✎</button>
+                        <PresenceBadge peers={editors} />
+                      </td>
 
                       <td style={{ textAlign: 'center' }}>
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: ageColor(daysSince(o.date)) }}>{fmtMD(o.date)}</span>

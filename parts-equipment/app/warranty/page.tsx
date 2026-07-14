@@ -1,13 +1,18 @@
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import type { PEWarrantyClaim } from '@/types';
 import { formatLocalDate } from '@/lib/pe-utils';
+import PresenceBadge from '@/components/PresenceBadge';
 
 export default function WarrantyPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { warrantyOrders, setWarrantyOrders, showToast, isLoading } = ctx;
+  const { warrantyOrders, setWarrantyOrders, showToast, isLoading, presence, setEditing } = ctx;
+
+  // Clear my presence when leaving this board (route change removes the focused
+  // input without firing blur, so onBlur alone would leave my avatar stuck here).
+  useEffect(() => () => setEditing('warranty', null), [setEditing]);
 
   function save(id: number, field: keyof PEWarrantyClaim, value: string) {
     setWarrantyOrders((prev: PEWarrantyClaim[]) =>
@@ -121,10 +126,13 @@ export default function WarrantyPage() {
         </thead>
         <tbody>
           {rows.map(w => (
-            <tr key={w.id}>
+            <tr key={w.id}
+              onFocus={() => setEditing('warranty', w.id)}
+              onBlur={() => setEditing('warranty', null)}>
               <td>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <input className="wt-input" value={w.job || ''} onChange={e => save(w.id, 'job', e.target.value)} style={{ minWidth: 80 }} />
+                  <PresenceBadge peers={presence.filter(p => p.board === 'warranty' && p.rowId === w.id)} />
                   {w.job && (
                     <a href={`https://go.servicetitan.com/#/Job/Index/${w.job}`} target="_blank" rel="noopener noreferrer"
                       title="Open job in ServiceTitan" onClick={e => e.stopPropagation()}

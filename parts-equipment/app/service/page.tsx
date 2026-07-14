@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
+import PresenceBadge from '@/components/PresenceBadge';
 import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
 import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
@@ -17,7 +18,11 @@ function fmtMD(d: string | null | undefined): string {
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
   const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading,
-    warrantyOrders, setWarrantyOrders, showToast, suppliers, validities } = ctx;
+    warrantyOrders, setWarrantyOrders, showToast, suppliers, validities, presence, setEditing } = ctx;
+
+  // Clear my presence when leaving this board (route change removes the focused
+  // input without firing blur, so onBlur alone would leave my avatar stuck here).
+  useEffect(() => () => setEditing('service', null), [setEditing]);
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
@@ -263,6 +268,7 @@ export default function ServicePage() {
               <tbody>
                 {sorted.map((o: PEOrder) => {
                   const rc = rowClass(o);
+                  const editors = presence.filter(p => p.board === 'service' && p.rowId === o.id);
                   const age = daysSince(o.date);
                   const linkedCount = o.linked_jobs?.length || 0;
                   const link = linkGroups.get(o.id);
@@ -272,8 +278,13 @@ export default function ServicePage() {
                   if (focusId === o.id) { trStyle.outline = '2px solid var(--accent)'; trStyle.outlineOffset = -2; }
                   return (
                     <tr key={o.id} id={`svc-row-${o.id}`} className={rc}
+                      onFocus={() => setEditing('service', o.id)}
+                      onBlur={() => setEditing('service', null)}
                       style={Object.keys(trStyle).length ? trStyle : undefined}>
-                      <td><button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button></td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button>
+                        <PresenceBadge peers={editors} />
+                      </td>
 
                       <td>
                         <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: ageColor(age) }}>{fmtMD(o.date)}</span>
