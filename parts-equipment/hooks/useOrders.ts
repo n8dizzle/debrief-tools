@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
+import { useSession } from 'next-auth/react';
 import type { PEOrder, PEWarrantyClaim, PEAuditLog } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { PE_CHANGES_TOPIC } from '@/lib/realtime';
@@ -9,6 +10,16 @@ export interface ToastState {
   type: 'success' | 'error' | 'info';
   visible: boolean;
 }
+
+/** One other person currently editing a specific line on a board. */
+export interface PresencePeer {
+  key: string;
+  name: string;
+  board: 'service' | 'install' | 'warranty';
+  rowId: number;
+}
+
+export type BoardName = 'service' | 'install' | 'warranty';
 
 export interface OrdersContextValue {
   orders: PEOrder[];
@@ -22,6 +33,8 @@ export interface OrdersContextValue {
   installTeams: string[];
   suppliers: string[];
   validities: string[];
+  presence: PresencePeer[];
+  setEditing: (board: BoardName, rowId: number | null) => void;
   refresh: () => Promise<void>;
   refreshInstallTeams: () => Promise<void>;
   refreshSuppliers: () => Promise<void>;
@@ -57,7 +70,18 @@ export function useOrdersProvider(): OrdersContextValue {
   const [installTeams, setInstallTeams] = useState<string[]>([]);
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [validities, setValidities] = useState<string[]>([]);
+  const [presence, setPresence] = useState<PresencePeer[]>([]);
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
+
+  // Who am I (for presence)? App uses NextAuth, so grab the display name from the session.
+  const { data: session } = useSession();
+  const nameRef = useRef('Someone');
+  nameRef.current = session?.user?.name || session?.user?.email || 'Someone';
+
+  // Presence channel + a debounce timer that clears "I'm editing" shortly after blur
+  // (so hopping between cells in the same row doesn't flicker off on other screens).
+  const presenceChannelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  const clearEditTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounce timers: one per order ID
   // Timestamp of the last local edit — a live refresh is deferred while the user
@@ -183,6 +207,68 @@ export function useOrdersProvider(): OrdersContextValue {
     };
   }, [refresh]);
 
+  // Line-level presence: everyone joins one channel and "tracks" which row (if any)
+  // they're currently editing. On every sync we rebuild the list of OTHER people and
+  // which line they're on, so each board can show a little avatar next to that row —
+  // Google-Sheets style. Only name + board + row id travel the channel (no order data).
+  useEffect(() => {
+    if (!supabase) return;
+    const myKey =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `k-${Math.floor(performance.now())}-${performance.now()}`;
+    const channel = supabase.channel('pe-presence', { config: { presence: { key: myKey } } });
+    presenceChannelRef.current = channel;
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState() as Record<
+          string,
+          Array<{ name: string; board: BoardName | null; rowId: number | null }>
+        >;
+        const peers: PresencePeer[] = [];
+        for (const key of Object.keys(state)) {
+          if (key === myKey) continue;
+          const metas = state[key];
+          const m = metas && metas[metas.length - 1];
+          if (m && m.board && m.rowId != null) {
+            peers.push({ key, name: m.name || 'Someone', board: m.board, rowId: m.rowId });
+          }
+        }
+        setPresence(peers);
+      })
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          channel.track({ name: nameRef.current, board: null, rowId: null });
+        }
+      });
+
+    return () => {
+      if (clearEditTimer.current) clearTimeout(clearEditTimer.current);
+      presenceChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Called when a row gains/loses focus. rowId=null clears (debounced so cell-to-cell
+  // hops within the same row don't blink the indicator off for everyone else).
+  const setEditing = useCallback((board: BoardName, rowId: number | null) => {
+    const channel = presenceChannelRef.current;
+    if (!channel) return;
+    if (clearEditTimer.current) {
+      clearTimeout(clearEditTimer.current);
+      clearEditTimer.current = null;
+    }
+    if (rowId === null) {
+      clearEditTimer.current = setTimeout(() => {
+        channel.track({ name: nameRef.current, board: null, rowId: null });
+      }, 800);
+    } else {
+      channel.track({ name: nameRef.current, board, rowId });
+    }
+  }, []);
+
   const updateOrder = useCallback((id: number, changes: Partial<PEOrder>) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o));
   }, []);
@@ -269,6 +355,8 @@ export function useOrdersProvider(): OrdersContextValue {
     installTeams,
     suppliers,
     validities,
+    presence,
+    setEditing,
     refresh,
     refreshInstallTeams,
     refreshSuppliers,
