@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import type { PEOrder, PEWarrantyClaim, PEAuditLog } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { PE_CHANGES_TOPIC } from '@/lib/realtime';
 
 export interface ToastState {
   message: string;
@@ -58,6 +60,9 @@ export function useOrdersProvider(): OrdersContextValue {
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
 
   // Debounce timers: one per order ID
+  // Timestamp of the last local edit — a live refresh is deferred while the user
+  // is actively typing so it can't clobber their in-progress (unsaved) keystrokes.
+  const lastEditRef = useRef(0);
   const debounceTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   // Accumulate changes per order during debounce window
   const pendingChanges = useRef<Map<number, Partial<PEOrder>>>(new Map());
@@ -149,11 +154,41 @@ export function useOrdersProvider(): OrdersContextValue {
     refreshValidities();
   }, [refresh, refreshInstallTeams, refreshSuppliers, refreshValidities]);
 
+  // Live collaboration: another user's save (or the sync) broadcasts a "change"
+  // ping on a shared channel; we refetch so everyone stays in sync — Google-Sheets
+  // style. Only a ping travels the channel (no order data). Defer the refetch while
+  // the local user is actively typing (last edit < 1.5s ago) so we never overwrite
+  // their unsaved keystrokes.
+  useEffect(() => {
+    if (!supabase) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const doRefresh = () => {
+      const idleFor = Date.now() - lastEditRef.current;
+      if (idleFor < 1500) {
+        timer = setTimeout(doRefresh, 1500 - idleFor);
+        return;
+      }
+      refresh();
+    };
+    const channel = supabase
+      .channel(PE_CHANGES_TOPIC)
+      .on('broadcast', { event: 'change' }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(doRefresh, 400);
+      })
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [refresh]);
+
   const updateOrder = useCallback((id: number, changes: Partial<PEOrder>) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o));
   }, []);
 
   const saveOrderDebounced = useCallback((id: number, changes: Partial<PEOrder>) => {
+    lastEditRef.current = Date.now();
     // Optimistically update UI immediately
     setOrders(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o));
 

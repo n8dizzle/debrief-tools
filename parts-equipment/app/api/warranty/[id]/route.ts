@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { broadcastChange } from '@/lib/realtime';
 import { hasPEPermission } from '@/lib/pe-utils';
 
 export async function PATCH(
@@ -31,6 +32,7 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  await broadcastChange({ source: 'warranty-edit' });
   return NextResponse.json({ claim: data });
 }
 
