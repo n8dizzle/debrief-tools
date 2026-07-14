@@ -97,7 +97,7 @@ export default function InboxPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Inbox
         </h1>
         <Link href="/scan" className="btn btn-primary gap-2">
@@ -130,7 +130,7 @@ export default function InboxPage() {
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: status === f.value ? 'var(--christmas-green)' : 'transparent',
-                  color: status === f.value ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                  color: status === f.value ? 'var(--on-accent)' : 'var(--text-secondary)',
                 }}
               >
                 {f.label}
@@ -147,7 +147,7 @@ export default function InboxPage() {
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: priority === f.value ? 'var(--christmas-green)' : 'transparent',
-                  color: priority === f.value ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                  color: priority === f.value ? 'var(--on-accent)' : 'var(--text-secondary)',
                 }}
               >
                 {f.label}

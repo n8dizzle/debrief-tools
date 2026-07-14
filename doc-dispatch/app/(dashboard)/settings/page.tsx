@@ -83,12 +83,12 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--christmas-cream)' }}>Settings</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Settings</h1>
 
       {/* Upload Notifications */}
       <div className="card mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Upload Notifications</h2>
+          <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Upload Notifications</h2>
           <div className="flex items-center gap-2">
             {saveMessage && (
               <span className="text-xs" style={{ color: saveMessage === 'Saved' ? 'var(--christmas-green-light)' : 'var(--status-error)' }}>
@@ -168,7 +168,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="card mb-4">
-        <h2 className="font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>About Doc Dispatch</h2>
+        <h2 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>About Doc Dispatch</h2>
         <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
           <p>Doc Dispatch uses AI to scan and analyze documents for Christmas Air.</p>
           <p>Upload photos of invoices, permits, contracts, and other documents to get automatic extraction of key details and suggested action items.</p>
@@ -176,7 +176,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="card mb-4">
-        <h2 className="font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>AI Model</h2>
+        <h2 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>AI Model</h2>
         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           <p>Currently using <strong>Claude Haiku 4.5</strong> for document analysis.</p>
           <p className="mt-1" style={{ color: 'var(--text-muted)' }}>~$0.002 per document analyzed</p>
@@ -184,7 +184,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="card">
-        <h2 className="font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>User Management</h2>
+        <h2 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>User Management</h2>
         <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
           User accounts and permissions are managed centrally through the Internal Portal.
         </p>
