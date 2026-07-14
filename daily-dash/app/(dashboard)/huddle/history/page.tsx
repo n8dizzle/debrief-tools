@@ -19,7 +19,7 @@ export default function DashHistoryPage() {
         <div>
           <h1
             className="text-2xl font-bold tracking-tight"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             Historical Comparison
           </h1>
@@ -44,7 +44,7 @@ export default function DashHistoryPage() {
                     : 'var(--bg-card)',
                 color:
                   days === option.value
-                    ? 'var(--christmas-cream)'
+                    ? 'var(--text-primary)'
                     : 'var(--text-secondary)',
                 border: '1px solid var(--border-subtle)',
               }}

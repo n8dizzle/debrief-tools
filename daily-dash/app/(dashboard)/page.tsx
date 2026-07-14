@@ -319,7 +319,7 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
           {year} Annual Progress
         </h2>
         <div className="flex items-center gap-2 sm:gap-4">
-          <span className="text-base sm:text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <span className="text-base sm:text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             {loading ? '...' : formatCurrencyCompact(revenue)} / {formatCurrencyCompact(target)}
           </span>
           <span
@@ -351,7 +351,7 @@ function AnnualBanner({ revenue, target, expectedPercent, loading }: AnnualBanne
             className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 transition-all duration-300"
             style={{
               left: `${Math.min(expectedPercent, 100)}%`,
-              backgroundColor: 'var(--christmas-cream)',
+              backgroundColor: 'var(--text-primary)',
               opacity: 0.9,
             }}
           />
@@ -453,26 +453,26 @@ function TrendChart({ data, loading }: TrendChartProps) {
           border: '1px solid var(--border-subtle)',
         }}
       >
-        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
           {label}
         </p>
         <div className="space-y-1 text-xs">
           {(filter === 'all' || filter === 'hvac') && (
             <div className="flex justify-between gap-4">
               <span style={{ color: 'var(--christmas-green)' }}>HVAC:</span>
-              <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(hvac)}</span>
+              <span style={{ color: 'var(--text-primary)' }}>{formatCurrencyCompact(hvac)}</span>
             </div>
           )}
           {(filter === 'all' || filter === 'plumbing') && (
             <div className="flex justify-between gap-4">
               <span style={{ color: 'var(--christmas-gold)' }}>Plumbing:</span>
-              <span style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(plumbing)}</span>
+              <span style={{ color: 'var(--text-primary)' }}>{formatCurrencyCompact(plumbing)}</span>
             </div>
           )}
           {filter === 'all' && (
             <div className="flex justify-between gap-4 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <span style={{ color: 'var(--text-muted)' }}>Total:</span>
-              <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{formatCurrencyCompact(total)}</span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrencyCompact(total)}</span>
             </div>
           )}
         </div>
@@ -493,7 +493,7 @@ function TrendChart({ data, loading }: TrendChartProps) {
         }}
       >
         {color && <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />}
-        <span style={{ color: isActive ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>{label}</span>
+        <span style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}>{label}</span>
       </button>
     );
   };
@@ -623,7 +623,7 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
         <>
           <div className="flex items-center justify-center mb-3">
             <div className="flex-1 text-center">
-              <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--christmas-cream)' }}>
+              <span className="text-xl sm:text-2xl font-bold block whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                 {loading ? '...' : formatCurrencyCompact(revenue)}
               </span>
               <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
@@ -649,7 +649,7 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
           />
         </>
       ) : (
-        <p className="text-2xl font-bold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <p className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
           {loading ? '...' : formatCurrency(revenue)}
         </p>
       )}
@@ -676,7 +676,7 @@ function RevenueCard({ label, revenue, sales, target, loading, accentColor, expe
             className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 transition-all duration-300"
             style={{
               left: `${Math.min(expectedPacing, 100)}%`,
-              backgroundColor: 'var(--christmas-cream)',
+              backgroundColor: 'var(--text-primary)',
               opacity: 0.9,
             }}
           />
@@ -740,7 +740,7 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
         )}
       </div>
 
-      <p className="text-xl font-bold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+      <p className="text-xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
         {loading ? '...' : formatCurrencyCompact(revenue)}
       </p>
 
@@ -767,7 +767,7 @@ function MiniTradeCard({ label, revenue, target, loading, accentColor, expectedP
               className="absolute top-1/2 -translate-y-1/2 w-0.5 h-2 transition-all duration-300"
               style={{
                 left: `${Math.min(expectedPacing, 100)}%`,
-                backgroundColor: 'var(--christmas-cream)',
+                backgroundColor: 'var(--text-primary)',
                 opacity: 0.8,
               }}
             />
@@ -830,7 +830,7 @@ function SalesCell({ actual, loading }: { actual: number; loading: boolean }) {
   if (loading) return <span style={{ color: 'var(--text-muted)' }}>--</span>;
   return (
     <div className="text-right">
-      <span style={{ color: 'var(--christmas-cream)' }} className="font-semibold">{formatCurrencyCompact(actual)}</span>
+      <span style={{ color: 'var(--text-primary)' }} className="font-semibold">{formatCurrencyCompact(actual)}</span>
     </div>
   );
 }
@@ -904,7 +904,7 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
               </svg>
             )}
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             {isHvac ? 'HVAC' : 'Plumbing'}
           </h3>
         </div>
@@ -925,7 +925,7 @@ function TradeScoreboard({ trade, tradeData, targets, dailyPacing, weeklyPacing,
             {/* Department rows (HVAC only) */}
             {isHvac && depts.map((dept) => (
               <tr key={dept}>
-                <td className="py-2 pr-2 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <td className="py-2 pr-2 font-medium" style={{ color: 'var(--text-primary)' }}>
                   {deptLabels[dept]}
                 </td>
                 <td className="py-2 px-2">
@@ -1062,7 +1062,7 @@ export default function DashboardPage() {
         <div>
           <h1
             className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             <span className="hidden sm:inline">Christmas Air Conditioning & Plumbing</span>
             <span className="sm:hidden">Christmas Air</span>
@@ -1205,7 +1205,7 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>Plumbing</h3>
+                  <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Plumbing</h3>
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     MTD {loading ? '...' : formatCurrencyCompact(trades.plumbing.mtd.revenue)} rev
                   </div>
@@ -1246,7 +1246,7 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m0-18l-3 3m3-3l3 3m-3 15l-3-3m3 3l3-3M3 12h18M3 12l3-3m-3 3l3 3m15-3l-3-3m3 3l-3 3M5.636 5.636l2.121 2.121m8.486 8.486l2.121 2.121M5.636 18.364l2.121-2.121m8.486-8.486l2.121-2.121" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>HVAC</h3>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>HVAC</h3>
               </div>
 
               {/* HVAC Period Cards - always visible */}
@@ -1289,7 +1289,7 @@ export default function DashboardPage() {
                     const getDeptTarget = (period: 'daily' | 'weekly' | 'monthly') => hvacTargets?.departments?.[dept]?.[period] || 0;
                     return (
                       <div key={dept}>
-                        <div className="text-sm font-semibold mb-2 px-1" style={{ color: 'var(--christmas-cream)' }}>{labels[dept]}</div>
+                        <div className="text-sm font-semibold mb-2 px-1" style={{ color: 'var(--text-primary)' }}>{labels[dept]}</div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {([
                             { label: 'Today', data: getDeptData('today'), target: getDeptTarget('daily'), pacing: dailyPacing },

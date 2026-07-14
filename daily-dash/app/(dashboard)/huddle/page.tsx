@@ -23,7 +23,7 @@ export default async function DashHuddlePage() {
       <div className="mb-6">
         <h1
           className="text-2xl font-bold tracking-tight"
-          style={{ color: 'var(--christmas-cream)' }}
+          style={{ color: 'var(--text-primary)' }}
         >
           Daily Huddle
         </h1>

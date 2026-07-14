@@ -214,7 +214,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         style={{
           backgroundColor: 'var(--bg-card)',
-          color: 'var(--christmas-cream)',
+          color: 'var(--text-primary)',
           border: '1px solid var(--border-subtle)',
         }}
       >
@@ -272,7 +272,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
                   className="w-full px-2 py-1.5 rounded text-sm"
                   style={{
                     backgroundColor: 'var(--bg-input)',
-                    color: 'var(--christmas-cream)',
+                    color: 'var(--text-primary)',
                     border: '1px solid var(--border-subtle)',
                   }}
                 />
@@ -289,7 +289,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
                   className="w-full px-2 py-1.5 rounded text-sm"
                   style={{
                     backgroundColor: 'var(--bg-input)',
-                    color: 'var(--christmas-cream)',
+                    color: 'var(--text-primary)',
                     border: '1px solid var(--border-subtle)',
                   }}
                 />
@@ -300,7 +300,7 @@ export function DateRangePicker({ value, onChange, dataDelay = 0 }: DateRangePic
               className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
               style={{
                 backgroundColor: 'var(--christmas-green)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--on-accent)',
               }}
             >
               Apply

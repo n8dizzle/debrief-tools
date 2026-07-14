@@ -174,12 +174,12 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
             className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: 'var(--christmas-green)' }}
           >
-            <svg className="w-6 h-6" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="var(--on-accent)" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
           </div>
           <div>
-            <div className="font-bold text-lg" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
               Christmas Air
             </div>
             <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -194,7 +194,7 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
             className="md:hidden p-2 rounded-lg transition-colors hover:bg-white/10"
             aria-label="Close sidebar"
           >
-            <svg className="w-5 h-5" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="var(--text-primary)" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -218,7 +218,7 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
                 style={{
                   backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                  color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                  color: isActive(link.href) ? 'var(--on-accent)' : 'var(--text-secondary)',
                 }}
               >
                 <NavIcon type={link.icon} />
@@ -246,12 +246,12 @@ export default function DashSidebar({ isOpen = false, onClose }: DashSidebarProp
             {/* Avatar */}
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
-              style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+              style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
             >
               {session?.user?.name?.charAt(0)?.toUpperCase() || session?.user?.email?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div className="flex-1 text-left min-w-0">
-              <div className="text-sm font-medium truncate" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                 {session?.user?.name || session?.user?.email?.split('@')[0] || 'User'}
               </div>
               <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
