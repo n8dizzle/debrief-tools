@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { broadcastChange } from '@/lib/realtime';
 import { hasPEPermission } from '@/lib/pe-utils';
 
 export async function GET(
@@ -89,6 +90,7 @@ export async function PATCH(
     });
   }
 
+  await broadcastChange({ source: 'order-edit', id });
   return NextResponse.json({ order: data });
 }
 

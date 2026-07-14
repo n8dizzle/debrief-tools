@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getServiceTitanClient } from '@/lib/servicetitan';
 import { fmtMoney } from '@/lib/pe-utils';
+import { broadcastChange } from '@/lib/realtime';
 
 function formatLocalDate(date: Date): string {
   const y = date.getFullYear();
@@ -320,6 +321,9 @@ export async function GET(request: Request) {
     }
 
     console.log(`Parts report sync: scanned=${reportRows.length} created=${created} skipped=${skipped} closed=${closed} reopened=${reopened} warrantyCreated=${warrantyCreated} warrantyFlagged=${warrantyFlagged} warrantyClaims=${warrantyClaimsStarted}`);
+    if (created || closed || reopened || warrantyCreated || warrantyFlagged || warrantyClaimsStarted) {
+      await broadcastChange({ source: 'sync' });
+    }
     return NextResponse.json({
       ok: true,
       source: 'report-54646792',

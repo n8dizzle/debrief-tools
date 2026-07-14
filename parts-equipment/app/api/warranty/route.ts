@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { broadcastChange } from '@/lib/realtime';
 import { hasPEPermission } from '@/lib/pe-utils';
 
 export async function GET(request: NextRequest) {
@@ -73,5 +74,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  await broadcastChange({ source: 'warranty-create' });
   return NextResponse.json({ claim: data }, { status: 201 });
 }

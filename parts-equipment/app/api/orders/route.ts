@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
+import { broadcastChange } from '@/lib/realtime';
 import { hasPEPermission, formatLocalDate } from '@/lib/pe-utils';
 
 export async function GET(request: NextRequest) {
@@ -120,5 +121,6 @@ export async function POST(request: NextRequest) {
     changed_by: session.user.email || session.user.name || 'Unknown',
   });
 
+  await broadcastChange({ source: 'order-create', id: data.id });
   return NextResponse.json({ order: data }, { status: 201 });
 }
