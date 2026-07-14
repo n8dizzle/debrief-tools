@@ -74,7 +74,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Dashboard
           </h1>
           {stats?.last_sync && (
@@ -161,7 +161,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Memberships by Type */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Memberships by Type
           </h2>
           {loading ? (
@@ -200,7 +200,7 @@ export default function DashboardPage() {
 
         {/* Expiring Breakdown */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Expiring Soon
           </h2>
           {loading ? (
@@ -222,7 +222,7 @@ export default function DashboardPage() {
       {/* Top Overdue */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             Most Overdue Visits
           </h2>
           <Link

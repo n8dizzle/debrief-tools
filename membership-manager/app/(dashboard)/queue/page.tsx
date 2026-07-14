@@ -42,7 +42,7 @@ export default function ActionQueuePage() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Action Queue
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>

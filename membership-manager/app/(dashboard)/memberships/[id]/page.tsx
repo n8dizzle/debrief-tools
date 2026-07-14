@@ -112,7 +112,7 @@ export default function MembershipDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {membership.customer_name || 'Unknown Customer'}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -179,7 +179,7 @@ export default function MembershipDetailPage() {
 
       {/* Visit Timeline */}
       <div className="card mb-8">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           Visit Timeline
         </h2>
         {services.length === 0 ? (
@@ -263,7 +263,7 @@ export default function MembershipDetailPage() {
 
       {/* Staff Notes */}
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           Staff Notes
         </h2>
 

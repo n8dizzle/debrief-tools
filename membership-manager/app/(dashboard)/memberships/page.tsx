@@ -363,7 +363,7 @@ export default function MembershipsPage() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Memberships
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
