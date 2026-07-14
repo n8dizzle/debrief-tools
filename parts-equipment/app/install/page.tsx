@@ -1,8 +1,9 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import PresenceBadge from '@/components/PresenceBadge';
+import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
 import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, looksLikeCurrency } from '@/lib/pe-utils';
 import type { PEOrder } from '@/types';
 
@@ -23,6 +24,11 @@ export default function InstallPage() {
   // Clear my presence when leaving this board (route change removes the focused
   // input without firing blur, so onBlur alone would leave my avatar stuck here).
   useEffect(() => () => setEditing('install', null), [setEditing]);
+
+  // Pin the table's scroll box to fill the viewport so its horizontal scrollbar
+  // stays in view (no scrolling past every row to reach it).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useFillViewportHeight(scrollRef, [isLoading]);
 
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
@@ -202,7 +208,7 @@ export default function InstallPage() {
         ) : filtered.length === 0 ? (
           <div className="empty"><div className="empty-icon">◎</div><p>No install orders.</p></div>
         ) : (
-          <div className="inst-container">
+          <div className="inst-container" ref={scrollRef}>
             <table className="it-table">
               <thead>
                 <tr>
