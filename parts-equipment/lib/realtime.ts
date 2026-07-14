@@ -3,7 +3,9 @@
 // Supabase Realtime channel; clients hear it and refetch through the
 // authenticated app API. Sensitive data never rides the channel.
 const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Realtime's broadcast REST API expects the PUBLISHABLE (anon) key — the secret/
+// service key is rejected (403). This is the same key the browser subscribes with.
+const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const PE_CHANGES_TOPIC = 'pe-changes';
 
