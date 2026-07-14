@@ -151,7 +151,7 @@ export default function HistoricalTable({ days = 7 }: HistoricalTableProps) {
               className="w-full flex items-center justify-between px-4 py-3 transition-colors"
               style={{ backgroundColor: 'var(--bg-card-hover)' }}
             >
-              <h3 className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {dept.name}
               </h3>
               <svg

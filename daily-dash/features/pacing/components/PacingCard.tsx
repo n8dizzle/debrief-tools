@@ -111,7 +111,7 @@ export default function PacingCard({
       <div className="flex items-baseline gap-1.5 mb-4">
         <span
           className="text-2xl font-bold tracking-tight"
-          style={{ color: 'var(--christmas-cream)' }}
+          style={{ color: 'var(--text-primary)' }}
         >
           {formatValue(current, format)}
         </span>

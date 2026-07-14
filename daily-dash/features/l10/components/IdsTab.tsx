@@ -79,7 +79,7 @@ function MultiSelect({
         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
         style={{
           backgroundColor: selected.length ? 'var(--christmas-green)' : 'var(--bg-card)',
-          color: selected.length ? '#fff' : 'var(--christmas-cream)',
+          color: selected.length ? '#fff' : 'var(--text-primary)',
           border: `1px solid ${selected.length ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
         }}
       >
@@ -107,7 +107,7 @@ function MultiSelect({
               key={opt.value}
               onClick={() => toggle(opt.value)}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors hover:bg-white/5"
-              style={{ color: 'var(--christmas-cream)' }}
+              style={{ color: 'var(--text-primary)' }}
             >
               <span
                 className="w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center"
@@ -163,7 +163,7 @@ function NotesTooltip({ notes }: { notes: string }) {
           style={{
             backgroundColor: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
-            color: 'var(--christmas-cream)',
+            color: 'var(--text-primary)',
             top: pos.top,
             left: pos.left,
             transform: 'translate(-50%, -100%)',
@@ -232,7 +232,7 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
         style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           {issue?.id ? 'Edit Issue' : 'Add Issue'}
         </h3>
 
@@ -244,7 +244,7 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
               onChange={(e) => setTitle(e.target.value)}
               rows={2}
               className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
             />
           </div>
 
@@ -255,7 +255,7 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
               >
                 <option value="">None</option>
                 <option value="High">High</option>
@@ -270,7 +270,7 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
                 value={ownerId}
                 onChange={(e) => setOwnerId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (
@@ -287,7 +287,7 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
             />
           </div>
 
@@ -320,7 +320,7 @@ function IssueModal({ issue, users, onSave, onClose }: IssueModalProps) {
             onClick={handleSubmit}
             disabled={!title.trim()}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
           >
             {issue?.id ? 'Save' : 'Add Issue'}
           </button>
@@ -426,12 +426,12 @@ function SortableRow({
               if (e.key === 'Escape') onCancelEdit();
             }}
             className="w-full px-1.5 py-0.5 rounded text-xs font-medium"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
           />
         ) : (
           <span
             className={`text-xs font-medium cursor-pointer hover:underline ${issue.is_resolved ? 'line-through' : ''}`}
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
             onClick={() => onStartEdit(issue.id, 'title', issue.title)}
             title="Click to edit"
           >
@@ -449,7 +449,7 @@ function SortableRow({
             onBlur={() => onCancelEdit()}
             onKeyDown={(e) => { if (e.key === 'Escape') onCancelEdit(); }}
             className="w-full px-1 py-0.5 rounded text-xs"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
           >
             <option value="">None</option>
             <option value="High">High</option>
@@ -478,7 +478,7 @@ function SortableRow({
             onBlur={() => onCancelEdit()}
             onKeyDown={(e) => { if (e.key === 'Escape') onCancelEdit(); }}
             className="w-full px-1 py-0.5 rounded text-xs"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
           >
             <option value="">Unassigned</option>
             {users.map((u) => (
@@ -510,7 +510,7 @@ function SortableRow({
             }}
             rows={2}
             className="w-full px-1.5 py-0.5 rounded text-xs resize-none"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--christmas-green)', outline: 'none' }}
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--christmas-green)', outline: 'none' }}
           />
         ) : (
           <div
@@ -842,7 +842,7 @@ export default function IdsTab() {
           <button
             onClick={() => { setModalIssue({}); setShowModal(true); }}
             className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap"
-            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+            style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
           >
             + Add Issue
           </button>
@@ -877,7 +877,7 @@ export default function IdsTab() {
                           <button
                             onClick={() => handleSort(col.id as SortKey)}
                             className="flex items-center gap-1 hover:text-white/80 transition-colors"
-                            style={{ color: sortKey === col.id ? 'var(--christmas-cream)' : undefined }}
+                            style={{ color: sortKey === col.id ? 'var(--text-primary)' : undefined }}
                           >
                             {col.label}
                             <span className="text-[10px] opacity-60">{sortIcon(col.id as SortKey)}</span>

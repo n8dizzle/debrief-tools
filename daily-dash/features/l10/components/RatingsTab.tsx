@@ -237,7 +237,7 @@ export default function RatingsTab() {
                 value={addUserId}
                 onChange={(e) => setAddUserId(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-card)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
               >
                 <option value="">Add team member...</option>
                 {users
@@ -250,7 +250,7 @@ export default function RatingsTab() {
                 onClick={handleAddParticipant}
                 disabled={!addUserId}
                 className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
               >
                 Add
               </button>
@@ -263,7 +263,7 @@ export default function RatingsTab() {
                   className="flex items-center gap-2 px-3 py-2 rounded-lg"
                   style={{ backgroundColor: 'var(--bg-card)' }}
                 >
-                  <span className="flex-1 text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                  <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>
                     {p.user_name}
                   </span>
                   <button
@@ -295,7 +295,7 @@ export default function RatingsTab() {
             className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             style={{
               backgroundColor: selectedDate === thisTuesday ? 'var(--christmas-green)' : 'var(--bg-secondary)',
-              color: selectedDate === thisTuesday ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+              color: selectedDate === thisTuesday ? 'var(--on-accent)' : 'var(--text-secondary)',
               border: `1px solid ${selectedDate === thisTuesday ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
             }}
           >
@@ -306,7 +306,7 @@ export default function RatingsTab() {
             className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             style={{
               backgroundColor: selectedDate === lastTuesday ? 'var(--christmas-green)' : 'var(--bg-secondary)',
-              color: selectedDate === lastTuesday ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+              color: selectedDate === lastTuesday ? 'var(--on-accent)' : 'var(--text-secondary)',
               border: `1px solid ${selectedDate === lastTuesday ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
             }}
           >
@@ -323,7 +323,7 @@ export default function RatingsTab() {
               }
             }}
             className="px-3 py-1.5 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
           />
         </div>
 
@@ -366,7 +366,7 @@ export default function RatingsTab() {
           className="w-full px-3 py-2 rounded-lg text-sm mb-3 resize-none"
           style={{
             backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--christmas-cream)',
+            color: 'var(--text-primary)',
             border: '1px solid var(--border-subtle)',
           }}
         />
@@ -521,7 +521,7 @@ export default function RatingsTab() {
                     >
                       <td
                         className="px-4 py-2 font-medium whitespace-nowrap sticky left-0 z-10"
-                        style={{ color: 'var(--christmas-cream)', backgroundColor: isSelected ? 'rgba(34, 139, 34, 0.08)' : 'var(--bg-card)' }}
+                        style={{ color: 'var(--text-primary)', backgroundColor: isSelected ? 'rgba(34, 139, 34, 0.08)' : 'var(--bg-card)' }}
                       >
                         {formatDateLabel(meeting.meeting_date)}
                       </td>

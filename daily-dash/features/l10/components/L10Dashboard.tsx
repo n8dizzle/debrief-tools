@@ -27,7 +27,7 @@ export default function L10Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             L10 Meeting
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>

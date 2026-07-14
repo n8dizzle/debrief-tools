@@ -111,10 +111,10 @@ function PaceGauge({
 
       {/* Label + Goal */}
       <div className="flex items-start justify-between px-4 pt-4 pb-1">
-        <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--christmas-cream)' }}>{label}</div>
+        <div className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>{label}</div>
         {mtdGoal !== undefined && !noData && (
           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Goal: <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdGoal)}</span>
+            Goal: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{fmtGoal(mtdGoal)}</span>
           </div>
         )}
       </div>
@@ -136,8 +136,8 @@ function PaceGauge({
             const labelY = cy - (r + 16) * Math.cos(goalAngle);
             return (
               <>
-                <line x1={innerX} y1={innerY} x2={outerX} y2={outerY} stroke="var(--christmas-cream)" strokeWidth="2.5" opacity="0.9" />
-                <text x={labelX + 2} y={labelY + 3} fontSize="10" fill="var(--christmas-cream)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
+                <line x1={innerX} y1={innerY} x2={outerX} y2={outerY} stroke="var(--text-primary)" strokeWidth="2.5" opacity="0.9" />
+                <text x={labelX + 2} y={labelY + 3} fontSize="10" fill="var(--text-primary)" textAnchor="start" opacity="0.9" fontWeight="700">GOAL</text>
               </>
             );
           })()}
@@ -148,9 +148,9 @@ function PaceGauge({
                 x1={cx} y1={cy}
                 x2={cx + (r + 4) * Math.sin(needleAngle * Math.PI / 180)}
                 y2={cy - (r + 4) * Math.cos(needleAngle * Math.PI / 180)}
-                stroke="var(--christmas-cream)" strokeWidth="3" strokeLinecap="round"
+                stroke="var(--text-primary)" strokeWidth="3" strokeLinecap="round"
               />
-              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--christmas-cream)" strokeWidth="2.5" />
+              <circle cx={cx} cy={cy} r="5" fill="var(--bg-card)" stroke="var(--text-primary)" strokeWidth="2.5" />
             </>
           )}
         </svg>
@@ -163,7 +163,7 @@ function PaceGauge({
         {mtdActual !== undefined && !noData && (
           <div className="text-center mb-2 relative group/stats">
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Actual: </span>
-            <span className="text-base font-bold" style={{ color: 'var(--christmas-cream)' }}>{fmtGoal(mtdActual)}</span>
+            <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{fmtGoal(mtdActual)}</span>
             {((stats && stats.length > 0) || tooltip) && (
               <>
                 <span className="ml-1.5 text-xs cursor-help inline-block px-1" style={{ color: 'var(--text-muted)' }}>ⓘ</span>
@@ -174,7 +174,7 @@ function PaceGauge({
                   {stats && stats.length > 0 && stats.map((s) => (
                     <div key={s.label} className="flex justify-between py-0.5">
                       <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
-                      <span className="font-bold ml-4" style={{ color: 'var(--christmas-cream)' }}>{s.value}</span>
+                      <span className="font-bold ml-4" style={{ color: 'var(--text-primary)' }}>{s.value}</span>
                     </div>
                   ))}
                   {tooltip && (
@@ -190,7 +190,7 @@ function PaceGauge({
         {/* Need/day + was */}
         {!noData && (
           <div className="text-center pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            <div className="text-xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
               {fmt(needed)}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}> {sfx} needed</span>
             </div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -271,7 +271,7 @@ function PacingCard({
       {/* Revenue | Sales centered with divider */}
       <div className="flex items-center justify-center gap-0 mb-3">
         <div className="flex-1 text-center">
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {formatCardCurrency(revenue)}
           </div>
           <div className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: 'var(--text-muted)' }}>Revenue</div>
@@ -291,7 +291,7 @@ function PacingCard({
           <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
             {!completed && pacing !== undefined && pacing > 0 && (
-              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--text-primary)', opacity: 0.8 }} />
             )}
           </div>
           <div className="flex items-center justify-between mt-1.5">
@@ -350,7 +350,7 @@ function ReviewCard({
       {/* Count | Rating side by side with divider */}
       <div className="flex items-center justify-center gap-0 mb-3">
         <div className="flex-1 text-center">
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {reviewCount}
           </div>
           <div className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: 'var(--text-muted)' }}>Reviews</div>
@@ -376,7 +376,7 @@ function ReviewCard({
               }}
             />
             {pacing !== undefined && pacing > 0 && (
-              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--christmas-cream)', opacity: 0.8 }} />
+              <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: `${Math.min(pacing, 100)}%`, backgroundColor: 'var(--text-primary)', opacity: 0.8 }} />
             )}
           </div>
           <div className="flex items-center justify-between mt-1.5">
@@ -397,7 +397,7 @@ function ReviewCard({
 function DepartmentGroupHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-3 mt-8 mb-4">
-      <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+      <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
         {title}
       </h2>
       <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
@@ -587,7 +587,7 @@ export default function HuddleDashboard({
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${active ? 'font-medium' : ''}`}
                   style={{
                     backgroundColor: active ? 'var(--christmas-green)' : 'var(--bg-card)',
-                    color: active ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                    color: active ? 'var(--on-accent)' : 'var(--text-secondary)',
                     border: '1px solid var(--border-subtle)',
                   }}
                 >
@@ -694,7 +694,7 @@ export default function HuddleDashboard({
           {/* Visual Pacing Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                 Revenue Pacing
               </h2>
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
