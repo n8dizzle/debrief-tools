@@ -78,7 +78,7 @@ function ChartTooltip({ active, payload, label, prefix = '$' }: any) {
       padding: '8px 12px',
       fontSize: 11,
     }}>
-      <p style={{ margin: 0, fontWeight: 700, color: 'var(--christmas-cream)', marginBottom: 3 }}>{label}</p>
+      <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{label}</p>
       {payload.map((p: any, i: number) => (
         <p key={i} style={{ margin: '1px 0', color: p.color || 'var(--text-secondary)' }}>
           {p.name}: {prefix === '$' ? fmt$(p.value) : fmtN(p.value)}
@@ -437,7 +437,7 @@ export default function ScorecardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Weekly Scorecard
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -483,7 +483,7 @@ export default function ScorecardPage() {
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${c.color}` }}
           >
             <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{c.label}</p>
-            <p className="text-xl font-bold font-mono" style={{ color: 'var(--christmas-cream)' }}>{c.val}</p>
+            <p className="text-xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{c.val}</p>
             <p className="text-xs mt-1" style={{ color: c.color }}>{c.sub}</p>
           </div>
         ))}
@@ -547,10 +547,10 @@ export default function ScorecardPage() {
                               style={{ backgroundColor: STATUS_COLORS[st] }}
                             />
                           </td>
-                          <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                             {row.label}
                           </td>
-                          <td className="px-3 py-2.5 text-right font-mono font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                          <td className="px-3 py-2.5 text-right font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
                             {formatVal(row.actual)}
                           </td>
                           <td className="px-3 py-2.5 text-right font-mono" style={{ color: 'var(--text-muted)' }}>
@@ -593,7 +593,7 @@ export default function ScorecardPage() {
                     style={{ borderBottom: i < idsItems.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}
                   >
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#EF4444' }} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                       {item.sectionName} {item.label}
                     </span>
                     <span className="text-xs ml-auto font-mono" style={{ color: 'var(--text-muted)' }}>
@@ -747,7 +747,7 @@ export default function ScorecardPage() {
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${c.color}` }}>
                 <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{c.label}</p>
-                <p className="text-2xl font-bold font-mono" style={{ color: 'var(--christmas-cream)' }}>{c.val}</p>
+                <p className="text-2xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{c.val}</p>
               </div>
             ))}
           </div>

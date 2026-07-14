@@ -310,7 +310,7 @@ export default function SettingsPage() {
         <div>
           <h1
             className="text-2xl font-bold tracking-tight"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             Settings
           </h1>
@@ -356,7 +356,7 @@ export default function SettingsPage() {
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
             style={{
               backgroundColor: 'var(--christmas-green)',
-              color: 'var(--christmas-cream)',
+              color: 'var(--on-accent)',
               opacity: isSyncing ? 0.7 : 1,
             }}
           >
@@ -410,7 +410,7 @@ export default function SettingsPage() {
               <span className="text-lg">📊</span>
             </div>
             <div>
-              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Google Sheets</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Google Sheets</div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>2026 Targets & Actuals</div>
             </div>
           </div>
@@ -429,7 +429,7 @@ export default function SettingsPage() {
               <span className="text-lg">⚡</span>
             </div>
             <div>
-              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>ServiceTitan</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>ServiceTitan</div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Jobs, Revenue, Tickets</div>
             </div>
           </div>
@@ -448,7 +448,7 @@ export default function SettingsPage() {
               <span className="text-lg">📅</span>
             </div>
             <div>
-              <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Business Days</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Business Days</div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Holidays & Schedule</div>
             </div>
           </div>
@@ -468,7 +468,7 @@ export default function SettingsPage() {
             className="px-4 py-2 text-sm rounded-lg transition-colors"
             style={{
               backgroundColor: activeTab === tab.id ? 'var(--christmas-green)' : 'var(--bg-card)',
-              color: activeTab === tab.id ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+              color: activeTab === tab.id ? 'var(--on-accent)' : 'var(--text-secondary)',
               border: '1px solid var(--border-subtle)',
             }}
           >
@@ -485,7 +485,7 @@ export default function SettingsPage() {
           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
         >
           <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Monthly Revenue Targets
             </h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -527,7 +527,7 @@ export default function SettingsPage() {
                       backgroundColor: row.isTotal ? 'var(--bg-card)' : 'transparent',
                     }}
                   >
-                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                       {row.name}
                     </td>
                     {row.values.map((val, i) => (
@@ -557,7 +557,7 @@ export default function SettingsPage() {
           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
         >
           <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Daily Revenue Targets
             </h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -593,7 +593,7 @@ export default function SettingsPage() {
                       backgroundColor: row.isTotal ? 'var(--bg-card)' : 'transparent',
                     }}
                   >
-                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                       {row.name}
                     </td>
                     {row.values.map((val, i) => (
@@ -628,7 +628,7 @@ export default function SettingsPage() {
           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
         >
           <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Weekly Revenue Targets
             </h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -664,7 +664,7 @@ export default function SettingsPage() {
                       backgroundColor: row.isTotal ? 'var(--bg-card)' : 'transparent',
                     }}
                   >
-                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3 font-medium" style={{ color: row.isTotal ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                       {row.name}
                     </td>
                     {row.values.map((val, i) => (
@@ -689,7 +689,7 @@ export default function SettingsPage() {
           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
         >
           <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Review Targets
             </h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -731,7 +731,7 @@ export default function SettingsPage() {
                   </td>
                 </tr>
                 <tr style={{ backgroundColor: 'var(--bg-card)' }}>
-                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     Daily Target
                   </td>
                   {reviewTargets.daily.map((val, i) => (
@@ -762,7 +762,7 @@ export default function SettingsPage() {
           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
         >
           <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               KPI Definitions
             </h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -786,7 +786,7 @@ export default function SettingsPage() {
                     key={`${kpi.department}-${kpi.name}`}
                     style={{ borderBottom: idx < kpiDefinitions.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
                   >
-                    <td className="px-5 py-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                       {kpi.name}
                     </td>
                     <td className="px-5 py-3" style={{ color: 'var(--text-secondary)' }}>
@@ -816,7 +816,7 @@ export default function SettingsPage() {
             className="rounded-xl p-5"
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Google Sheet Configuration
             </h3>
             <div className="grid gap-4">
@@ -827,7 +827,7 @@ export default function SettingsPage() {
                 <div className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
                   Spreadsheet ID
                 </div>
-                <code className="text-xs" style={{ color: 'var(--christmas-cream)' }}>
+                <code className="text-xs" style={{ color: 'var(--text-primary)' }}>
                   1w-c6lgPYAGUwtW7biPQoGApIoZcTFgR0usyAGUtWEcw
                 </code>
               </div>
@@ -839,10 +839,10 @@ export default function SettingsPage() {
                   Sheets Used
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)' }}>
+                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
                     2026 Targets & Actuals
                   </span>
-                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)' }}>
+                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
                     Business Days
                   </span>
                 </div>
@@ -855,7 +855,7 @@ export default function SettingsPage() {
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
             <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Cell Range Mappings
               </h3>
             </div>
@@ -874,7 +874,7 @@ export default function SettingsPage() {
                       key={key}
                       style={{ borderBottom: idx < Object.keys(sheetMappings).length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
                     >
-                      <td className="px-5 py-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                         {key}
                       </td>
                       <td className="px-5 py-3">
@@ -905,7 +905,7 @@ export default function SettingsPage() {
             <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                     Trade Revenue Data
                   </h3>
                   <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -942,7 +942,7 @@ export default function SettingsPage() {
                   className="rounded-lg p-4"
                   style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
                 >
-                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                     Sync Yesterday
                   </div>
                   <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -954,7 +954,7 @@ export default function SettingsPage() {
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                     style={{
                       backgroundColor: 'var(--christmas-green)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--on-accent)',
                       opacity: isSyncingTrades ? 0.7 : 1,
                     }}
                   >
@@ -979,7 +979,7 @@ export default function SettingsPage() {
                   className="rounded-lg p-4"
                   style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
                 >
-                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                  <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                     Backfill Historical Data
                   </div>
                   <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -1068,28 +1068,28 @@ export default function SettingsPage() {
             className="rounded-xl p-5"
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Data Architecture
             </h3>
             <div className="space-y-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <div className="flex items-start gap-3">
                 <span className="text-lg">📊</span>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Historical Data (Supabase)</div>
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Historical Data (Supabase)</div>
                   <p className="mt-1">MTD, QTD, YTD metrics are read from stored snapshots. This reduces API calls from 20+ to 1-2.</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-lg">⚡</span>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Live Data (ServiceTitan)</div>
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Live Data (ServiceTitan)</div>
                   <p className="mt-1">Only &quot;today&quot; metrics are fetched live from ServiceTitan API to show real-time numbers.</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-lg">🔄</span>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>Daily Sync</div>
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>Daily Sync</div>
                   <p className="mt-1">Run &quot;Sync Yesterday&quot; daily (or set up cron) to keep historical data fresh. Revenue adjustments are captured when they&apos;re posted.</p>
                 </div>
               </div>

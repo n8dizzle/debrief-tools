@@ -96,7 +96,7 @@ export default function DepartmentPage() {
       <div className="mb-8">
         <h1
           className="text-2xl font-bold tracking-tight"
-          style={{ color: 'var(--christmas-cream)' }}
+          style={{ color: 'var(--text-primary)' }}
         >
           {departmentName}
         </h1>
@@ -140,7 +140,7 @@ export default function DepartmentPage() {
               />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             Key Performance Indicators
           </h3>
         </div>
@@ -189,14 +189,14 @@ export default function DepartmentPage() {
                   <td className="px-5 py-4">
                     <span
                       className="font-medium"
-                      style={{ color: 'var(--christmas-cream)' }}
+                      style={{ color: 'var(--text-primary)' }}
                     >
                       {kpi.name}
                     </span>
                   </td>
                   <td
                     className="text-right px-5 py-4 font-medium"
-                    style={{ color: 'var(--christmas-cream)' }}
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     {kpi.value}
                   </td>

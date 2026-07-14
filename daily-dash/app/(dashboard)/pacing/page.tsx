@@ -157,7 +157,7 @@ export default function PacingPage() {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--christmas-cream)' }}>Goal Pacing</h1>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Goal Pacing</h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>Loading...</p>
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function PacingPage() {
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--christmas-cream)' }}>Goal Pacing</h1>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Goal Pacing</h1>
           {p?.businessDaysRemaining !== undefined && (
             <span className="text-sm font-bold px-3 py-1 rounded-lg" style={{ backgroundColor: 'rgba(52, 102, 67, 0.15)', color: 'var(--christmas-green)', border: '1px solid rgba(52, 102, 67, 0.3)' }}>
               {p.businessDaysRemaining} days left

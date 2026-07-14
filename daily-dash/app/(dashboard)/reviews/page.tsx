@@ -298,7 +298,7 @@ function StatCard({
       {/* Value */}
       <span
         className="text-2xl sm:text-3xl font-bold block"
-        style={{ color: highlight ? 'var(--christmas-green)' : 'var(--christmas-cream)' }}
+        style={{ color: highlight ? 'var(--christmas-green)' : 'var(--text-primary)' }}
       >
         {value}
       </span>
@@ -370,7 +370,7 @@ function ReviewsChart({ data, period }: { data: DailyCount[]; period: PeriodPres
     >
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Reviews by Day</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Reviews by Day</h3>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {totalReviews} total &middot; {avgPerDay} avg/day
           </p>
@@ -686,7 +686,7 @@ function GoalProgress({
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>{label}</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</h3>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{reviewsInPeriod.toLocaleString()} of {goal.toLocaleString()} reviews</p>
         </div>
         {isPastPeriod ? (
@@ -742,7 +742,7 @@ function GoalProgress({
             className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 transition-all duration-300"
             style={{
               left: `${Math.min(expectedPercent, 100)}%`,
-              backgroundColor: 'var(--christmas-cream)',
+              backgroundColor: 'var(--text-primary)',
               opacity: 0.9,
             }}
           />
@@ -774,18 +774,18 @@ function GoalProgress({
       {/* Stats row - responsive */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
         <div style={{ color: 'var(--text-muted)' }}>
-          <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{reviewsNeeded.toLocaleString()}</span> {isPastPeriod ? 'short of goal' : 'to go'}
+          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{reviewsNeeded.toLocaleString()}</span> {isPastPeriod ? 'short of goal' : 'to go'}
         </div>
         {!isPastPeriod && businessDaysRemaining > 0 && (
           <>
             <div style={{ color: 'var(--text-muted)' }}>
-              Target: <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{dailyTarget}</span>/day
+              Target: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{dailyTarget}</span>/day
               {parseFloat(perBusinessDayNeeded) > dailyTarget && (
                 <span className="ml-1 text-xs" style={{ color: '#EF4444' }}>(need {perBusinessDayNeeded})</span>
               )}
             </div>
             <div style={{ color: 'var(--text-muted)' }}>
-              <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{businessDaysRemaining}</span> business days left
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{businessDaysRemaining}</span> business days left
             </div>
           </>
         )}
@@ -809,7 +809,7 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
       style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
     >
       <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>By Location</h3>
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>By Location</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -836,7 +836,7 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
                   }}
                 >
                   <td className="py-2.5 px-4">
-                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{location.short_name}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{location.short_name}</span>
                   </td>
                   <td className="py-2.5 px-4 text-right">
                     <span className="text-sm" style={{ color: 'var(--christmas-gold)' }}>{location.average_rating.toFixed(1)} ★</span>
@@ -855,7 +855,7 @@ function LocationsTable({ locations }: { locations: LocationStats[] }) {
                     )}
                   </td>
                   <td className="py-2.5 px-4 text-right">
-                    <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{location.total_reviews.toLocaleString()}</span>
+                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{location.total_reviews.toLocaleString()}</span>
                   </td>
                 </tr>
               );
@@ -914,7 +914,7 @@ function Leaderboard({
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
         <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Team Leaderboard</h3>
         </div>
         <div className="p-5">
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No team member mentions found.</p>
@@ -929,7 +929,7 @@ function Leaderboard({
       className="px-2 py-1 text-xs font-medium rounded transition-colors"
       style={{
         backgroundColor: sortBy === field ? 'var(--christmas-green)' : 'transparent',
-        color: sortBy === field ? 'var(--christmas-cream)' : 'var(--text-muted)',
+        color: sortBy === field ? 'var(--on-accent)' : 'var(--text-muted)',
       }}
     >
       {label}
@@ -978,18 +978,18 @@ function Leaderboard({
             }}
           >
             <td className="py-2.5 px-4">
-              <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{entry.name}</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{entry.name}</span>
             </td>
             {showWtd && (
               <td className="py-2.5 px-4 text-right">
-                <span className="text-sm" style={{ color: sortBy === 'wtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                <span className="text-sm" style={{ color: sortBy === 'wtd' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                   {entry.wtd > 0 ? entry.wtd : '-'}
                 </span>
               </td>
             )}
             {showMtd && (
               <td className="py-2.5 px-4 text-right">
-                <span className="text-sm" style={{ color: sortBy === 'mtd' ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                <span className="text-sm" style={{ color: sortBy === 'mtd' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                   {entry.mtd > 0 ? entry.mtd : '-'}
                 </span>
               </td>
@@ -1012,7 +1012,7 @@ function Leaderboard({
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
         <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Team Leaderboard</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Team Leaderboard</h3>
           <div className="flex items-center gap-2">
             {hasMore && (
               <button
@@ -1042,7 +1042,7 @@ function Leaderboard({
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
           >
             <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 All Team Members ({sortedEntries.length})
               </h3>
               <button
@@ -1150,7 +1150,7 @@ function ReplyModal({
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             {review.review_reply ? 'Edit Reply' : 'Reply to Review'}
           </h3>
           <button
@@ -1170,7 +1170,7 @@ function ReplyModal({
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
         >
           <div className="flex items-center gap-2 mb-2">
-            <span className="font-medium text-sm" style={{ color: 'var(--christmas-cream)' }}>
+            <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
               {review.reviewer_name}
             </span>
             <StarRating rating={review.star_rating} size="sm" />
@@ -1194,7 +1194,7 @@ function ReplyModal({
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
               border: '1px solid var(--border-subtle)',
-              color: 'var(--christmas-cream)',
+              color: 'var(--text-primary)',
             }}
             disabled={submitting}
           />
@@ -1239,7 +1239,7 @@ function ReplyModal({
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
               style={{
                 backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--text-primary)',
               }}
             >
               Cancel
@@ -1344,7 +1344,7 @@ function ReviewCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>{review.reviewer_name}</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{review.reviewer_name}</span>
                 <StarRating rating={review.star_rating} />
               </div>
               <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -1413,7 +1413,7 @@ function ReviewCard({
                 className={`text-sm transition-all duration-200 ${
                   isExpanded ? '' : 'line-clamp-3'
                 }`}
-                style={{ color: 'var(--christmas-cream)', opacity: 0.9 }}
+                style={{ color: 'var(--text-primary)', opacity: 0.9 }}
               >
                 {review.comment}
               </p>
@@ -1469,7 +1469,7 @@ function ReviewCard({
                   style={{
                     backgroundColor: 'rgba(0,0,0,0.3)',
                     border: '1px solid var(--border-subtle)',
-                    color: 'var(--christmas-cream)',
+                    color: 'var(--text-primary)',
                   }}
                   defaultValue=""
                 >
@@ -1523,7 +1523,7 @@ function ReviewCard({
                       setEditedMentions(effectiveMentions || []);
                     }}
                     className="px-2 py-1 text-xs rounded"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--christmas-cream)' }}
+                    style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)' }}
                   >
                     Cancel
                   </button>
@@ -1642,7 +1642,7 @@ function ReviewCard({
               </span>
             )}
           </div>
-          <p className="text-sm" style={{ color: 'var(--christmas-cream)', opacity: 0.9 }}>
+          <p className="text-sm" style={{ color: 'var(--text-primary)', opacity: 0.9 }}>
             {review.review_reply}
           </p>
         </div>
@@ -2048,7 +2048,7 @@ export default function ReviewsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>Google Reviews</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Google Reviews</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{getPeriodLabel(period, customStartDate || undefined, customEndDate || undefined)}</p>
         </div>
 
@@ -2087,7 +2087,7 @@ export default function ReviewsPage() {
               style={{
                 backgroundColor: 'rgba(0,0,0,0.3)',
                 border: '1px solid var(--border-subtle)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--text-primary)',
               }}
               title={teamMemberCount !== null ? `${teamMemberCount} team members` : 'Sync team from ServiceTitan'}
             >
@@ -2195,7 +2195,7 @@ export default function ReviewsPage() {
       >
         <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>Reviews</h3>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Reviews</h3>
             <div className="flex items-center gap-3">
               <select
                 value={selectedLocation}
@@ -2204,7 +2204,7 @@ export default function ReviewsPage() {
                 style={{
                   backgroundColor: 'rgba(0,0,0,0.3)',
                   border: '1px solid var(--border-subtle)',
-                  color: 'var(--christmas-cream)',
+                  color: 'var(--text-primary)',
                 }}
               >
                 <option value="all">All Locations</option>
@@ -2222,7 +2222,7 @@ export default function ReviewsPage() {
                 style={{
                   backgroundColor: 'rgba(0,0,0,0.3)',
                   border: '1px solid var(--border-subtle)',
-                  color: 'var(--christmas-cream)',
+                  color: 'var(--text-primary)',
                 }}
               >
                 <option value="all">All Ratings</option>
@@ -2239,7 +2239,7 @@ export default function ReviewsPage() {
                 style={{
                   backgroundColor: showTeamMentionsOnly ? 'var(--christmas-gold)' : 'rgba(0,0,0,0.3)',
                   border: showTeamMentionsOnly ? 'none' : '1px solid var(--border-subtle)',
-                  color: showTeamMentionsOnly ? '#1a2e1f' : 'var(--christmas-cream)',
+                  color: showTeamMentionsOnly ? '#1a2e1f' : 'var(--text-primary)',
                 }}
               >
                 Team Mentions
@@ -2251,7 +2251,7 @@ export default function ReviewsPage() {
                 style={{
                   backgroundColor: showNeedsReplyOnly ? '#EF4444' : 'rgba(0,0,0,0.3)',
                   border: showNeedsReplyOnly ? 'none' : '1px solid var(--border-subtle)',
-                  color: showNeedsReplyOnly ? 'white' : 'var(--christmas-cream)',
+                  color: showNeedsReplyOnly ? 'white' : 'var(--text-primary)',
                 }}
               >
                 Needs Reply
@@ -2279,7 +2279,7 @@ export default function ReviewsPage() {
               style={{
                 backgroundColor: 'rgba(0,0,0,0.3)',
                 border: '1px solid var(--border-subtle)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--text-primary)',
               }}
             />
             {searchQuery && (
