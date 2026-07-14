@@ -9,33 +9,35 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Christmas Air Brand Colors
+        // Christmas Air Brand Colors — bound to CSS vars so they flip with the
+        // portal light/dark theme (see globals.css :root + [data-theme="light"]).
+        // cream/gold stay fixed: cream is text-on-green (always light), gold is a static accent.
         christmas: {
-          green: '#5D8A66',
-          'green-dark': '#4A7053',
-          'green-light': '#6B9B75',
+          green: 'var(--christmas-green)',
+          'green-dark': 'var(--christmas-green-dark)',
+          'green-light': 'var(--christmas-green-light)',
           cream: '#F5F0E1',
-          brown: '#7B3F3F',
-          'brown-light': '#9B5555',
+          brown: 'var(--christmas-brown)',
+          'brown-light': 'var(--christmas-brown-light)',
           gold: '#B8956B',
         },
-        // Dark Mode Background Colors
+        // Background Colors (flip with theme)
         bg: {
-          primary: '#0F1210',
-          secondary: '#161B18',
-          card: '#1C231E',
-          'card-hover': '#232B26',
+          primary: 'var(--bg-primary)',
+          secondary: 'var(--bg-secondary)',
+          card: 'var(--bg-card)',
+          'card-hover': 'var(--bg-card-hover)',
         },
-        // Text Colors
+        // Text Colors (flip with theme)
         text: {
-          primary: '#F5F0E1',
-          secondary: '#A8B5AB',
-          muted: '#6B7C6E',
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)',
         },
-        // Border Colors
+        // Border Colors (flip with theme)
         border: {
-          subtle: '#2A3530',
-          default: '#3A4840',
+          subtle: 'var(--border-subtle)',
+          default: 'var(--border-default)',
         },
       },
     },
