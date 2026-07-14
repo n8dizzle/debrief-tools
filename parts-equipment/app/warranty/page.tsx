@@ -1,10 +1,11 @@
 'use client';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import type { PEWarrantyClaim } from '@/types';
 import { formatLocalDate } from '@/lib/pe-utils';
 import PresenceBadge from '@/components/PresenceBadge';
+import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
 
 export default function WarrantyPage() {
   const ctx = useOrders() as OrdersContextValue;
@@ -13,6 +14,11 @@ export default function WarrantyPage() {
   // Clear my presence when leaving this board (route change removes the focused
   // input without firing blur, so onBlur alone would leave my avatar stuck here).
   useEffect(() => () => setEditing('warranty', null), [setEditing]);
+
+  // Pin the Active + Completed panes into one viewport-filling column so both
+  // tables' horizontal scrollbars stay in view (consistent with Service/Install).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useFillViewportHeight(scrollRef, [isLoading]);
 
   function save(id: number, field: keyof PEWarrantyClaim, value: string) {
     setWarrantyOrders((prev: PEWarrantyClaim[]) =>
@@ -206,16 +212,19 @@ export default function WarrantyPage() {
         </button>
       </div>
 
-      {/* Active table */}
-      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(50vh - 60px)', padding: '0 24px 4px' }}>
-        {renderTable(active, false)}
-      </div>
+      {/* Active + Completed share one viewport-filling column so both scrollbars stay in view */}
+      <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {/* Active table */}
+        <div style={{ flex: '1 1 55%', minHeight: 0, overflowX: 'auto', overflowY: 'auto', padding: '0 24px 4px' }}>
+          {renderTable(active, false)}
+        </div>
 
-      {/* Completed section */}
-      <div style={{ padding: '12px 24px 8px', marginTop: 8, borderTop: '2px solid var(--border)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>Completed Warranty Claims</div>
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(40vh - 60px)' }}>
-          {renderTable(completed, true)}
+        {/* Completed section */}
+        <div style={{ flex: '1 1 45%', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px 24px 8px', borderTop: '2px solid var(--border)' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 8, flex: '0 0 auto' }}>Completed Warranty Claims</div>
+          <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'auto' }}>
+            {renderTable(completed, true)}
+          </div>
         </div>
       </div>
     </div>
