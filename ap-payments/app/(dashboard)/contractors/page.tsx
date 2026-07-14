@@ -125,7 +125,7 @@ export default function ContractorsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Contractors
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -145,7 +145,7 @@ export default function ContractorsPage() {
       {/* Add Form */}
       {showAddForm && (
         <form onSubmit={handleAdd} className="card mb-6">
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             New Contractor
           </h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -315,7 +315,7 @@ export default function ContractorsPage() {
                     onClick={() => router.push(`/contractors/${c.id}`)}
                   >
                     <td>
-                      <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {c.name}
                       </span>
                     </td>

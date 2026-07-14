@@ -47,7 +47,7 @@ function JobTypeFilter({ all, selected, onChange }: { all: string[]; selected: s
             <div className="flex gap-2 mt-2">
               <button onClick={() => onChange(shown.every(t => selected.includes(t)) ? selected.filter(t => !shown.includes(t)) : Array.from(new Set([...selected, ...shown])))} className="text-xs flex-1 rounded py-1.5" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>{shown.length > 0 && shown.every(t => selected.includes(t)) ? 'Deselect all' : 'Select all'}</button>
               <button onClick={() => onChange([])} className="text-xs flex-1 rounded py-1.5" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>Clear</button>
-              <button onClick={() => setOpen(false)} className="text-xs flex-1 rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>Done</button>
+              <button onClick={() => setOpen(false)} className="text-xs flex-1 rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}>Done</button>
             </div>
           </div>
         </>
@@ -271,14 +271,14 @@ export default function JobCostsPage() {
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {([['all', 'All'], ['costed', 'Costed'], ['uncosted', 'Uncosted']] as [CostFilter, string][]).map(([f, label]) => (
             <button key={f} onClick={() => setCostFilter(f)} className="px-3 py-1 rounded text-sm"
-              style={{ backgroundColor: costFilter === f ? 'var(--christmas-green)' : 'transparent', color: costFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
+              style={{ backgroundColor: costFilter === f ? 'var(--christmas-green)' : 'transparent', color: costFilter === f ? 'var(--on-accent)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
         <button onClick={() => setNonZeroOnly(v => !v)} className="px-3 py-2 rounded-lg text-sm"
-          style={{ backgroundColor: nonZeroOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: nonZeroOnly ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}
+          style={{ backgroundColor: nonZeroOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: nonZeroOnly ? 'var(--on-accent)' : 'var(--text-secondary)' }}
           title="Show only jobs with an invoice over $0">Invoice &gt; $0</button>
         <button onClick={() => setHasEquipOnly(v => !v)} className="px-3 py-2 rounded-lg text-sm"
-          style={{ backgroundColor: hasEquipOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: hasEquipOnly ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}
+          style={{ backgroundColor: hasEquipOnly ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: hasEquipOnly ? 'var(--on-accent)' : 'var(--text-secondary)' }}
           title="Show only jobs with equipment pulled from Shearer (so the Equip % total reflects just those)">Has Equip</button>
       </div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">

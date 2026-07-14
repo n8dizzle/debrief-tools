@@ -270,7 +270,7 @@ export default function JobsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
               Payment Tracker
             </h1>
             <button

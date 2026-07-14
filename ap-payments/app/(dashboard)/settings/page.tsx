@@ -47,7 +47,7 @@ function TestSMSForm() {
           value={phone}
           onChange={e => setPhone(e.target.value)}
           className="flex-1 px-3 py-2 rounded-lg text-sm"
-          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
         />
         <button
           onClick={handleSend}
@@ -152,7 +152,7 @@ function RecipientGroupSection({ title, description, phones, emails, onPhonesCha
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
         <div className="flex-1">
-          <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{title}</div>
+          <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{title}</div>
           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{description}</div>
         </div>
         <span className="text-[11px] px-2 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
@@ -199,7 +199,7 @@ function RecipientGroupSection({ title, description, phones, emails, onPhonesCha
                       value={row.name}
                       onChange={e => updateRow(idx, 'name', e.target.value)}
                       className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
-                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                     />
                     <input
                       type="tel"
@@ -207,7 +207,7 @@ function RecipientGroupSection({ title, description, phones, emails, onPhonesCha
                       value={row.phone}
                       onChange={e => updateRow(idx, 'phone', e.target.value)}
                       className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
-                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                     />
                     <input
                       type="email"
@@ -215,7 +215,7 @@ function RecipientGroupSection({ title, description, phones, emails, onPhonesCha
                       value={row.email}
                       onChange={e => updateRow(idx, 'email', e.target.value)}
                       className="flex-[3] text-sm py-1.5 px-2.5 rounded-md min-w-0"
-                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                     />
                     <button
                       onClick={() => removeRow(idx)}
@@ -859,7 +859,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Settings
         </h1>
         <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -894,7 +894,7 @@ export default function SettingsPage() {
           <div className="card">
             <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div>
-                <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                   Manual Sync
                 </div>
                 <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -923,7 +923,7 @@ export default function SettingsPage() {
 
             {/* Schedule Info */}
             <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 Auto Sync Schedule
               </div>
               <div className="text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
@@ -945,7 +945,7 @@ export default function SettingsPage() {
 
           {/* Allowed Business Units */}
           <div className="card">
-            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
               Sync Filter: Business Units
             </h2>
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -992,7 +992,7 @@ export default function SettingsPage() {
                         className="w-4 h-4 rounded"
                         style={{ accentColor: 'var(--christmas-green)' }}
                       />
-                      <span className="text-sm" style={{ color: 'var(--christmas-cream)' }}>{bu}</span>
+                      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{bu}</span>
                     </label>
                   ))}
                 </div>
@@ -1022,7 +1022,7 @@ export default function SettingsPage() {
           {/* Sync History */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Sync History
               </h2>
               <button
@@ -1125,7 +1125,7 @@ export default function SettingsPage() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Technician Rates
               </h2>
               <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -1191,7 +1191,7 @@ export default function SettingsPage() {
                 <tbody>
                   {technicians.map(tech => (
                     <tr key={tech.id}>
-                      <td className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <td className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {tech.name}
                       </td>
                       <td className="text-sm" style={{ color: tech.business_unit_name ? 'var(--text-primary)' : 'var(--text-muted)' }}>
@@ -1208,7 +1208,7 @@ export default function SettingsPage() {
                             className="w-24 text-sm py-1 px-2 rounded"
                             style={{
                               backgroundColor: 'var(--bg-primary)',
-                              color: 'var(--christmas-cream)',
+                              color: 'var(--text-primary)',
                               border: '1px solid var(--border-subtle)',
                             }}
                           />
@@ -1236,7 +1236,7 @@ export default function SettingsPage() {
                               onClick={() => handleSaveTech(tech.id)}
                               disabled={savingTech}
                               className="text-xs px-2 py-1 rounded"
-                              style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+                              style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
                             >
                               {savingTech ? '...' : 'Save'}
                             </button>
@@ -1268,7 +1268,7 @@ export default function SettingsPage() {
 
         {/* Default Hourly Rates */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Default Hourly Rates
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1294,7 +1294,7 @@ export default function SettingsPage() {
                 className="flex items-center justify-between p-3 rounded-lg"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
               >
-                <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   {trade === 'hvac' ? 'HVAC' : 'Plumbing'} Default Rate
                 </span>
                 <div className="flex items-center gap-1">
@@ -1312,7 +1312,7 @@ export default function SettingsPage() {
                     className="w-24 text-sm py-1.5 px-2 rounded-md text-right"
                     style={{
                       backgroundColor: 'var(--bg-primary)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                     }}
                   />
@@ -1358,7 +1358,7 @@ export default function SettingsPage() {
       {/* Trade Mapping Tab */}
       {activeTab === 'trade-mapping' && (
         <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Business Unit → Trade Mapping
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1400,7 +1400,7 @@ export default function SettingsPage() {
                       className="flex items-center justify-between p-3 rounded-lg"
                       style={{ backgroundColor: 'var(--bg-secondary)' }}
                     >
-                      <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {bu}
                       </span>
                       <select
@@ -1409,7 +1409,7 @@ export default function SettingsPage() {
                         onChange={(e) => handleTradeChange(bu, e.target.value)}
                         style={{
                           backgroundColor: 'var(--bg-tertiary, var(--bg-primary))',
-                          color: 'var(--christmas-cream)',
+                          color: 'var(--text-primary)',
                           border: '1px solid var(--border-subtle)',
                         }}
                       >
@@ -1467,7 +1467,7 @@ export default function SettingsPage() {
 
         {/* Test SMS */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Test SMS (Quo)
           </h2>
           <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -1478,7 +1478,7 @@ export default function SettingsPage() {
 
         {/* Notification Types */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Notification Types
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1537,7 +1537,7 @@ export default function SettingsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium" style={{ color: anyOn ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                          <div className="text-sm font-medium" style={{ color: anyOn ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                             {label}
                           </div>
                           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -1554,7 +1554,7 @@ export default function SettingsPage() {
                                 className="w-3.5 h-3.5 rounded"
                                 style={{ accentColor: 'var(--christmas-green)' }}
                               />
-                              <span className="text-[11px]" style={{ color: smsOn ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                              <span className="text-[11px]" style={{ color: smsOn ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                                 Text
                               </span>
                             </label>
@@ -1568,7 +1568,7 @@ export default function SettingsPage() {
                                 className="w-3.5 h-3.5 rounded"
                                 style={{ accentColor: 'var(--christmas-green)' }}
                               />
-                              <span className="text-[11px]" style={{ color: emailOn ? 'var(--christmas-cream)' : 'var(--text-muted)' }}>
+                              <span className="text-[11px]" style={{ color: emailOn ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                                 Email
                               </span>
                             </label>
@@ -1603,7 +1603,7 @@ export default function SettingsPage() {
                               className="w-full text-sm py-2 px-3 rounded-md resize-y"
                               style={{
                                 backgroundColor: 'var(--bg-primary)',
-                                color: 'var(--christmas-cream)',
+                                color: 'var(--text-primary)',
                                 border: `1px solid ${msgIsCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
                                 fontFamily: 'monospace',
                                 fontSize: '12px',
@@ -1653,7 +1653,7 @@ export default function SettingsPage() {
                                 className="w-full text-sm py-1.5 px-3 rounded-md"
                                 style={{
                                   backgroundColor: 'var(--bg-primary)',
-                                  color: 'var(--christmas-cream)',
+                                  color: 'var(--text-primary)',
                                   border: `1px solid ${subjectIsCustom ? 'var(--christmas-green)' : 'var(--border-subtle)'}`,
                                   fontFamily: 'monospace',
                                   fontSize: '12px',
@@ -1698,7 +1698,7 @@ export default function SettingsPage() {
 
         {/* Recipients */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Recipients
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1735,7 +1735,7 @@ export default function SettingsPage() {
             {/* Trade Managers - linked to portal users */}
             <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div className="p-3">
-                <div className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Trade Managers</div>
+                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Trade Managers</div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Receives approval requests and daily reminders. Linked to portal user accounts.</div>
               </div>
               <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
@@ -1770,7 +1770,7 @@ export default function SettingsPage() {
                           }
                         }}
                         className="flex-[3] text-sm py-1.5 px-2.5 rounded-md min-w-0"
-                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                       >
                         <option value="">Select user...</option>
                         {portalUsers.map(u => (
@@ -1781,7 +1781,7 @@ export default function SettingsPage() {
                         value={mgr.trade}
                         onChange={e => setTradeManagers(prev => prev.map((m, i) => i === idx ? { ...m, trade: e.target.value as 'hvac' | 'plumbing' } : m))}
                         className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
-                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                       >
                         <option value="hvac">HVAC</option>
                         <option value="plumbing">Plumbing</option>
@@ -1792,7 +1792,7 @@ export default function SettingsPage() {
                         value={mgr.phone}
                         onChange={e => setTradeManagers(prev => prev.map((m, i) => i === idx ? { ...m, phone: e.target.value } : m))}
                         className="flex-[2] text-sm py-1.5 px-2.5 rounded-md min-w-0"
-                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--christmas-cream)', border: '1px solid var(--border-subtle)' }}
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
                       />
                       <input
                         type="email"
@@ -1877,7 +1877,7 @@ export default function SettingsPage() {
         {/* SMS / Email Log */}
         <div className="card">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Recent Notifications
             </h2>
             <div className="flex gap-1">
@@ -1938,7 +1938,7 @@ export default function SettingsPage() {
                             {entry.channel === 'email' ? 'Email' : 'Text'}
                           </span>
                         </td>
-                        <td className="text-sm" style={{ color: 'var(--christmas-cream)' }}>
+                        <td className="text-sm" style={{ color: 'var(--text-primary)' }}>
                           <div>{entry.recipient_name || entry.recipient_phone || entry.recipient_email}</div>
                           <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                             {entry.channel === 'email' ? entry.recipient_email : entry.recipient_phone}

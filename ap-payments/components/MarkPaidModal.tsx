@@ -35,7 +35,7 @@ export default function MarkPaidModal({ job, onClose, onConfirm }: MarkPaidModal
         style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Mark as Paid
           </h2>
           <button
@@ -65,7 +65,7 @@ export default function MarkPaidModal({ job, onClose, onConfirm }: MarkPaidModal
               Contractor: {job.contractor.name}
             </div>
           )}
-          <div className="text-base mt-2 font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-base mt-2 font-semibold" style={{ color: 'var(--text-primary)' }}>
             {formatCurrency(job.payment_amount ?? 0)}
           </div>
         </div>

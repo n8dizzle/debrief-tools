@@ -331,7 +331,7 @@ export default function ContractorDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {contractor.name}
           </h1>
           {!contractor.is_active && (
@@ -393,7 +393,7 @@ export default function ContractorDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Details / Edit Form */}
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Details
             </h3>
             {editing ? (
@@ -497,7 +497,7 @@ export default function ContractorDetailPage() {
           {/* Compliance */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Compliance
               </h3>
               {canManageContractors && (
@@ -783,7 +783,7 @@ export default function ContractorDetailPage() {
           {/* Average Rates by Job Type */}
           {averages.length > 0 && (
             <div className="card">
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                 Average Payment by Job Type
               </h3>
               <div className="space-y-2">
@@ -807,7 +807,7 @@ export default function ContractorDetailPage() {
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {formatCurrency(avg.avg)}
                       </span>
                       <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
@@ -823,7 +823,7 @@ export default function ContractorDetailPage() {
           {/* Payment History / Rate Changes */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 History
               </h3>
               <div className="flex gap-1">
@@ -891,7 +891,7 @@ export default function ContractorDetailPage() {
                             </span>
                             {p.job_type_name || ''}
                           </td>
-                          <td className="py-2 px-2 text-right font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                          <td className="py-2 px-2 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
                             {p.payment_amount ? formatCurrency(p.payment_amount) : '—'}
                           </td>
                           <td className="py-2 px-2 text-right" style={{ color: 'var(--text-secondary)' }}>
@@ -942,7 +942,7 @@ export default function ContractorDetailPage() {
                             </>
                           )}
                         </span>
-                        <span className="ml-1 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                        <span className="ml-1 font-medium" style={{ color: 'var(--text-primary)' }}>
                           {formatCurrency(h.new_amount)}
                         </span>
                       </div>
@@ -965,7 +965,7 @@ export default function ContractorDetailPage() {
         <div className="space-y-6">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Rate Card
               </h3>
               {canManageContractors && (
@@ -1052,7 +1052,7 @@ export default function ContractorDetailPage() {
                       <span className="text-sm" style={{ color: rate.job_type_name === '*' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
                         {rate.job_type_name === '*' ? 'All jobs (default)' : rate.job_type_name}
                       </span>
-                      <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {formatRateValue(rate)}
                       </span>
                     </div>
@@ -1077,7 +1077,7 @@ export default function ContractorDetailPage() {
                       <span className="text-sm" style={{ color: rate.job_type_name === '*' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
                         {rate.job_type_name === '*' ? 'All jobs (default)' : rate.job_type_name}
                       </span>
-                      <span className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {formatRateValue(rate)}
                       </span>
                     </div>

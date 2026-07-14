@@ -343,7 +343,7 @@ export default function JobDetailPage() {
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
               Job #{job.job_number}
             </h1>
             <a
@@ -397,9 +397,9 @@ export default function JobDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Job Details Card */}
           <div className="card">
-            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Job Details</h2>
+            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Job Details</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <DetailItem label="Job Total" value={formatCurrency(job.job_total)} valueStyle={{ color: 'var(--christmas-cream)', fontWeight: 600, fontSize: '1.125rem' }} />
+              <DetailItem label="Job Total" value={formatCurrency(job.job_total)} valueStyle={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.125rem' }} />
               <DetailItem label="Job Type" value={job.job_type_name || '—'} />
               <DetailItem label="Scheduled" value={formatDate(job.scheduled_date)} />
               <DetailItem label="Completed" value={formatDate(job.completed_date)} />
@@ -408,7 +408,7 @@ export default function JobDetailPage() {
 
           {/* Customer & Location Card */}
           <div className="card">
-            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Customer & Location</h2>
+            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Customer & Location</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <DetailItem label="Customer" value={job.customer_name || '—'} />
               <DetailItem label="Phone" value={job.customer_phone || '—'} />
@@ -438,7 +438,7 @@ export default function JobDetailPage() {
           {/* Job Summary */}
           {(job.summary || stDetails?.jobSummary) && (
             <div className="card">
-              <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>Job Summary</h2>
+              <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Job Summary</h2>
               <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
                 {stDetails?.jobSummary || job.summary}
               </p>
@@ -459,7 +459,7 @@ export default function JobDetailPage() {
           ) : stDetails?.lineItems && stDetails.lineItems.length > 0 ? (
             <div className="card">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Invoice Line Items</h2>
+                <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice Line Items</h2>
                 {stDetails.invoiceId && (
                   <a
                     href={`https://go.servicetitan.com/#/Invoice/${stDetails.invoiceId}`}
@@ -508,7 +508,7 @@ export default function JobDetailPage() {
                   <tfoot>
                     <tr>
                       <td colSpan={3} className="text-sm font-semibold" style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>Total</td>
-                      <td className="text-sm font-bold" style={{ textAlign: 'right', color: 'var(--christmas-cream)' }}>
+                      <td className="text-sm font-bold" style={{ textAlign: 'right', color: 'var(--text-primary)' }}>
                         {formatCurrency(stDetails.invoiceTotal)}
                       </td>
                     </tr>
@@ -520,7 +520,7 @@ export default function JobDetailPage() {
 
           {/* Activity Log */}
           <div className="card">
-            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Activity</h2>
+            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Activity</h2>
             {activities.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No activity yet</p>
             ) : (
@@ -547,7 +547,7 @@ export default function JobDetailPage() {
         <div className="space-y-6">
           {/* Assignment Card */}
           <div className="card">
-            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Assignment</h2>
+            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Assignment</h2>
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Type</label>
@@ -595,7 +595,7 @@ export default function JobDetailPage() {
 
           {/* Labor Cost Card */}
           <div className="card">
-            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Labor Cost</h2>
+            <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Labor Cost</h2>
             {job.assignment_type === 'contractor' ? (
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -612,8 +612,8 @@ export default function JobDetailPage() {
                 )}
                 {job.damage_deduction > 0 && job.payment_amount != null && (
                   <div className="flex justify-between items-center pt-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>Net Payment</span>
-                    <span className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Net Payment</span>
+                    <span className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                       {formatCurrency(Math.max(0, Number(job.payment_amount) - job.damage_deduction))}
                     </span>
                   </div>
@@ -678,7 +678,7 @@ export default function JobDetailPage() {
           {/* Payment Card */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Payment</h2>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Payment</h2>
               {job.invoice_source && (
                 <span className="text-xs px-2 py-0.5 rounded" style={{
                   backgroundColor: job.invoice_source === 'manager_text' ? 'rgba(93, 138, 102, 0.15)' : 'rgba(59, 130, 246, 0.15)',
@@ -732,8 +732,8 @@ export default function JobDetailPage() {
                   </div>
                   {paymentAmount && (
                     <div className="flex justify-between text-sm font-semibold pt-1" style={{ borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                      <span style={{ color: 'var(--christmas-cream)' }}>Net Payment</span>
-                      <span style={{ color: 'var(--christmas-cream)' }}>
+                      <span style={{ color: 'var(--text-primary)' }}>Net Payment</span>
+                      <span style={{ color: 'var(--text-primary)' }}>
                         {formatCurrency(Math.max(0, parseFloat(paymentAmount) - job.damage_deduction))}
                       </span>
                     </div>
@@ -973,7 +973,7 @@ export default function JobDetailPage() {
           {(
             <div className="card">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold" style={{ color: 'var(--christmas-cream)' }}>Damage Log</h2>
+                <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Damage Log</h2>
                 {canManagePayments && !showDamageForm && (
                   <button
                     onClick={() => setShowDamageForm(true)}
@@ -1048,7 +1048,7 @@ export default function JobDetailPage() {
                     <div key={d.id} className="p-2.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>{d.description}</p>
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{d.description}</p>
                           {d.notes && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{d.notes}</p>}
                           <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
                             {d.reporter?.name || 'Unknown'} &middot; {formatTimestamp(d.reported_at)}
@@ -1075,7 +1075,7 @@ export default function JobDetailPage() {
           {/* Contractor Info Card */}
           {job.contractor && (
             <div className="card">
-              <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Contractor Info</h2>
+              <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Contractor Info</h2>
               <div className="space-y-2">
                 <DetailItem label="Name" value={job.contractor.name} small />
                 {job.contractor.contact_name && <DetailItem label="Contact" value={job.contractor.contact_name} small />}
@@ -1101,7 +1101,7 @@ export default function JobDetailPage() {
           {/* Send SMS Form */}
           {canManagePayments && showSmsForm && (
             <div className="card">
-              <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>Send Text Message</h2>
+              <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Send Text Message</h2>
 
               {smsResult && (
                 <div
@@ -1170,12 +1170,12 @@ export default function JobDetailPage() {
           {/* SMS History */}
           {canManagePayments && smsLog.length > 0 && (
             <div className="card">
-              <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>SMS History</h2>
+              <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>SMS History</h2>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {smsLog.map(sms => (
                   <div key={sms.id} className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
                         {sms.recipient_name || sms.recipient_phone}
                       </span>
                       <span
@@ -1203,7 +1203,7 @@ export default function JobDetailPage() {
           {/* ST Extra Info */}
           {stDetails?.soldBy && (
             <div className="card">
-              <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>Additional Info</h2>
+              <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Additional Info</h2>
               <div className="space-y-2">
                 {stDetails.soldBy && <DetailItem label="Sold By" value={stDetails.soldBy} small />}
               </div>

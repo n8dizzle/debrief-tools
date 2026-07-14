@@ -487,7 +487,7 @@ export default function CrewDrawer({
             {canEdit && (
               <button onClick={savePay} disabled={busy || !dirty}
                 className="w-full rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-40"
-                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>
+                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}>
                 {busy ? 'Saving…' : dirty ? 'Save pay' : 'Pay saved'}
               </button>
             )}

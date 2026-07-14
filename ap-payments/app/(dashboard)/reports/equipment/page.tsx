@@ -117,7 +117,7 @@ export default function EquipmentByJobPage() {
           className="rounded-lg px-3 py-2 text-sm" style={{ ...selectStyle, minWidth: 200 }} />
         {canManage && (
           <button onClick={resolveLinks} disabled={resolving} className="ml-auto rounded-lg px-3 py-2 text-sm font-medium"
-            style={{ backgroundColor: unresolved > 0 ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: unresolved > 0 ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+            style={{ backgroundColor: unresolved > 0 ? 'var(--christmas-green)' : 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: unresolved > 0 ? 'var(--on-accent)' : 'var(--text-secondary)' }}>
             {resolving ? 'Linking…' : unresolved > 0 ? `Resolve ${unresolved} new link${unresolved === 1 ? '' : 's'}` : 'Re-resolve links'}
           </button>
         )}

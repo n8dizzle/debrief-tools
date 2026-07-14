@@ -61,7 +61,7 @@ function JobTypeFilter({ all, selected, onChange }: { all: string[]; selected: s
                 {shown.length > 0 && shown.every(t => selected.includes(t)) ? 'Deselect all' : 'Select all'}
               </button>
               <button onClick={() => onChange([])} className="text-xs flex-1 rounded py-1.5" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>Clear</button>
-              <button onClick={() => setOpen(false)} className="text-xs flex-1 rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>Done</button>
+              <button onClick={() => setOpen(false)} className="text-xs flex-1 rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}>Done</button>
             </div>
           </div>
         </>
@@ -254,7 +254,7 @@ export default function InstallJobsPage() {
       render: r => (
         <button onClick={e => { e.stopPropagation(); setDrawerJob(r); }} className="rounded-lg px-3 py-1.5 text-xs font-medium"
           style={r.assignments.length === 0
-            ? { backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }
+            ? { backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }
             : { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
           {r.assignments.length === 0 ? '+ Assign' : 'Edit'}
         </button>
@@ -286,7 +286,7 @@ export default function InstallJobsPage() {
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {(['all', 'unassigned', 'in_house', 'contractor'] as const).map(f => (
             <button key={f} onClick={() => setAssignFilter(f)} className="px-3 py-1 rounded text-sm"
-              style={{ backgroundColor: assignFilter === f ? 'var(--christmas-green)' : 'transparent', color: assignFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+              style={{ backgroundColor: assignFilter === f ? 'var(--christmas-green)' : 'transparent', color: assignFilter === f ? 'var(--on-accent)' : 'var(--text-secondary)' }}>
               {FILTER_LABELS[f]}
             </button>
           ))}

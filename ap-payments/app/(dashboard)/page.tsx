@@ -70,7 +70,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Dashboard
           </h1>
           {stats?.last_sync && (
@@ -144,7 +144,7 @@ export default function DashboardPage() {
       {/* Monthly Contractor % Trend */}
       {stats && stats.monthly_trend.length > 0 && (
         <div className="card mb-8 p-4">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Monthly Contractor Trends
           </h2>
           <div className="h-48 sm:h-64">
@@ -178,7 +178,7 @@ export default function DashboardPage() {
                     backgroundColor: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: '8px',
-                    color: 'var(--christmas-cream)',
+                    color: 'var(--text-primary)',
                   }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any, name: any) => {
@@ -217,7 +217,7 @@ export default function DashboardPage() {
       {/* Paid by Contractor */}
       {stats && stats.contractor_breakdown.length > 0 && (
         <div className="card mb-8 p-4">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Paid by Contractor
           </h2>
           <div style={{ height: Math.max(200, stats.contractor_breakdown.length * 48) }}>
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                     backgroundColor: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     borderRadius: '8px',
-                    color: 'var(--christmas-cream)',
+                    color: 'var(--text-primary)',
                   }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any, name: any) => {

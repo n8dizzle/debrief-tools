@@ -177,7 +177,7 @@ export default function PaymentBoardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Payment Board
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -316,7 +316,7 @@ function KpiCard({
       </div>
       <div
         className="text-3xl font-semibold mt-1"
-        style={{ color: actionable ? '#2f81f7' : 'var(--christmas-cream)' }}
+        style={{ color: actionable ? '#2f81f7' : 'var(--text-primary)' }}
       >
         {value}
       </div>
@@ -382,7 +382,7 @@ function QueueSection({
             className="inline-block w-2 h-2 rounded-full"
             style={{ backgroundColor: color }}
           />
-          <span className="font-semibold text-sm" style={{ color: 'var(--christmas-cream)' }}>
+          <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
             {label}
           </span>
           <span
@@ -398,7 +398,7 @@ function QueueSection({
         <div className="flex items-center gap-4">
           <span
             className="text-sm font-mono"
-            style={{ color: 'var(--christmas-cream)' }}
+            style={{ color: 'var(--text-primary)' }}
           >
             {formatCurrency(total)}
           </span>
@@ -523,7 +523,7 @@ function BoardRow({
           <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
             #{job.job_number}
           </span>
-          <span className="font-medium text-sm truncate" style={{ color: 'var(--christmas-cream)' }}>
+          <span className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
             {job.customer_name || '—'}
           </span>
           {job.trade && (
@@ -547,7 +547,7 @@ function BoardRow({
         )}
       </div>
 
-      <div className="text-sm font-mono text-right" style={{ color: 'var(--christmas-cream)' }}>
+      <div className="text-sm font-mono text-right" style={{ color: 'var(--text-primary)' }}>
         {formatCurrency(job.payment_amount ?? job.job_total ?? 0)}
       </div>
 

@@ -192,7 +192,7 @@ export default function WarrantiesPage() {
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {([['', 'All'], ['hvac', 'HVAC'], ['plumbing', 'Plumbing']] as [string, string][]).map(([v, l]) => (
             <button key={v} onClick={() => setTrade(v)} className="px-3 py-1 rounded text-sm"
-              style={{ backgroundColor: trade === v ? 'var(--christmas-green)' : 'transparent', color: trade === v ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{l}</button>
+              style={{ backgroundColor: trade === v ? 'var(--christmas-green)' : 'transparent', color: trade === v ? 'var(--on-accent)' : 'var(--text-secondary)' }}>{l}</button>
           ))}
         </div>
       </div>
@@ -298,7 +298,7 @@ export default function WarrantiesPage() {
               <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
                 {([['', 'All'], ['linked', 'Linked'], ['unlinked', 'Unlinked']] as [typeof linkFilter, string][]).map(([v, l]) => (
                   <button key={v} onClick={() => setLinkFilter(v)} className="px-3 py-1 rounded text-sm"
-                    style={{ backgroundColor: linkFilter === v ? 'var(--christmas-green)' : 'transparent', color: linkFilter === v ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{l}</button>
+                    style={{ backgroundColor: linkFilter === v ? 'var(--christmas-green)' : 'transparent', color: linkFilter === v ? 'var(--on-accent)' : 'var(--text-secondary)' }}>{l}</button>
                 ))}
               </div>
               <span className="text-xs ml-auto tabular-nums" style={{ color: 'var(--text-muted)' }}>{visiblePairs.length} of {data.pairs.length}</span>
