@@ -192,7 +192,7 @@ export default function ActivityPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Activity Timeline
         </h1>
         <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -360,7 +360,7 @@ export default function ActivityPage() {
                       <span className="text-sm font-semibold" style={{ color: typeColor }}>
                         {formatActivityDate(activity.created_at)}
                       </span>
-                      <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {activity.author_initials?.toUpperCase()}
                       </span>
                       {activity.contact_result && (

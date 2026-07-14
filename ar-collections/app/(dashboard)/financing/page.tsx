@@ -218,7 +218,7 @@ export default function FinancingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             In-House Financing
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -335,7 +335,7 @@ export default function FinancingPage() {
           </div>
           <div className="card">
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Active Plans</div>
-            <div className="text-2xl font-bold mt-1" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>
               {summary.active_plans}
             </div>
           </div>
@@ -760,13 +760,13 @@ export default function FinancingPage() {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Payment Settings */}
                                 <div>
-                                  <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                                  <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
                                     Payment Plan Settings
                                   </h4>
                                   <div className="space-y-2 text-sm">
                                     <div className="flex justify-between">
                                       <span style={{ color: 'var(--text-muted)' }}>Monthly Payment:</span>
-                                      <span style={{ color: 'var(--christmas-cream)' }}>
+                                      <span style={{ color: 'var(--text-primary)' }}>
                                         {invoice.financing_monthly_amount
                                           ? formatCurrency(invoice.financing_monthly_amount)
                                           : 'Not configured'}
@@ -774,7 +774,7 @@ export default function FinancingPage() {
                                     </div>
                                     <div className="flex justify-between">
                                       <span style={{ color: 'var(--text-muted)' }}>Due Day:</span>
-                                      <span style={{ color: 'var(--christmas-cream)' }}>
+                                      <span style={{ color: 'var(--text-primary)' }}>
                                         {invoice.financing_due_day
                                           ? formatDueDay(invoice.financing_due_day)
                                           : 'Not set'}
@@ -782,7 +782,7 @@ export default function FinancingPage() {
                                     </div>
                                     <div className="flex justify-between">
                                       <span style={{ color: 'var(--text-muted)' }}>Start Date:</span>
-                                      <span style={{ color: 'var(--christmas-cream)' }}>
+                                      <span style={{ color: 'var(--text-primary)' }}>
                                         {invoice.financing_start_date
                                           ? formatDate(invoice.financing_start_date)
                                           : 'Not set'}
@@ -809,7 +809,7 @@ export default function FinancingPage() {
 
                                 {/* Payment History from ST */}
                                 <div>
-                                  <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                                  <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
                                     ServiceTitan Payments
                                   </h4>
                                   <PaymentHistory
@@ -825,7 +825,7 @@ export default function FinancingPage() {
                               {hasSettings && (
                                 <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
                                   <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                                    <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                                       Payment Schedule
                                     </h4>
                                     <Link
@@ -866,7 +866,7 @@ export default function FinancingPage() {
                               {/* Notes */}
                               {invoice.financing_notes && (
                                 <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                                  <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                                  <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                                     Notes
                                   </h4>
                                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>

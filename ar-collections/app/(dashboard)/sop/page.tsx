@@ -35,7 +35,7 @@ function SectionCard({
       <h2
         className="text-lg font-semibold mb-4"
         style={{
-          color: accent ?? 'var(--christmas-cream)',
+          color: accent ?? 'var(--text-primary)',
         }}
       >
         {title}
@@ -57,7 +57,7 @@ export default function SOPPage() {
         >
           Standard Operating Procedure
         </div>
-        <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Collections SOP
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -71,21 +71,21 @@ export default function SOPPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SectionCard title="Late Fee Policy">
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Structure:</strong> Flat $25 fee applied 7 days
+            <strong style={{ color: 'var(--text-primary)' }}>Structure:</strong> Flat $25 fee applied 7 days
             after service if unpaid. Additional $25 every 30 days thereafter until paid in full.
           </p>
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Legal basis:</strong> Must be included in the
+            <strong style={{ color: 'var(--text-primary)' }}>Legal basis:</strong> Must be included in the
             service agreement signed by the customer before work begins. Texas has no statutory cap on late fees
             for service businesses, but fees must be reasonable and disclosed in advance.
           </p>
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Technician responsibility:</strong> Ensure the
+            <strong style={{ color: 'var(--text-primary)' }}>Technician responsibility:</strong> Ensure the
             customer signs the service agreement (which includes late fee language) before work begins on every
             job. No signature = no enforceable late fee.
           </p>
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Discretion to waive:</strong> AR manager may
+            <strong style={{ color: 'var(--text-primary)' }}>Discretion to waive:</strong> AR manager may
             waive late fees for long-time maintenance customers experiencing genuine hardship (job loss, medical
             emergency, etc.). Waiver must be documented.
           </p>
@@ -96,7 +96,7 @@ export default function SOPPage() {
               border: '1px solid var(--border-subtle)',
             }}
           >
-            <strong style={{ color: 'var(--christmas-cream)' }}>Service agreement language:</strong> "Payment
+            <strong style={{ color: 'var(--text-primary)' }}>Service agreement language:</strong> "Payment
             is due at time of service. A late fee of $25 will be applied to any balance remaining unpaid 7 days
             after service, with an additional $25 assessed every 30 days thereafter until paid in full."
           </div>
@@ -105,19 +105,19 @@ export default function SOPPage() {
         <SectionCard title="Maintenance Agreement & Future Service Policy">
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong style={{ color: 'var(--christmas-cream)' }}>Suspend at Day 30:</strong> Any active
+              <strong style={{ color: 'var(--text-primary)' }}>Suspend at Day 30:</strong> Any active
               maintenance or service agreement is suspended when an account reaches 30 days past due.
             </li>
             <li>
-              <strong style={{ color: 'var(--christmas-cream)' }}>No new work:</strong> Do not schedule any new
+              <strong style={{ color: 'var(--text-primary)' }}>No new work:</strong> Do not schedule any new
               service calls for a customer with an outstanding past-due balance, regardless of amount.
             </li>
             <li>
-              <strong style={{ color: 'var(--christmas-cream)' }}>Reinstatement:</strong> Maintenance agreements
+              <strong style={{ color: 'var(--text-primary)' }}>Reinstatement:</strong> Maintenance agreements
               are reinstated only after the past-due balance is paid in full.
             </li>
             <li>
-              <strong style={{ color: 'var(--christmas-cream)' }}>Exception:</strong> Emergency safety
+              <strong style={{ color: 'var(--text-primary)' }}>Exception:</strong> Emergency safety
               situations (gas leak, carbon monoxide) are handled per applicable law and safety obligations, but
               payment for the new service must be collected at time of service with no exceptions.
             </li>
@@ -126,7 +126,7 @@ export default function SOPPage() {
 
         <SectionCard title="Texas Legal Notes">
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Mechanic's Liens (Property Code Ch. 53):</strong>
+            <strong style={{ color: 'var(--text-primary)' }}>Mechanic's Liens (Property Code Ch. 53):</strong>
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
@@ -146,7 +146,7 @@ export default function SOPPage() {
             </li>
           </ul>
           <p className="mt-3">
-            <strong style={{ color: 'var(--christmas-cream)' }}>Small Claims (Justice Court):</strong>
+            <strong style={{ color: 'var(--text-primary)' }}>Small Claims (Justice Court):</strong>
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Maximum claim: $20,000</li>
@@ -158,11 +158,11 @@ export default function SOPPage() {
 
         <SectionCard title="Monthly AR Review Cadence">
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Weekly (AR Manager):</strong> Review aging
+            <strong style={{ color: 'var(--text-primary)' }}>Weekly (AR Manager):</strong> Review aging
             report. Identify accounts approaching the 30-day mark and ensure Phases 1–2 contacts are complete.
           </p>
           <p>
-            <strong style={{ color: 'var(--christmas-cream)' }}>Monthly (1st business day):</strong>
+            <strong style={{ color: 'var(--text-primary)' }}>Monthly (1st business day):</strong>
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Review all accounts in the 31–90 day buckets</li>
@@ -171,7 +171,7 @@ export default function SOPPage() {
             <li>Review mechanic's lien deadlines approaching</li>
           </ul>
           <p className="mt-3">
-            <strong style={{ color: 'var(--christmas-cream)' }}>Quarterly:</strong>
+            <strong style={{ color: 'var(--text-primary)' }}>Quarterly:</strong>
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Review write-off totals — investigate root causes if &gt;3% of revenue</li>
@@ -209,7 +209,7 @@ export default function SOPPage() {
             <tbody>
               {KPIS.map((row) => (
                 <tr key={row.metric} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td className="px-2 py-3 font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  <td className="px-2 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {row.metric}
                   </td>
                   <td className="px-2 py-3" style={{ color: 'var(--text-secondary)' }}>

@@ -145,7 +145,7 @@ export default function ActivityTimeline({
                 <span className="text-sm font-medium" style={{ color: typeColor }}>
                   {formatActivityDate(note.created_at)}
                 </span>
-                <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   {note.author_initials?.toUpperCase()}
                 </span>
                 {note.contact_result && (

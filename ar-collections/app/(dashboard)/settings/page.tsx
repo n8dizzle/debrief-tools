@@ -485,7 +485,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
           Settings
         </h1>
         <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -514,13 +514,13 @@ export default function SettingsPage() {
       {activeTab === 'sync' && (
       <div className="space-y-6">
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Data Sync
           </h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div>
-                <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                   Automatic Sync
                 </div>
                 <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -533,7 +533,7 @@ export default function SettingsPage() {
             {canRunManualSync && (
               <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                     Manual Sync
                   </div>
                   <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -554,7 +554,7 @@ export default function SettingsPage() {
 
         {/* Sync History */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Sync History
           </h2>
           {loading ? (
@@ -624,7 +624,7 @@ export default function SettingsPage() {
       {/* Weekly Slack Notification Settings */}
       {activeTab === 'notifications' && canManageSettings && (
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Weekly Slack Summary
           </h2>
 
@@ -646,7 +646,7 @@ export default function SettingsPage() {
             <div className="space-y-4">
               {/* Webhook URL */}
               <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <div className="font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Slack Webhook URL
                 </div>
                 <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -669,7 +669,7 @@ export default function SettingsPage() {
                     className="flex-1"
                     style={{
                       backgroundColor: 'var(--bg-tertiary)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: '6px',
                       padding: '8px 12px',
@@ -695,7 +695,7 @@ export default function SettingsPage() {
               {/* Enable/Disable Toggle */}
               <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                     Weekly Notification
                   </div>
                   <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -716,7 +716,7 @@ export default function SettingsPage() {
 
               {/* Schedule */}
               <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <div className="font-medium mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
                   Schedule
                 </div>
                 <div className="flex gap-4 flex-wrap">
@@ -729,7 +729,7 @@ export default function SettingsPage() {
                       className="form-select"
                       style={{
                         backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--christmas-cream)',
+                        color: 'var(--text-primary)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: '6px',
                         padding: '8px 12px',
@@ -749,7 +749,7 @@ export default function SettingsPage() {
                       className="form-select"
                       style={{
                         backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--christmas-cream)',
+                        color: 'var(--text-primary)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: '6px',
                         padding: '8px 12px',
@@ -774,7 +774,7 @@ export default function SettingsPage() {
               {/* Test Notification */}
               <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                 <div>
-                  <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                     Test Notification
                   </div>
                   <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -820,7 +820,7 @@ export default function SettingsPage() {
                 const inactiveWork = workStatuses.filter(s => !s.is_active);
                 return (
                   <div className="card">
-                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                       Work Statuses
                     </h2>
                     <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -871,7 +871,7 @@ export default function SettingsPage() {
                                   className="flex-1 px-2 py-1 text-sm rounded"
                                   style={{
                                     backgroundColor: 'var(--bg-tertiary)',
-                                    color: 'var(--christmas-cream)',
+                                    color: 'var(--text-primary)',
                                     border: '1px solid var(--christmas-green)',
                                   }}
                                   autoFocus
@@ -900,7 +900,7 @@ export default function SettingsPage() {
                                 </button>
                               </div>
                             ) : (
-                              <span style={{ color: 'var(--christmas-cream)' }}>{status.label}</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{status.label}</span>
                             )}
                           </div>
 
@@ -911,7 +911,7 @@ export default function SettingsPage() {
                             className="px-2 py-1 text-xs rounded"
                             style={{
                               backgroundColor: 'var(--bg-tertiary)',
-                              color: 'var(--christmas-cream)',
+                              color: 'var(--text-primary)',
                               border: '1px solid var(--border-subtle)',
                               minWidth: '140px',
                             }}
@@ -1018,7 +1018,7 @@ export default function SettingsPage() {
                 const inactiveCollection = collectionStatuses.filter(s => !s.is_active);
                 return (
                   <div className="card">
-                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                       Collection Statuses
                     </h2>
                     <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1069,7 +1069,7 @@ export default function SettingsPage() {
                                   className="flex-1 px-2 py-1 text-sm rounded"
                                   style={{
                                     backgroundColor: 'var(--bg-tertiary)',
-                                    color: 'var(--christmas-cream)',
+                                    color: 'var(--text-primary)',
                                     border: '1px solid var(--christmas-green)',
                                   }}
                                   autoFocus
@@ -1098,7 +1098,7 @@ export default function SettingsPage() {
                                 </button>
                               </div>
                             ) : (
-                              <span style={{ color: 'var(--christmas-cream)' }}>{status.label}</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{status.label}</span>
                             )}
                           </div>
 
@@ -1172,7 +1172,7 @@ export default function SettingsPage() {
                 const inactivePayment = paymentTypes.filter(s => !s.is_active);
                 return (
                   <div className="card">
-                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+                    <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                       Payment Types
                     </h2>
                     <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1223,7 +1223,7 @@ export default function SettingsPage() {
                                   className="flex-1 px-2 py-1 text-sm rounded"
                                   style={{
                                     backgroundColor: 'var(--bg-tertiary)',
-                                    color: 'var(--christmas-cream)',
+                                    color: 'var(--text-primary)',
                                     border: '1px solid var(--christmas-green)',
                                   }}
                                   autoFocus
@@ -1252,7 +1252,7 @@ export default function SettingsPage() {
                                 </button>
                               </div>
                             ) : (
-                              <span style={{ color: 'var(--christmas-cream)' }}>{status.label}</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{status.label}</span>
                             )}
                           </div>
 
@@ -1321,7 +1321,7 @@ export default function SettingsPage() {
 
               {/* Add New Status */}
               <div className="card">
-                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
                   Add New Status
                 </h3>
                 <div className="flex gap-2">
@@ -1331,7 +1331,7 @@ export default function SettingsPage() {
                     className="px-3 py-2 rounded text-sm"
                     style={{
                       backgroundColor: 'var(--bg-tertiary)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                     }}
                   >
@@ -1347,7 +1347,7 @@ export default function SettingsPage() {
                     className="flex-1 px-3 py-2 rounded text-sm"
                     style={{
                       backgroundColor: 'var(--bg-tertiary)',
-                      color: 'var(--christmas-cream)',
+                      color: 'var(--text-primary)',
                       border: '1px solid var(--border-subtle)',
                     }}
                     onKeyDown={(e) => {
@@ -1374,20 +1374,20 @@ export default function SettingsPage() {
 
               {/* Tips */}
               <div className="card">
-                <div className="text-sm font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Tips
                 </div>
                 <ul className="text-xs space-y-2" style={{ color: 'var(--text-muted)' }}>
                   <li className="flex gap-2">
-                    <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Work statuses</span>
+                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Work statuses</span>
                     track why an invoice is held up and can auto-set the Actionable AR bucket.
                   </li>
                   <li className="flex gap-2">
-                    <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Collection statuses</span>
+                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Collection statuses</span>
                     track outreach actions (called, emailed). They don't affect the AR bucket.
                   </li>
                   <li className="flex gap-2">
-                    <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Payment types</span>
+                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Payment types</span>
                     capture how the customer plans to pay (cash, check, card, financing).
                   </li>
                   <li className="flex gap-2">
@@ -1405,7 +1405,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 ServiceTitan Task Integration
               </h2>
               <button
@@ -1438,25 +1438,25 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Task Sources</div>
-                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {stTaskSources.length} available
                       </div>
                     </div>
                     <div>
                       <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Task Types</div>
-                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {stTaskTypes.length} available
                       </div>
                     </div>
                     <div>
                       <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Resolutions</div>
-                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {stTaskResolutions.length} available
                       </div>
                     </div>
                     <div>
                       <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Last Fetched</div>
-                      <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         {stConfigLastFetched ? formatDateTime(stConfigLastFetched) : 'Never'}
                       </div>
                     </div>
@@ -1474,7 +1474,7 @@ export default function SettingsPage() {
 
           {/* Available Task Types */}
           <div className="card">
-            <h3 className="text-md font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+            <h3 className="text-md font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Available Task Types ({stTaskTypes.length})
             </h3>
 
@@ -1502,7 +1502,7 @@ export default function SettingsPage() {
       {/* QuickBooks Integration Settings */}
       {activeTab === 'quickbooks' && canManageSettings && (
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             QuickBooks Integration
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1537,7 +1537,7 @@ export default function SettingsPage() {
                     </svg>
                   </div>
                   <div>
-                    <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                       Connected to QuickBooks
                     </div>
                     <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -1553,7 +1553,7 @@ export default function SettingsPage() {
                 <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                   <div className="text-sm">
                     <span style={{ color: 'var(--text-muted)' }}>Last synced: </span>
-                    <span style={{ color: 'var(--christmas-cream)' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>
                       {formatDateTime(qbStatus.lastSync.completedAt)}
                     </span>
                   </div>
@@ -1564,7 +1564,7 @@ export default function SettingsPage() {
               {isOwner && (
                 <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                   <div>
-                    <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+                    <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                       Disconnect QuickBooks
                     </div>
                     <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -1600,7 +1600,7 @@ export default function SettingsPage() {
                     d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                   />
                 </svg>
-                <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+                <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Not Connected
                 </h3>
                 <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -1613,7 +1613,7 @@ export default function SettingsPage() {
 
               {/* What You Get */}
               <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <div className="font-medium mb-3" style={{ color: 'var(--christmas-cream)' }}>
+                <div className="font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
                   What you get with QuickBooks integration:
                 </div>
                 <ul className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -1651,12 +1651,12 @@ export default function SettingsPage() {
       {/* Admin Only Settings */}
       {activeTab === 'admin' && canManageSettings && (
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Admin Settings
           </h2>
           <div className="space-y-4">
             <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 Default Invoice Owner
               </div>
               <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -1686,7 +1686,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="font-medium mb-2" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 Environment
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">

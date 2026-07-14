@@ -99,7 +99,7 @@ export default function TaskCard({
           <TaskIcon />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm truncate" style={{ color: 'var(--christmas-cream)' }}>
+          <div className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>
             {task.title}
           </div>
           <div className="text-xs flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
@@ -142,7 +142,7 @@ export default function TaskCard({
             <TaskIcon />
           </div>
           <div>
-            <div className="font-medium" style={{ color: 'var(--christmas-cream)' }}>
+            <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
               {task.title}
             </div>
             <div className="text-xs flex items-center gap-2 flex-wrap" style={{ color: 'var(--text-muted)' }}>

@@ -221,7 +221,7 @@ export default function DepositsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Payment Deposits
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>

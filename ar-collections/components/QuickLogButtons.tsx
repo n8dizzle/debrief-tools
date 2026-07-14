@@ -198,7 +198,7 @@ export default function QuickLogButtons({ invoiceId, onLogSaved, compact = false
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {getModalTitle(modal.noteType)}
               </h3>
               <button

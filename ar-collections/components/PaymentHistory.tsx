@@ -40,7 +40,7 @@ export default function PaymentHistory({
               <span style={{ color: 'var(--text-secondary)' }}>
                 {formatDate(payment.payment_date)}
               </span>
-              <span style={{ color: 'var(--christmas-cream)' }}>
+              <span style={{ color: 'var(--text-primary)' }}>
                 {formatCurrency(payment.amount)}
               </span>
               {isLate && (
@@ -95,7 +95,7 @@ export default function PaymentHistory({
                 <div>
                   <span
                     className="font-medium"
-                    style={{ color: 'var(--christmas-cream)' }}
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     {formatCurrency(payment.amount)}
                   </span>

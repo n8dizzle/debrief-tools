@@ -157,12 +157,12 @@ export default function ARSidebar({
               className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
               style={{ backgroundColor: 'var(--christmas-green)' }}
             >
-              <svg className="w-6 h-6" fill="none" stroke="var(--christmas-cream)" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="var(--on-accent)" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div className={lgHideWhenCollapsed}>
-              <div className="font-bold text-lg" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
                 Christmas Air
               </div>
               <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -226,7 +226,7 @@ export default function ARSidebar({
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${lgJustifyWhenCollapsed}`}
                   style={{
                     backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                    color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                    color: isActive(link.href) ? 'var(--on-accent)' : 'var(--text-secondary)',
                   }}
                 >
                   <NavIcon type={link.icon} />
@@ -257,7 +257,7 @@ export default function ARSidebar({
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${lgJustifyWhenCollapsed}`}
                     style={{
                       backgroundColor: isActive(link.href) ? 'var(--christmas-green)' : 'transparent',
-                      color: isActive(link.href) ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                      color: isActive(link.href) ? 'var(--on-accent)' : 'var(--text-secondary)',
                     }}
                   >
                     <NavIcon type={link.icon} />

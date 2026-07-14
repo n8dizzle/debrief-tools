@@ -1062,7 +1062,7 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             AR Invoices
           </h1>
           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -1118,7 +1118,7 @@ export default function InvoicesPage() {
             {!filtersExpanded && activeFilterCount > 0 && (
               <span
                 className="ml-1 px-1.5 rounded-full text-[10px] font-semibold"
-                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}
+                style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
               >
                 {activeFilterCount}
               </span>
@@ -1138,7 +1138,7 @@ export default function InvoicesPage() {
               <span
                 className="absolute top-1 left-1 w-4 h-4 rounded-full transition-transform"
                 style={{
-                  backgroundColor: 'var(--christmas-cream)',
+                  backgroundColor: 'var(--on-accent)',
                   transform: excludeInhouseFinancing ? 'translateX(20px)' : 'translateX(0)',
                 }}
               />

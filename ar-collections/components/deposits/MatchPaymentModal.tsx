@@ -108,7 +108,7 @@ export default function MatchPaymentModal({
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               Match Payment to Invoice
             </h2>
             <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -130,25 +130,25 @@ export default function MatchPaymentModal({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Amount</div>
-              <div className="font-medium tabular-nums" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="font-medium tabular-nums" style={{ color: 'var(--text-primary)' }}>
                 {formatCurrency(record.amount)}
               </div>
             </div>
             <div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Date</div>
-              <div style={{ color: 'var(--christmas-cream)' }}>
+              <div style={{ color: 'var(--text-primary)' }}>
                 {formatDate(record.payment_date)}
               </div>
             </div>
             <div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Customer (QB)</div>
-              <div style={{ color: 'var(--christmas-cream)' }}>
+              <div style={{ color: 'var(--text-primary)' }}>
                 {record.customer_name || 'Unknown'}
               </div>
             </div>
             <div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Type</div>
-              <div className="capitalize" style={{ color: 'var(--christmas-cream)' }}>
+              <div className="capitalize" style={{ color: 'var(--text-primary)' }}>
                 {record.payment_type || '—'}
               </div>
             </div>
@@ -171,7 +171,7 @@ export default function MatchPaymentModal({
               className="flex-1 px-3 py-2 rounded-lg text-sm"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--text-primary)',
                 border: '1px solid var(--border-subtle)',
               }}
             />
@@ -217,7 +217,7 @@ export default function MatchPaymentModal({
                         <div className="flex items-center gap-2">
                           <span
                             className="font-medium"
-                            style={{ color: isSelected ? 'white' : 'var(--christmas-cream)' }}
+                            style={{ color: isSelected ? 'white' : 'var(--text-primary)' }}
                           >
                             {invoice.invoice_number}
                           </span>
@@ -243,7 +243,7 @@ export default function MatchPaymentModal({
                       <div className="text-right">
                         <div
                           className="font-medium tabular-nums"
-                          style={{ color: isSelected ? 'white' : 'var(--christmas-cream)' }}
+                          style={{ color: isSelected ? 'white' : 'var(--text-primary)' }}
                         >
                           {formatCurrency(invoice.balance)} due
                         </div>

@@ -268,7 +268,7 @@ export default function TaskList({
               className="px-2 py-1.5 text-sm rounded-lg"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--text-primary)',
                 border: '1px solid var(--border-subtle)',
               }}
             >
@@ -284,7 +284,7 @@ export default function TaskList({
               className="px-2 py-1.5 text-sm rounded-lg"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--christmas-cream)',
+                color: 'var(--text-primary)',
                 border: '1px solid var(--border-subtle)',
               }}
             >
