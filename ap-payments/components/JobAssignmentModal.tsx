@@ -90,7 +90,7 @@ export default function JobAssignmentModal({ job, contractors, onClose, onSave }
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Assign Job #{job.job_number}
           </h2>
           <button
@@ -124,7 +124,7 @@ export default function JobAssignmentModal({ job, contractors, onClose, onSave }
               className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors"
               style={{
                 background: assignmentType === 'in_house' ? 'var(--christmas-green)' : 'var(--bg-card)',
-                color: assignmentType === 'in_house' ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                color: assignmentType === 'in_house' ? 'var(--on-accent)' : 'var(--text-secondary)',
                 border: `1px solid ${assignmentType === 'in_house' ? 'var(--christmas-green)' : 'var(--border-default)'}`,
               }}
             >

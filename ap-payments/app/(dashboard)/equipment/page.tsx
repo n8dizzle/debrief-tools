@@ -184,17 +184,17 @@ export default function EquipmentPage() {
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {([['all', 'All'], ['linked', 'Job-linked'], ['unlinked', 'No job']] as [LinkFilter, string][]).map(([f, label]) => (
             <button key={f} onClick={() => setLinkFilter(f)} className="px-3 py-1 rounded text-sm"
-              style={{ backgroundColor: linkFilter === f ? 'var(--christmas-green)' : 'transparent', color: linkFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
+              style={{ backgroundColor: linkFilter === f ? 'var(--christmas-green)' : 'transparent', color: linkFilter === f ? 'var(--on-accent)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {([['invoices', 'Invoices'], ['lines', 'Line Items'], ['validate', 'Validation']] as [View, string][]).map(([v, label]) => (
             <button key={v} onClick={() => setView(v)} className="px-3 py-1 rounded text-sm"
-              style={{ backgroundColor: view === v ? 'var(--christmas-green)' : 'transparent', color: view === v ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
+              style={{ backgroundColor: view === v ? 'var(--christmas-green)' : 'transparent', color: view === v ? 'var(--on-accent)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
         {canManage && (
-          <label className="ml-auto rounded-lg px-3 py-2 text-sm font-medium cursor-pointer" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>
+          <label className="ml-auto rounded-lg px-3 py-2 text-sm font-medium cursor-pointer" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}>
             {uploading ? 'Importing…' : '↑ Upload Shearer CSV'}
             <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" disabled={uploading}
               onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); }} />

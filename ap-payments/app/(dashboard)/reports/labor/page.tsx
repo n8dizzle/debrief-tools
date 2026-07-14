@@ -221,7 +221,7 @@ export default function LaborByTechPage() {
         <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
           {([['all', 'All teams'], ['install', 'Install team'], ['other', 'Other teams']] as [TeamFilter, string][]).map(([f, label]) => (
             <button key={f} onClick={() => setTeamFilter(f)} className="px-3 py-1 rounded text-sm"
-              style={{ backgroundColor: teamFilter === f ? 'var(--christmas-green)' : 'transparent', color: teamFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>{label}</button>
+              style={{ backgroundColor: teamFilter === f ? 'var(--christmas-green)' : 'transparent', color: teamFilter === f ? 'var(--on-accent)' : 'var(--text-secondary)' }}>{label}</button>
           ))}
         </div>
         <button onClick={exportCsv} className="text-xs underline ml-auto" style={{ color: 'var(--text-muted)' }}>Export CSV</button>

@@ -207,7 +207,7 @@ export default function CostEditorDrawer({ row, canEdit, onClose, onChanged }: P
                 <button
                   onClick={add} disabled={saving}
                   className="w-full rounded px-3 py-2 text-sm font-medium"
-                  style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)', opacity: saving ? 0.6 : 1 }}
+                  style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)', opacity: saving ? 0.6 : 1 }}
                 >
                   {saving ? 'Saving…' : 'Add adjustment'}
                 </button>

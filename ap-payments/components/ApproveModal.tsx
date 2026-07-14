@@ -49,7 +49,7 @@ export default function ApproveModal({ job, onClose, onApprove }: ApproveModalPr
         style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Approve Payment
           </h2>
           <button

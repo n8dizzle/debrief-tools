@@ -51,7 +51,7 @@ function JobTypePicker({ all, selected, onChange }: { all: string[]; selected: s
               </label>
             );
           })}
-          <button onClick={() => setOpen(false)} className="mt-2 text-xs w-full rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--christmas-cream)' }}>Done</button>
+          <button onClick={() => setOpen(false)} className="mt-2 text-xs w-full rounded py-1.5" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}>Done</button>
         </div>
       )}
     </div>
@@ -223,7 +223,7 @@ export default function PaySetup({ canManage }: { canManage: boolean }) {
             <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
               {(['all', 'shown', 'hidden'] as const).map(f => (
                 <button key={f} onClick={() => setTechFilter(f)} className="px-2.5 py-1 rounded text-xs capitalize"
-                  style={{ backgroundColor: techFilter === f ? 'var(--christmas-green)' : 'transparent', color: techFilter === f ? 'var(--christmas-cream)' : 'var(--text-secondary)' }}>
+                  style={{ backgroundColor: techFilter === f ? 'var(--christmas-green)' : 'transparent', color: techFilter === f ? 'var(--on-accent)' : 'var(--text-secondary)' }}>
                   {f === 'shown' ? 'In Install' : f}
                 </button>
               ))}

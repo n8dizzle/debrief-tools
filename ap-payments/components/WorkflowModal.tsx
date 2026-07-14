@@ -158,7 +158,7 @@ export default function WorkflowModal({ isOpen, onClose }: WorkflowModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--christmas-cream)' }}>
+            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
               Payment Workflow
             </h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
@@ -190,7 +190,7 @@ export default function WorkflowModal({ isOpen, onClose }: WorkflowModalProps) {
               <svg className="w-4 h-4" style={{ color: activeFlow === 'manager' ? '#fb923c' : 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <span className="font-semibold text-xs" style={{ color: activeFlow === 'manager' ? '#fb923c' : 'var(--christmas-cream)' }}>
+              <span className="font-semibold text-xs" style={{ color: activeFlow === 'manager' ? '#fb923c' : 'var(--text-primary)' }}>
                 Via Install Manager
               </span>
             </div>
@@ -210,7 +210,7 @@ export default function WorkflowModal({ isOpen, onClose }: WorkflowModalProps) {
               <svg className="w-4 h-4" style={{ color: activeFlow === 'ap' ? '#60a5fa' : 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span className="font-semibold text-xs" style={{ color: activeFlow === 'ap' ? '#60a5fa' : 'var(--christmas-cream)' }}>
+              <span className="font-semibold text-xs" style={{ color: activeFlow === 'ap' ? '#60a5fa' : 'var(--text-primary)' }}>
                 Via ap@christmasair.com
               </span>
             </div>
@@ -277,7 +277,7 @@ export default function WorkflowModal({ isOpen, onClose }: WorkflowModalProps) {
                 </span>
               </div>
 
-              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--christmas-cream)' }}>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                 {step.title}
               </h3>
               <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>

@@ -129,7 +129,7 @@ export default function MarginPage() {
               className="px-3 py-1 rounded text-sm capitalize"
               style={{
                 backgroundColor: trade === t ? 'var(--christmas-green)' : 'transparent',
-                color: trade === t ? 'var(--christmas-cream)' : 'var(--text-secondary)',
+                color: trade === t ? 'var(--on-accent)' : 'var(--text-secondary)',
               }}
             >
               {t === 'all' ? 'All' : t}

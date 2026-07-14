@@ -1059,7 +1059,7 @@ export default function JobsTable({
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--christmas-cream)' }}>
+          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             {selectedIds.size} selected
           </span>
           <div className="flex-1" />
@@ -1202,7 +1202,7 @@ export default function JobsTable({
                   const col = COLUMNS[origIdx];
                   if (col.key === 'job_total') {
                     return (
-                      <td key={col.key} className="text-sm font-semibold" style={{ color: 'var(--christmas-cream)' }}>
+                      <td key={col.key} className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                         {formatCurrency(totals.jobTotal)}
                       </td>
                     );
