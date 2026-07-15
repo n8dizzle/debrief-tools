@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
+  { href: '/health', label: 'Health', icon: 'health' },
   { href: '/', label: 'Workflows', icon: 'map' },
   { href: '/deals', label: 'Deals', icon: 'jobs' },
-  { href: '/health', label: 'Health', icon: 'health' },
 ];
 
 function NavIcon({ type }: { type: string }) {
