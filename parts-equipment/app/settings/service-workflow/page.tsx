@@ -96,7 +96,7 @@ export default function ServiceWorkflowPage() {
             <div className="card"><span className="who a">Automatic · every 15 min</span>
               <h4>The sync creates the order</h4>
               <p>Reads the report and drops a new row on the board, pre-filled from ServiceTitan. Starts at Location &ldquo;Place Order&rdquo;.</p>
-              <div className="fields">{['Date','Job #','Sold By','Customer','Est. Cost','Type','Part / Description'].map(f => <span className="chip a" key={f}>{f}</span>)}</div></div></div>
+              <div className="fields">{['Date','Job #','Sold By','Customer','Est. Subtotal','Type','Part / Description'].map(f => <span className="chip a" key={f}>{f}</span>)}</div></div></div>
           <div className="step"><div className="rail"><div className="num t">2</div><div className="connector" /></div>
             <div className="card"><span className="who t">Team</span>
               <h4>Ownership + order the part</h4>
@@ -183,7 +183,7 @@ export default function ServiceWorkflowPage() {
           <tbody>
             <tr><th>Automatic (ServiceTitan / sync)</th><th>Team (manual)</th></tr>
             <tr>
-              <td>Date · Job # · Sold By · Customer · Est. Cost · Type · Part/Description · <span className="tag a">Status</span> · <span className="tag a">Owner (auto-routes)</span></td>
+              <td>Date · Job # · Sold By · Customer · Est. Subtotal · Type · Part/Description · <span className="tag a">Status</span> · <span className="tag a">Owner (auto-routes)</span></td>
               <td>Owner (override) · Supplier · Order # · Cost · Parts Ordered · ETA · Cust. Informed B/O · Location · Parts at Shop · 2 Techs · War? · W.Type · Notes</td>
             </tr>
           </tbody>

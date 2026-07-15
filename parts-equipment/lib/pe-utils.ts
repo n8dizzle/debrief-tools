@@ -52,6 +52,9 @@ export function ageColor(days: number): string {
   return '#27ae60'; // green
 }
 
+// Location→owner reference map. No longer auto-applied on location change (team
+// found the auto-handoff surprising), but retained as the documented workflow
+// legend and for possible future use.
 export function ownerForLocation(location: string, isInstall: boolean): string | null {
   if (isInstall) {
     switch (location) {

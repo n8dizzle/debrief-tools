@@ -3,8 +3,9 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import PresenceBadge from '@/components/PresenceBadge';
+import MultiSelectFilter from '@/components/MultiSelectFilter';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
+import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
 import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
@@ -14,6 +15,16 @@ function fmtMD(d: string | null | undefined): string {
   const [y, m, day] = parts;
   if (!y || !m || !day) return '—';
   return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+}
+
+const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  open: { label: 'Open', color: '#1565c0', bg: 'rgba(21,101,192,0.12)' },
+  completed: { label: 'Scheduled', color: '#1a7a4a', bg: 'rgba(26,122,74,0.14)' },
+  cancelled: { label: 'Cancelled', color: '#8a8f9c', bg: 'rgba(120,125,140,0.16)' },
+};
+function StatusBadge({ status }: { status: string }) {
+  const m = STATUS_META[status] || { label: status || '—', color: '#6b7592', bg: 'var(--surface2)' };
+  return <span style={{ fontSize: 10, fontWeight: 700, color: m.color, background: m.bg, padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap' }}>{m.label}</span>;
 }
 
 export default function ServicePage() {
@@ -32,7 +43,8 @@ export default function ServicePage() {
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'open' | 'completed' | 'cancelled'>('open');
+  // Multi-select status filter. Empty set = no filter (show all). Default: Open only.
+  const [statuses, setStatuses] = useState<Set<string>>(() => new Set(['open']));
   const [focusId, setFocusId] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
   const [sortDir, setSortDir] = useState<1 | -1>(1);
@@ -65,9 +77,10 @@ export default function ServicePage() {
     saveOrderDebounced(id, changes);
   }
 
-  function onLocationChange(id: number, loc: string, order: PEOrder) {
-    const newOwner = ownerForLocation(loc, false);
-    save(id, { location: loc, ...(newOwner ? { owner: newOwner } : {}) });
+  function onLocationChange(id: number, loc: string) {
+    // Location and owner are independent — changing location no longer reassigns
+    // the owner (team feedback: it was unexpectedly handing tickets to Warehouse).
+    save(id, { location: loc });
   }
 
   function onPartBOChange(id: number, checked: boolean, order: PEOrder) {
@@ -129,7 +142,7 @@ export default function ServicePage() {
 
   const filtered = useMemo(() => {
     return svcOrders.filter((o: PEOrder) => {
-      if (o.status !== statusFilter) return false;
+      if (statuses.size > 0 && !statuses.has(o.status)) return false;
       if (ownerFilter && o.owner !== ownerFilter) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
@@ -138,7 +151,7 @@ export default function ServicePage() {
       }
       return true;
     });
-  }, [svcOrders, search, ownerFilter, statusFilter]);
+  }, [svcOrders, search, ownerFilter, statuses]);
 
   // Auto-link: open estimates that share an originating job number must be booked
   // together. Build {orderId -> {idx, total, job}} for any job with 2+ open rows.
@@ -208,11 +221,16 @@ export default function ServicePage() {
           <option value="">All Owners</option>
           {OWNERS.map(o => <option key={o}>{o}</option>)}
         </select>
-        <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
-          <option value="open">Open</option>
-          <option value="completed">Scheduled</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+        <MultiSelectFilter
+          label="Statuses"
+          options={[
+            { value: 'open', label: 'Open' },
+            { value: 'completed', label: 'Scheduled' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          selected={statuses}
+          onChange={setStatuses}
+        />
         <button className="btn" style={{ marginLeft: 'auto', fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>
           Audit Trail
         </button>
@@ -234,10 +252,11 @@ export default function ServicePage() {
               <thead>
                 <tr>
                   <th style={{ width: 32 }}>✎</th>
+                  <th style={{ minWidth: 78 }}>Status</th>
                   <th onClick={() => toggleSort('date')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by date">Date<span style={{ fontSize: 10, opacity: sortCol === 'date' ? 1 : 0.4 }}>{sortArrow('date')}</span></th>
                   <th>Job #</th>
                   <th>Sold By</th>
-                  <th>Est. Cost</th>
+                  <th>Est. Subtotal</th>
                   <th onClick={() => toggleSort('customer')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by customer name">Customer<span style={{ fontSize: 10, opacity: sortCol === 'customer' ? 1 : 0.4 }}>{sortArrow('customer')}</span></th>
                   <th>Owner</th>
                   <th>Type</th>
@@ -290,6 +309,10 @@ export default function ServicePage() {
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button>
                         <PresenceBadge peers={editors} />
+                      </td>
+
+                      <td style={{ textAlign: 'center' }}>
+                        <StatusBadge status={o.status} />
                       </td>
 
                       <td>
@@ -414,7 +437,7 @@ export default function ServicePage() {
                       </td>
 
                       <td>
-                        <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value, o)} style={{ minWidth: 140 }}>
+                        <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)} style={{ minWidth: 140 }}>
                           <option value="">— select —</option>
                           {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Waiting for Tech/Cus','Cancel PO','Shipping to Supplier','Duct Cleaning - Schedule'].map(l => <option key={l}>{l}</option>)}
                         </select>
