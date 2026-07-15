@@ -239,7 +239,7 @@ export default function NewOrderWizard({ onClose }: Props) {
                   </select>
                 </div>
                 <div style={groupStyle}>
-                  <label style={labelStyle}>Est. Cost</label>
+                  <label style={labelStyle}>Est. Subtotal</label>
                   <input style={inputStyle} value={sEstCost} onChange={e => setSEstCost(e.target.value)} placeholder="$0.00" />
                 </div>
                 <div style={groupStyle}>

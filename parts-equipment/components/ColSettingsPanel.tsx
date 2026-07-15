@@ -14,10 +14,11 @@ interface Props {
 
 const SVC_COLS: ColDef[] = [
   { key: 'edit', label: 'Edit', visible: true },
+  { key: 'status', label: 'Status', visible: true },
   { key: 'date', label: 'Date', visible: true },
   { key: 'job', label: 'Job #', visible: true },
   { key: 'tech', label: 'Sold By', visible: true },
-  { key: 'estcost', label: 'Est. Cost', visible: true },
+  { key: 'estcost', label: 'Est. Subtotal', visible: true },
   { key: 'customer', label: 'Customer', visible: true },
   { key: 'owner', label: 'Owner', visible: true },
   { key: 'subtype', label: 'Type', visible: true },

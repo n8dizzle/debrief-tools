@@ -139,7 +139,7 @@ export default function DashboardPage() {
               { key: 'job', label: 'Job #' },
               { key: 'type', label: 'Type' },
               { key: 'tech', label: 'Sold By' },
-              { key: 'estcost', label: 'Est. Cost' },
+              { key: 'estcost', label: 'Est. Subtotal' },
               { key: 'age', label: 'Age', style: { textAlign: 'right' } },
             ]}
             renderCell={(o, key) => {

@@ -4,7 +4,7 @@ import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import PresenceBadge from '@/components/PresenceBadge';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, ownerForLocation, daysSince, ageColor, fmtMoney, looksLikeCurrency } from '@/lib/pe-utils';
+import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency } from '@/lib/pe-utils';
 import type { PEOrder } from '@/types';
 
 const INSTALL_TECHS = ['Luke', 'Brett', 'Christina', 'John', 'Daniel', 'Other'];
@@ -66,9 +66,10 @@ export default function InstallPage() {
     saveOrderDebounced(id, changes);
   }
 
-  function onLocationChange(id: number, loc: string, order: PEOrder) {
-    const newOwner = ownerForLocation(loc, true);
-    save(id, { location: loc, ...(newOwner ? { owner: newOwner } : {}) });
+  function onLocationChange(id: number, loc: string) {
+    // Location and owner are independent — changing location no longer reassigns
+    // the owner (team feedback: it was unexpectedly handing tickets to Warehouse).
+    save(id, { location: loc });
   }
 
   function onBOStatusChange(id: number, val: string) {
@@ -348,7 +349,7 @@ export default function InstallPage() {
                       <td><input className="si" value={o.equip_cost || ''} onChange={e => save(o.id, { equip_cost: e.target.value })} onBlur={e => save(o.id, { equip_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} /></td>
 
                       <td>
-                        <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value, o)} style={{ minWidth: 140 }}>
+                        <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)} style={{ minWidth: 140 }}>
                           <option value="">— select —</option>
                           {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Cancel PO','Shipping to Supplier'].map(l => <option key={l}>{l}</option>)}
                         </select>

@@ -155,7 +155,7 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
                   <option value="install">Install</option>
                 </select>
               ))}
-              {fieldGroup(isInstall ? 'Job Cost' : 'Est. Cost', (
+              {fieldGroup(isInstall ? 'Job Cost' : 'Est. Subtotal', (
                 <input style={inputStyle} value={isInstall ? (order.job_cost || '') : (order.estimate_cost || '')}
                   onChange={e => saveField(isInstall ? 'job_cost' : 'estimate_cost', e.target.value)} placeholder="$0.00" />
               ))}
