@@ -10,8 +10,8 @@ export function autoSignalFor(title: string): AutoSignal | null {
   const t = (title || '').toLowerCase();
   if (/\bcontract\b|\bsigned\b|\bsold\b/.test(t)) return 'sold';
   if (/job created|created in servicetitan|st job/.test(t)) return 'job';
-  if (/install date/.test(t)) return 'scheduled';
-  if (/system installed|\binstalled\b|startup|commission/.test(t)) return 'installed';
+  if (/install date|repair scheduled/.test(t)) return 'scheduled';       // "repair scheduled" for warranty
+  if (/system installed|\binstalled\b|startup|commission|repair complete/.test(t)) return 'installed'; // "repair completed" for warranty
   if (/payment type/.test(t)) return 'payment_type';
   if (/invoice/.test(t)) return 'invoiced';
   if (/\bpaid\b|balance|payment/.test(t)) return 'paid';
