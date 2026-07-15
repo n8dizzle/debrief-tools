@@ -210,7 +210,7 @@ export default function ServicePage() {
         </select>
         <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
           <option value="open">Open</option>
-          <option value="completed">Completed</option>
+          <option value="completed">Scheduled</option>
           <option value="cancelled">Cancelled</option>
         </select>
         <button className="btn" style={{ marginLeft: 'auto', fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>

@@ -189,6 +189,30 @@ class ServiceTitanClient {
     });
   }
 
+  /**
+   * All estimates sold on/after `soldAfter`, WITH line items (each item carries
+   * `invoiceItemId` — null until the item is booked onto a job). Source of truth
+   * for the parts queue: caller keeps Sold estimates whose items are all still
+   * uninvoiced ("Install Job(s) empty"). Bypasses the hidden-filter report.
+   */
+  async getSoldEstimatesRaw(soldAfter: string): Promise<Array<Record<string, unknown>>> {
+    const all: Array<Record<string, unknown>> = [];
+    let page = 1;
+    let hasMore = true;
+    // Deeper cap than requestAllPages (the sold-estimate universe is ~4k+ YTD).
+    while (hasMore && page <= 60) {
+      const res = await this.request<STPagedResponse<Record<string, unknown>>>(
+        'GET',
+        `sales/v2/tenant/${this.tenantId}/estimates`,
+        { params: { soldAfter, pageSize: '500', page: String(page) } }
+      );
+      all.push(...(res.data || []));
+      hasMore = res.hasMore === true;
+      page++;
+    }
+    return all;
+  }
+
   /** A single estimate by id — for diagnostics. */
   async getEstimateById(estimateId: number): Promise<Record<string, unknown> | null> {
     try {
