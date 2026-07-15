@@ -293,6 +293,23 @@ class ServiceTitanClient {
     }
   }
 
+  /**
+   * Resolve an estimate's `soldBy` id → display name. It can be a field technician
+   * OR an office employee (office sellers), so try technicians first, then employees.
+   */
+  async getTechnicianName(id: number): Promise<string> {
+    try {
+      const t = await this.request<{ name?: string }>('GET', `settings/v2/tenant/${this.tenantId}/technicians/${id}`);
+      if (t?.name) return t.name;
+    } catch { /* fall through to employees */ }
+    try {
+      const e = await this.request<{ name?: string }>('GET', `settings/v2/tenant/${this.tenantId}/employees/${id}`);
+      return e?.name || '';
+    } catch {
+      return '';
+    }
+  }
+
   private unwrapList<T>(response: T[] | { data?: T[] }): T[] {
     if (Array.isArray(response)) return response;
     return response.data || [];

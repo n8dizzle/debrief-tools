@@ -110,6 +110,7 @@ async function handle(request: Request) {
 
     // New sold + unbooked estimates -> insert.
     const custCache = new Map<number, string>();
+    const techCache = new Map<number, string>();
     const { data: claimRows } = await supabase.from('pe_warranty_claims').select('job');
     const claimJobs = new Set((claimRows || []).map((c: { job: string }) => String(c.job || '').trim()).filter(Boolean));
 
@@ -121,6 +122,15 @@ async function handle(request: Request) {
           if (!customer) {
             try { customer = (await st.getCustomer(e.customerId))?.name || ''; } catch { /* ignore */ }
             if (customer) custCache.set(e.customerId, customer);
+          }
+        }
+        // Sold By: the estimate's soldBy is a technician id — resolve to a name (cached).
+        let tech = e.tech || '';
+        if (!tech && e.soldById != null) {
+          tech = techCache.get(e.soldById) ?? '';
+          if (!tech) {
+            tech = await st.getTechnicianName(e.soldById);
+            if (tech) techCache.set(e.soldById, tech);
           }
         }
         const orderType = (isInstallBU(e.businessUnit) || hasInstallKeyword(e.name)) ? 'install' : 'service';
@@ -135,7 +145,7 @@ async function handle(request: Request) {
           date: soldDateOf(e.soldOn, today),
           job: e.jobNumber,
           customer,
-          tech: e.tech || '',
+          tech,
           order_type: orderType,
           subtype,
           part: e.name,
@@ -162,7 +172,7 @@ async function handle(request: Request) {
             mfg_invoice_num: '', repl_part_num: '', repl_part_serial: '',
             date_of_claim: today, claim_num: '', credit_approved: '', return_required: '',
             amt_charged: '', amt_refunded: '', paid: '',
-            job: e.jobNumber, tech: e.tech || '', customer, status: 'active',
+            job: e.jobNumber, tech, customer, status: 'active',
           });
           if (!cErr) { warrantyClaims++; claimJobs.add(e.jobNumber.trim()); }
         }
