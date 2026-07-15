@@ -24,6 +24,14 @@ export default function AppShell({ children }: AppShellProps) {
   // Skip shell on login page
   const isLoginPage = pathname === '/login' || pathname?.startsWith('/login');
 
+  // Title of the board/page we're on, shown in the top bar.
+  const pageTitle =
+    pathname?.startsWith('/service') ? 'Service' :
+    pathname?.startsWith('/install') ? 'Install' :
+    pathname?.startsWith('/warranty') ? 'Warranty Tracker' :
+    pathname?.startsWith('/settings') ? 'Settings' :
+    pathname?.startsWith('/dashboard') ? 'Dashboard' : '';
+
   // Sidebar state
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -87,6 +95,7 @@ export default function AppShell({ children }: AppShellProps) {
             <button className="pe-hamburger" onClick={() => setMobileOpen(true)} aria-label="Open menu">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
+            <h1 className="pe-page-title">{pageTitle}</h1>
             <div className="pe-topbar-spacer" />
             <div className="header-right">
               <PresenceBar users={ordersBase.activeUsers} />
@@ -98,9 +107,6 @@ export default function AppShell({ children }: AppShellProps) {
               </div>
               <button className="btn" onClick={() => ordersBase.refresh()} style={{ fontSize: 12, padding: '5px 12px' }}>
                 ↺ Refresh
-              </button>
-              <button className="btn btn-primary" onClick={openWizard} style={{ fontSize: 13 }}>
-                + New Order
               </button>
             </div>
           </header>
