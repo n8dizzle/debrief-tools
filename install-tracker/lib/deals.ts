@@ -1,7 +1,7 @@
 import { getServerSupabase } from '@/lib/supabase';
 import { deriveJobStages, type InstallJob } from '@/lib/jobs';
 import type { Stage } from '@/lib/install-stages';
-import { autoSignalFor, equipmentSignalFor, type AutoSignal, type EquipSignal } from '@/lib/step-source';
+import { autoSignalFor, equipmentSignalFor, classifyStepSource, type AutoSignal, type EquipSignal, type StepSource } from '@/lib/step-source';
 
 // A deal's assigned workflow (plus the two meta-states). "untriaged" = not yet routed;
 // "archived" = deliberately not tracked. The rest are workflows.
@@ -186,6 +186,7 @@ export interface PipelineSubStep {
   detail: string;
   auto: boolean;            // true = ServiceTitan-derived, read-only (locked). false = checkbox.
   tag: 'auto' | 'manual' | 'orders'; // signal source shown to the user
+  source: StepSource;       // where the signal comes from (servicetitan | orders | debrief | manual)
   done: boolean;            // effective state
   evidence: string | null;  // the fact that satisfied it (ST or orders app)
 }
@@ -255,6 +256,7 @@ export function deriveDealPipeline(
     const src = gated ? s.subSteps.filter((ss) => !/determine if .*need/i.test(ss.title)) : s.subSteps;
 
     const subSteps: PipelineSubStep[] = src.map((ss) => {
+      const source = classifyStepSource(s.name, ss.title).source; // where this step's signal comes from
       // Equipment stage: auto-tick from the orders app, but a manager can override by hand.
       const equipSig = isEquip ? equipmentSignalFor(ss.title) : null;
       if (equipSig) {
@@ -262,7 +264,7 @@ export function deriveDealPipeline(
         const override = ss.id ? status.get(ss.id) : undefined;
         const done = override ? override.done : a.done;
         const evidence = override ? 'set by hand' : a.evidence;
-        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', done, evidence };
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', source, done, evidence };
       }
       // "Crew assigned" (Scheduled): auto from the orders app's install_team, with override.
       if (/crew assigned/i.test(ss.title)) {
@@ -270,15 +272,15 @@ export function deriveDealPipeline(
         const override = ss.id ? status.get(ss.id) : undefined;
         const done = override ? override.done : crew.length > 0;
         const evidence = override ? 'set by hand' : (crew.length ? crew.join(', ') : null);
-        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', done, evidence };
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'orders', source, done, evidence };
       }
       const sig = autoSignalFor(ss.title);
       if (sig) {
         const a = autoState(sig, deal);
-        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: true, tag: 'auto', done: a.done, evidence: a.evidence };
+        return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: true, tag: 'auto', source, done: a.done, evidence: a.evidence };
       }
       const st = ss.id ? status.get(ss.id) : undefined;
-      return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'manual', done: !!st?.done, evidence: null };
+      return { id: ss.id ?? null, title: ss.title, detail: ss.detail, auto: false, tag: 'manual', source, done: !!st?.done, evidence: null };
     });
 
     const base = { stageId: s.id ?? null, name: s.name, subSteps, isSold: s.name.toLowerCase().includes('sold'), gated };

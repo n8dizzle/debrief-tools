@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import type { PipelineStage } from '@/lib/deals';
 import type { ProjectEstimate } from '@/lib/jobs';
 import { can, type AccessUser } from '@/lib/access';
+import { SOURCE_META } from '@/lib/step-source';
 
 const usd = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -97,7 +98,7 @@ export default function DealPipeline({
                         )}
                         <span className="chk-body">
                           <span className="chk-title">{ss.title}</span>
-                          <span className="chk-sub">{ss.auto ? (ss.evidence || 'from ServiceTitan') : (ss.evidence || ss.detail)}</span>
+                          <span className="chk-sub">{ss.auto ? (ss.evidence || `from ${SOURCE_META[ss.source].label}`) : (ss.evidence || ss.detail)}</span>
                         </span>
                         <span className={`chk-tag ${ss.tag}`}>{ss.tag}</span>
                       </li>
