@@ -19,7 +19,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, isLoading, installTeams, suppliers, presence, setEditing } = ctx;
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openWizard, isLoading, installTeams, suppliers, presence, setEditing } = ctx;
 
   // Clear my presence when leaving this board (route change removes the focused
   // input without firing blur, so onBlur alone would leave my avatar stuck here).
@@ -199,7 +199,10 @@ export default function InstallPage() {
           <option value="completed">Scheduled</option>
           <option value="all">All</option>
         </select>
-        <span className="row-count">{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="row-count" style={{ marginLeft: 'auto' }}>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openWizard?.()}>
+          + New Order
+        </button>
       </div>
 
       {/* Table */}

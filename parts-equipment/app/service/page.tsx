@@ -4,9 +4,10 @@ import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
+import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
 import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
-import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
+import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG, LOCATIONS } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
@@ -29,7 +30,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openColSettings, isLoading,
+  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openWizard, isLoading,
     warrantyOrders, setWarrantyOrders, showToast, suppliers, validities, presence, setEditing } = ctx;
 
   // Clear my presence when leaving this board (route change removes the focused
@@ -43,13 +44,20 @@ export default function ServicePage() {
 
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
-  // Multi-select status filter. Empty set = no filter (show all). Default: Open only.
+  // Multi-select filters. Empty set = no filter (show all). Status defaults to Open.
   const [statuses, setStatuses] = useState<Set<string>>(() => new Set(['open']));
+  const [techFilterSet, setTechFilterSet] = useState<Set<string>>(new Set());
+  const [typeFilterSet, setTypeFilterSet] = useState<Set<string>>(new Set());
+  const [prFilterSet, setPrFilterSet] = useState<Set<string>>(new Set());
+  const [supplierFilterSet, setSupplierFilterSet] = useState<Set<string>>(new Set());
+  const [locationFilterSet, setLocationFilterSet] = useState<Set<string>>(new Set());
   const [focusId, setFocusId] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
   const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [colsOpen, setColsOpen] = useState(false);
 
-  function toggleSort(col: 'date' | 'customer') {
+  function toggleSort(col: string) {
+    if (col !== 'date' && col !== 'customer') return;
     if (sortCol === col) {
       setSortDir(d => (d === 1 ? -1 : 1));
     } else {
@@ -57,8 +65,6 @@ export default function ServicePage() {
       setSortDir(1);
     }
   }
-  const sortArrow = (col: 'date' | 'customer') =>
-    sortCol === col ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
 
   // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
   useEffect(() => {
@@ -83,16 +89,15 @@ export default function ServicePage() {
     save(id, { location: loc });
   }
 
-  function onPartBOChange(id: number, checked: boolean, order: PEOrder) {
+  function onPartBOChange(id: number, checked: boolean) {
     // Part backordered → location Backordered (drives amber color) + CXR Team owns it.
     const changes: Partial<PEOrder> = { part_bo: checked };
     if (checked) { changes.location = 'Backordered'; changes.owner = 'CXR Team'; }
     save(id, changes);
   }
 
-  function onBOInformedChange(id: number, checked: boolean, order: PEOrder) {
+  function onBOInformedChange(id: number, checked: boolean) {
     // Customer informed of the backorder → hand back to Parts Coordinator.
-    // Row stays the backordered color until the part arrives (parts_at_shop).
     const changes: Partial<PEOrder> = { bo_informed: checked };
     if (checked) changes.owner = 'Parts Coordinator';
     save(id, changes);
@@ -144,14 +149,27 @@ export default function ServicePage() {
     return svcOrders.filter((o: PEOrder) => {
       if (statuses.size > 0 && !statuses.has(o.status)) return false;
       if (ownerFilter && o.owner !== ownerFilter) return false;
+      if (techFilterSet.size > 0 && !techFilterSet.has(o.tech || '')) return false;
+      if (typeFilterSet.size > 0 && !typeFilterSet.has(o.subtype || '')) return false;
+      if (prFilterSet.size > 0 && !prFilterSet.has(o.tech_type || '')) return false;
+      if (supplierFilterSet.size > 0 && !supplierFilterSet.has(o.supplier || '')) return false;
+      if (locationFilterSet.size > 0 && !locationFilterSet.has(o.location || '')) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        const hay = [o.job, o.tech, o.customer, o.part, o.supplier, o.note_cxr, o.note_wh].join(' ').toLowerCase();
+        // Global search across every user-facing column (incl. the Status label so
+        // "scheduled" matches the 'completed' status, and both raw + M/D dates).
+        const hay = [
+          o.job, o.tech, o.customer, o.owner, o.subtype, o.tech_type,
+          o.part, o.supplier, o.order_num, o.location, o.validity,
+          o.estimate_cost, o.cost, o.eta, fmtMD(o.date), o.date,
+          o.warranty_type, STATUS_META[o.status]?.label || o.status,
+          o.note_wh, o.note_cxr,
+        ].join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [svcOrders, search, ownerFilter, statuses]);
+  }, [svcOrders, search, ownerFilter, statuses, techFilterSet, typeFilterSet, prFilterSet, supplierFilterSet, locationFilterSet]);
 
   // Auto-link: open estimates that share an originating job number must be booked
   // together. Build {orderId -> {idx, total, job}} for any job with 2+ open rows.
@@ -188,9 +206,213 @@ export default function ServicePage() {
     return arr;
   }, [filtered, sortCol, sortDir]);
 
-  const vrt = (label: string) => (
-    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap', fontSize: 10, paddingTop: 4 }}>{label}</div>
-  );
+  // ── Column config (order = default order; users reorder/resize/hide/freeze) ──
+  const columns = useMemo<PrefsColumn<PEOrder>[]>(() => [
+    {
+      key: 'edit', label: 'Edit', locked: true, defaultWidth: 46, minWidth: 46, align: 'center',
+      render: (o) => (
+        <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}>
+          <button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button>
+          <PresenceBadge peers={presence.filter(p => p.board === 'service' && p.rowId === o.id)} />
+        </span>
+      ),
+    },
+    {
+      key: 'status', label: 'Status', defaultWidth: 84, minWidth: 60, align: 'center',
+      render: (o) => <StatusBadge status={o.status} />,
+    },
+    {
+      key: 'date', label: 'Date', sortKey: 'date', defaultWidth: 66, minWidth: 50,
+      render: (o) => <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', color: ageColor(daysSince(o.date)) }}>{fmtMD(o.date)}</span>,
+    },
+    {
+      key: 'job', label: 'Job #', defaultWidth: 150, minWidth: 90,
+      render: (o) => {
+        const link = linkGroups.get(o.id);
+        const linkedCount = o.linked_jobs?.length || 0;
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })}
+              size={Math.max((o.job || '').length, 3)}
+              style={{ width: 'auto', flex: '0 0 auto', padding: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--text)', fontWeight: 600 }} />
+            {o.st_url && (
+              <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+                onClick={e => e.stopPropagation()}
+                style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text)', flexShrink: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
+            {link && (
+              <span onClick={() => setSearch(o.job || '')}
+                title={`Book together — ${link.total} estimates on job #${link.job}. Click to show them all.`}
+                style={{ background: '#d48a0a', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 10, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                ‼ {link.idx}/{link.total}
+              </span>
+            )}
+            {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'tech', label: 'Sold By', defaultWidth: 120, minWidth: 80,
+      render: (o) => (
+        <select className="si-sel" value={o.tech || ''} onChange={e => save(o.id, { tech: e.target.value })}>
+          <option value="">— tech —</option>
+          {o.tech && !TECHS.includes(o.tech) && <option value={o.tech}>{o.tech}</option>}
+          {TECHS.map(t => <option key={t}>{t}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'estimate_cost', label: 'Est. Subtotal', defaultWidth: 100, minWidth: 70,
+      render: (o) => <input className="si" value={o.estimate_cost || ''} onChange={e => save(o.id, { estimate_cost: e.target.value })} onBlur={e => save(o.id, { estimate_cost: fmtMoney(e.target.value) })} placeholder="$0.00" />,
+    },
+    {
+      key: 'customer', label: 'Customer', sortKey: 'customer', defaultWidth: 150, minWidth: 90,
+      render: (o) => <input className="si" value={o.customer || ''} onChange={e => save(o.id, { customer: e.target.value })} />,
+    },
+    {
+      key: 'owner', label: 'Owner', defaultWidth: 160, minWidth: 100,
+      render: (o) => (
+        <select className="si-sel" value={o.owner || ''} onChange={e => save(o.id, { owner: e.target.value })}>
+          <option value="">— owner —</option>
+          {OWNERS.map(owner => <option key={owner}>{owner}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'subtype', label: 'Type', defaultWidth: 100, minWidth: 80,
+      render: (o) => (
+        <select className="si-sel" value={o.subtype || ''} onChange={e => {
+          const v = e.target.value;
+          const patch: Partial<PEOrder> = { subtype: v };
+          if (v === 'Membership') patch.owner = 'CXR Team';
+          else if (v === 'Duct Cleaning') patch.owner = 'Install Dispatcher';
+          else if (v === 'Plumbing') patch.owner = 'Plumbing Dispatcher';
+          save(o.id, patch);
+        }}>
+          <option value="">— type —</option>
+          {o.subtype && !SVC_SUBTYPES.includes(o.subtype) && <option value={o.subtype}>{o.subtype}</option>}
+          {SVC_SUBTYPES.map(s => <option key={s}>{s}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'tech_type', label: 'Parts/Repair', defaultWidth: 95, minWidth: 70,
+      render: (o) => (
+        <select className="si-sel" value={o.tech_type || ''} onChange={e => save(o.id, { tech_type: e.target.value })}>
+          <option value="">—</option>
+          {PARTS_REPAIR.map(s => <option key={s}>{s}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'warranty', label: 'War?', align: 'center', defaultWidth: 50, minWidth: 44,
+      render: (o) => {
+        const isWarranty = ['Yes', 'P', 'P/L', 'L'].includes(o.warranty ?? '');
+        return <input type="checkbox" checked={isWarranty} style={{ width: 16, height: 16, accentColor: '#1565c0', cursor: 'pointer' }}
+          onChange={e => save(o.id, { warranty: e.target.checked ? 'Yes' : 'No' })} />;
+      },
+    },
+    {
+      key: 'warranty_type', label: 'W.Type', align: 'center', defaultWidth: 60, minWidth: 50,
+      render: (o) => {
+        const isWarranty = ['Yes', 'P', 'P/L', 'L'].includes(o.warranty ?? '');
+        return (
+          <select className="si-sel" value={o.warranty_type || ''} onChange={e => onWTypeChange(o, e.target.value)} style={{ opacity: isWarranty ? 1 : .3 }}>
+            <option value="">—</option>
+            {['P', 'L', 'P/L'].map(w => <option key={w}>{w}</option>)}
+          </select>
+        );
+      },
+    },
+    {
+      key: 'part', label: 'Part / Description', defaultWidth: 170, minWidth: 100,
+      render: (o) => <input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} title={o.part || ''} placeholder="Part description..." />,
+    },
+    {
+      key: 'parts_ordered', label: 'Parts Ord.', align: 'center', defaultWidth: 54, minWidth: 46,
+      render: (o) => <input type="checkbox" checked={!!o.parts_ordered} style={{ width: 16, height: 16, accentColor: '#3a6b4a', cursor: 'pointer' }}
+        onChange={e => save(o.id, { parts_ordered: e.target.checked })} />,
+    },
+    {
+      key: 'part_bo', label: 'Part B/O?', align: 'center', defaultWidth: 54, minWidth: 46,
+      render: (o) => <input type="checkbox" checked={!!o.part_bo} style={{ width: 16, height: 16, accentColor: '#c0392b', cursor: 'pointer' }}
+        onChange={e => onPartBOChange(o.id, e.target.checked)} />,
+    },
+    {
+      key: 'eta', label: 'ETA', defaultWidth: 140, minWidth: 110,
+      render: (o) => <input className="si" type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })} />,
+    },
+    {
+      key: 'bo_informed', label: 'Cust. Inf. B/O', align: 'center', defaultWidth: 60, minWidth: 46,
+      render: (o) => <input type="checkbox" checked={!!o.bo_informed} style={{ width: 16, height: 16, accentColor: '#2980b9', cursor: 'pointer' }}
+        onChange={e => onBOInformedChange(o.id, e.target.checked)} />,
+    },
+    {
+      key: 'supplier', label: 'Supplier', defaultWidth: 160, minWidth: 100,
+      render: (o) => (
+        <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })}>
+          <option value="">— select —</option>
+          {o.supplier && !suppliers.includes(o.supplier) && <option value={o.supplier}>{o.supplier}</option>}
+          {suppliers.map(s => <option key={s}>{s}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'order_num', label: 'Order #', defaultWidth: 100, minWidth: 70,
+      render: (o) => <input className="si" value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} />,
+    },
+    {
+      key: 'cost', label: 'Cost', defaultWidth: 100, minWidth: 70,
+      render: (o) => <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} onBlur={e => save(o.id, { cost: fmtMoney(e.target.value) })} placeholder="$0.00" />,
+    },
+    {
+      key: 'location', label: 'Location', defaultWidth: 150, minWidth: 110,
+      render: (o) => (
+        <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)}>
+          <option value="">— select —</option>
+          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Waiting for Tech/Cus','Cancel PO','Shipping to Supplier','Duct Cleaning - Schedule'].map(l => <option key={l}>{l}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'parts_at_shop', label: 'Parts at Shop', align: 'center', defaultWidth: 60, minWidth: 46,
+      render: (o) => <input type="checkbox" checked={!!o.parts_at_shop} style={{ width: 16, height: 16, accentColor: '#7d3c98', cursor: 'pointer' }}
+        onChange={e => onPartsAtShopChange(o.id, e.target.checked)} />,
+    },
+    {
+      key: 'two_techs', label: '2 Techs?', align: 'center', defaultWidth: 54, minWidth: 46,
+      render: (o) => <input type="checkbox" checked={!!o.two_techs} style={{ width: 16, height: 16, accentColor: '#117a65', cursor: 'pointer' }}
+        onChange={e => save(o.id, { two_techs: e.target.checked })} />,
+    },
+    {
+      key: 'note_wh', label: 'WH Notes', defaultWidth: 180, minWidth: 110,
+      render: (o) => <input className="si" value={o.note_wh || ''} onChange={e => save(o.id, { note_wh: e.target.value })} placeholder="WH notes..." />,
+    },
+    {
+      key: 'note_cxr', label: 'CXR Notes', defaultWidth: 180, minWidth: 110,
+      render: (o) => <input className="si" value={o.note_cxr || ''} onChange={e => save(o.id, { note_cxr: e.target.value })} placeholder="CXR notes..." />,
+    },
+    {
+      key: 'validity', label: 'Validity', defaultWidth: 120, minWidth: 90,
+      render: (o) => (
+        <select className="si-sel" value={o.validity || ''} onChange={e => save(o.id, { validity: e.target.value })}>
+          <option value="">— select —</option>
+          {o.validity && !validities.includes(o.validity) && <option value={o.validity}>{o.validity}</option>}
+          {validities.map(v => <option key={v}>{v}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'closeout', label: 'Close', locked: true, defaultWidth: 44, minWidth: 40, align: 'center',
+      render: (o) => <button className="closeout-x-btn" onClick={() => openCloseout?.(o.id)} title="Close out / Cancel">✕</button>,
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [presence, linkGroups, suppliers, validities, warrantyJobs]);
 
   return (
     <>
@@ -199,12 +421,19 @@ export default function ServicePage() {
         {SVC_OWNERS_CONFIG.map(({ name, dot }) => {
           const count = svcOrders.filter((o: PEOrder) => o.status === 'open' && o.owner === name).length;
           const isActive = ownerFilter === name;
+          // Tint the card with the same row color this team uses on the board.
+          // Everything is driven by theme-aware vars so it reads in light AND dark:
+          // bg = row tint, text = --row-text, dot/count = the row accent (--*-bar).
+          const cls = rowClass({ owner: name, status: 'open', location: '' } as PEOrder);
+          const tinted = cls !== 'row-unassigned';
+          const accent = tinted ? `var(--${cls}-bar)` : dot;
           return (
-            <div key={name} className={`owner-card${isActive ? ' active' : ''}`} onClick={() => setOwnerFilter(isActive ? '' : name)}>
-              <div className="owner-card-dot" style={{ background: dot }} />
+            <div key={name} className={`owner-card${isActive ? ' active' : ''}`} onClick={() => setOwnerFilter(isActive ? '' : name)}
+              style={tinted ? { background: `var(--${cls})`, color: 'var(--row-text)' } : undefined}>
+              <div className="owner-card-dot" style={{ background: accent }} />
               <div>
                 <div className="owner-card-name">{name}</div>
-                <div className="owner-card-count" style={{ color: dot }}>{count}</div>
+                <div className="owner-card-count" style={{ color: accent }}>{count}</div>
               </div>
             </div>
           );
@@ -215,12 +444,8 @@ export default function ServicePage() {
       <div className="toolbar">
         <div className="search-wrap">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input className="search-input" type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="search-input" type="text" placeholder="Search Any Column.." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="filter" value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)}>
-          <option value="">All Owners</option>
-          {OWNERS.map(o => <option key={o}>{o}</option>)}
-        </select>
         <MultiSelectFilter
           label="Statuses"
           options={[
@@ -231,13 +456,21 @@ export default function ServicePage() {
           selected={statuses}
           onChange={setStatuses}
         />
-        <button className="btn" style={{ marginLeft: 'auto', fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>
+        <MultiSelectFilter label="Sold By" options={TECHS.map(t => ({ value: t, label: t }))} selected={techFilterSet} onChange={setTechFilterSet} />
+        <MultiSelectFilter label="Types" options={SVC_SUBTYPES.map(s => ({ value: s, label: s }))} selected={typeFilterSet} onChange={setTypeFilterSet} />
+        <MultiSelectFilter label="Parts/Repair" options={PARTS_REPAIR.map(s => ({ value: s, label: s }))} selected={prFilterSet} onChange={setPrFilterSet} />
+        <MultiSelectFilter label="Suppliers" options={suppliers.map(s => ({ value: s, label: s }))} selected={supplierFilterSet} onChange={setSupplierFilterSet} />
+        <MultiSelectFilter label="Locations" options={LOCATIONS.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
+        <span className="row-count" style={{ marginLeft: 'auto' }}>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openWizard?.()}>
+          + New Order
+        </button>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>
           Audit Trail
         </button>
-        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openColSettings?.('service')}>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => setColsOpen(true)}>
           Columns
         </button>
-        <span className="row-count">{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Table */}
@@ -247,237 +480,29 @@ export default function ServicePage() {
         ) : filtered.length === 0 ? (
           <div className="empty"><div className="empty-icon">◎</div><p>No service orders.</p></div>
         ) : (
-          <div className="svc-container" ref={scrollRef}>
-            <table className="st-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 32 }}>✎</th>
-                  <th style={{ minWidth: 78 }}>Status</th>
-                  <th onClick={() => toggleSort('date')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by date">Date<span style={{ fontSize: 10, opacity: sortCol === 'date' ? 1 : 0.4 }}>{sortArrow('date')}</span></th>
-                  <th>Job #</th>
-                  <th>Sold By</th>
-                  <th>Est. Subtotal</th>
-                  <th onClick={() => toggleSort('customer')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Sort by customer name">Customer<span style={{ fontSize: 10, opacity: sortCol === 'customer' ? 1 : 0.4 }}>{sortArrow('customer')}</span></th>
-                  <th>Owner</th>
-                  <th>Type</th>
-                  <th style={{ minWidth: 90 }}>Parts/Repair</th>
-                  <th style={{ textAlign: 'center', minWidth: 44 }}>War?</th>
-                  <th style={{ textAlign: 'center', minWidth: 55 }}>W.Type</th>
-                  <th style={{ minWidth: 150 }}>Part/Description</th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 70, verticalAlign: 'bottom', paddingBottom: 4 }}>
-                    {vrt('Parts Ord.')}
-                  </th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 70, verticalAlign: 'bottom', paddingBottom: 4 }}>
-                    {vrt('Part B/O?')}
-                  </th>
-                  <th style={{ minWidth: 55 }}>ETA</th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 70, verticalAlign: 'bottom', paddingBottom: 4 }}>
-                    {vrt('Cust. Inf. B/O')}
-                  </th>
-                  <th style={{ minWidth: 150 }}>Supplier</th>
-                  <th>Order #</th>
-                  <th>Cost</th>
-                  <th style={{ minWidth: 140 }}>Location</th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 70, verticalAlign: 'bottom', paddingBottom: 4 }}>
-                    {vrt('Parts at Shop')}
-                  </th>
-                  <th style={{ textAlign: 'center', minWidth: 36, height: 70, verticalAlign: 'bottom', paddingBottom: 4 }}>
-                    {vrt('2 Techs?')}
-                  </th>
-                  <th style={{ minWidth: 170 }}>WH Notes</th>
-                  <th style={{ minWidth: 170 }}>CXR Notes</th>
-                  <th style={{ minWidth: 120 }}>Validity</th>
-                  <th style={{ width: 36 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((o: PEOrder) => {
-                  const rc = rowClass(o);
-                  const editors = presence.filter(p => p.board === 'service' && p.rowId === o.id);
-                  const age = daysSince(o.date);
-                  const linkedCount = o.linked_jobs?.length || 0;
-                  const link = linkGroups.get(o.id);
-                  const isWarranty = ['Yes', 'P', 'P/L', 'L'].includes(o.warranty ?? '');
-                  const trStyle: React.CSSProperties = {};
-                  if (link) trStyle.boxShadow = 'inset 4px 0 0 #d48a0a';
-                  if (focusId === o.id) { trStyle.outline = '2px solid var(--accent)'; trStyle.outlineOffset = -2; }
-                  return (
-                    <tr key={o.id} id={`svc-row-${o.id}`} className={rc}
-                      onFocus={() => setEditing('service', o.id)}
-                      onBlur={() => setEditing('service', null)}
-                      style={Object.keys(trStyle).length ? trStyle : undefined}>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <button className="detail-open-btn" onClick={() => openEditDetail?.(o.id)} title="Edit details">✎</button>
-                        <PresenceBadge peers={editors} />
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <StatusBadge status={o.status} />
-                      </td>
-
-                      <td>
-                        <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: ageColor(age) }}>{fmtMD(o.date)}</span>
-                      </td>
-
-                      <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <input className="si" value={o.job || ''} onChange={e => save(o.id, { job: e.target.value })}
-                            style={{ minWidth: 100, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#2d4a3e', fontWeight: 600 }} />
-                          {o.st_url && (
-                            <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
-                              onClick={e => e.stopPropagation()}
-                              style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
-                          )}
-                          {link && (
-                            <span onClick={() => setSearch(o.job || '')}
-                              title={`Book together — ${link.total} estimates on job #${link.job}. Click to show them all.`}
-                              style={{ background: '#d48a0a', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 10, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                              ‼ {link.idx}/{link.total}
-                            </span>
-                          )}
-                          {linkedCount > 0 && <span className="linked-badge">+{linkedCount}</span>}
-                        </span>
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.tech || ''} onChange={e => save(o.id, { tech: e.target.value })} style={{ minWidth: 100 }}>
-                          <option value="">— tech —</option>
-                          {o.tech && !TECHS.includes(o.tech) && <option value={o.tech}>{o.tech}</option>}
-                          {TECHS.map(t => <option key={t}>{t}</option>)}
-                        </select>
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.estimate_cost || ''} onChange={e => save(o.id, { estimate_cost: e.target.value })} onBlur={e => save(o.id, { estimate_cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} />
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.customer || ''} onChange={e => save(o.id, { customer: e.target.value })} style={{ minWidth: 130 }} />
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.owner || ''} onChange={e => save(o.id, { owner: e.target.value })} style={{ minWidth: 150 }}>
-                          <option value="">— owner —</option>
-                          {OWNERS.map(owner => <option key={owner}>{owner}</option>)}
-                        </select>
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.subtype || ''} onChange={e => {
-                          const v = e.target.value;
-                          const patch: Partial<PEOrder> = { subtype: v };
-                          if (v === 'Membership') patch.owner = 'CXR Team';
-                          else if (v === 'Duct Cleaning') patch.owner = 'Install Dispatcher';
-                          else if (v === 'Plumbing') patch.owner = 'Plumbing Dispatcher';
-                          save(o.id, patch);
-                        }} style={{ minWidth: 90 }}>
-                          <option value="">— type —</option>
-                          {o.subtype && !SVC_SUBTYPES.includes(o.subtype) && <option value={o.subtype}>{o.subtype}</option>}
-                          {SVC_SUBTYPES.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.tech_type || ''} onChange={e => save(o.id, { tech_type: e.target.value })} style={{ minWidth: 90 }}>
-                          <option value="">—</option>
-                          {PARTS_REPAIR.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <input type="checkbox" checked={isWarranty} style={{ width: 16, height: 16, accentColor: '#1565c0', cursor: 'pointer' }}
-                          onChange={e => save(o.id, { warranty: e.target.checked ? 'Yes' : 'No' })} />
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <select className="si-sel" value={o.warranty_type || ''} onChange={e => onWTypeChange(o, e.target.value)}
-                          style={{ minWidth: 50, opacity: isWarranty ? 1 : .3 }}>
-                          <option value="">—</option>
-                          {['P', 'L', 'P/L'].map(w => <option key={w}>{w}</option>)}
-                        </select>
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.part || ''} onChange={e => save(o.id, { part: e.target.value })} title={o.part || ''} placeholder="Part description..." style={{ minWidth: 150 }} />
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <input type="checkbox" checked={!!o.parts_ordered} style={{ width: 16, height: 16, accentColor: '#3a6b4a', cursor: 'pointer' }}
-                          onChange={e => save(o.id, { parts_ordered: e.target.checked })} />
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <input type="checkbox" checked={!!o.part_bo} style={{ width: 16, height: 16, accentColor: '#c0392b', cursor: 'pointer' }}
-                          onChange={e => onPartBOChange(o.id, e.target.checked, o)} />
-                      </td>
-
-                      <td>
-                        <input className="si" type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })} style={{ minWidth: 130 }} />
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <input type="checkbox" checked={!!o.bo_informed} style={{ width: 16, height: 16, accentColor: '#2980b9', cursor: 'pointer' }}
-                          onChange={e => onBOInformedChange(o.id, e.target.checked, o)} />
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.supplier || ''} onChange={e => save(o.id, { supplier: e.target.value })} style={{ minWidth: 150 }}>
-                          <option value="">— select —</option>
-                          {o.supplier && !suppliers.includes(o.supplier) && <option value={o.supplier}>{o.supplier}</option>}
-                          {suppliers.map(s => <option key={s}>{s}</option>)}
-                        </select>
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })} style={{ minWidth: 90, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} />
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} onBlur={e => save(o.id, { cost: fmtMoney(e.target.value) })} placeholder="$0.00" style={{ minWidth: 85 }} />
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)} style={{ minWidth: 140 }}>
-                          <option value="">— select —</option>
-                          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Waiting for Tech/Cus','Cancel PO','Shipping to Supplier','Duct Cleaning - Schedule'].map(l => <option key={l}>{l}</option>)}
-                        </select>
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <input type="checkbox" checked={!!o.parts_at_shop} style={{ width: 16, height: 16, accentColor: '#7d3c98', cursor: 'pointer' }}
-                          onChange={e => onPartsAtShopChange(o.id, e.target.checked)} />
-                      </td>
-
-                      <td style={{ textAlign: 'center' }}>
-                        <input type="checkbox" checked={!!o.two_techs} style={{ width: 16, height: 16, accentColor: '#117a65', cursor: 'pointer' }}
-                          onChange={e => save(o.id, { two_techs: e.target.checked })} />
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.note_wh || ''} onChange={e => save(o.id, { note_wh: e.target.value })} placeholder="WH notes..." />
-                      </td>
-
-                      <td>
-                        <input className="si" value={o.note_cxr || ''} onChange={e => save(o.id, { note_cxr: e.target.value })} placeholder="CXR notes..." />
-                      </td>
-
-                      <td>
-                        <select className="si-sel" value={o.validity || ''} onChange={e => save(o.id, { validity: e.target.value })} style={{ minWidth: 110 }}>
-                          <option value="">— select —</option>
-                          {o.validity && !validities.includes(o.validity) && <option value={o.validity}>{o.validity}</option>}
-                          {validities.map(v => <option key={v}>{v}</option>)}
-                        </select>
-                      </td>
-
-                      <td>
-                        <button className="closeout-x-btn" onClick={() => openCloseout?.(o.id)} title="Close out / Cancel">✕</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <PrefsTable<PEOrder>
+            board="service"
+            columns={columns}
+            rows={sorted}
+            rowKey={(o) => o.id}
+            rowId={(o) => `svc-row-${o.id}`}
+            rowClassName={(o) => rowClass(o)}
+            rowStyle={(o) => {
+              const s: React.CSSProperties = {};
+              if (linkGroups.get(o.id)) s.boxShadow = 'inset 4px 0 0 #d48a0a';
+              if (focusId === o.id) { s.outline = '2px solid var(--accent)'; s.outlineOffset = -2; }
+              return Object.keys(s).length ? s : undefined;
+            }}
+            onRowFocus={(o) => setEditing('service', o.id)}
+            onRowBlur={() => setEditing('service', null)}
+            tableClassName="st-table"
+            containerClassName="svc-container"
+            scrollRef={scrollRef}
+            sort={{ col: sortCol, dir: sortDir, onToggle: toggleSort }}
+            managerOpen={colsOpen}
+            onManagerClose={() => setColsOpen(false)}
+            defaultFrozen={3}
+          />
         )}
       </div>
     </>

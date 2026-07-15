@@ -43,8 +43,8 @@ export default function MultiSelectFilter({
             <button type="button" className="btn" style={{ fontSize: 11, padding: '3px 8px', flex: 1 }} onClick={() => onChange(new Set())}>Clear</button>
           </div>
           {options.map(o => (
-            <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
-              <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} style={{ width: 15, height: 15, cursor: 'pointer' }} />
+            <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 5, cursor: 'pointer', fontSize: 11 }}>
+              <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} style={{ width: 13, height: 13, cursor: 'pointer' }} />
               {o.label}
             </label>
           ))}

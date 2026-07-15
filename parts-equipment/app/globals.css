@@ -1,8 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
 * { font-family: var(--font-sans); box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  color-scheme: light;   /* native controls (date picker icon, etc.) render for light */
   /* Shared font stack — matches AR/AP (system-ui, no webfont dependency) */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
@@ -62,6 +63,7 @@
    Row colors get a hand-tuned dark palette (deeper, muted, still distinct) with
    light text — the team relies on telling teams apart by row color. */
 :root[data-theme="dark"] {
+  color-scheme: dark;    /* native date picker icon + controls render light on dark */
   --bg: #0F1210;                  /* AR --bg-primary */
   --bg2: #161B18;                 /* AR --bg-secondary */
   --surface: #1C231E;             /* AR --bg-card */
@@ -141,7 +143,7 @@ header {
 .logo-text { font-size: 15px; font-weight: 600; }
 .logo-sub { font-size: 15px; color: var(--muted); font-weight: 400; margin-left: 2px; }
 .header-right { display: flex; align-items: center; gap: 12px; }
-.last-sync { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+.last-sync { font-family: var(--font-sans); font-size: 12px; color: var(--muted); }
 .sync-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   background: var(--green); margin-right: 5px;
@@ -221,8 +223,9 @@ header {
   padding: 0 24px;
   background: var(--bg);
   box-shadow: none;
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
 }
+.pe-page-title { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -.01em; margin: 0; }
 .pe-topbar-spacer { flex: 1; }
 .pe-hamburger { display: none; background: none; border: none; color: var(--text); cursor: pointer; padding: 4px; }
 .pe-hamburger svg { width: 24px; height: 24px; }
@@ -311,13 +314,14 @@ header {
 /* ─── OWNER BAR ─── */
 .owner-bar {
   display: flex; flex-wrap: wrap; gap: 8px;
-  padding: 10px 24px; background: var(--bg); border-bottom: 1px solid var(--border);
+  padding: 10px 24px; background: var(--bg);
 }
 .owner-card {
   display: flex; align-items: center; gap: 10px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 9px 14px;
-  cursor: pointer; transition: all .15s; box-shadow: var(--shadow); min-width: 110px;
+  cursor: pointer; transition: all .15s; box-shadow: var(--shadow);
+  flex: 1 1 120px; min-width: 110px;  /* grow equally to span the full table width */
 }
 .owner-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .owner-card.active { box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow); border-color: var(--accent); }
@@ -327,38 +331,42 @@ header {
 
 /* ─── TOOLBAR ─── */
 .toolbar {
-  padding: 10px 24px; display: flex; align-items: center;
+  padding: 4px 24px 12px; display: flex; align-items: center;
   gap: 10px; flex-wrap: wrap;
-  background: var(--surface); border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+  background: var(--bg);
 }
 .search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 260px; }
 .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .4; }
 .search-input {
   width: 100%; background: var(--surface2); border: 1px solid var(--border2);
   border-radius: var(--radius-sm); padding: 7px 10px 7px 32px;
-  font-size: 13px; color: var(--text); font-family: var(--font-sans);
+  font-size: 11px; color: var(--text); font-family: var(--font-sans);
   outline: none; transition: border-color .15s;
 }
 .search-input:focus { border-color: var(--accent); }
 .search-input::placeholder { color: var(--muted2); }
-select.filter {
+/* Shared base for filter controls — themed for both native selects and the
+   custom MultiSelectFilter button (both use className="filter"). */
+.filter {
   background: var(--surface2); border: 1px solid var(--border2);
-  border-radius: var(--radius-sm); padding: 7px 28px 7px 10px;
-  font-size: 13px; color: var(--text); font-family: var(--font-sans);
-  outline: none; cursor: pointer; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7592'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 10px center;
+  border-radius: var(--radius-sm); padding: 7px 10px;
+  font-size: 11px; color: var(--text); font-family: var(--font-sans);
+  outline: none; cursor: pointer;
   transition: border-color .15s;
 }
-select.filter:focus { border-color: var(--accent); }
-.row-count { font-size: 12px; color: var(--muted); margin-left: auto; font-family: 'IBM Plex Mono', monospace; }
+select.filter {
+  padding-right: 28px; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7592'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+.filter:focus { border-color: var(--accent); }
+.row-count { font-size: 12px; color: var(--muted); margin-left: auto; font-family: var(--font-sans); }
 
 /* ─── TABLE WRAP ─── */
 .table-wrap { padding: 12px 24px; overflow-x: auto; }
 
 /* ─── SERVICE TABLE ─── */
-.st-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.st-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 .st-table th {
   background: var(--accent-dark); color: var(--on-accent);
   font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase;
@@ -373,14 +381,14 @@ select.filter:focus { border-color: var(--accent); }
 }
 .si {
   width: 100%; border: 1px solid transparent; background: transparent;
-  font-size: 12px; font-family: var(--font-sans); color: var(--text);
-  padding: 3px 4px; border-radius: 3px;
+  font-size: 11px; font-family: var(--font-sans); color: var(--text);
+  padding: 3px 4px; border-radius: 3px; text-align: center;
 }
 .si:focus { outline: 2px solid var(--accent); border-radius: 3px; background: var(--surface); }
 .si-sel {
   width: 100%; min-width: 70px; border: 1px solid var(--border2);
-  background: var(--surface); font-size: 12px; font-family: var(--font-sans);
-  color: var(--text); padding: 4px 5px; cursor: pointer; border-radius: 3px;
+  background: var(--surface); font-size: 11px; font-family: var(--font-sans);
+  color: var(--text); padding: 4px 5px; cursor: pointer; border-radius: 3px; text-align: center;
 }
 .si-sel:focus { outline: 2px solid var(--accent); border-radius: 3px; }
 .detail-open-btn {
@@ -398,7 +406,7 @@ select.filter:focus { border-color: var(--accent); }
 .svc-container { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 215px); }
 
 /* ─── INSTALL TABLE ─── */
-.it-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.it-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .it-table th {
   background: var(--accent-dark); color: var(--on-accent);
   font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase;
@@ -411,14 +419,14 @@ select.filter:focus { border-color: var(--accent); }
 .inst-container { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 215px); }
 
 /* ─── WARRANTY TRACKER TABLE ─── */
-.wt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wt-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .wt-table th {
   background: var(--accent-dark); color: var(--on-accent);
   font-size: 11px; font-weight: 600; padding: 8px 7px;
   white-space: nowrap; border: 1px solid rgba(255,255,255,.25);
   position: sticky; top: 0; z-index: 2; text-align: left;
 }
-.wt-table td { padding: 6px 6px; border: 1px solid var(--border); vertical-align: middle; font-size: 12px; color: var(--text); }
+.wt-table td { padding: 6px 6px; border: 1px solid var(--border); vertical-align: middle; font-size: 11px; color: var(--text); }
 .wt-table tr:nth-child(even) td { background: var(--surface2); }
 .wt-table tr:hover td { background: var(--surface3) !important; }
 .wt-yn {
@@ -430,8 +438,8 @@ select.filter:focus { border-color: var(--accent); }
 .wt-yn.yn-no { background: var(--red-dim); color: var(--red); border-color: var(--red); }
 .wt-input {
   width: 100%; border: 1px solid transparent; background: transparent;
-  font-size: 12px; font-family: var(--font-sans); color: var(--text);
-  padding: 3px 3px; border-radius: 3px;
+  font-size: 11px; font-family: var(--font-sans); color: var(--text);
+  padding: 3px 3px; border-radius: 3px; text-align: center;
 }
 .wt-input:focus { outline: 2px solid var(--accent); background: var(--surface); border-radius: 3px; }
 .wt-totals-row td { background: var(--surface3) !important; font-weight: 700; font-size: 12px; }
@@ -609,16 +617,9 @@ tr.row-cancelled td * { text-decoration: line-through; color: #999 !important; }
 .form-check-row input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 .wizard-footer { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
 
-/* ─── AUDIT PANEL ─── */
-.audit-panel {
-  position: fixed; inset: 0; background: rgba(30,37,53,.45);
-  z-index: 200; display: flex; align-items: flex-start; justify-content: flex-end;
-}
-.audit-inner {
-  width: 480px; height: 100vh; background: var(--surface);
-  border-left: 1px solid var(--border); padding: 24px; overflow-y: auto;
-  box-shadow: -4px 0 24px rgba(0,0,0,.1);
-}
+/* ─── AUDIT PANEL ─── (positioning comes from `.panel`; width from `.audit-panel` below.
+   The old full-screen `.audit-panel`/`.audit-inner` overlay was removed — it collided
+   with `.panel` and pushed the drawer to the wrong side.) */
 .audit-entry { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
 .audit-filter { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
 .audit-filter-btn {
@@ -798,4 +799,37 @@ tr.row-cancelled td * { text-decoration: line-through; color: #999 !important; }
   .stat-bar { grid-template-columns: repeat(3, 1fr); }
   .modal { width: 100%; }
   .wizard { width: 100%; max-height: 100vh; border-radius: 0; }
+}
+
+/* ─── CONFIG-DRIVEN TABLE HEADERS (Option A: strip + wrapped label) ───
+   Used by PrefsTable. Inherits the green header bg from `.st-table th`; this
+   overrides padding + adds the top affordance strip (⠿ drag, ▲▼ sort) with the
+   column title wrapping below. Resize grip sits on the right edge. */
+th.pref-th { padding: 0 !important; vertical-align: middle; position: relative; }
+/* The affordance strip floats as a thin overlay pinned to the top, so it doesn't
+   push the label down — the label then centers in the FULL header height. */
+.pref-th-inner { position: relative; min-height: 58px; }
+.pref-th-strip {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 4px; padding: 3px 7px 0; min-height: 15px;
+}
+.pref-grip { opacity: .55; cursor: grab; font-size: 12px; line-height: 1; letter-spacing: -1px; }
+.pref-th:hover .pref-grip { opacity: .9; }
+.pref-sort { cursor: pointer; font-size: 9px; opacity: .55; padding: 1px 2px; border-radius: 3px; }
+.pref-sort:hover { opacity: 1; background: rgba(255,255,255,.15); }
+.pref-sort.active { opacity: 1; }
+.pref-th-label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; justify-content: center;  /* center in the full box */
+  padding: 4px 7px;   /* symmetric → stays centered; small so 2-line labels get full room */
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .3px; line-height: 1.2;
+  white-space: normal; word-break: break-word;
+  pointer-events: none;    /* click-through: the tiny ⠿/▲▼ overlay the top corners over the centered text */
+}
+.pref-resize { position: absolute; top: 0; right: 0; height: 100%; width: 6px; cursor: col-resize; z-index: 5; }
+.pref-resize:hover::after {
+  content: ''; position: absolute; right: 2px; top: 20%; height: 60%; width: 2px;
+  background: rgba(255,255,255,.45); border-radius: 2px;
 }
