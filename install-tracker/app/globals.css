@@ -178,6 +178,56 @@ button { font: inherit; }
 .sw.src-debrief { background: #a488cf; }
 .sw.src-manual { background: transparent; border: 1px solid var(--border-default); }
 
+/* ---------- Workflow Health dashboard ---------- */
+.hh-eyebrow { font: 700 12px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--christmas-green-light); }
+.hh-section { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 16px;
+  padding: 20px 24px 24px; box-shadow: var(--shadow); margin-top: 20px; }
+.hh-shead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.hh-stitle { font-size: 17px; font-weight: 680; letter-spacing: -.2px; }
+.hh-stitle.money { color: var(--christmas-brown); }
+.hh-ic { color: var(--christmas-green); }
+.hh-tag { font: 600 12.5px/1 var(--sans); color: var(--text-primary); background: var(--bg-card);
+  border: 1px solid var(--border-subtle); border-radius: 999px; padding: 4px 11px; }
+.hh-tag.money { color: var(--christmas-brown); border-color: color-mix(in srgb, var(--christmas-brown) 30%, var(--border-subtle)); }
+.hh-ssub { font-size: 12.5px; color: var(--text-muted); margin: 0 0 18px; }
+
+.hh-funnel { display: flex; flex-direction: column; gap: 3px; }
+.hh-row { display: grid; grid-template-columns: 148px 1fr 140px; align-items: center; gap: 14px; }
+.hh-name { font-size: 13.5px; font-weight: 600; text-align: right; }
+.hh-n2 { display: block; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.hh-track { display: flex; justify-content: center; align-items: center; height: 44px; }
+.hh-bar { height: 100%; min-width: 44px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 17px; box-shadow: var(--shadow); }
+.hh-bar.fresh { background: var(--christmas-green); }
+.hh-bar.zero { background: transparent; color: var(--text-muted); border: 1.5px dashed var(--border-default); box-shadow: none; font-weight: 500; font-size: 13px; }
+.hh-bar.manual { width: 150px; background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 6px, transparent 6px, transparent 12px);
+  border: 1.5px dashed var(--border-default); color: var(--text-muted); box-shadow: none; font: 600 11px/1 var(--sans); text-transform: uppercase; letter-spacing: .04em; }
+.hh-age { font-size: 12px; color: var(--text-secondary); }
+.hh-age.gap { color: var(--text-muted); font-style: italic; }
+.hh-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; background: var(--christmas-green); }
+.hh-conn { display: grid; grid-template-columns: 148px 1fr 140px; }
+.hh-conn i { grid-column: 2; height: 9px; width: 2px; background: var(--border-default); justify-self: center; }
+.hh-good { margin-top: 16px; font-size: 13px; color: var(--christmas-green-light); font-weight: 560; }
+
+.hh-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.hh-chip { border-radius: 10px; padding: 9px 13px; border: 1px solid var(--border-subtle); background: var(--bg-card); }
+.hh-cn { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hh-cl { font-size: 11.5px; color: var(--text-muted); }
+.hh-chip.over { border-color: color-mix(in srgb, var(--status-error) 45%, var(--border-subtle)); background: color-mix(in srgb, var(--status-error) 8%, var(--bg-card)); }
+.hh-chip.over .hh-cn { color: var(--status-error); }
+
+.hh-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.hh-table thead th { text-align: left; font: 600 11px/1 var(--sans); text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border-subtle); }
+.hh-table th.r, .hh-table td.r { text-align: right; }
+.hh-table tbody td { padding: 9px 8px; border-bottom: 1px solid var(--border-subtle); }
+.hh-table tbody tr.overdue td { background: color-mix(in srgb, var(--status-error) 7%, transparent); }
+.hh-cust { font-weight: 560; }
+.hh-inv { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.hh-bal { font-variant-numeric: tabular-nums; font-weight: 600; }
+.hh-days { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.hh-days.bad { color: var(--status-error); }
+.hh-more { color: var(--text-muted); font-size: 12.5px; padding: 10px 8px 0; }
+
 /* ---------- No access (feature-gated) ---------- */
 .noaccess { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .noaccess-card { max-width: 440px; text-align: center; background: var(--surface);

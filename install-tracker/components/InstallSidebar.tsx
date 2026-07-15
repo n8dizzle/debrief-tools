@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const links = [
   { href: '/', label: 'Workflows', icon: 'map' },
   { href: '/deals', label: 'Deals', icon: 'jobs' },
+  { href: '/health', label: 'Health', icon: 'health' },
 ];
 
 function NavIcon({ type }: { type: string }) {
@@ -23,6 +24,11 @@ function NavIcon({ type }: { type: string }) {
     arrow: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+    ),
+    health: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h4l2 5 4-10 2 5h6" />
       </svg>
     ),
   };
