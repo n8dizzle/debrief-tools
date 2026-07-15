@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import InstallTimeline from '@/components/InstallTimeline';
-import { getInstallStages } from '@/lib/install-data';
+import { getInstallStages, getBuiltWorkflows } from '@/lib/install-data';
 
 // Server component: read the install map from the database (falls back to seed).
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   const sp = await searchParams;
   const active: WorkflowKey =
     sp.workflow === 'partial' || sp.workflow === 'warranty' ? sp.workflow : 'full_system';
-  const { stages, source } = await getInstallStages();
+  const [{ stages, source }, built] = await Promise.all([getInstallStages(active), getBuiltWorkflows()]);
+  const hasTemplate = stages.length > 0;
 
   return (
     <div className="wrap">
@@ -45,12 +46,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
             aria-selected={active === w.key}
           >
             {w.label}
-            {w.key !== 'full_system' && <span className="tab-count">soon</span>}
+            {!built.has(w.key) && <span className="tab-count">soon</span>}
           </Link>
         ))}
       </div>
 
-      {active === 'full_system' ? (
+      {hasTemplate ? (
         <>
           <div className="legend">
             <span className="legend-lead">How each step gets filled:</span>
@@ -60,14 +61,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
             <span><i className="sw src-manual" />Manual</span>
           </div>
 
-          <InstallTimeline stages={stages} fromDb={source === 'db'} />
+          <InstallTimeline stages={stages} fromDb={source === 'db'} workflow={active} />
         </>
       ) : (
         <div className="wf-stub">
           <div className="wf-stub-mark">🛠️</div>
           <h2>{WORKFLOWS.find((w) => w.key === active)!.label} Workflow</h2>
-          <p className="wf-stub-blurb">{STUB[active].blurb}</p>
-          <p className="wf-stub-note">{STUB[active].note}</p>
+          <p className="wf-stub-blurb">{STUB[active as 'partial' | 'warranty'].blurb}</p>
+          <p className="wf-stub-note">{STUB[active as 'partial' | 'warranty'].note}</p>
           <p className="wf-stub-foot">
             We&apos;ll build this template once Full System is dialed in.{' '}
             <Link href="/" className="joblink">← Back to Full System</Link>

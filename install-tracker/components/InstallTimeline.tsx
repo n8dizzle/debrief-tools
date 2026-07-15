@@ -67,9 +67,11 @@ function EditField({
 export default function InstallTimeline({
   stages,
   fromDb,
+  workflow = 'full_system',
 }: {
   stages: Stage[];
   fromDb: boolean;
+  workflow?: string;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -122,7 +124,7 @@ export default function InstallTimeline({
   async function commitAdd(parentId: string | null) {
     const title = addValue.trim();
     if (!title) { setAdding(null); return; }
-    const ok = await api('POST', { title, parent_id: parentId });
+    const ok = await api('POST', { title, parent_id: parentId, workflow });
     if (ok) { setAdding(null); setAddValue(''); }
   }
 

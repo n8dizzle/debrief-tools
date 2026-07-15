@@ -34,28 +34,31 @@ export async function POST(request: NextRequest) {
   const parentId: string | null = body.parent_id ?? null;
   if (!title) return NextResponse.json({ error: 'A title is required.' }, { status: 400 });
 
-  // Derive depth from the parent (guard against exceeding the cap).
+  // Derive depth + workflow from the parent (sub-steps inherit their stage's workflow);
+  // a new top-level stage takes the workflow from the body (the tab being edited).
   let depth = 0;
+  let workflow: string = typeof body.workflow === 'string' ? body.workflow : 'full_system';
   if (parentId) {
     const { data: parent } = await supabase
-      .from('install_nodes').select('depth').eq('id', parentId).maybeSingle<{ depth: number }>();
+      .from('install_nodes').select('depth, workflow').eq('id', parentId).maybeSingle<{ depth: number; workflow: string }>();
     if (!parent) return NextResponse.json({ error: 'Parent not found.' }, { status: 404 });
     depth = parent.depth + 1;
+    workflow = parent.workflow;
     if (depth > MAX_DEPTH) {
       return NextResponse.json({ error: 'Maximum nesting depth reached.' }, { status: 400 });
     }
   }
 
-  // Next sort_order = end of the sibling list (same parent, not archived).
+  // Next sort_order = end of the sibling list (same parent + workflow, not archived).
   let q = supabase.from('install_nodes').select('sort_order').eq('is_archived', false)
     .order('sort_order', { ascending: false }).limit(1);
-  q = parentId ? q.eq('parent_id', parentId) : q.is('parent_id', null);
+  q = parentId ? q.eq('parent_id', parentId) : q.is('parent_id', null).eq('workflow', workflow);
   const { data: maxRow } = await q.maybeSingle<{ sort_order: number }>();
   const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
   const { data, error } = await supabase
     .from('install_nodes')
-    .insert({ title, parent_id: parentId, depth, sort_order: nextOrder })
+    .insert({ title, parent_id: parentId, depth, sort_order: nextOrder, workflow })
     .select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ node: data });

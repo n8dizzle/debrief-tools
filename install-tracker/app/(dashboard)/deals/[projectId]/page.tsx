@@ -6,10 +6,12 @@ import DealPipeline from '@/components/DealPipeline';
 
 export const dynamic = 'force-dynamic';
 
+const WORKFLOWS = ['full_system', 'partial', 'warranty'];
+
 export default async function DealPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
   const pid = Number(projectId);
-  const [{ stages }, deal] = await Promise.all([getInstallStages(), getDeal(pid)]);
+  const deal = await getDeal(pid);
 
   if (!deal) {
     return (
@@ -20,7 +22,11 @@ export default async function DealPage({ params }: { params: Promise<{ projectId
     );
   }
 
-  const [estimates, stepStatus] = await Promise.all([getProjectEstimates(pid), getDealStepStatus(pid)]);
+  // Load the template for this deal's workflow: its assigned triage workflow, else the
+  // classifier's suggestion, else Full System.
+  const wf = WORKFLOWS.includes(deal.triage_status) ? deal.triage_status
+    : (deal.suggested_class && WORKFLOWS.includes(deal.suggested_class) ? deal.suggested_class : 'full_system');
+  const [{ stages }, estimates, stepStatus] = await Promise.all([getInstallStages(wf), getProjectEstimates(pid), getDealStepStatus(pid)]);
   const pipeline = deriveDealPipeline(stages, deal, stepStatus);
 
   const allSteps = pipeline.flatMap((s) => s.subSteps);
