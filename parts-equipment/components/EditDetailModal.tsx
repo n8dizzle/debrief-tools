@@ -330,12 +330,12 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
           {/* Completion info if completed */}
           {order.status === 'completed' && (
             <div className="detail-section">
-              <div className="detail-section-title">Completion Info</div>
+              <div className="detail-section-title">Scheduled Info</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {fieldGroup('Completed By', (
+                {fieldGroup('Scheduled By', (
                   <input style={inputStyle} value={order.completed_by || ''} onChange={e => saveField('completed_by', e.target.value)} />
                 ))}
-                {fieldGroup('Completed At', (
+                {fieldGroup('Scheduled At', (
                   <input style={inputStyle} type="date" value={order.completed_at || ''} onChange={e => saveField('completed_at', e.target.value)} />
                 ))}
               </div>

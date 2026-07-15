@@ -173,7 +173,7 @@ export default function InstallPage() {
           { key: 'Backordered', label: 'Backordered', count: stats.bo, color: 'col-red', status: 'open' as const },
           { key: 'scheduled', label: 'Scheduled', count: stats.scheduled, color: 'col-green', status: 'open' as const },
           { key: 'aging', label: 'Over 30 Days', count: stats.aging, color: 'col-red', status: 'open' as const },
-          { key: 'completed', label: 'Completed', count: stats.done, color: 'col-green', status: 'completed' as const },
+          { key: 'completed', label: 'Booked', count: stats.done, color: 'col-green', status: 'completed' as const },
         ].map(s => (
           <div key={s.key} className={`stat${statFilter === s.key ? ' active' : ''}`}
             onClick={() => setActiveStatFilter(s.key, s.status)}>
@@ -195,7 +195,7 @@ export default function InstallPage() {
         </select>
         <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
           <option value="open">Open</option>
-          <option value="completed">Completed</option>
+          <option value="completed">Scheduled</option>
           <option value="all">All</option>
         </select>
         <span className="row-count">{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>

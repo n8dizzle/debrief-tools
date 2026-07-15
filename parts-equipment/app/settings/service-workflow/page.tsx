@@ -113,9 +113,9 @@ export default function ServiceWorkflowPage() {
               <p>Part&apos;s in — book the repair appointment in ServiceTitan. Hand-off back to automation.</p></div></div>
           <div className="step"><div className="rail"><div className="num a">5</div></div>
             <div className="card"><span className="who a">Automatic</span>
-              <h4>Order auto-completes</h4>
-              <p>Booking the job removes its estimate from the report. Next sync marks the order <strong>Complete</strong> and it drops off the open board.</p>
-              <div className="fields"><span className="chip a">Status → Completed</span></div></div></div>
+              <h4>Order auto-schedules</h4>
+              <p>Booking the job puts the estimate&apos;s items onto that job. Next sync sees the items are invoiced and marks the order <strong>Scheduled</strong>, dropping it off the open board.</p>
+              <div className="fields"><span className="chip a">Status → Scheduled</span></div></div></div>
         </div>
 
         <h2 className="sec">The owner hand-off</h2>

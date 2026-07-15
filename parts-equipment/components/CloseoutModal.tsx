@@ -120,10 +120,10 @@ export default function CloseoutModal({ orderId, onClose }: Props) {
           {mode === 'closeout' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ padding: '10px 14px', background: '#eafaf1', border: '1px solid #a9dfbf', borderRadius: 8, fontSize: 13, color: '#1e8449' }}>
-                This will mark the order as <strong>Completed</strong> and remove it from the active queue.
+                This will mark the order as <strong>Scheduled</strong> and remove it from the active queue.
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Completed By <span style={{ color: '#c0392b' }}>*</span></label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Scheduled By <span style={{ color: '#c0392b' }}>*</span></label>
                 <input style={inputStyle} value={completedBy} onChange={e => setCompletedBy(e.target.value)} placeholder="Your name" autoFocus />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
