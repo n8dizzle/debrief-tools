@@ -1,29 +1,38 @@
 'use client';
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import type { PEWarrantyClaim } from '@/types';
-import { formatLocalDate } from '@/lib/pe-utils';
+import { formatLocalDate, compareValues } from '@/lib/pe-utils';
 import PresenceBadge from '@/components/PresenceBadge';
+import MultiSelectFilter from '@/components/MultiSelectFilter';
+import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
 
 export default function WarrantyPage() {
   const ctx = useOrders() as OrdersContextValue;
   const { warrantyOrders, setWarrantyOrders, showToast, isLoading, presence, setEditing } = ctx;
 
-  // Clear my presence when leaving this board (route change removes the focused
-  // input without firing blur, so onBlur alone would leave my avatar stuck here).
+  // Clear my presence when leaving this board.
   useEffect(() => () => setEditing('warranty', null), [setEditing]);
 
-  // Pin the Active + Completed panes into one viewport-filling column so both
-  // tables' horizontal scrollbars stay in view (consistent with Service/Install).
   const scrollRef = useRef<HTMLDivElement>(null);
   useFillViewportHeight(scrollRef, [isLoading]);
 
+  const [search, setSearch] = useState('');
+  // Active = not yet paid; Completed = paid. Default: Active. Empty = show all.
+  const [statuses, setStatuses] = useState<Set<string>>(() => new Set(['active']));
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [colsOpen, setColsOpen] = useState(false);
+
+  function toggleSort(col: string) {
+    if (sortCol === col) setSortDir(d => (d === 1 ? -1 : 1));
+    else { setSortCol(col); setSortDir(1); }
+  }
+
   function save(id: number, field: keyof PEWarrantyClaim, value: string) {
-    setWarrantyOrders((prev: PEWarrantyClaim[]) =>
-      prev.map(w => w.id === id ? { ...w, [field]: value } : w)
-    );
+    setWarrantyOrders((prev: PEWarrantyClaim[]) => prev.map(w => w.id === id ? { ...w, [field]: value } : w));
     fetch(`/api/warranty/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -57,176 +66,156 @@ export default function WarrantyPage() {
       body: JSON.stringify(newW),
     })
       .then(r => r.json())
-      .then(({ claim }) => {
-        if (claim) setWarrantyOrders((prev: PEWarrantyClaim[]) => [claim, ...prev]);
-      })
+      .then(({ claim }) => { if (claim) setWarrantyOrders((prev: PEWarrantyClaim[]) => [claim, ...prev]); })
       .catch(() => {
         const tempW = { ...newW, id: Date.now(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as unknown as PEWarrantyClaim;
         setWarrantyOrders((prev: PEWarrantyClaim[]) => [tempW, ...prev]);
       });
   }
 
-  const active = useMemo(() => (warrantyOrders as PEWarrantyClaim[]).filter(w => w.paid !== 'Yes'), [warrantyOrders]);
-  const completed = useMemo(() => (warrantyOrders as PEWarrantyClaim[]).filter(w => w.paid === 'Yes'), [warrantyOrders]);
+  const claims = warrantyOrders as PEWarrantyClaim[];
 
-  const totCharged = useMemo(() => active.reduce((s, w) => s + (parseFloat(w.amt_charged ?? '') || 0), 0), [active]);
-  const totRefunded = useMemo(() => active.reduce((s, w) => s + (parseFloat(w.amt_refunded ?? '') || 0), 0), [active]);
+  const filtered = useMemo(() => {
+    return claims.filter(w => {
+      const bucket = w.paid === 'Yes' ? 'completed' : 'active';
+      if (statuses.size > 0 && !statuses.has(bucket)) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const hay = [
+          w.job, w.customer, w.mfgr, w.main_model_num, w.main_unit_sn,
+          w.failed_part_num, w.failed_part_serial, w.mfg_invoice_num, w.repl_part_num, w.repl_part_serial,
+          w.claim_num, w.credit_approved, w.return_required, w.amt_charged, w.amt_refunded, w.paid,
+          w.fail_date, w.repair_date, w.date_of_claim,
+        ].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [claims, statuses, search]);
 
-  function inp(w: PEWarrantyClaim, field: keyof PEWarrantyClaim, type = 'text') {
-    return (
-      <input
-        className="wt-input"
-        type={type}
-        value={(w[field] as string) || ''}
-        onChange={e => save(w.id, field, e.target.value)}
-        style={{ minWidth: type === 'date' ? 110 : 75 }}
-      />
-    );
-  }
+  const sorted = useMemo(() => {
+    if (!sortCol) return filtered;
+    const key = sortCol;
+    return [...filtered].sort((a, b) => compareValues((a as unknown as Record<string, unknown>)[key], (b as unknown as Record<string, unknown>)[key]) * sortDir);
+  }, [filtered, sortCol, sortDir]);
 
-  function ynSel(w: PEWarrantyClaim, field: keyof PEWarrantyClaim) {
+  const totCharged = useMemo(() => filtered.reduce((s, w) => s + (parseFloat(w.amt_charged ?? '') || 0), 0), [filtered]);
+  const totRefunded = useMemo(() => filtered.reduce((s, w) => s + (parseFloat(w.amt_refunded ?? '') || 0), 0), [filtered]);
+
+  // ── shared cell renderers ──
+  const inp = (w: PEWarrantyClaim, field: keyof PEWarrantyClaim, type = 'text') => (
+    <input className="wt-input" type={type} value={(w[field] as string) || ''} onChange={e => save(w.id, field, e.target.value)} />
+  );
+  const ynSel = (w: PEWarrantyClaim, field: keyof PEWarrantyClaim) => {
     const val = (w[field] as string) || '';
     const cls = val === 'Yes' ? 'wt-yn yn-yes' : val === 'No' ? 'wt-yn yn-no' : 'wt-yn';
     return (
       <select className={cls} value={val} onChange={e => save(w.id, field, e.target.value)}>
-        <option value="">—</option>
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
+        <option value="">—</option><option value="Yes">Yes</option><option value="No">No</option>
       </select>
     );
-  }
+  };
 
-  function renderTable(rows: PEWarrantyClaim[], isCompleted: boolean) {
-    if (!rows.length) {
-      return (
-        <div style={{ padding: 16, color: 'var(--muted)', fontSize: 13 }}>
-          {isCompleted ? 'No completed claims yet.' : 'No active warranty claims yet. Click + Add Claim to begin.'}
-        </div>
-      );
-    }
-    return (
-      <table className={`wt-table${isCompleted ? ' wt-completed' : ''}`}>
-        <thead>
-          <tr>
-            <th style={{ minWidth: 110 }}>Ticket #</th>
-            <th style={{ minWidth: 130 }}>Full Name</th>
-            <th style={{ minWidth: 90 }}>MFGR</th>
-            <th style={{ minWidth: 110 }}>Fail Date</th>
-            <th style={{ minWidth: 110 }}>Repair Date</th>
-            <th style={{ minWidth: 115 }}>Main Unit MN</th>
-            <th style={{ minWidth: 115 }}>Main Unit SN</th>
-            <th style={{ minWidth: 115 }}>Failed Part PN</th>
-            <th style={{ minWidth: 115 }}>Failed Part SN</th>
-            <th style={{ minWidth: 125 }}>Mfg Invoice #</th>
-            <th style={{ minWidth: 115 }}>Repl. Part PN</th>
-            <th style={{ minWidth: 115 }}>Repl. Part SN</th>
-            <th style={{ minWidth: 110 }}>Date of Claim</th>
-            <th style={{ minWidth: 105 }}>Claim #</th>
-            <th style={{ minWidth: 85 }}>Credit Approved?</th>
-            <th style={{ minWidth: 85 }}>Return Required?</th>
-            <th style={{ minWidth: 95 }}>Amt Charged</th>
-            <th style={{ minWidth: 95 }}>Amt Refunded</th>
-            <th style={{ minWidth: 75 }}>PAID?</th>
-            <th style={{ width: 30 }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(w => (
-            <tr key={w.id}
-              onFocus={() => setEditing('warranty', w.id)}
-              onBlur={() => setEditing('warranty', null)}>
-              <td>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <input className="wt-input" value={w.job || ''} onChange={e => save(w.id, 'job', e.target.value)} style={{ minWidth: 80 }} />
-                  <PresenceBadge peers={presence.filter(p => p.board === 'warranty' && p.rowId === w.id)} />
-                  {w.job && (
-                    <a href={`https://go.servicetitan.com/#/Job/Index/${w.job}`} target="_blank" rel="noopener noreferrer"
-                      title="Open job in ServiceTitan" onClick={e => e.stopPropagation()}
-                      style={{ textDecoration: 'none', color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>↗</a>
-                  )}
-                </span>
-              </td>
-              <td>{inp(w, 'customer')}</td>
-              <td>{inp(w, 'mfgr')}</td>
-              <td>{inp(w, 'fail_date', 'date')}</td>
-              <td>{inp(w, 'repair_date', 'date')}</td>
-              <td>{inp(w, 'main_model_num')}</td>
-              <td>{inp(w, 'main_unit_sn')}</td>
-              <td>{inp(w, 'failed_part_num')}</td>
-              <td>{inp(w, 'failed_part_serial')}</td>
-              <td>{inp(w, 'mfg_invoice_num')}</td>
-              <td>{inp(w, 'repl_part_num')}</td>
-              <td>{inp(w, 'repl_part_serial')}</td>
-              <td>{inp(w, 'date_of_claim', 'date')}</td>
-              <td>{inp(w, 'claim_num')}</td>
-              <td>{ynSel(w, 'credit_approved')}</td>
-              <td>{ynSel(w, 'return_required')}</td>
-              <td>
-                <input className="wt-input" type="text" value={w.amt_charged || ''} onChange={e => save(w.id, 'amt_charged', e.target.value)} placeholder="$0.00" style={{ minWidth: 75 }} />
-              </td>
-              <td>
-                <input className="wt-input" type="text" value={w.amt_refunded || ''} onChange={e => save(w.id, 'amt_refunded', e.target.value)} placeholder="$0.00" style={{ minWidth: 75 }} />
-              </td>
-              <td>
-                <select className={w.paid === 'Yes' ? 'wt-yn yn-yes' : 'wt-yn'} value={w.paid || ''} onChange={e => markPaid(w.id, e.target.value)}>
-                  <option value="">—</option>
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-              </td>
-              <td>
-                <button onClick={() => deleteRow(w.id)} style={{ background: '#c0392b', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 6px', fontSize: 11, cursor: 'pointer', fontFamily: 'Roboto, sans-serif' }}>✕</button>
-              </td>
-            </tr>
-          ))}
-          {!isCompleted && (
-            <tr className="wt-totals-row">
-              <td colSpan={16} style={{ textAlign: 'right', paddingRight: 12, fontWeight: 700 }}>TOTALS</td>
-              <td>${totCharged.toFixed(2)}</td>
-              <td style={{ color: '#1a7a4a' }}>${totRefunded.toFixed(2)}</td>
-              <td colSpan={2}></td>
-            </tr>
+  const columns = useMemo<PrefsColumn<PEWarrantyClaim>[]>(() => [
+    {
+      key: 'job', label: 'Ticket #', defaultWidth: 150, minWidth: 100,
+      render: (w) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <input className="wt-input" value={w.job || ''} onChange={e => save(w.id, 'job', e.target.value)}
+            size={Math.max((w.job || '').length, 3)} style={{ width: 'auto', flex: '0 0 auto' }} />
+          <PresenceBadge peers={presence.filter(p => p.board === 'warranty' && p.rowId === w.id)} />
+          {w.job && (
+            <a href={`https://go.servicetitan.com/#/Job/Index/${w.job}`} target="_blank" rel="noopener noreferrer"
+              title="Open job in ServiceTitan" onClick={e => e.stopPropagation()}
+              style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text)', flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
           )}
-        </tbody>
-      </table>
-    );
-  }
-
-  if (isLoading) {
-    return <div className="empty"><div className="empty-icon">◎</div><p>Loading...</p></div>;
-  }
+        </span>
+      ),
+    },
+    { key: 'customer', label: 'Full Name', defaultWidth: 150, minWidth: 100, render: (w) => inp(w, 'customer') },
+    { key: 'mfgr', label: 'MFGR', defaultWidth: 100, minWidth: 70, render: (w) => inp(w, 'mfgr') },
+    { key: 'fail_date', label: 'Fail Date', defaultWidth: 130, minWidth: 110, render: (w) => inp(w, 'fail_date', 'date') },
+    { key: 'repair_date', label: 'Repair Date', defaultWidth: 130, minWidth: 110, render: (w) => inp(w, 'repair_date', 'date') },
+    { key: 'main_model_num', label: 'Main Unit MN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'main_model_num') },
+    { key: 'main_unit_sn', label: 'Main Unit SN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'main_unit_sn') },
+    { key: 'failed_part_num', label: 'Failed Part PN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'failed_part_num') },
+    { key: 'failed_part_serial', label: 'Failed Part SN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'failed_part_serial') },
+    { key: 'mfg_invoice_num', label: 'Mfg Invoice #', defaultWidth: 125, minWidth: 90, render: (w) => inp(w, 'mfg_invoice_num') },
+    { key: 'repl_part_num', label: 'Repl. Part PN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'repl_part_num') },
+    { key: 'repl_part_serial', label: 'Repl. Part SN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'repl_part_serial') },
+    { key: 'date_of_claim', label: 'Date of Claim', defaultWidth: 130, minWidth: 110, render: (w) => inp(w, 'date_of_claim', 'date') },
+    { key: 'claim_num', label: 'Claim #', defaultWidth: 110, minWidth: 80, render: (w) => inp(w, 'claim_num') },
+    { key: 'credit_approved', label: 'Credit Approved?', align: 'center', defaultWidth: 90, minWidth: 70, render: (w) => ynSel(w, 'credit_approved') },
+    { key: 'return_required', label: 'Return Required?', align: 'center', defaultWidth: 90, minWidth: 70, render: (w) => ynSel(w, 'return_required') },
+    { key: 'amt_charged', label: 'Amt Charged', defaultWidth: 100, minWidth: 80, render: (w) => <input className="wt-input" value={w.amt_charged || ''} onChange={e => save(w.id, 'amt_charged', e.target.value)} placeholder="$0.00" /> },
+    { key: 'amt_refunded', label: 'Amt Refunded', defaultWidth: 100, minWidth: 80, render: (w) => <input className="wt-input" value={w.amt_refunded || ''} onChange={e => save(w.id, 'amt_refunded', e.target.value)} placeholder="$0.00" /> },
+    {
+      key: 'paid', label: 'PAID?', align: 'center', defaultWidth: 80, minWidth: 60,
+      render: (w) => (
+        <select className={w.paid === 'Yes' ? 'wt-yn yn-yes' : 'wt-yn'} value={w.paid || ''} onChange={e => markPaid(w.id, e.target.value)}>
+          <option value="">—</option><option value="Yes">Yes</option><option value="No">No</option>
+        </select>
+      ),
+    },
+    {
+      key: 'delete', label: 'Del', locked: true, align: 'center', defaultWidth: 44, minWidth: 40,
+      render: (w) => <button className="closeout-x-btn" onClick={() => deleteRow(w.id)} title="Delete claim">✕</button>,
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [presence]);
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ padding: '14px 24px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Active Warranty Claims</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-            Charged: <strong>${totCharged.toFixed(2)}</strong>&nbsp;&nbsp;|&nbsp;&nbsp;
-            Refunded: <strong style={{ color: '#1a7a4a' }}>${totRefunded.toFixed(2)}</strong>
-          </div>
+    <>
+      {/* Toolbar */}
+      <div className="toolbar">
+        <div className="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input className="search-input" type="text" placeholder="Search Any Column.." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <button className="btn btn-primary" style={{ fontSize: 13, padding: '7px 16px' }} onClick={addRow}>
-          + Add Claim
-        </button>
+        <MultiSelectFilter
+          label="Statuses"
+          options={[{ value: 'active', label: 'Active' }, { value: 'completed', label: 'Completed' }]}
+          selected={statuses}
+          onChange={setStatuses}
+        />
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>
+          Charged <strong style={{ color: 'var(--text)' }}>${totCharged.toFixed(2)}</strong>
+          &nbsp;·&nbsp; Refunded <strong style={{ color: 'var(--green)' }}>${totRefunded.toFixed(2)}</strong>
+        </span>
+        <button className="btn btn-primary" style={{ fontSize: 13 }} onClick={addRow}>+ Add Claim</button>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => setColsOpen(true)}>Columns</button>
+        <span className="row-count">{filtered.length} claim{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Active + Completed share one viewport-filling column so both scrollbars stay in view */}
-      <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {/* Active table */}
-        <div style={{ flex: '1 1 55%', minHeight: 0, overflowX: 'auto', overflowY: 'auto', padding: '0 24px 4px' }}>
-          {renderTable(active, false)}
-        </div>
-
-        {/* Completed section */}
-        <div style={{ flex: '1 1 45%', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px 24px 8px', borderTop: '2px solid var(--border)' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 8, flex: '0 0 auto' }}>Completed Warranty Claims</div>
-          <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'auto' }}>
-            {renderTable(completed, true)}
-          </div>
-        </div>
+      {/* Table */}
+      <div className="table-wrap" style={{ padding: '0 24px 12px' }}>
+        {isLoading ? (
+          <div className="empty"><div className="empty-icon">◎</div><p>Loading...</p></div>
+        ) : filtered.length === 0 ? (
+          <div className="empty"><div className="empty-icon">◎</div><p>No warranty claims. Click + Add Claim to begin.</p></div>
+        ) : (
+          <PrefsTable<PEWarrantyClaim>
+            board="warranty"
+            columns={columns}
+            rows={sorted}
+            rowKey={(w) => w.id}
+            rowId={(w) => `wt-row-${w.id}`}
+            onRowFocus={(w) => setEditing('warranty', w.id)}
+            onRowBlur={() => setEditing('warranty', null)}
+            tableClassName="wt-table"
+            containerClassName="svc-container"
+            scrollRef={scrollRef}
+            sort={{ col: sortCol, dir: sortDir, onToggle: toggleSort }}
+            managerOpen={colsOpen}
+            onManagerClose={() => setColsOpen(false)}
+            defaultFrozen={2}
+          />
+        )}
       </div>
-    </div>
+    </>
   );
 }

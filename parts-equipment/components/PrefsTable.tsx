@@ -116,8 +116,11 @@ export default function PrefsTable<Row>(props: Props<Row>) {
           <thead>
             <tr>
               {visibleCols.map((c, i) => {
-                const active = !!(sort && c.sortKey && sort.col === c.sortKey);
-                const arrow = c.sortKey && sort
+                // Every non-locked column is sortable; default the sort key to the
+                // column key unless the column overrides it.
+                const sk = c.sortKey ?? (c.locked ? undefined : c.key);
+                const active = !!(sort && sk && sort.col === sk);
+                const arrow = sk && sort
                   ? (active ? (sort.dir === 1 ? '▲' : '▼') : '⇅')
                   : '';
                 return (
@@ -148,11 +151,11 @@ export default function PrefsTable<Row>(props: Props<Row>) {
                         {!c.locked
                           ? <span className="pref-grip" aria-hidden>⠿</span>
                           : <span />}
-                        {c.sortKey && sort && (
+                        {sk && sort && (
                           <span
                             className={`pref-sort${active ? ' active' : ''}`}
                             title={`Sort by ${c.label}`}
-                            onClick={e => { e.stopPropagation(); sort.onToggle(c.sortKey!); }}
+                            onClick={e => { e.stopPropagation(); sort.onToggle(sk); }}
                             onMouseDown={e => e.stopPropagation()}
                           >{arrow}</span>
                         )}

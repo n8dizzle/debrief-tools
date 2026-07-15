@@ -46,6 +46,22 @@ export function fmtMoney(v: string | null | undefined): string {
   return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Generic cell comparator for column sorting: money/plain numbers sort numerically,
+// ISO dates (YYYY-MM-DD) sort chronologically as strings, everything else alphabetically.
+// Blank values always sort to the end.
+const SORT_NUM_RE = /^-?\$?[\d,]+(\.\d+)?$/;
+export function compareValues(a: unknown, b: unknown): number {
+  const av = a == null ? '' : String(a).trim();
+  const bv = b == null ? '' : String(b).trim();
+  if (!av && !bv) return 0;
+  if (!av) return 1;
+  if (!bv) return -1;
+  if (SORT_NUM_RE.test(av) && SORT_NUM_RE.test(bv)) {
+    return parseFloat(av.replace(/[$,]/g, '')) - parseFloat(bv.replace(/[$,]/g, ''));
+  }
+  return av.localeCompare(bv, 'en', { sensitivity: 'base' });
+}
+
 export function ageColor(days: number): string {
   if (days > 30) return '#c0392b'; // red
   if (days > 20) return '#e67e22'; // amber

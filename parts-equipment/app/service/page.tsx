@@ -6,7 +6,7 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate } from '@/lib/pe-utils';
+import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues } from '@/lib/pe-utils';
 import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG, LOCATIONS } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
@@ -46,24 +46,17 @@ export default function ServicePage() {
   const [ownerFilter, setOwnerFilter] = useState('');
   // Multi-select filters. Empty set = no filter (show all). Status defaults to Open.
   const [statuses, setStatuses] = useState<Set<string>>(() => new Set(['open']));
-  const [techFilterSet, setTechFilterSet] = useState<Set<string>>(new Set());
   const [typeFilterSet, setTypeFilterSet] = useState<Set<string>>(new Set());
   const [prFilterSet, setPrFilterSet] = useState<Set<string>>(new Set());
-  const [supplierFilterSet, setSupplierFilterSet] = useState<Set<string>>(new Set());
   const [locationFilterSet, setLocationFilterSet] = useState<Set<string>>(new Set());
   const [focusId, setFocusId] = useState<number | null>(null);
-  const [sortCol, setSortCol] = useState<'date' | 'customer' | null>(null);
+  const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [colsOpen, setColsOpen] = useState(false);
 
   function toggleSort(col: string) {
-    if (col !== 'date' && col !== 'customer') return;
-    if (sortCol === col) {
-      setSortDir(d => (d === 1 ? -1 : 1));
-    } else {
-      setSortCol(col);
-      setSortDir(1);
-    }
+    if (sortCol === col) setSortDir(d => (d === 1 ? -1 : 1));
+    else { setSortCol(col); setSortDir(1); }
   }
 
   // When arriving from the dashboard (?focus=<id>), highlight + scroll to that row.
@@ -149,10 +142,8 @@ export default function ServicePage() {
     return svcOrders.filter((o: PEOrder) => {
       if (statuses.size > 0 && !statuses.has(o.status)) return false;
       if (ownerFilter && o.owner !== ownerFilter) return false;
-      if (techFilterSet.size > 0 && !techFilterSet.has(o.tech || '')) return false;
       if (typeFilterSet.size > 0 && !typeFilterSet.has(o.subtype || '')) return false;
       if (prFilterSet.size > 0 && !prFilterSet.has(o.tech_type || '')) return false;
-      if (supplierFilterSet.size > 0 && !supplierFilterSet.has(o.supplier || '')) return false;
       if (locationFilterSet.size > 0 && !locationFilterSet.has(o.location || '')) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
@@ -169,7 +160,7 @@ export default function ServicePage() {
       }
       return true;
     });
-  }, [svcOrders, search, ownerFilter, statuses, techFilterSet, typeFilterSet, prFilterSet, supplierFilterSet, locationFilterSet]);
+  }, [svcOrders, search, ownerFilter, statuses, typeFilterSet, prFilterSet, locationFilterSet]);
 
   // Auto-link: open estimates that share an originating job number must be booked
   // together. Build {orderId -> {idx, total, job}} for any job with 2+ open rows.
@@ -193,17 +184,8 @@ export default function ServicePage() {
 
   const sorted = useMemo(() => {
     if (!sortCol) return filtered;
-    const arr = [...filtered];
-    arr.sort((a: PEOrder, b: PEOrder) => {
-      let cmp = 0;
-      if (sortCol === 'date') {
-        cmp = (a.date || '').localeCompare(b.date || ''); // YYYY-MM-DD sorts chronologically
-      } else {
-        cmp = (a.customer || '').localeCompare(b.customer || '', 'en', { sensitivity: 'base' });
-      }
-      return cmp * sortDir;
-    });
-    return arr;
+    const key = sortCol;
+    return [...filtered].sort((a, b) => compareValues((a as unknown as Record<string, unknown>)[key], (b as unknown as Record<string, unknown>)[key]) * sortDir);
   }, [filtered, sortCol, sortDir]);
 
   // ── Column config (order = default order; users reorder/resize/hide/freeze) ──
@@ -456,10 +438,8 @@ export default function ServicePage() {
           selected={statuses}
           onChange={setStatuses}
         />
-        <MultiSelectFilter label="Sold By" options={TECHS.map(t => ({ value: t, label: t }))} selected={techFilterSet} onChange={setTechFilterSet} />
         <MultiSelectFilter label="Types" options={SVC_SUBTYPES.map(s => ({ value: s, label: s }))} selected={typeFilterSet} onChange={setTypeFilterSet} />
         <MultiSelectFilter label="Parts/Repair" options={PARTS_REPAIR.map(s => ({ value: s, label: s }))} selected={prFilterSet} onChange={setPrFilterSet} />
-        <MultiSelectFilter label="Suppliers" options={suppliers.map(s => ({ value: s, label: s }))} selected={supplierFilterSet} onChange={setSupplierFilterSet} />
         <MultiSelectFilter label="Locations" options={LOCATIONS.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
         <span className="row-count" style={{ marginLeft: 'auto' }}>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
         <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openWizard?.()}>

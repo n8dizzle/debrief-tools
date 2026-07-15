@@ -329,6 +329,13 @@ header {
 .owner-card-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
 .owner-card-count { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; line-height: 1.1; margin-top: 2px; }
 
+/* Compact variant (install team filter cards) — smaller than the service owner cards */
+.owner-bar-sm { padding-top: 2px; padding-bottom: 6px; }
+.owner-card.sm { padding: 6px 10px; min-width: 88px; flex: 1 1 100px; box-shadow: none; gap: 8px; }
+.owner-card.sm .owner-card-dot { width: 8px; height: 8px; }
+.owner-card.sm .owner-card-name { font-size: 11px; }
+.owner-card.sm .owner-card-count { font-size: 13px; margin-top: 1px; }
+
 /* ─── TOOLBAR ─── */
 .toolbar {
   padding: 4px 24px 12px; display: flex; align-items: center;
@@ -418,15 +425,17 @@ select.filter {
 .it-table td { padding: 5px 5px; border: 1px solid var(--border); vertical-align: middle; }
 .inst-container { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 215px); }
 
-/* ─── WARRANTY TRACKER TABLE ─── */
-.wt-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+/* ─── WARRANTY TRACKER TABLE ─── (border-collapse: separate so PrefsTable's
+   sticky frozen columns work; opaque cell backgrounds so frozen cells don't
+   show rows sliding underneath.) */
+.wt-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 .wt-table th {
   background: var(--accent-dark); color: var(--on-accent);
   font-size: 11px; font-weight: 600; padding: 8px 7px;
   white-space: nowrap; border: 1px solid rgba(255,255,255,.25);
   position: sticky; top: 0; z-index: 2; text-align: left;
 }
-.wt-table td { padding: 6px 6px; border: 1px solid var(--border); vertical-align: middle; font-size: 11px; color: var(--text); }
+.wt-table td { padding: 6px 6px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 11px; color: var(--text); background: var(--surface); }
 .wt-table tr:nth-child(even) td { background: var(--surface2); }
 .wt-table tr:hover td { background: var(--surface3) !important; }
 .wt-yn {
