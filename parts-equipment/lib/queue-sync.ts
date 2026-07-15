@@ -17,7 +17,8 @@ export interface QueueEstimate {
   name: string;
   subtotal: number;
   soldOn: string;          // ISO
-  tech: string;            // Sold By (blank if ST returns only an id)
+  tech: string;            // Sold By name (blank if ST returns only an id — resolve via soldById)
+  soldById: number | null; // technician id to resolve into the Sold By name
   warrantyType: string | null; // 'P' | 'P/L' | null  (CA-W- SKUs)
   booked: boolean;         // any item invoiced onto a job
 }
@@ -89,6 +90,7 @@ export function toQueueEstimate(e: any): QueueEstimate | null {
     subtotal: Number(e.subtotal ?? e.total ?? 0),
     soldOn: (e.soldOn as string) || '',
     tech: sname(e.soldBy),
+    soldById: typeof e.soldBy === 'number' ? (e.soldBy as number) : null,
     warrantyType: warrantyTypeFor(items),
     booked,
   };
