@@ -5,12 +5,14 @@ import { getInstallStages, getBuiltWorkflows } from '@/lib/install-data';
 // Server component: read the install map from the database (falls back to seed).
 export const dynamic = 'force-dynamic';
 
-type WorkflowKey = 'full_system' | 'partial' | 'warranty' | 'service_parts';
-const WORKFLOWS: { key: WorkflowKey; label: string }[] = [
-  { key: 'full_system', label: 'Full System' },
-  { key: 'partial', label: 'Partial' },
-  { key: 'warranty', label: 'Warranty' },
-  { key: 'service_parts', label: 'Service — Parts' },
+type WorkflowKey = 'full_system' | 'partial' | 'warranty' | 'service_parts' | 'install_recall' | 'service_recall';
+const WORKFLOWS: { key: WorkflowKey; label: string; group: 'Install' | 'Recall' }[] = [
+  { key: 'full_system', label: 'Full System', group: 'Install' },
+  { key: 'partial', label: 'Partial', group: 'Install' },
+  { key: 'warranty', label: 'Warranty', group: 'Install' },
+  { key: 'service_parts', label: 'Service — Parts', group: 'Install' },
+  { key: 'install_recall', label: 'Install Recall', group: 'Recall' },
+  { key: 'service_recall', label: 'Service Recall', group: 'Recall' },
 ];
 // Placeholder copy for any workflow not yet built.
 const STUB: Record<Exclude<WorkflowKey, 'full_system'>, { blurb: string; note: string }> = {
@@ -26,8 +28,16 @@ const STUB: Record<Exclude<WorkflowKey, 'full_system'>, { blurb: string; note: s
     blurb: 'Service repairs waiting on a part — the slice of service that can’t be booked until the part is ordered and arrives.',
     note: 'Mirrors the orders app’s service flow: approve → order part → receive → schedule → repair.',
   },
+  install_recall: {
+    blurb: 'Recalls caused by an install — auto-flagged, AI root cause, then human validation and accountability.',
+    note: 'The flow view; the deep root-cause analysis lives in the Service Dashboard.',
+  },
+  service_recall: {
+    blurb: 'Recalls on a service or maintenance job — fast loop, tech-quality focus.',
+    note: 'A sub-7-day recall is a near-certain quality miss and flags the tech.',
+  },
 };
-const WORKFLOW_KEYS: WorkflowKey[] = ['full_system', 'partial', 'warranty', 'service_parts'];
+const WORKFLOW_KEYS: WorkflowKey[] = ['full_system', 'partial', 'warranty', 'service_parts', 'install_recall', 'service_recall'];
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ workflow?: string }> }) {
   const sp = await searchParams;
@@ -39,21 +49,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   return (
     <div className="wrap">
       <div className="pagehead">
-        <h1>Install Workflows</h1>
+        <h1>Workflows</h1>
       </div>
 
       <div className="tabs" role="tablist">
-        {WORKFLOWS.map((w) => (
-          <Link
-            key={w.key}
-            href={w.key === 'full_system' ? '/' : `/?workflow=${w.key}`}
-            className={`tab ${active === w.key ? 'on' : ''}`}
-            role="tab"
-            aria-selected={active === w.key}
-          >
-            {w.label}
-            {!built.has(w.key) && <span className="tab-count">soon</span>}
-          </Link>
+        {WORKFLOWS.map((w, i) => (
+          <div key={w.key} style={{ display: 'contents' }}>
+            {i > 0 && WORKFLOWS[i - 1].group !== w.group && <span className="tab-sep" aria-hidden="true" />}
+            <Link
+              href={w.key === 'full_system' ? '/' : `/?workflow=${w.key}`}
+              className={`tab ${active === w.key ? 'on' : ''}`}
+              role="tab"
+              aria-selected={active === w.key}
+            >
+              {w.label}
+              {!built.has(w.key) && <span className="tab-count">soon</span>}
+            </Link>
+          </div>
         ))}
       </div>
 
@@ -64,6 +76,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
             <span><i className="sw src-servicetitan" />ServiceTitan</span>
             <span><i className="sw src-orders" />Orders app</span>
             <span><i className="sw src-debrief" />Debrief form</span>
+            <span><i className="sw src-ai" />AI</span>
             <span><i className="sw src-manual" />Manual</span>
           </div>
 

@@ -27,10 +27,14 @@ export function equipmentSignalFor(title: string): EquipSignal | null {
   return null;
 }
 
-// The four ways a step gets filled. Everything but 'manual' is automatic.
-export type StepSource = 'servicetitan' | 'orders' | 'debrief' | 'manual';
+// The ways a step gets filled. Everything but 'manual' is automatic.
+export type StepSource = 'servicetitan' | 'orders' | 'debrief' | 'ai' | 'manual';
 
 export function classifyStepSource(stageName: string, title: string): { source: StepSource; auto: boolean } {
+  const t = (title || '').toLowerCase();
+  // Recall workflows: AI proposes the root cause; ServiceTitan flags the recall + links its cause.
+  if (/ai cause|ai root cause|cause proposed/.test(t)) return { source: 'ai', auto: true };
+  if (/recall visit|recall detected|causing (install|job)|classified/.test(t)) return { source: 'servicetitan', auto: true };
   if (/equipment/i.test(stageName) && equipmentSignalFor(title)) return { source: 'orders', auto: true };
   if (/crew assigned/i.test(title)) return { source: 'orders', auto: true };
   const sig = autoSignalFor(title);
@@ -43,5 +47,6 @@ export const SOURCE_META: Record<StepSource, { label: string; hint: string }> = 
   servicetitan: { label: 'ServiceTitan', hint: 'Fills automatically from ServiceTitan' },
   orders: { label: 'Orders app', hint: 'Fills automatically from the Parts & Equipment app' },
   debrief: { label: 'Debrief form', hint: 'Fills automatically from the Estimate Debrief form' },
+  ai: { label: 'AI', hint: 'AI proposes a root cause; a person validates it' },
   manual: { label: 'Manual', hint: 'A person checks this off — the gap this tracker exists to catch' },
 };

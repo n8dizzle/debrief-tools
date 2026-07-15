@@ -168,6 +168,7 @@ button { font: inherit; }
 .src-badge.servicetitan { background: rgba(93,138,102,.16); color: var(--christmas-green-light); }
 .src-badge.orders { background: rgba(74,124,177,.18); color: #6f9fd0; }
 .src-badge.debrief { background: rgba(138,107,177,.18); color: #a488cf; }
+.src-badge.ai { background: rgba(138,107,177,.18); color: #a488cf; }
 .src-badge.manual { background: transparent; color: var(--text-muted); border: 1px solid var(--border-default); }
 :root[data-theme="light"] .src-badge.orders { color: #2f6aa8; }
 :root[data-theme="light"] .src-badge.debrief { color: #6b4c9a; }
@@ -176,7 +177,9 @@ button { font: inherit; }
 .sw.src-servicetitan { background: var(--christmas-green); }
 .sw.src-orders { background: #6f9fd0; }
 .sw.src-debrief { background: #a488cf; }
+.sw.src-ai { background: #a488cf; }
 .sw.src-manual { background: transparent; border: 1px solid var(--border-default); }
+.tab-sep { align-self: stretch; width: 1px; background: var(--border-default); margin: 6px 8px 0; }
 
 /* ---------- Workflow Health dashboard ---------- */
 .hh-eyebrow { font: 700 12px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--christmas-green-light); }
