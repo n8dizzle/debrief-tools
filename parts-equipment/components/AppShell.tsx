@@ -1,11 +1,10 @@
 'use client';
-import { useState, useCallback } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { OrdersContext, useOrdersProvider } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
-import { usePEPermissions } from '@/hooks/usePEPermissions';
+import PESidebar from './PESidebar';
 
 // Dynamic imports for all modals — no SSR
 const NewOrderWizard = dynamic(() => import('./NewOrderWizard'), { ssr: false });
@@ -20,13 +19,24 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children }: AppShellProps) {
-  const { data: session } = useSession();
-  const { canManage } = usePEPermissions();
   const pathname = usePathname();
-  const router = useRouter();
 
   // Skip shell on login page
   const isLoginPage = pathname === '/login' || pathname?.startsWith('/login');
+
+  // Sidebar state
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    setCollapsed(localStorage.getItem('pe_sidebar_collapsed') === '1');
+  }, []);
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('pe_sidebar_collapsed', next ? '1' : '0');
+      return next;
+    });
+  }, []);
 
   // Modal state
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -59,104 +69,53 @@ export default function AppShell({ children }: AppShellProps) {
     return <>{children}</>;
   }
 
-  const tabs = [
-    { path: '/dashboard', label: 'Dashboard' },
-    { path: '/service', label: 'Service' },
-    { path: '/install', label: 'Install' },
-    { path: '/warranty', label: 'Warranty Tracker' },
-    ...(canManage ? [{ path: '/settings', label: 'Settings' }] : []),
-  ];
-
   const { toast } = ordersBase;
 
   return (
     <OrdersContext.Provider value={ctxValue}>
-      {/* Header */}
-      <header>
-        <div className="logo">
-          <div className="logo-mark">CA</div>
-          <div>
-            <div className="logo-text">
-              Christmas Air <span className="logo-sub">/ Parts &amp; Equipment</span>
-            </div>
-          </div>
-        </div>
-        <div className="header-right">
-          <PresenceBar users={ordersBase.activeUsers} />
-          <div className="last-sync">
-            <span className="sync-dot" />
-            {ordersBase.lastSync
-              ? `Synced ${ordersBase.lastSync.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
-              : 'Loading...'}
-          </div>
-          <button className="btn" onClick={() => ordersBase.refresh()} style={{ fontSize: 12, padding: '5px 12px' }}>
-            ↺ Refresh
-          </button>
-          <button className="btn btn-primary" onClick={openWizard} style={{ fontSize: 13 }}>
-            + New Order
-          </button>
-          {session?.user && (
-            <button
-              className="btn"
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }}
-              title={`Signed in as ${session.user.email}`}
-            >
-              {session.user.name?.split(' ')[0] || 'Sign Out'} ↩
-            </button>
-          )}
-        </div>
-      </header>
+      <div className={`pe-layout${collapsed ? ' collapsed' : ''}`}>
+        <PESidebar
+          isOpen={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+        />
 
-      {/* Nav tabs */}
-      <div className="page-tabs">
-        {tabs.map(tab => (
-          <button
-            key={tab.path}
-            className={`page-tab${pathname === tab.path || (tab.path !== '/dashboard' && pathname?.startsWith(tab.path)) ? ' active' : ''}`}
-            onClick={() => router.push(tab.path)}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <div className="pe-main">
+          {/* Top bar — page-global actions (nav lives in the sidebar) */}
+          <header className="pe-topbar">
+            <button className="pe-hamburger" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <div className="pe-topbar-spacer" />
+            <div className="header-right">
+              <PresenceBar users={ordersBase.activeUsers} />
+              <div className="last-sync">
+                <span className="sync-dot" />
+                {ordersBase.lastSync
+                  ? `Synced ${ordersBase.lastSync.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+                  : 'Loading...'}
+              </div>
+              <button className="btn" onClick={() => ordersBase.refresh()} style={{ fontSize: 12, padding: '5px 12px' }}>
+                ↺ Refresh
+              </button>
+              <button className="btn btn-primary" onClick={openWizard} style={{ fontSize: 13 }}>
+                + New Order
+              </button>
+            </div>
+          </header>
+
+          {/* Page content */}
+          <main className="pe-content">{children}</main>
+        </div>
       </div>
 
-      {/* Page content */}
-      {children}
-
       {/* Modals */}
-      {wizardOpen && (
-        <NewOrderWizard
-          onClose={() => setWizardOpen(false)}
-        />
-      )}
-
-      {editDetailId !== null && (
-        <EditDetailModal
-          orderId={editDetailId}
-          onClose={() => setEditDetailId(null)}
-        />
-      )}
-
-      {closeoutId !== null && (
-        <CloseoutModal
-          orderId={closeoutId}
-          onClose={() => setCloseoutId(null)}
-        />
-      )}
-
-      {auditOpen && (
-        <AuditPanel
-          onClose={() => setAuditOpen(false)}
-        />
-      )}
-
-      {colSettingsType !== null && (
-        <ColSettingsPanel
-          tableType={colSettingsType}
-          onClose={() => setColSettingsType(null)}
-        />
-      )}
+      {wizardOpen && <NewOrderWizard onClose={() => setWizardOpen(false)} />}
+      {editDetailId !== null && <EditDetailModal orderId={editDetailId} onClose={() => setEditDetailId(null)} />}
+      {closeoutId !== null && <CloseoutModal orderId={closeoutId} onClose={() => setCloseoutId(null)} />}
+      {auditOpen && <AuditPanel onClose={() => setAuditOpen(false)} />}
+      {colSettingsType !== null && <ColSettingsPanel tableType={colSettingsType} onClose={() => setColSettingsType(null)} />}
 
       {/* Toast notification */}
       <div className={`toast${toast.visible ? ' show' : ''}${toast.type === 'error' ? ' toast-error' : toast.type === 'info' ? ' toast-info' : ''}`}>
