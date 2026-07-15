@@ -469,7 +469,7 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
   },
   {
     app: 'install_tracker',
-    label: 'Install Tracker',
+    label: 'Standard',
     permissions: [
       {
         key: 'can_access',
