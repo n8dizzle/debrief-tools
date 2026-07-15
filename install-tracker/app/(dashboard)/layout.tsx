@@ -16,8 +16,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="noaccess-card">
           <div className="noaccess-mark">🔒</div>
           <h1>No access yet</h1>
-          <p>You&apos;re signed in, but your account doesn&apos;t have access to the Install Tracker.</p>
-          <p className="noaccess-sub">Ask an owner to grant you access in the Internal Portal (User settings → Install Tracker → Can access).</p>
+          <p>You&apos;re signed in, but your account doesn&apos;t have access to Standard.</p>
+          <p className="noaccess-sub">Ask an owner to grant you access in the Internal Portal (User settings → Standard → Can access).</p>
           <a className="noaccess-link" href="https://portal.christmasair.com">← Back to the portal</a>
         </div>
       </div>

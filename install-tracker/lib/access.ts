@@ -1,4 +1,4 @@
-// Feature access for the Install Tracker, managed from the portal. Owners get
+// Feature access for the Standard, managed from the portal. Owners get
 // everything; everyone else needs the specific permission granted on their portal
 // account (portal_users.permissions.install_tracker). Client- and server-safe.
 

@@ -16,7 +16,7 @@ function LoginContent() {
   return (
     <div className="login-card">
       <div className="mark login-mark">IA</div>
-      <h1 className="login-title">Install Tracker</h1>
+      <h1 className="login-title">Standard</h1>
       <p className="login-sub">Sign in with your Christmas Air Google account</p>
 
       {error && (

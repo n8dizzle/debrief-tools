@@ -63,7 +63,7 @@ export default function InstallSidebar({
             </div>
             <div>
               <div className="font-bold text-lg" style={{ color: 'var(--christmas-cream)' }}>Christmas Air</div>
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Install Tracker</div>
+              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Standard</div>
             </div>
           </Link>
           {onClose && (
@@ -76,7 +76,7 @@ export default function InstallSidebar({
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-2 px-3" style={{ color: 'var(--text-muted)' }}>Install</div>
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2 px-3" style={{ color: 'var(--text-muted)' }}>Operations</div>
           <div className="space-y-1">
             {links.map((link) => (
               <Link

@@ -18,7 +18,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Install Tracker</span>
+        <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Standard</span>
         <div className="w-10" />
       </header>
 
