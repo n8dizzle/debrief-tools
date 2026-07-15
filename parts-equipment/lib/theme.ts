@@ -1,26 +1,16 @@
 import { cookies } from 'next/headers';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getServerSupabase } from '@/lib/supabase';
 
 export type Theme = 'light' | 'dark';
 
-// Resolve the active theme for this render. Order:
-//   1) the ca_theme cookie (set portal-wide on .christmasair.com — the fast, cross-app path)
-//   2) the user's portal_users.preferences.theme (durable source of truth, survives new devices)
-//   3) dark (the default)
+// Resolve the active theme for this render from the portal-wide `ca_theme` cookie
+// (set on `.christmasair.com` by the portal ProfileDropdown). Default: dark.
+//
+// Kept deliberately dependency-free: this runs in the ROOT layout's server bundle,
+// so it must not import auth/supabase/realtime modules. The rest of the app (the
+// shell) is client-rendered (ssr:false) to keep those modules out of SSR — see
+// components/ClientProviders.tsx. A user who has never set a theme in the portal
+// gets the default until the cookie is set; that's fine and avoids a DB call here.
 export async function resolveTheme(): Promise<Theme> {
   const c = (await cookies()).get('ca_theme')?.value;
-  if (c === 'light' || c === 'dark') return c;
-  try {
-    const session = await getServerSession(authOptions);
-    const id = (session?.user as { id?: string } | undefined)?.id;
-    const supabase = getServerSupabase();
-    if (id && supabase) {
-      const { data } = await supabase.from('portal_users').select('preferences').eq('id', id).maybeSingle();
-      const t = ((data as { preferences?: { theme?: string } } | null)?.preferences?.theme) ?? null;
-      if (t === 'light' || t === 'dark') return t;
-    }
-  } catch { /* fall through to default */ }
-  return 'dark';
+  return c === 'light' ? 'light' : 'dark';
 }
