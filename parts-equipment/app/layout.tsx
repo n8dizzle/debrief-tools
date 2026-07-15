@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import AuthProvider from '@/components/AuthProvider';
-import AppShell from '@/components/AppShell';
+import ClientProviders from '@/components/ClientProviders';
 import { resolveTheme } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
@@ -16,9 +15,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" data-theme={theme}>
       <body>
-        <AuthProvider>
-          <AppShell>{children}</AppShell>
-        </AuthProvider>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );
