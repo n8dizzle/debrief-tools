@@ -5,13 +5,14 @@ import { getInstallStages, getBuiltWorkflows } from '@/lib/install-data';
 // Server component: read the install map from the database (falls back to seed).
 export const dynamic = 'force-dynamic';
 
-type WorkflowKey = 'full_system' | 'partial' | 'warranty';
+type WorkflowKey = 'full_system' | 'partial' | 'warranty' | 'service_parts';
 const WORKFLOWS: { key: WorkflowKey; label: string }[] = [
   { key: 'full_system', label: 'Full System' },
   { key: 'partial', label: 'Partial' },
   { key: 'warranty', label: 'Warranty' },
+  { key: 'service_parts', label: 'Service — Parts' },
 ];
-// What each stubbed pipeline will eventually map (shown on the placeholder).
+// Placeholder copy for any workflow not yet built.
 const STUB: Record<Exclude<WorkflowKey, 'full_system'>, { blurb: string; note: string }> = {
   partial: {
     blurb: 'Partial replacements — a single AC + coil, a furnace on its own, a standalone condenser.',
@@ -21,12 +22,17 @@ const STUB: Record<Exclude<WorkflowKey, 'full_system'>, { blurb: string; note: s
     blurb: 'Warranty & go-back visits — diagnose, order the covered part, install, file the claim.',
     note: 'A different shape entirely: parts + manufacturer claim tracking, not a new-system install.',
   },
+  service_parts: {
+    blurb: 'Service repairs waiting on a part — the slice of service that can’t be booked until the part is ordered and arrives.',
+    note: 'Mirrors the orders app’s service flow: approve → order part → receive → schedule → repair.',
+  },
 };
+const WORKFLOW_KEYS: WorkflowKey[] = ['full_system', 'partial', 'warranty', 'service_parts'];
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ workflow?: string }> }) {
   const sp = await searchParams;
   const active: WorkflowKey =
-    sp.workflow === 'partial' || sp.workflow === 'warranty' ? sp.workflow : 'full_system';
+    WORKFLOW_KEYS.includes(sp.workflow as WorkflowKey) ? (sp.workflow as WorkflowKey) : 'full_system';
   const [{ stages, source }, built] = await Promise.all([getInstallStages(active), getBuiltWorkflows()]);
   const hasTemplate = stages.length > 0;
 
@@ -67,8 +73,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
         <div className="wf-stub">
           <div className="wf-stub-mark">🛠️</div>
           <h2>{WORKFLOWS.find((w) => w.key === active)!.label} Workflow</h2>
-          <p className="wf-stub-blurb">{STUB[active as 'partial' | 'warranty'].blurb}</p>
-          <p className="wf-stub-note">{STUB[active as 'partial' | 'warranty'].note}</p>
+          <p className="wf-stub-blurb">{STUB[active as Exclude<WorkflowKey, 'full_system'>].blurb}</p>
+          <p className="wf-stub-note">{STUB[active as Exclude<WorkflowKey, 'full_system'>].note}</p>
           <p className="wf-stub-foot">
             We&apos;ll build this template once Full System is dialed in.{' '}
             <Link href="/" className="joblink">← Back to Full System</Link>
