@@ -9,6 +9,7 @@ export interface SubStep {
   id?: string;              // install_nodes.id when loaded from the DB (absent in seed)
   title: string;
   detail: string;
+  sourceSummary?: string;   // manager's override of the "where this comes from" line (blank = show the default)
 }
 
 export interface Stage {
@@ -147,6 +148,7 @@ export interface InstallNode {
   typical_duration: string | null;
   what_goes_wrong: string | null;
   notes: string | null;
+  source_summary: string | null;
   is_archived: boolean;
 }
 
@@ -179,6 +181,7 @@ export function nodesToStages(rows: InstallNode[]): Stage[] {
       id: c.id,
       title: c.title,
       detail: c.notes ?? '',
+      sourceSummary: c.source_summary ?? '',
     })),
   }));
 }

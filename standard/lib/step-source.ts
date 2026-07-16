@@ -43,6 +43,42 @@ export function classifyStepSource(stageName: string, title: string): { source: 
   return { source: 'manual', auto: false };
 }
 
+// A plain-English default summary of where a step's data comes from — the "pre-fill"
+// for the editable source summary on the map. Derived from the same signal that
+// auto-ticks the step, so it stays accurate. Managers can override it per step
+// (install_nodes.source_summary); when that's blank, this default shows.
+export function defaultSourceSummary(stageName: string, title: string): string {
+  const { source } = classifyStepSource(stageName, title);
+
+  if (source === 'servicetitan') {
+    switch (autoSignalFor(title)) {
+      case 'sold': return 'Auto-fills when the estimate is marked Sold in ServiceTitan.';
+      case 'job': return 'Auto-fills when the install job is created in ServiceTitan.';
+      case 'scheduled': return 'Auto-fills when the install appointment is scheduled in ServiceTitan.';
+      case 'installed': return 'Auto-fills when the job is marked complete in ServiceTitan.';
+      case 'invoiced': return 'Auto-fills when ServiceTitan generates the invoice.';
+      case 'paid': return 'Auto-fills when the ServiceTitan invoice balance reaches zero.';
+    }
+    return SOURCE_META.servicetitan.hint + '.';
+  }
+
+  if (source === 'orders') {
+    switch (equipmentSignalFor(title)) {
+      case 'po_confirmed': return 'Auto-fills when the PO is confirmed on the Parts & Equipment board.';
+      case 'ordered': return 'Auto-fills when the equipment is ordered on the Parts & Equipment board.';
+      case 'staged': return 'Auto-fills when the equipment is delivered and staged (Lewisville Shop) on the Parts & Equipment board.';
+    }
+    if (/crew assigned/i.test(title)) return 'Auto-fills when a crew or sub is set on the order in Parts & Equipment.';
+    return SOURCE_META.orders.hint + '.';
+  }
+
+  if (source === 'debrief') return 'Auto-fills when the Estimate Debrief form records a payment type.';
+  if (source === 'ai') return 'Proposed by AI from the job data; a person validates it.';
+
+  // manual
+  return 'Marked done by hand — no system feeds this yet, so this is a gap the tracker exists to catch.';
+}
+
 export const SOURCE_META: Record<StepSource, { label: string; hint: string }> = {
   servicetitan: { label: 'ServiceTitan', hint: 'Fills automatically from ServiceTitan' },
   orders: { label: 'Orders app', hint: 'Fills automatically from the Parts & Equipment app' },

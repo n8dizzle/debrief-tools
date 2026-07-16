@@ -144,6 +144,8 @@ button { font: inherit; }
 .substeps .n { font: 600 11px/1.4 var(--mono); color: var(--ink-3); width: 20px; flex: none; }
 .substeps .st { font-weight: 540; }
 .substeps .sd { display: block; color: var(--ink-3); font-weight: 400; font-size: 12px; margin-top: 2px; }
+/* Auto-generated source summary (no manager override yet) — muted + italic so it reads as a suggestion. */
+.substeps .sd.auto-sum { font-style: italic; opacity: .8; }
 
 .facts { display: flex; flex-direction: column; gap: 16px; }
 .fact .k { font: 600 11px/1 var(--sans); text-transform: uppercase; letter-spacing: .5px;

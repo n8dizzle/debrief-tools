@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { type Stage } from '@/lib/install-stages';
-import { classifyStepSource, SOURCE_META } from '@/lib/step-source';
+import { classifyStepSource, SOURCE_META, defaultSourceSummary } from '@/lib/step-source';
 import { can, type AccessUser } from '@/lib/access';
 
 function stepCounts(s: Stage) {
@@ -257,7 +257,9 @@ export default function InstallTimeline({
                 <span className="n">{j + 1}</span>
                 <span className="st">
                   {edit({ id: step.id, field: 'title', text: step.title })}
-                  <span className="sd">{edit({ id: step.id, field: 'notes', text: step.detail, placeholder: 'Add detail…' })}</span>
+                  <span className={`sd${step.sourceSummary ? '' : ' auto-sum'}`} title={step.sourceSummary ? undefined : 'Auto-generated from the signal — click to word it your way'}>
+                    {edit({ id: step.id, field: 'source_summary', text: step.sourceSummary || defaultSourceSummary(stage.name, step.title), multiline: true, placeholder: 'Describe where this comes from…' })}
+                  </span>
                 </span>
                 <span className={`src-badge ${src.source}`} title={SOURCE_META[src.source].hint}>
                   {SOURCE_META[src.source].label}

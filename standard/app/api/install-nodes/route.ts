@@ -154,7 +154,7 @@ export async function PATCH(request: NextRequest) {
 
   if (action === 'edit') {
     // Update whitelisted content fields. Body: { id, action:'edit', fields:{...} }
-    const ALLOWED = ['summary', 'owner', 'tools', 'typical_duration', 'what_goes_wrong', 'notes'];
+    const ALLOWED = ['summary', 'owner', 'tools', 'typical_duration', 'what_goes_wrong', 'notes', 'source_summary'];
     const fields = (body.fields && typeof body.fields === 'object') ? body.fields as Record<string, unknown> : {};
     const update: Record<string, unknown> = {};
     for (const k of Object.keys(fields)) {
