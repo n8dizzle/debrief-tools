@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ node: data });
 }
 
-type Node = { id: string; parent_id: string | null; depth: number; sort_order: number; title: string; is_archived: boolean };
+type Node = { id: string; parent_id: string | null; depth: number; sort_order: number; title: string; is_archived: boolean; workflow: string };
 
 // Sibling filter: same parent (null-aware), active only.
 function siblingQuery(supabase: NonNullable<ReturnType<typeof getServerSupabase>>, parentId: string | null) {
@@ -110,6 +110,39 @@ export async function PATCH(request: NextRequest) {
     await supabase.from('install_nodes').update({ sort_order: swapWith.sort_order, updated_at: now }).eq('id', id);
     await supabase.from('install_nodes').update({ sort_order: node.sort_order, updated_at: now }).eq('id', swapWith.id);
     return NextResponse.json({ moved: true });
+  }
+
+  if (action === 'reparent') {
+    // Move a sub-step to a different stage (change parent_id). The row keeps its id,
+    // so per-deal checkbox status (install_deal_steps, keyed by node_id) is preserved.
+    const newParentId = typeof body.new_parent_id === 'string' ? body.new_parent_id : '';
+    if (!newParentId) return NextResponse.json({ error: 'new_parent_id is required.' }, { status: 400 });
+    if (node.depth !== 1 || !node.parent_id) {
+      return NextResponse.json({ error: 'Only sub-steps can be moved between stages.' }, { status: 400 });
+    }
+    if (newParentId === node.parent_id) return NextResponse.json({ node, moved: false }); // already there
+
+    const { data: target } = await supabase
+      .from('install_nodes').select('id, depth, workflow, is_archived')
+      .eq('id', newParentId).maybeSingle<{ id: string; depth: number; workflow: string; is_archived: boolean }>();
+    if (!target || target.is_archived) return NextResponse.json({ error: 'Target stage not found.' }, { status: 404 });
+    if (target.depth !== 0) return NextResponse.json({ error: 'A sub-step can only move to a stage.' }, { status: 400 });
+    if (target.workflow !== node.workflow) {
+      return NextResponse.json({ error: 'Cannot move a sub-step to a different workflow.' }, { status: 400 });
+    }
+
+    // Append to the end of the target stage's active sub-steps.
+    const { data: maxRow } = await supabase
+      .from('install_nodes').select('sort_order').eq('parent_id', newParentId).eq('is_archived', false)
+      .order('sort_order', { ascending: false }).limit(1).maybeSingle<{ sort_order: number }>();
+    const nextOrder = (maxRow?.sort_order ?? -1) + 1;
+
+    const { data, error } = await supabase
+      .from('install_nodes')
+      .update({ parent_id: newParentId, sort_order: nextOrder, updated_at: now })
+      .eq('id', id).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ node: data, moved: true });
   }
 
   if (action === 'archive') {

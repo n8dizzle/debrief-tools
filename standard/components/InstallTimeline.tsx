@@ -137,6 +137,13 @@ export default function InstallTimeline({
     if (ok && isStage) setSelected((s) => (direction === 'up' ? s - 1 : s + 1));
   }
 
+  async function reparentNode(id: string, newParentId: string) {
+    await api('PATCH', { id, action: 'reparent', new_parent_id: newParentId });
+  }
+
+  // Stages a sub-step can move to (every stage except the one it's already in).
+  const otherStages = stages.filter((s) => s.id && s.id !== stage.id);
+
   async function archiveNode(id: string, label: string, isStage: boolean) {
     const what = isStage ? 'stage (and its sub-steps)' : 'sub-step';
     if (!confirm(`Archive the ${what} "${label}"? It leaves the board but stays recoverable in the database.`)) return;
@@ -261,6 +268,27 @@ export default function InstallTimeline({
                       onClick={() => moveNode(step.id!, 'up', false)}>↑</button>
                     <button className="icon-btn sm" title="Move down" disabled={busy || j === stage.subSteps.length - 1}
                       onClick={() => moveNode(step.id!, 'down', false)}>↓</button>
+                    {otherStages.length > 0 && (
+                      <select
+                        className="move-select"
+                        title="Move to another stage"
+                        aria-label="Move to another stage"
+                        disabled={busy}
+                        value=""
+                        onChange={(e) => {
+                          const target = e.target.value;
+                          e.target.selectedIndex = 0; // reset so it always reads "Move to…"
+                          if (target) reparentNode(step.id!, target);
+                        }}
+                      >
+                        <option value="">Move to…</option>
+                        {stages.map((s, si) => (
+                          s.id && s.id !== stage.id
+                            ? <option key={s.id} value={s.id}>{si + 1}. {s.name}</option>
+                            : null
+                        ))}
+                      </select>
+                    )}
                     <button className="icon-btn sm danger" title="Archive sub-step" disabled={busy}
                       onClick={() => archiveNode(step.id!, step.title, false)}>🗑</button>
                   </span>

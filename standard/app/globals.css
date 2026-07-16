@@ -300,6 +300,11 @@ button { font: inherit; }
 .icon-btn.danger:hover:not(:disabled) { border-color: var(--blocked); color: var(--blocked);
   background: color-mix(in srgb, var(--blocked) 8%, transparent); }
 .icon-btn:disabled { opacity: .35; cursor: default; }
+.move-select { height: 24px; max-width: 118px; background: var(--surface-2); border: 1px solid var(--line);
+  color: var(--ink-2); border-radius: 6px; font-size: 11px; padding: 0 4px; cursor: pointer;
+  transition: border-color .12s, color .12s; }
+.move-select:hover:not(:disabled) { border-color: var(--pine); color: var(--pine); }
+.move-select:disabled { opacity: .35; cursor: default; }
 
 /* ---------- Jobs (Rung 6) ---------- */
 .navlink { margin-left: auto; align-self: center; text-decoration: none; color: var(--pine);
