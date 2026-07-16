@@ -15,7 +15,7 @@ const TOOL_APP_MAP: Record<string, keyof UserPermissions> = {
   "https://track.christmasair.com": "job_tracker",
   "https://ap.christmasair.com": "ap_payments",
   "https://orders.christmasair.com": "parts_equipment",
-  "https://install.christmasair.com": "install_tracker",
+  "https://standard.christmasair.com": "install_tracker",
   "https://memberships.christmasair.com": "membership_manager",
   "https://celebrate.christmasair.com": "celebrations",
   "https://docs.christmasair.com": "doc_dispatch",

@@ -474,7 +474,7 @@ export const APP_PERMISSIONS: AppPermissionGroup[] = [
       {
         key: 'can_access',
         label: 'Can access',
-        description: 'Access the Install Tracker app (install.christmasair.com)',
+        description: 'Access the Standard app (standard.christmasair.com)',
       },
       {
         key: 'can_triage_deals',
