@@ -30,6 +30,17 @@ export function equipmentSignalFor(title: string): EquipSignal | null {
 // The ways a step gets filled. Everything but 'manual' is automatic.
 export type StepSource = 'servicetitan' | 'orders' | 'debrief' | 'ai' | 'manual';
 
+export const VALID_SOURCES: StepSource[] = ['servicetitan', 'orders', 'debrief', 'ai', 'manual'];
+export function isValidSource(v: unknown): v is StepSource {
+  return typeof v === 'string' && (VALID_SOURCES as string[]).includes(v);
+}
+
+// The type shown on a step's badge. A stored source_type (set by a manager, or frozen
+// when the step is moved) wins; otherwise fall back to inferring it from stage + title.
+export function effectiveSource(stored: string | null | undefined, stageName: string, title: string): StepSource {
+  return isValidSource(stored) ? stored : classifyStepSource(stageName, title).source;
+}
+
 export function classifyStepSource(stageName: string, title: string): { source: StepSource; auto: boolean } {
   const t = (title || '').toLowerCase();
   // Recall workflows: AI proposes the root cause; ServiceTitan flags the recall + links its cause.
@@ -47,8 +58,8 @@ export function classifyStepSource(stageName: string, title: string): { source: 
 // for the editable source summary on the map. Derived from the same signal that
 // auto-ticks the step, so it stays accurate. Managers can override it per step
 // (install_nodes.source_summary); when that's blank, this default shows.
-export function defaultSourceSummary(stageName: string, title: string): string {
-  const { source } = classifyStepSource(stageName, title);
+export function defaultSourceSummary(stageName: string, title: string, source?: StepSource): string {
+  source = source ?? classifyStepSource(stageName, title).source;
 
   if (source === 'servicetitan') {
     switch (autoSignalFor(title)) {

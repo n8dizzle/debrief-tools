@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { can, type AccessUser } from '@/lib/access';
+import { classifyStepSource, isValidSource } from '@/lib/step-source';
 
 // Editable install map (install_nodes). Needs install_tracker.can_edit_workflow.
 // Supports create (POST) and rename/move/archive/edit (PATCH).
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ node: data });
 }
 
-type Node = { id: string; parent_id: string | null; depth: number; sort_order: number; title: string; is_archived: boolean; workflow: string };
+type Node = { id: string; parent_id: string | null; depth: number; sort_order: number; title: string; is_archived: boolean; workflow: string; source_type: string | null };
 
 // Sibling filter: same parent (null-aware), active only.
 function siblingQuery(supabase: NonNullable<ReturnType<typeof getServerSupabase>>, parentId: string | null) {
@@ -137,9 +138,19 @@ export async function PATCH(request: NextRequest) {
       .order('sort_order', { ascending: false }).limit(1).maybeSingle<{ sort_order: number }>();
     const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
+    // Freeze the badge type before the move: the inferred type can depend on the CURRENT
+    // stage name (e.g. equipment steps), so stamp it now if it isn't already pinned —
+    // otherwise the badge would flip once the step lands in a different stage.
+    let frozenSource: string | null = node.source_type;
+    if (!frozenSource) {
+      const { data: curParent } = await supabase
+        .from('install_nodes').select('title').eq('id', node.parent_id).maybeSingle<{ title: string }>();
+      frozenSource = classifyStepSource(curParent?.title ?? '', node.title).source;
+    }
+
     const { data, error } = await supabase
       .from('install_nodes')
-      .update({ parent_id: newParentId, sort_order: nextOrder, updated_at: now })
+      .update({ parent_id: newParentId, sort_order: nextOrder, source_type: frozenSource, updated_at: now })
       .eq('id', id).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ node: data, moved: true });
@@ -154,13 +165,17 @@ export async function PATCH(request: NextRequest) {
 
   if (action === 'edit') {
     // Update whitelisted content fields. Body: { id, action:'edit', fields:{...} }
-    const ALLOWED = ['summary', 'owner', 'tools', 'typical_duration', 'what_goes_wrong', 'notes', 'source_summary'];
+    const ALLOWED = ['summary', 'owner', 'tools', 'typical_duration', 'what_goes_wrong', 'notes', 'source_summary', 'source_type'];
     const fields = (body.fields && typeof body.fields === 'object') ? body.fields as Record<string, unknown> : {};
     const update: Record<string, unknown> = {};
     for (const k of Object.keys(fields)) {
       if (!ALLOWED.includes(k)) continue;
       const v = fields[k];
       update[k] = typeof v === 'string' ? (v.trim() || null) : null; // empty string clears the field
+    }
+    // source_type must be a known badge type (or null to revert to inference).
+    if ('source_type' in update && update.source_type !== null && !isValidSource(update.source_type)) {
+      return NextResponse.json({ error: 'Invalid source type.' }, { status: 400 });
     }
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'No editable fields provided.' }, { status: 400 });

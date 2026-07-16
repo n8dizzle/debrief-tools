@@ -4,12 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { type Stage } from '@/lib/install-stages';
-import { classifyStepSource, SOURCE_META, defaultSourceSummary } from '@/lib/step-source';
+import { classifyStepSource, SOURCE_META, VALID_SOURCES, defaultSourceSummary } from '@/lib/step-source';
 import { can, type AccessUser } from '@/lib/access';
 
 function stepCounts(s: Stage) {
   let auto = 0, manual = 0;
-  for (const step of s.subSteps) classifyStepSource(s.name, step.title).auto ? auto++ : manual++;
+  for (const step of s.subSteps) {
+    const src = step.sourceType ?? classifyStepSource(s.name, step.title).source;
+    src === 'manual' ? manual++ : auto++;
+  }
   return { auto, manual };
 }
 
@@ -141,6 +144,11 @@ export default function InstallTimeline({
     await api('PATCH', { id, action: 'reparent', new_parent_id: newParentId });
   }
 
+  // Pin a step's badge type (empty string = revert to auto-inference).
+  async function setSourceType(id: string, value: string) {
+    await api('PATCH', { id, action: 'edit', fields: { source_type: value } });
+  }
+
   // Stages a sub-step can move to (every stage except the one it's already in).
   const otherStages = stages.filter((s) => s.id && s.id !== stage.id);
 
@@ -251,19 +259,34 @@ export default function InstallTimeline({
 
           <ol className="substeps">
             {stage.subSteps.map((step, j) => {
-              const src = classifyStepSource(stage.name, step.title);
+              const src = step.sourceType ?? classifyStepSource(stage.name, step.title).source;
               return (
               <li key={step.id ?? `${step.title}-${j}`}>
                 <span className="n">{j + 1}</span>
                 <span className="st">
                   {edit({ id: step.id, field: 'title', text: step.title })}
                   <span className={`sd${step.sourceSummary ? '' : ' auto-sum'}`} title={step.sourceSummary ? undefined : 'Auto-generated from the signal — click to word it your way'}>
-                    {edit({ id: step.id, field: 'source_summary', text: step.sourceSummary || defaultSourceSummary(stage.name, step.title), multiline: true, placeholder: 'Describe where this comes from…' })}
+                    {edit({ id: step.id, field: 'source_summary', text: step.sourceSummary || defaultSourceSummary(stage.name, step.title, src), multiline: true, placeholder: 'Describe where this comes from…' })}
                   </span>
                 </span>
-                <span className={`src-badge ${src.source}`} title={SOURCE_META[src.source].hint}>
-                  {SOURCE_META[src.source].label}
-                </span>
+                {editable && step.id ? (
+                  <select
+                    className={`src-badge src-badge-edit ${src}${step.sourceCustom ? '' : ' inferred'}`}
+                    value={src}
+                    disabled={busy}
+                    title={step.sourceCustom ? 'Data source (pinned) — change it, or pick Auto to infer it' : 'Data source (auto-inferred from title + stage) — pick a type to pin it'}
+                    onChange={(e) => setSourceType(step.id!, e.target.value)}
+                  >
+                    {VALID_SOURCES.map((s) => (
+                      <option key={s} value={s}>{SOURCE_META[s].label}</option>
+                    ))}
+                    <option value="">Auto</option>
+                  </select>
+                ) : (
+                  <span className={`src-badge ${src}`} title={SOURCE_META[src].hint}>
+                    {SOURCE_META[src].label}
+                  </span>
+                )}
                 {editable && step.id && (
                   <span className="row-tools">
                     <button className="icon-btn sm" title="Move up" disabled={busy || j === 0}

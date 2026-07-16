@@ -3,6 +3,8 @@
 // real install end-to-end. Rung 2 moves this into the `install_nodes` table so the
 // owner can edit/deepen it. Keep the shape close to that table's columns.
 
+import { effectiveSource, isValidSource, type StepSource } from './step-source';
+
 export type StageStatus = 'done' | 'active' | 'wait' | 'blocked';
 
 export interface SubStep {
@@ -10,6 +12,8 @@ export interface SubStep {
   title: string;
   detail: string;
   sourceSummary?: string;   // manager's override of the "where this comes from" line (blank = show the default)
+  sourceType?: StepSource;  // effective badge type (stored source_type, else inferred). Undefined for seed data.
+  sourceCustom?: boolean;   // true when the type is pinned (stored), false when it's inferred.
 }
 
 export interface Stage {
@@ -149,6 +153,7 @@ export interface InstallNode {
   what_goes_wrong: string | null;
   notes: string | null;
   source_summary: string | null;
+  source_type: string | null;
   is_archived: boolean;
 }
 
@@ -182,6 +187,8 @@ export function nodesToStages(rows: InstallNode[]): Stage[] {
       title: c.title,
       detail: c.notes ?? '',
       sourceSummary: c.source_summary ?? '',
+      sourceType: effectiveSource(c.source_type, s.title, c.title),
+      sourceCustom: isValidSource(c.source_type),
     })),
   }));
 }
