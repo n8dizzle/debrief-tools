@@ -1,10 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import InstallSidebar from './InstallSidebar';
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem('standard_sidebar_collapsed') === '1');
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('standard_sidebar_collapsed', next ? '1' : '0');
+      return next;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -18,13 +31,18 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="font-semibold" style={{ color: 'var(--christmas-cream)' }}>Standard</span>
+        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Standard</span>
         <div className="w-10" />
       </header>
 
-      <InstallSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <InstallSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
+      />
 
-      <main className="pt-16 lg:pt-0 lg:ml-64">
+      <main className={`pt-16 lg:pt-0 transition-all duration-300 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         <div className="p-4 lg:p-6 xl:p-8">{children}</div>
       </main>
     </div>
