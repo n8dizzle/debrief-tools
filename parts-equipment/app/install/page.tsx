@@ -24,7 +24,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, commitOrderNum, openEditDetail, openCloseout, openWizard, isLoading, installTeams, suppliers, presence, setEditing } = ctx;
+  const { orders, saveOrderDebounced, commitOrderNum, openEditDetail, openCloseout, openWizard, openAudit, isLoading, installTeams, suppliers, presence, setEditing } = ctx;
 
   // Remembers what each row's Order # box held when it was focused, so on blur we
   // can tell a brand-new entry (blank -> filled) from an edit of an existing one.
@@ -431,6 +431,9 @@ export default function InstallPage() {
         <span className="row-count" style={{ marginLeft: 'auto' }}>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
         <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openWizard?.()}>
           + New Order
+        </button>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>
+          Audit Trail
         </button>
         <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => setColsOpen(true)}>
           Columns
