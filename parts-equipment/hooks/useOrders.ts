@@ -48,6 +48,7 @@ export interface OrdersContextValue {
   refreshValidities: () => Promise<void>;
   updateOrder: (id: number, changes: Partial<PEOrder>) => void;
   saveOrderDebounced: (id: number, changes: Partial<PEOrder>) => void;
+  commitOrderNum: (id: number, value: string) => void;
   createOrder: (order: Partial<PEOrder>) => Promise<PEOrder | null>;
   logAudit: (entry: Partial<PEAuditLog>) => Promise<void>;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -327,6 +328,36 @@ export function useOrdersProvider(): OrdersContextValue {
     debounceTimers.current.set(id, timer);
   }, [showToast]);
 
+  // Flush an order # immediately with a "committed" marker so the server knows
+  // the value is FINAL (user finished typing and blurred the box). This — not
+  // the mid-typing autosave — is what triggers the ServiceTitan note write-back
+  // (see lib/pe-st-note.ts), so the whole order number is sent, never a partial.
+  const commitOrderNum = useCallback((id: number, value: string) => {
+    lastEditRef.current = Date.now();
+    // Cancel any pending debounced save for this row; we're sending it now.
+    const timer = debounceTimers.current.get(id);
+    if (timer) clearTimeout(timer);
+    const pending = pendingChanges.current.get(id) || {};
+    pendingChanges.current.delete(id);
+    debounceTimers.current.delete(id);
+
+    // Optimistic UI (keep the box showing what they typed).
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, order_num: value } : o));
+
+    fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...pending, order_num: value, _commit_order_num: true }),
+    })
+      .then(async res => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showToast(`Save failed: ${err.error || 'Unknown error'}`, 'error');
+        }
+      })
+      .catch(() => showToast('Save failed — check connection', 'error'));
+  }, [showToast]);
+
   const createOrder = useCallback(async (order: Partial<PEOrder>): Promise<PEOrder | null> => {
     try {
       const res = await fetch('/api/orders', {
@@ -380,6 +411,7 @@ export function useOrdersProvider(): OrdersContextValue {
     refreshValidities,
     updateOrder,
     saveOrderDebounced,
+    commitOrderNum,
     createOrder,
     logAudit,
     showToast,

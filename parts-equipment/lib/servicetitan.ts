@@ -573,6 +573,23 @@ class ServiceTitanClient {
     };
   }
 
+  /**
+   * Post a note back to a job in ServiceTitan (jpm/v2 jobs/{id}/notes).
+   * Non-throwing: returns false on failure so callers never break the request
+   * they're piggy-backing on. Mirrors ar-collections' postJobNote.
+   */
+  async postJobNote(jobId: number, noteText: string, pinToTop = false): Promise<boolean> {
+    try {
+      await this.request('POST', `jpm/v2/tenant/${this.tenantId}/jobs/${jobId}/notes`, {
+        body: { text: noteText, pinToTop },
+      });
+      return true;
+    } catch (error) {
+      console.error(`ST postJobNote failed (job ${jobId}):`, error);
+      return false;
+    }
+  }
+
   isConfigured(): boolean {
     return !!(this.clientId && this.clientSecret && this.tenantId && this.appKey);
   }

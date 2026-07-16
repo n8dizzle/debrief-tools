@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { broadcastChange } from '@/lib/realtime';
 import { hasPEPermission } from '@/lib/pe-utils';
+import { maybePostOrderNumberNote } from '@/lib/pe-st-note';
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +43,11 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  const raw = await request.json();
+  // `_commit_order_num` is a control flag (order # finished + blurred), not a
+  // DB column — strip it before it touches the table or the audit diff.
+  const { _commit_order_num, ...body } = raw;
+  const orderNumCommitted = _commit_order_num === true;
   const supabase = getServerSupabase();
 
   // Fetch existing order for audit diff
@@ -89,6 +94,12 @@ export async function PATCH(
       changed_by: session.user.email || session.user.name || 'Unknown',
     });
   }
+
+  // Write-back to ServiceTitan when the order number is first entered.
+  // Self-gating + non-throwing; only a committed (finished + blurred) order #
+  // posts a note, so the whole value is sent — never a mid-typing partial.
+  const actor = session.user.email || session.user.name || 'Unknown';
+  await maybePostOrderNumberNote({ updated: data, actor, committed: orderNumCommitted });
 
   await broadcastChange({ source: 'order-edit', id });
   return NextResponse.json({ order: data });

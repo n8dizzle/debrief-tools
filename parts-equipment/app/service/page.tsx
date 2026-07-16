@@ -30,8 +30,13 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, openEditDetail, openCloseout, openAudit, openWizard, isLoading,
+  const { orders, saveOrderDebounced, commitOrderNum, openEditDetail, openCloseout, openAudit, openWizard, isLoading,
     warrantyOrders, setWarrantyOrders, showToast, suppliers, validities, presence, setEditing } = ctx;
+
+  // Remembers what each row's Order # box held when it was focused, so on blur we
+  // can tell a brand-new entry (blank -> filled) from an edit of an existing one.
+  // Only a brand-new entry fires the ServiceTitan note.
+  const orderNumFocus = useRef<Record<number, string>>({});
 
   // Clear my presence when leaving this board (route change removes the focused
   // input without firing blur, so onBlur alone would leave my avatar stuck here).
@@ -346,7 +351,26 @@ export default function ServicePage() {
     },
     {
       key: 'order_num', label: 'Order #', defaultWidth: 100, minWidth: 70,
-      render: (o) => <input className="si" value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }} />,
+      render: (o) => {
+        // Locked until a supplier is picked — this guarantees the ServiceTitan
+        // note (fired when the order # is committed) always has a supplier in it.
+        const noSupplier = !(o.supplier || '').trim();
+        return <input
+          className="si"
+          value={o.order_num || ''}
+          disabled={noSupplier}
+          title={noSupplier ? 'Pick a supplier first' : undefined}
+          placeholder={noSupplier ? 'supplier first' : ''}
+          onFocus={e => { orderNumFocus.current[o.id] = e.target.value.trim(); }}
+          onChange={e => save(o.id, { order_num: e.target.value })}
+          onBlur={e => {
+            const startedEmpty = !orderNumFocus.current[o.id];
+            const now = e.target.value.trim();
+            if (startedEmpty && now) commitOrderNum(o.id, now);
+          }}
+          style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, ...(noSupplier ? { opacity: 0.4, cursor: 'not-allowed' } : {}) }}
+        />;
+      },
     },
     {
       key: 'cost', label: 'Cost', defaultWidth: 100, minWidth: 70,
