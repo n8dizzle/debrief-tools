@@ -10,15 +10,24 @@ export default function AuditPanel({ onClose }: Props) {
   const [entries, setEntries] = useState<PEAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<'all' | 'service' | 'install' | 'warranty'>('all');
+  const [search, setSearch] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Fetch entries, re-running (debounced) whenever the search text changes.
+  // The query hits the server so it searches the FULL history, not just what's loaded.
   useEffect(() => {
-    fetch('/api/audit')
-      .then(r => r.json())
-      .then(({ entries: data }) => { if (data) setEntries(data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    const q = search.trim();
+    let cancelled = false;
+    setLoading(true);
+    const t = setTimeout(() => {
+      fetch(`/api/audit${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+        .then(r => r.json())
+        .then(({ entries: data }) => { if (!cancelled && data) setEntries(data); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, q ? 300 : 0);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -53,6 +62,26 @@ export default function AuditPanel({ onClose }: Props) {
         <div className="panel-header">
           <div style={{ fontSize: 15, fontWeight: 700 }}>Audit Trail</div>
           <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', position: 'relative' }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search job #, customer, person, or action…"
+            style={{
+              width: '100%', padding: '7px 30px 7px 10px', borderRadius: 6, fontSize: 13,
+              border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)',
+            }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} title="Clear"
+              style={{
+                position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)',
+                border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1,
+              }}>✕</button>
+          )}
         </div>
 
         {/* Filter chips */}

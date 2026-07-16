@@ -11,7 +11,7 @@ import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
 
 export default function WarrantyPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { warrantyOrders, setWarrantyOrders, showToast, isLoading, presence, setEditing } = ctx;
+  const { warrantyOrders, setWarrantyOrders, showToast, isLoading, presence, setEditing, openAudit } = ctx;
 
   // Clear my presence when leaving this board.
   useEffect(() => () => setEditing('warranty', null), [setEditing]);
@@ -187,6 +187,7 @@ export default function WarrantyPage() {
           &nbsp;·&nbsp; Refunded <strong style={{ color: 'var(--green)' }}>${totRefunded.toFixed(2)}</strong>
         </span>
         <button className="btn btn-primary" style={{ fontSize: 13 }} onClick={addRow}>+ Add Claim</button>
+        <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>Audit Trail</button>
         <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => setColsOpen(true)}>Columns</button>
         <span className="row-count">{filtered.length} claim{filtered.length !== 1 ? 's' : ''}</span>
       </div>
