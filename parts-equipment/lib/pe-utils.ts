@@ -196,3 +196,24 @@ export function isValidCronRequest(request: Request): boolean {
   if (!cronSecret) return false;
   return authHeader === `Bearer ${cronSecret}`;
 }
+
+// Human labels for the clean pipeline fields (migration 008). `stage` = fulfillment
+// position; `blocked` = orthogonal parked reason. Read-only display for now.
+const STAGE_LABELS: Record<string, string> = {
+  needs_order: 'Needs Order',
+  ordered: 'Ordered',
+  inbound: 'Inbound',
+  staged: 'Staged',
+  done: 'Done',
+  cancelled: 'Cancelled',
+};
+const BLOCKED_LABELS: Record<string, string> = {
+  backordered: 'Backordered',
+  waiting_customer: 'Waiting on Customer',
+};
+export function stageLabel(s: string | null | undefined): string {
+  return s ? (STAGE_LABELS[s] || s) : '—';
+}
+export function blockedLabel(b: string | null | undefined): string {
+  return b ? (BLOCKED_LABELS[b] || b) : '—';
+}

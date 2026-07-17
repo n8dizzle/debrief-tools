@@ -6,7 +6,7 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency, compareValues } from '@/lib/pe-utils';
+import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency, compareValues, stageLabel, blockedLabel } from '@/lib/pe-utils';
 import { INST_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
@@ -328,6 +328,15 @@ export default function InstallPage() {
           {INSTALL_LOCS.map(l => <option key={l}>{l}</option>)}
         </select>
       ),
+    },
+    {
+      // Read-only for now (migration 008). Source of truth for the Parts Board.
+      key: 'stage', label: 'Stage', defaultWidth: 110, minWidth: 90,
+      render: (o) => <span style={{ fontSize: 12 }}>{stageLabel(o.stage)}</span>,
+    },
+    {
+      key: 'blocked', label: 'Blocked', defaultWidth: 130, minWidth: 90,
+      render: (o) => <span style={{ fontSize: 12, color: o.blocked ? 'var(--amber, #9a6410)' : 'var(--muted)' }}>{blockedLabel(o.blocked)}</span>,
     },
     {
       key: 'install_team', label: 'Install Team', defaultWidth: 110, minWidth: 90,

@@ -14,6 +14,7 @@ interface NavLink {
 interface NavSection {
   heading: string;
   links: NavLink[];
+  wip?: boolean;   // renders items italic/muted — not-yet-final features
 }
 
 const SECTIONS: NavSection[] = [
@@ -24,6 +25,13 @@ const SECTIONS: NavSection[] = [
       { href: '/service', label: 'Service', icon: 'wrench' },
       { href: '/install', label: 'Install', icon: 'box' },
       { href: '/warranty', label: 'Warranty Tracker', icon: 'shield' },
+    ],
+  },
+  {
+    heading: 'Work in Progress 🚧',
+    wip: true,
+    links: [
+      { href: '/board', label: 'Parts Board', icon: 'board' },
     ],
   },
   {
@@ -38,6 +46,7 @@ function NavIcon({ type }: { type: string }) {
     wrench: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />,
     box: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />,
     shield: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />,
+    board: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5h4v14H4zM10 5h4v14h-4zM16 5h4v9h-4z" />,
     settings: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />,
     portal: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />,
   };
@@ -112,6 +121,7 @@ export default function PESidebar({ isOpen = true, onClose, collapsed = false, o
                   onClick={onClose}
                   title={collapsed ? link.label : undefined}
                   className={`pe-nav-item${isActive(link.href) ? ' active' : ''}`}
+                  style={section.wip ? { fontStyle: 'italic' } : undefined}
                 >
                   <NavIcon type={link.icon} />
                   <span className="pe-nav-label">{link.label}</span>

@@ -17,6 +17,10 @@ export interface PEOrder {
   cost: string | null;
   estimate_cost: string | null;
   location: string | null;
+  // Clean pipeline spine (migration 008). `stage` = fulfillment position;
+  // `blocked` = orthogonal parked reason. `location` is now physical-place only.
+  stage: string | null;
+  blocked: string | null;
   owner: string | null;
   eta: string | null;
   scheduled_date: string | null;

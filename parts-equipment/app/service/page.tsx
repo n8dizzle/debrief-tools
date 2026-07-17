@@ -6,7 +6,7 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues } from '@/lib/pe-utils';
+import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues, stageLabel, blockedLabel } from '@/lib/pe-utils';
 import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG, LOCATIONS } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
@@ -384,6 +384,16 @@ export default function ServicePage() {
           {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Waiting for Tech/Cus','Cancel PO','Shipping to Supplier','Duct Cleaning - Schedule'].map(l => <option key={l}>{l}</option>)}
         </select>
       ),
+    },
+    {
+      // Read-only for now (migration 008). NOTE: service rows aren't backfilled yet —
+      // stage will read 'Needs Order' until the service board is built.
+      key: 'stage', label: 'Stage', defaultWidth: 110, minWidth: 90,
+      render: (o) => <span style={{ fontSize: 12 }}>{stageLabel(o.stage)}</span>,
+    },
+    {
+      key: 'blocked', label: 'Blocked', defaultWidth: 130, minWidth: 90,
+      render: (o) => <span style={{ fontSize: 12, color: o.blocked ? 'var(--amber, #9a6410)' : 'var(--muted)' }}>{blockedLabel(o.blocked)}</span>,
     },
     {
       key: 'parts_at_shop', label: 'Parts at Shop', align: 'center', defaultWidth: 60, minWidth: 46,
