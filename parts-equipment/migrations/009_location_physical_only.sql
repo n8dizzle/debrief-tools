@@ -42,5 +42,9 @@ UPDATE pe_orders SET
   location = CASE
     WHEN location = 'Lewisville Shop'  THEN 'Lewisville Shop'
     WHEN location = 'P/U Supply House' THEN 'Supply House'
-    ELSE NULL
+    ELSE ''   -- location is NOT NULL; blank string = not physically anywhere yet
   END;
+
+-- The old default 'Place Order' was a pipeline value, not a place. New rows now
+-- default to blank location (stage defaults to 'needs_order' separately).
+ALTER TABLE pe_orders ALTER COLUMN location SET DEFAULT '';
