@@ -6,8 +6,8 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency, compareValues, STAGES, BLOCKED_REASONS } from '@/lib/pe-utils';
-import { INST_OWNERS_CONFIG, INSTALL_LOCATIONS } from '@/lib/constants';
+import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency, compareValues, STAGES } from '@/lib/pe-utils';
+import { INST_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
 const INSTALL_TECHS = ['Luke', 'Brett', 'Christina', 'John', 'Daniel', 'Other'];
@@ -23,7 +23,7 @@ function fmtMD(d: string | null | undefined): string {
 
 export default function InstallPage() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, commitOrderNum, openEditDetail, openCloseout, openWizard, openAudit, isLoading, installTeams, suppliers, presence, setEditing } = ctx;
+  const { orders, saveOrderDebounced, commitOrderNum, openEditDetail, openCloseout, openWizard, openAudit, isLoading, installTeams, suppliers, locations, blockedReasons, presence, setEditing } = ctx;
 
   // Remembers what each row's Order # box held when it was focused, so on blur we
   // can tell a brand-new entry (blank -> filled) from an edit of an existing one.
@@ -337,7 +337,8 @@ export default function InstallPage() {
           style={o.blocked ? { color: 'var(--amber, #9a6410)', fontWeight: 600 } : undefined}
           onChange={e => save(o.id, { blocked: e.target.value })}>
           <option value="">—</option>
-          {BLOCKED_REASONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+          {o.blocked && !blockedReasons.some(b => b.value === o.blocked) && <option value={o.blocked}>{o.blocked}</option>}
+          {blockedReasons.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
         </select>
       ),
     },
@@ -347,7 +348,8 @@ export default function InstallPage() {
       render: (o) => (
         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)}>
           <option value="">—</option>
-          {INSTALL_LOCATIONS.map(l => <option key={l}>{l}</option>)}
+          {o.location && !locations.includes(o.location) && <option value={o.location}>{o.location}</option>}
+          {locations.map(l => <option key={l}>{l}</option>)}
         </select>
       ),
     },
@@ -445,7 +447,7 @@ export default function InstallPage() {
           onChange={(n) => { setStatuses(n); setActiveCard(''); setBucket('all'); }}
         />
         <MultiSelectFilter label="War?" options={['Yes', 'No', 'E/L', 'E'].map(w => ({ value: w, label: w }))} selected={warFilterSet} onChange={setWarFilterSet} />
-        <MultiSelectFilter label="Locations" options={INSTALL_LOCATIONS.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
+        <MultiSelectFilter label="Locations" options={locations.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
         <select className="filter" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
           <option value="">All Install Teams</option>
           {installTeams.map(t => <option key={t}>{t}</option>)}

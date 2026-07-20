@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
-import { formatLocalDate, looksLikeCurrency, STAGES, BLOCKED_REASONS } from '@/lib/pe-utils';
+import { TECHS, OWNERS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
+import { formatLocalDate, looksLikeCurrency, STAGES } from '@/lib/pe-utils';
 
 interface Props {
   orderId: number;
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function EditDetailModal({ orderId, onClose }: Props) {
-  const { orders, saveOrderDebounced, logAudit, showToast, installTeams, suppliers } = useOrders();
+  const { orders, saveOrderDebounced, logAudit, showToast, installTeams, suppliers, locations, blockedReasons } = useOrders();
   const order = orders.find(o => o.id === orderId);
 
   const [changedBy, setChangedBy] = useState('');
@@ -204,13 +204,15 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
               {fieldGroup('Blocked', (
                 <select style={inputStyle} value={order.blocked || ''} onChange={e => saveField('blocked', e.target.value)}>
                   <option value="">—</option>
-                  {BLOCKED_REASONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+                  {order.blocked && !blockedReasons.some(b => b.value === order.blocked) && <option value={order.blocked}>{order.blocked}</option>}
+                  {blockedReasons.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
                 </select>
               ))}
               {fieldGroup('Location', (
                 <select style={inputStyle} value={order.location || ''} onChange={e => saveField('location', e.target.value)}>
                   <option value="">—</option>
-                  {(isInstall ? INSTALL_LOCATIONS : LOCATIONS).map(l => <option key={l}>{l}</option>)}
+                  {order.location && !locations.includes(order.location) && <option value={order.location}>{order.location}</option>}
+                  {locations.map(l => <option key={l}>{l}</option>)}
                 </select>
               ))}
               {fieldGroup('ETA', <input style={inputStyle} type="date" value={order.eta || ''} onChange={e => saveField('eta', e.target.value)} />)}

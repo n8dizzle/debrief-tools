@@ -160,19 +160,11 @@ export const STAGES = [
   { value: 'done', label: 'Done' },
   { value: 'cancelled', label: 'Cancelled' },
 ] as const;
-// Optional parked reasons. "Shipping to Supplier" = our supplier is waiting on a
-// delivery from their own vendor (a deeper backorder), kept as the team's term.
-export const BLOCKED_REASONS = [
-  { value: 'backordered', label: 'Backordered' },
-  { value: 'waiting_customer', label: 'Waiting on Customer' },
-  { value: 'shipping_to_supplier', label: 'Shipping to Supplier' },
-] as const;
+// Blocked reasons are now manager-editable and DB-backed (pe_blocked_reasons via
+// /api/blocked-reasons + useOrders().blockedReasons). Physical locations likewise
+// live in pe_locations. Stage stays a fixed state machine (code keys off values).
 
 const STAGE_LABELS: Record<string, string> = Object.fromEntries(STAGES.map(s => [s.value, s.label]));
-const BLOCKED_LABELS: Record<string, string> = Object.fromEntries(BLOCKED_REASONS.map(b => [b.value, b.label]));
 export function stageLabel(s: string | null | undefined): string {
   return s ? (STAGE_LABELS[s] || s) : '—';
-}
-export function blockedLabel(b: string | null | undefined): string {
-  return b ? (BLOCKED_LABELS[b] || b) : '—';
 }
