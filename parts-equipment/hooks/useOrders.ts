@@ -39,6 +39,8 @@ export interface OrdersContextValue {
   installTeams: string[];
   suppliers: string[];
   validities: string[];
+  locations: string[];
+  blockedReasons: { value: string; label: string }[];
   presence: PresencePeer[];
   activeUsers: ActiveUser[];
   setEditing: (board: BoardName, rowId: number | null) => void;
@@ -46,6 +48,8 @@ export interface OrdersContextValue {
   refreshInstallTeams: () => Promise<void>;
   refreshSuppliers: () => Promise<void>;
   refreshValidities: () => Promise<void>;
+  refreshLocations: () => Promise<void>;
+  refreshBlockedReasons: () => Promise<void>;
   updateOrder: (id: number, changes: Partial<PEOrder>) => void;
   saveOrderDebounced: (id: number, changes: Partial<PEOrder>) => void;
   commitOrderNum: (id: number, value: string) => void;
@@ -78,6 +82,8 @@ export function useOrdersProvider(): OrdersContextValue {
   const [installTeams, setInstallTeams] = useState<string[]>([]);
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [validities, setValidities] = useState<string[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [blockedReasons, setBlockedReasons] = useState<{ value: string; label: string }[]>([]);
   const [presence, setPresence] = useState<PresencePeer[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
@@ -153,6 +159,38 @@ export function useOrdersProvider(): OrdersContextValue {
     }
   }, []);
 
+  const refreshLocations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/locations');
+      if (res.ok) {
+        const { locations: data } = await res.json();
+        setLocations(
+          (data || [])
+            .filter((l: { active: boolean }) => l.active)
+            .map((l: { name: string }) => l.name)
+        );
+      }
+    } catch (e) {
+      console.error('Failed to load locations:', e);
+    }
+  }, []);
+
+  const refreshBlockedReasons = useCallback(async () => {
+    try {
+      const res = await fetch('/api/blocked-reasons');
+      if (res.ok) {
+        const { blockedReasons: data } = await res.json();
+        setBlockedReasons(
+          (data || [])
+            .filter((b: { active: boolean }) => b.active)
+            .map((b: { value: string; label: string }) => ({ value: b.value, label: b.label }))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to load blocked reasons:', e);
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const [ordersRes, warrantyRes, auditRes] = await Promise.all([
@@ -185,7 +223,9 @@ export function useOrdersProvider(): OrdersContextValue {
     refreshInstallTeams();
     refreshSuppliers();
     refreshValidities();
-  }, [refresh, refreshInstallTeams, refreshSuppliers, refreshValidities]);
+    refreshLocations();
+    refreshBlockedReasons();
+  }, [refresh, refreshInstallTeams, refreshSuppliers, refreshValidities, refreshLocations, refreshBlockedReasons]);
 
   // Live collaboration: another user's save (or the sync) broadcasts a "change"
   // ping on a shared channel; we refetch so everyone stays in sync — Google-Sheets
@@ -402,6 +442,8 @@ export function useOrdersProvider(): OrdersContextValue {
     installTeams,
     suppliers,
     validities,
+    locations,
+    blockedReasons,
     presence,
     activeUsers,
     setEditing,
@@ -409,6 +451,8 @@ export function useOrdersProvider(): OrdersContextValue {
     refreshInstallTeams,
     refreshSuppliers,
     refreshValidities,
+    refreshLocations,
+    refreshBlockedReasons,
     updateOrder,
     saveOrderDebounced,
     commitOrderNum,

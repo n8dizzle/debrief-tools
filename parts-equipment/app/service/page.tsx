@@ -6,8 +6,8 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues, STAGES, BLOCKED_REASONS } from '@/lib/pe-utils';
-import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG, LOCATIONS } from '@/lib/constants';
+import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues, STAGES } from '@/lib/pe-utils';
+import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
 function fmtMD(d: string | null | undefined): string {
@@ -31,7 +31,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function ServicePage() {
   const ctx = useOrders() as OrdersContextValue;
   const { orders, saveOrderDebounced, commitOrderNum, openEditDetail, openCloseout, openAudit, openWizard, isLoading,
-    warrantyOrders, setWarrantyOrders, showToast, suppliers, validities, presence, setEditing } = ctx;
+    warrantyOrders, setWarrantyOrders, showToast, suppliers, validities, locations, blockedReasons, presence, setEditing } = ctx;
 
   // Remembers what each row's Order # box held when it was focused, so on blur we
   // can tell a brand-new entry (blank -> filled) from an edit of an existing one.
@@ -394,7 +394,8 @@ export default function ServicePage() {
           style={o.blocked ? { color: 'var(--amber, #9a6410)', fontWeight: 600 } : undefined}
           onChange={e => save(o.id, { blocked: e.target.value })}>
           <option value="">—</option>
-          {BLOCKED_REASONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+          {o.blocked && !blockedReasons.some(b => b.value === o.blocked) && <option value={o.blocked}>{o.blocked}</option>}
+          {blockedReasons.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
         </select>
       ),
     },
@@ -404,7 +405,8 @@ export default function ServicePage() {
       render: (o) => (
         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)}>
           <option value="">—</option>
-          {LOCATIONS.map(l => <option key={l}>{l}</option>)}
+          {o.location && !locations.includes(o.location) && <option value={o.location}>{o.location}</option>}
+          {locations.map(l => <option key={l}>{l}</option>)}
         </select>
       ),
     },
@@ -487,7 +489,7 @@ export default function ServicePage() {
         />
         <MultiSelectFilter label="Types" options={SVC_SUBTYPES.map(s => ({ value: s, label: s }))} selected={typeFilterSet} onChange={setTypeFilterSet} />
         <MultiSelectFilter label="Parts/Repair" options={PARTS_REPAIR.map(s => ({ value: s, label: s }))} selected={prFilterSet} onChange={setPrFilterSet} />
-        <MultiSelectFilter label="Locations" options={LOCATIONS.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
+        <MultiSelectFilter label="Locations" options={locations.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
         <span className="row-count" style={{ marginLeft: 'auto' }}>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</span>
         <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openWizard?.()}>
           + New Order
