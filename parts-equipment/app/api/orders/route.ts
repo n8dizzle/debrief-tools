@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     order_num: body.order_num || '',
     cost: body.cost || '',
     estimate_cost: body.estimate_cost || '',
-    location: body.location || null,
+    location: body.location || '',
     stage: body.stage || 'needs_order',
     blocked: body.blocked || '',
     owner: body.owner || 'Unassigned',
