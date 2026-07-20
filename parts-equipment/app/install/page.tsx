@@ -6,13 +6,12 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency, compareValues } from '@/lib/pe-utils';
-import { INST_OWNERS_CONFIG } from '@/lib/constants';
+import { rowClass, daysSince, ageColor, fmtMoney, looksLikeCurrency, compareValues, STAGES, BLOCKED_REASONS } from '@/lib/pe-utils';
+import { INST_OWNERS_CONFIG, INSTALL_LOCATIONS } from '@/lib/constants';
 import type { PEOrder } from '@/types';
 
 const INSTALL_TECHS = ['Luke', 'Brett', 'Christina', 'John', 'Daniel', 'Other'];
 const INSTALL_OWNERS = ['Install Manager', 'Parts Coordinator', 'Warehouse', 'Install Dispatcher', 'Christina'];
-const INSTALL_LOCS = ['Place Order', 'Shipping to Shop', 'Lewisville Shop', 'Backordered', 'P/U Supply House', 'Waiting for Customer', 'Cancel PO', 'Shipping to Supplier'];
 
 function fmtMD(d: string | null | undefined): string {
   if (!d) return '—';
@@ -83,9 +82,11 @@ export default function InstallPage() {
   }
 
   function onBOStatusChange(id: number, val: string) {
-    // B/O = Yes → location Backordered (amber) + Install Dispatcher owns it.
+    // B/O = Yes → blocked Backordered (amber) + stage Ordered + Install Dispatcher owns it.
+    // B/O = No → clear a backordered block (leave other block reasons alone).
     const changes: Partial<PEOrder> = { bo_status: val };
-    if (val === 'Yes') { changes.location = 'Backordered'; changes.owner = 'Install Dispatcher'; }
+    if (val === 'Yes') { changes.blocked = 'backordered'; changes.stage = 'ordered'; changes.owner = 'Install Dispatcher'; }
+    else if (val === 'No') { changes.blocked = ''; }
     save(id, changes);
   }
 
@@ -107,7 +108,7 @@ export default function InstallPage() {
 
   const stats = useMemo(() => ({
     all: instOpen.length,
-    bo: instOpen.filter((o: PEOrder) => o.location === 'Backordered').length,
+    bo: instOpen.filter((o: PEOrder) => o.blocked === 'backordered').length,
     scheduled: instOpen.filter((o: PEOrder) => !!(o.sched_date || o.scheduled_date)).length,
     aging: instOpen.filter((o: PEOrder) => daysSince(o.date) > 30).length,
     done: instOrders.filter((o: PEOrder) => o.status === 'completed').length,
@@ -116,7 +117,7 @@ export default function InstallPage() {
   const filtered = useMemo(() => {
     return instOrders.filter((o: PEOrder) => {
       if (statuses.size > 0 && !statuses.has(o.status)) return false;
-      if (bucket === 'Backordered' && o.location !== 'Backordered') return false;
+      if (bucket === 'Backordered' && o.blocked !== 'backordered') return false;
       if (bucket === 'scheduled' && !(o.sched_date || o.scheduled_date)) return false;
       if (bucket === 'aging' && daysSince(o.date) <= 30) return false;
       if (teamFilter && o.install_team !== teamFilter) return false;
@@ -321,11 +322,32 @@ export default function InstallPage() {
       render: (o) => <input className="si" value={o.equip_cost || ''} onChange={e => save(o.id, { equip_cost: e.target.value })} onBlur={e => save(o.id, { equip_cost: fmtMoney(e.target.value) })} placeholder="$0.00" />,
     },
     {
-      key: 'location', label: 'Location', defaultWidth: 150, minWidth: 110,
+      // The primary pipeline control — advance the row right here in the grid.
+      key: 'stage', label: 'Stage', defaultWidth: 120, minWidth: 100,
+      render: (o) => (
+        <select className="si-sel" value={o.stage || 'needs_order'} onChange={e => save(o.id, { stage: e.target.value })}>
+          {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'blocked', label: 'Blocked', defaultWidth: 150, minWidth: 110,
+      render: (o) => (
+        <select className="si-sel" value={o.blocked || ''}
+          style={o.blocked ? { color: 'var(--amber, #9a6410)', fontWeight: 600 } : undefined}
+          onChange={e => save(o.id, { blocked: e.target.value })}>
+          <option value="">—</option>
+          {BLOCKED_REASONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+        </select>
+      ),
+    },
+    {
+      // Physical place only now (migration 009); blank = not physically anywhere yet.
+      key: 'location', label: 'Location', defaultWidth: 130, minWidth: 100,
       render: (o) => (
         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)}>
-          <option value="">— select —</option>
-          {INSTALL_LOCS.map(l => <option key={l}>{l}</option>)}
+          <option value="">—</option>
+          {INSTALL_LOCATIONS.map(l => <option key={l}>{l}</option>)}
         </select>
       ),
     },
@@ -423,7 +445,7 @@ export default function InstallPage() {
           onChange={(n) => { setStatuses(n); setActiveCard(''); setBucket('all'); }}
         />
         <MultiSelectFilter label="War?" options={['Yes', 'No', 'E/L', 'E'].map(w => ({ value: w, label: w }))} selected={warFilterSet} onChange={setWarFilterSet} />
-        <MultiSelectFilter label="Locations" options={INSTALL_LOCS.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
+        <MultiSelectFilter label="Locations" options={INSTALL_LOCATIONS.map(l => ({ value: l, label: l }))} selected={locationFilterSet} onChange={setLocationFilterSet} />
         <select className="filter" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
           <option value="">All Install Teams</option>
           {installTeams.map(t => <option key={t}>{t}</option>)}

@@ -79,14 +79,14 @@ export default function DashboardPage() {
   const open = orders.filter(o => o.status === 'open');
 
   // New Orders: sold in the last 7 days, still needs ordering. Falls off once
-  // Part(s) Ordered is checked (order placed) or the location moves off Place Order.
+  // Part(s) Ordered is checked (order placed) or the stage advances past Needs Order.
   const newOrders = open.filter(o =>
-    o.location === 'Place Order' && !o.parts_ordered && daysSince(o.date) <= 7);
+    (o.stage || 'needs_order') === 'needs_order' && !o.parts_ordered && daysSince(o.date) <= 7);
 
-  // Ready to Schedule: service jobs whose part is in — Location "Lewisville Shop"
+  // Ready to Schedule: service jobs whose part is in — Stage "Staged" (at the shop)
   // or Parts at Shop checked — for the Service Dispatcher / CXR to schedule.
   const svcOrders = open
-    .filter(o => o.order_type === 'service' && (o.location === 'Lewisville Shop' || o.parts_at_shop))
+    .filter(o => o.order_type === 'service' && (o.stage === 'staged' || o.parts_at_shop))
     .sort((a, b) => daysSince(b.date) - daysSince(a.date))
     .slice(0, 50);
 

@@ -6,7 +6,7 @@ import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
-import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues } from '@/lib/pe-utils';
+import { rowClass, daysSince, ageColor, fmtMoney, formatLocalDate, compareValues, STAGES, BLOCKED_REASONS } from '@/lib/pe-utils';
 import { OWNERS, TECHS, SVC_SUBTYPES, PARTS_REPAIR, SVC_OWNERS_CONFIG, LOCATIONS } from '@/lib/constants';
 import type { PEOrder, PEWarrantyClaim } from '@/types';
 
@@ -88,9 +88,11 @@ export default function ServicePage() {
   }
 
   function onPartBOChange(id: number, checked: boolean) {
-    // Part backordered → location Backordered (drives amber color) + CXR Team owns it.
+    // Part backordered → blocked Backordered (drives amber) + stage Ordered + CXR Team owns it.
+    // Unchecked → clear the backordered block (leave other block reasons alone).
     const changes: Partial<PEOrder> = { part_bo: checked };
-    if (checked) { changes.location = 'Backordered'; changes.owner = 'CXR Team'; }
+    if (checked) { changes.blocked = 'backordered'; changes.stage = 'ordered'; changes.owner = 'CXR Team'; }
+    else { changes.blocked = ''; }
     save(id, changes);
   }
 
@@ -377,11 +379,32 @@ export default function ServicePage() {
       render: (o) => <input className="si" value={o.cost || ''} onChange={e => save(o.id, { cost: e.target.value })} onBlur={e => save(o.id, { cost: fmtMoney(e.target.value) })} placeholder="$0.00" />,
     },
     {
-      key: 'location', label: 'Location', defaultWidth: 150, minWidth: 110,
+      // The primary pipeline control — advance the row right here in the grid.
+      key: 'stage', label: 'Stage', defaultWidth: 120, minWidth: 100,
+      render: (o) => (
+        <select className="si-sel" value={o.stage || 'needs_order'} onChange={e => save(o.id, { stage: e.target.value })}>
+          {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: 'blocked', label: 'Blocked', defaultWidth: 150, minWidth: 110,
+      render: (o) => (
+        <select className="si-sel" value={o.blocked || ''}
+          style={o.blocked ? { color: 'var(--amber, #9a6410)', fontWeight: 600 } : undefined}
+          onChange={e => save(o.id, { blocked: e.target.value })}>
+          <option value="">—</option>
+          {BLOCKED_REASONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+        </select>
+      ),
+    },
+    {
+      // Physical place only now (migration 009); blank = not physically anywhere yet.
+      key: 'location', label: 'Location', defaultWidth: 130, minWidth: 100,
       render: (o) => (
         <select className="si-sel" value={o.location || ''} onChange={e => onLocationChange(o.id, e.target.value)}>
-          <option value="">— select —</option>
-          {['Place Order','Shipping to Shop','Lewisville Shop','Backordered','P/U Supply House','Waiting for Customer','Waiting for Tech/Cus','Cancel PO','Shipping to Supplier','Duct Cleaning - Schedule'].map(l => <option key={l}>{l}</option>)}
+          <option value="">—</option>
+          {LOCATIONS.map(l => <option key={l}>{l}</option>)}
         </select>
       ),
     },

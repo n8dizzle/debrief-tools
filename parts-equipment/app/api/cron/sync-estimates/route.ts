@@ -158,7 +158,7 @@ async function handle(request: Request) {
           st_url: stUrl,
           status: 'open',
           needs_order: true,
-          location: 'Place Order',
+          stage: 'needs_order',
           owner,
         });
         if (error) { console.error(`Insert failed (job ${e.jobNumber}):`, error.message); continue; }

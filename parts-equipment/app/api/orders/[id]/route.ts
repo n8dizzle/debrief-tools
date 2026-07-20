@@ -61,6 +61,12 @@ export async function PATCH(
   if (body.status === 'completed' && !existing?.completed_at) {
     updates.completed_at = new Date().toISOString();
   }
+  // Entering the order # is the Needs Order → Ordered move (fulfillment pipeline).
+  // Done server-side so the Table and the Board advance the stage identically.
+  const enteredOrderNum = orderNumCommitted && String(body.order_num ?? '').trim() !== '';
+  if (enteredOrderNum && (!existing?.stage || existing.stage === 'needs_order') && updates.stage == null) {
+    updates.stage = 'ordered';
+  }
 
   const { data, error } = await supabase
     .from('pe_orders')
