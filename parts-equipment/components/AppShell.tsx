@@ -29,6 +29,7 @@ export default function AppShell({ children }: AppShellProps) {
     pathname?.startsWith('/service') ? 'Service' :
     pathname?.startsWith('/install') ? 'Install' :
     pathname?.startsWith('/board') ? 'Parts Board' :
+    pathname?.startsWith('/warehouse') ? 'Warehouse Board' :
     pathname?.startsWith('/warranty') ? 'Warranty Tracker' :
     pathname?.startsWith('/settings') ? 'Settings' :
     pathname?.startsWith('/dashboard') ? 'Dashboard' : '';

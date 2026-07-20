@@ -32,6 +32,7 @@ const SECTIONS: NavSection[] = [
     wip: true,
     links: [
       { href: '/board', label: 'Parts Board', icon: 'board' },
+      { href: '/warehouse', label: 'Warehouse Board', icon: 'box' },
     ],
   },
   {
