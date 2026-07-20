@@ -31,7 +31,7 @@ const SECTIONS: NavSection[] = [
     heading: 'Work in Progress 🚧',
     wip: true,
     links: [
-      { href: '/board', label: 'Parts Board', icon: 'board' },
+      { href: '/parts', label: 'Parts Board', icon: 'board' },
       { href: '/warehouse', label: 'Warehouse Board', icon: 'box' },
     ],
   },
