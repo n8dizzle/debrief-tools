@@ -1,9 +1,7 @@
-'use client';
-import InstallPartsBoard from '@/components/InstallPartsBoard';
+import { redirect } from 'next/navigation';
 
-// Standalone tab for the new team-based workflow board (first slice: the Parts
-// Coordinator lane). Kept separate from the Install/Service/Warranty table tabs
-// while the concept is proven — nothing here touches those views.
-export default function BoardPage() {
-  return <InstallPartsBoard />;
+// The Parts Board moved from /board to /parts (route name now matches /warehouse).
+// Keep this stub so old bookmarks and links land on the new route instead of 404ing.
+export default function BoardRedirect() {
+  redirect('/parts');
 }

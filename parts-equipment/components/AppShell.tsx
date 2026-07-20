@@ -28,7 +28,7 @@ export default function AppShell({ children }: AppShellProps) {
   const pageTitle =
     pathname?.startsWith('/service') ? 'Service' :
     pathname?.startsWith('/install') ? 'Install' :
-    pathname?.startsWith('/board') ? 'Parts Board' :
+    pathname?.startsWith('/parts') ? 'Parts Board' :
     pathname?.startsWith('/warehouse') ? 'Warehouse Board' :
     pathname?.startsWith('/warranty') ? 'Warranty Tracker' :
     pathname?.startsWith('/settings') ? 'Settings' :
