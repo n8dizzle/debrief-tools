@@ -99,6 +99,12 @@ export default function DashboardPage() {
     .filter(o => daysSince(o.date) > 30)
     .sort((a, b) => daysSince(b.date) - daysSince(a.date));
 
+  // Needs Pickup: parts sitting at a supply house waiting for Warehouse to grab them
+  // (Stage "Inbound" + Location "Supply House" — what the old "P/U Supply House" became).
+  const pickupOrders = open
+    .filter(o => o.stage === 'inbound' && o.location === 'Supply House')
+    .sort((a, b) => daysSince(b.date) - daysSince(a.date));
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 110px)', color: 'var(--muted)', fontSize: 14 }}>
@@ -118,7 +124,47 @@ export default function DashboardPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 14, padding: 14, height: 'calc(100vh - 110px)', boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 14, height: 'calc(100vh - 110px)', boxSizing: 'border-box' }}>
+
+      {/* NEEDS PICKUP: only shown when Warehouse has parts to grab from a supply house */}
+      {pickupOrders.length > 0 && (
+        <div style={{ ...quadStyle, flexShrink: 0, maxHeight: 200 }}>
+          <div style={{ background: '#9a6410', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: .3 }}>📦 Needs Pickup — Supply House</span>
+            <span style={{ fontSize: 12, opacity: .85 }}>{pickupOrders.length} to grab</span>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <QuadrantTable
+              onRowClick={goToLine}
+              orders={pickupOrders}
+              columns={[
+                { key: 'customer', label: 'Customer' },
+                { key: 'job', label: 'Job #' },
+                { key: 'part', label: 'Part / Equipment' },
+                { key: 'supplier', label: 'Supplier' },
+                { key: 'age', label: 'Age', style: { textAlign: 'right' } },
+              ]}
+              renderCell={(o, key) => {
+                const age = daysSince(o.date);
+                switch (key) {
+                  case 'customer': return <span style={{ fontWeight: 500 }}>{o.customer}</span>;
+                  case 'job': return o.st_url
+                    ? <a href={o.st_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>#{o.job} ↗</a>
+                    : <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--accent)' }}>#{o.job}</span>;
+                  case 'part': return <span style={{ fontSize: 11 }}>{o.part?.slice(0, 40)}{o.part && o.part.length > 40 ? '…' : ''}</span>;
+                  case 'supplier': return <span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.supplier || '—'}</span>;
+                  case 'age': return <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: ageColor(age), textAlign: 'right', display: 'block' }}>{age}d</span>;
+                  default: return null;
+                }
+              }}
+              emptyText="Nothing to pick up."
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Main 2×2 board grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 14, flex: 1, minHeight: 0 }}>
 
       {/* TOP LEFT: New Orders Queue */}
       <div style={quadStyle}>
@@ -275,6 +321,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      </div>
     </div>
   );
 }
