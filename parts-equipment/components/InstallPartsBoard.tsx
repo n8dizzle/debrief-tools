@@ -4,12 +4,14 @@ import { useOrders, type OrdersContextValue } from '@/hooks/useOrders';
 import type { PEOrder } from '@/types';
 
 // The Parts Coordinator lane (lean model). A clean order never lingers here — the
-// moment it's placed it hands to Warehouse. The only ordered items Parts keeps are
-// the BACKORDERED ones (their watchlist, where they chase the ETA).
+// moment it's placed it hands to Warehouse, and the PC picks HOW it's coming (they
+// know at order time): shipped to the shop, or we pick it up at the supply house.
+// The only ordered items Parts keeps are the BACKORDERED ones (their watchlist).
 //
-//   Needs Order ──(place order)──▶  clean  → Warehouse (leaves board)
-//                                   B/O    → Backordered watchlist
-//   Backordered ──(part arrives)──▶ Warehouse (leaves board)
+//   Needs Order ──(order)──▶  Ship to Shop → Warehouse "Incoming"   (leaves board)
+//                             Pickup       → Warehouse "To Pick Up" (leaves board)
+//                             B/O          → Backordered watchlist
+//   Backordered ──(part in)─▶ Ship to Shop / Pickup → Warehouse     (leaves board)
 //
 // PREVIEW MODE (default ON): clicks/edits apply to a local overlay only and never
 // hit the database or ServiceTitan — safe to dogfood. Flip to LIVE to make real changes.
@@ -53,22 +55,31 @@ export default function InstallPartsBoard() {
   const needs = merged.filter(o => o.stage === 'needs_order');
   const backordered = merged.filter(o => o.blocked === 'backordered' && o.stage !== 'needs_order');
 
-  function place(o: PEOrder, toWarehouse: boolean) {
+  // Order it and hand to Warehouse. The PC knows at order time HOW it's coming:
+  // shipped to the shop (location blank = in transit) or we pick it up (Supply House).
+  // That choice is what feeds the Warehouse board's Incoming vs To-Pick-Up columns.
+  function order(o: PEOrder, mode: 'ship' | 'pickup') {
     const num = (o.order_num || '').trim();
     if (!num) return;
     if (!preview) commitOrderNum(o.id, num); // supplier-gated ST note — live only
-    if (toWarehouse) {
-      save(o.id, { stage: 'inbound', blocked: '', location: 'Shipping to Shop' });
-      showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} ordered → Warehouse`, preview ? 'info' : 'success');
-    } else {
-      save(o.id, { stage: 'ordered', blocked: 'backordered' });
-      showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} → backordered watchlist`, 'info');
-    }
+    const pickup = mode === 'pickup';
+    save(o.id, { stage: 'inbound', blocked: '', location: pickup ? 'Supply House' : '' });
+    showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} ordered → ${pickup ? 'Warehouse pickup' : 'shipping to shop'}`, preview ? 'info' : 'success');
   }
 
-  function partIn(o: PEOrder) {
-    save(o.id, { stage: 'inbound', blocked: '', location: 'Shipping to Shop' });
-    showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} part in → Warehouse`, preview ? 'info' : 'success');
+  function backorder(o: PEOrder) {
+    const num = (o.order_num || '').trim();
+    if (!num) return;
+    if (!preview) commitOrderNum(o.id, num);
+    save(o.id, { stage: 'ordered', blocked: 'backordered' });
+    showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} → backordered watchlist`, 'info');
+  }
+
+  // Backorder cleared — same ship-vs-pickup choice as a fresh order.
+  function partIn(o: PEOrder, mode: 'ship' | 'pickup') {
+    const pickup = mode === 'pickup';
+    save(o.id, { stage: 'inbound', blocked: '', location: pickup ? 'Supply House' : '' });
+    showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} part in → ${pickup ? 'Warehouse pickup' : 'shipping to shop'}`, preview ? 'info' : 'success');
   }
 
   const head = (o: PEOrder) => (
@@ -139,9 +150,12 @@ export default function InstallPartsBoard() {
                     <input placeholder={noSupplier ? 'supplier first' : 'order #'} disabled={noSupplier}
                       value={o.order_num || ''} onChange={e => save(o.id, { order_num: e.target.value })}
                       style={{ ...inputStyle, opacity: noSupplier ? 0.5 : 1 }} />
-                    <div style={{ display: 'flex', gap: 6, opacity: ready ? 1 : 0.4, pointerEvents: ready ? 'auto' : 'none' }}>
-                      <button style={btn('var(--accent, #1b8a4b)')} onClick={() => place(o, true)}>Ordered → Warehouse</button>
-                      <button style={btn('var(--amber, #9a6410)')} onClick={() => place(o, false)}>Backordered</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: ready ? 1 : 0.4, pointerEvents: ready ? 'auto' : 'none' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button style={btn('var(--slate, #1a5276)')} onClick={() => order(o, 'ship')}>Ship to Shop</button>
+                        <button style={btn('var(--accent, #1b8a4b)')} onClick={() => order(o, 'pickup')}>Pickup</button>
+                      </div>
+                      <button style={btn('var(--amber, #9a6410)')} onClick={() => backorder(o)}>Backordered</button>
                     </div>
                   </div>
                 </article>
@@ -170,7 +184,10 @@ export default function InstallPartsBoard() {
                   <input type="date" value={o.eta || ''} onChange={e => save(o.id, { eta: e.target.value })}
                     style={{ ...inputStyle, width: 'auto', flex: 1 }} />
                 </div>
-                <button style={{ ...btn('var(--accent, #1b8a4b)'), marginTop: 8, width: '100%' }} onClick={() => partIn(o)}>Part in → Warehouse</button>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button style={btn('var(--slate, #1a5276)')} onClick={() => partIn(o, 'ship')}>Ship to Shop</button>
+                  <button style={btn('var(--accent, #1b8a4b)')} onClick={() => partIn(o, 'pickup')}>Pickup</button>
+                </div>
               </article>
             ))}
           </div>
