@@ -50,6 +50,14 @@ export interface OrdersContextValue {
   refreshValidities: () => Promise<void>;
   refreshLocations: () => Promise<void>;
   refreshBlockedReasons: () => Promise<void>;
+  // Shared WIP-board Preview sandbox: a local overlay that never touches the DB,
+  // shared across the Parts + Warehouse boards so a card moved on one shows on the
+  // other. Survives navigating between the board routes (provider is app-wide).
+  preview: boolean;
+  setPreview: (v: boolean) => void;
+  previewOverlay: Record<number, Partial<PEOrder>>;
+  applyPreview: (id: number, changes: Partial<PEOrder>) => void;
+  resetPreview: () => void;
   updateOrder: (id: number, changes: Partial<PEOrder>) => void;
   saveOrderDebounced: (id: number, changes: Partial<PEOrder>) => void;
   commitOrderNum: (id: number, value: string) => void;
@@ -87,6 +95,15 @@ export function useOrdersProvider(): OrdersContextValue {
   const [presence, setPresence] = useState<PresencePeer[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [toast, setToast] = useState<ToastState>({ message: '', type: 'success', visible: false });
+
+  // Shared Preview sandbox (WIP boards). Default ON so boards can't touch real data.
+  const [preview, setPreviewState] = useState(true);
+  const [previewOverlay, setPreviewOverlay] = useState<Record<number, Partial<PEOrder>>>({});
+  const setPreview = useCallback((v: boolean) => { setPreviewState(v); setPreviewOverlay({}); }, []);
+  const applyPreview = useCallback((id: number, changes: Partial<PEOrder>) => {
+    setPreviewOverlay(p => ({ ...p, [id]: { ...p[id], ...changes } }));
+  }, []);
+  const resetPreview = useCallback(() => setPreviewOverlay({}), []);
 
   // Who am I (for presence)? App uses NextAuth, so grab the display name from the session.
   const { data: session } = useSession();
@@ -453,6 +470,11 @@ export function useOrdersProvider(): OrdersContextValue {
     refreshValidities,
     refreshLocations,
     refreshBlockedReasons,
+    preview,
+    setPreview,
+    previewOverlay,
+    applyPreview,
+    resetPreview,
     updateOrder,
     saveOrderDebounced,
     commitOrderNum,

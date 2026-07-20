@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useOrders, type OrdersContextValue } from '@/hooks/useOrders';
 import type { PEOrder } from '@/types';
 
@@ -26,14 +26,12 @@ const btn = (bg: string): React.CSSProperties => ({
 
 export default function WarehousePartsBoard() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, saveOrderDebounced, showToast } = ctx;
-
-  const [preview, setPreview] = useState(true);
-  const [overlay, setOverlay] = useState<Record<number, Partial<PEOrder>>>({});
-  function setMode(next: boolean) { setPreview(next); setOverlay({}); }
+  // Shared Preview sandbox (see InstallPartsBoard) — same overlay both boards read,
+  // so a card ordered on the Parts board lands here without touching the DB.
+  const { orders, saveOrderDebounced, showToast, preview, setPreview, previewOverlay, applyPreview, resetPreview } = ctx;
 
   function save(id: number, changes: Partial<PEOrder>) {
-    if (preview) setOverlay(p => ({ ...p, [id]: { ...p[id], ...changes } }));
+    if (preview) applyPreview(id, changes);
     else saveOrderDebounced(id, changes);
   }
 
@@ -42,8 +40,8 @@ export default function WarehousePartsBoard() {
     [orders]
   );
   const merged = useMemo(
-    () => lane.map(o => overlay[o.id] ? { ...o, ...overlay[o.id] } : o),
-    [lane, overlay]
+    () => lane.map(o => previewOverlay[o.id] ? { ...o, ...previewOverlay[o.id] } : o),
+    [lane, previewOverlay]
   );
 
   // Warehouse's three columns. No overlap: pickup is location-based, incoming excludes pickups.
@@ -82,7 +80,7 @@ export default function WarehousePartsBoard() {
           {([['preview', 'Preview (safe)'], ['live', 'Live']] as const).map(([v, label]) => {
             const on = (v === 'preview') === preview;
             return (
-              <button key={v} onClick={() => setMode(v === 'preview')}
+              <button key={v} onClick={() => setPreview(v === 'preview')}
                 style={{ font: 'inherit', fontSize: 12, fontWeight: 700, padding: '5px 12px', border: 'none', cursor: 'pointer',
                   background: on ? (v === 'live' ? 'var(--amber, #9a6410)' : 'var(--accent, #1b8a4b)') : 'transparent',
                   color: on ? '#fff' : 'var(--muted)' }}>
@@ -91,6 +89,13 @@ export default function WarehousePartsBoard() {
             );
           })}
         </div>
+        {preview && Object.keys(previewOverlay).length > 0 && (
+          <button onClick={resetPreview}
+            style={{ font: 'inherit', fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 7, cursor: 'pointer',
+              border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--muted)' }}>
+            ↺ Reset preview
+          </button>
+        )}
         <span style={{ fontSize: 12.5, color: preview ? 'var(--muted)' : 'var(--amber, #9a6410)', fontWeight: preview ? 400 : 700 }}>
           {preview ? 'Preview — clicks & edits are not saved. Poke around freely.' : '⚠ Live — changes save to real orders.'}
         </span>

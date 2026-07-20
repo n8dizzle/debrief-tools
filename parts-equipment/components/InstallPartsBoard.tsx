@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useOrders, type OrdersContextValue } from '@/hooks/useOrders';
 import type { PEOrder } from '@/types';
 
@@ -31,16 +31,13 @@ const btn = (bg: string): React.CSSProperties => ({
 
 export default function InstallPartsBoard() {
   const ctx = useOrders() as OrdersContextValue;
-  const { orders, suppliers, commitOrderNum, saveOrderDebounced, showToast } = ctx;
+  // Preview (safe) vs Live — shared across the Parts + Warehouse boards via context,
+  // so a card moved here shows up on the Warehouse board (and survives navigation).
+  const { orders, suppliers, commitOrderNum, saveOrderDebounced, showToast, preview, setPreview, previewOverlay, applyPreview, resetPreview } = ctx;
 
-  // Preview (safe) vs Live. Default preview so the WIP board can't touch real data.
-  const [preview, setPreview] = useState(true);
-  const [overlay, setOverlay] = useState<Record<number, Partial<PEOrder>>>({});
-  function setMode(next: boolean) { setPreview(next); setOverlay({}); }
-
-  // All writes funnel through here: preview → local overlay only; live → real PATCH.
+  // All writes funnel through here: preview → shared overlay only; live → real PATCH.
   function save(id: number, changes: Partial<PEOrder>) {
-    if (preview) setOverlay(p => ({ ...p, [id]: { ...p[id], ...changes } }));
+    if (preview) applyPreview(id, changes);
     else saveOrderDebounced(id, changes);
   }
 
@@ -49,8 +46,8 @@ export default function InstallPartsBoard() {
     [orders]
   );
   const merged = useMemo(
-    () => lane.map(o => overlay[o.id] ? { ...o, ...overlay[o.id] } : o),
-    [lane, overlay]
+    () => lane.map(o => previewOverlay[o.id] ? { ...o, ...previewOverlay[o.id] } : o),
+    [lane, previewOverlay]
   );
   const needs = merged.filter(o => o.stage === 'needs_order');
   const backordered = merged.filter(o => o.blocked === 'backordered' && o.stage !== 'needs_order');
@@ -105,7 +102,7 @@ export default function InstallPartsBoard() {
           {([['preview', 'Preview (safe)'], ['live', 'Live']] as const).map(([v, label]) => {
             const on = (v === 'preview') === preview;
             return (
-              <button key={v} onClick={() => setMode(v === 'preview')}
+              <button key={v} onClick={() => setPreview(v === 'preview')}
                 style={{ font: 'inherit', fontSize: 12, fontWeight: 700, padding: '5px 12px', border: 'none', cursor: 'pointer',
                   background: on ? (v === 'live' ? 'var(--amber, #9a6410)' : 'var(--accent, #1b8a4b)') : 'transparent',
                   color: on ? '#fff' : 'var(--muted)' }}>
@@ -114,6 +111,13 @@ export default function InstallPartsBoard() {
             );
           })}
         </div>
+        {preview && Object.keys(previewOverlay).length > 0 && (
+          <button onClick={resetPreview}
+            style={{ font: 'inherit', fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 7, cursor: 'pointer',
+              border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--muted)' }}>
+            ↺ Reset preview
+          </button>
+        )}
         <span style={{ fontSize: 12.5, color: preview ? 'var(--muted)' : 'var(--amber, #9a6410)', fontWeight: preview ? 400 : 700 }}>
           {preview
             ? 'Preview — clicks & edits are not saved. Poke around freely.'
