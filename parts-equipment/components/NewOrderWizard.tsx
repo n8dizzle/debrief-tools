@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
-import { TECHS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES } from '@/lib/constants';
+import { TECHS, SVC_SUBTYPES, INST_SUBTYPES } from '@/lib/constants';
 import { formatLocalDate } from '@/lib/pe-utils';
 
 interface Props {
@@ -78,7 +78,7 @@ export default function NewOrderWizard({ onClose }: Props) {
         is_equipment: sIsEquip,
         status: 'open',
         owner: 'Parts Coordinator',
-        location: 'Place Order',
+        stage: 'needs_order',
         needs_order: !!sPart.trim(),
       });
       showToast('Service order created');
@@ -109,7 +109,7 @@ export default function NewOrderWizard({ onClose }: Props) {
         note_wh: iNote.trim(),
         status: 'open',
         owner: 'Parts Coordinator',
-        location: 'Place Order',
+        stage: 'needs_order',
         needs_order: !!iPart.trim(),
       });
       showToast('Install order created');
@@ -135,7 +135,7 @@ export default function NewOrderWizard({ onClose }: Props) {
         note_cxr: sNoteCXR.trim(),
         status: 'open',
         owner: 'Install Dispatcher',
-        location: 'Duct Cleaning - Schedule',
+        stage: 'needs_order',
         needs_order: false,
       });
       showToast('Duct cleaning order created');

@@ -68,55 +68,6 @@ export function ageColor(days: number): string {
   return '#27ae60'; // green
 }
 
-// Location→owner reference map. No longer auto-applied on location change (team
-// found the auto-handoff surprising), but retained as the documented workflow
-// legend and for possible future use.
-export function ownerForLocation(location: string, isInstall: boolean): string | null {
-  if (isInstall) {
-    switch (location) {
-      case 'Place Order':
-      case 'Cancel PO':
-        return 'Parts Coordinator';
-      case 'Shipping to Shop':
-      case 'P/U Supply House':
-      case 'Shipping to Supplier':
-        return 'Warehouse';
-      case 'Lewisville Shop':
-        return 'Install Manager';
-      case 'Backordered':
-      case 'Waiting for Customer':
-      case 'Waiting for Tech/Cus':
-        return 'Install Dispatcher';
-      default:
-        return null;
-    }
-  }
-  // Service-side owner-by-location, per the workflow legend.
-  switch (location) {
-    case 'Place Order':
-      return 'Parts Coordinator';
-    case 'Shipping to Shop':
-      return 'Warehouse';
-    case 'Lewisville Shop':
-      return 'Service Dispatcher';
-    case 'Backordered':
-      return 'CXR Team';
-    case 'P/U Supply House':
-      return 'Warehouse';
-    case 'Waiting for Customer':
-    case 'Waiting for Tech/Cus':
-      return 'CXR Team';
-    case 'Cancel PO':
-      return 'Parts Coordinator';
-    case 'Shipping to Supplier':
-      return 'Parts Coordinator';
-    case 'Duct Cleaning - Schedule':
-      return 'Install Dispatcher';
-    default:
-      return null;
-  }
-}
-
 export function autoOwnerFromCheckboxes(order: Partial<PEOrder>, isInstall: boolean): string | null {
   if (isInstall) {
     if (order.call_booked) return 'Install Dispatcher';
@@ -197,20 +148,28 @@ export function isValidCronRequest(request: Request): boolean {
   return authHeader === `Bearer ${cronSecret}`;
 }
 
-// Human labels for the clean pipeline fields (migration 008). `stage` = fulfillment
-// position; `blocked` = orthogonal parked reason. Read-only display for now.
-const STAGE_LABELS: Record<string, string> = {
-  needs_order: 'Needs Order',
-  ordered: 'Ordered',
-  inbound: 'Inbound',
-  staged: 'Staged',
-  done: 'Done',
-  cancelled: 'Cancelled',
-};
-const BLOCKED_LABELS: Record<string, string> = {
-  backordered: 'Backordered',
-  waiting_customer: 'Waiting on Customer',
-};
+// The clean pipeline fields (migrations 008/009). `stage` = fulfillment position
+// (the primary inline control the team advances); `blocked` = orthogonal parked
+// reason; `location` (in constants.ts) = physical place only. These arrays are the
+// single source of truth for both the dropdown options and the display labels.
+export const STAGES = [
+  { value: 'needs_order', label: 'Needs Order' },
+  { value: 'ordered', label: 'Ordered' },
+  { value: 'inbound', label: 'Inbound' },
+  { value: 'staged', label: 'Staged' },
+  { value: 'done', label: 'Done' },
+  { value: 'cancelled', label: 'Cancelled' },
+] as const;
+// Optional parked reasons. "Shipping to Supplier" = our supplier is waiting on a
+// delivery from their own vendor (a deeper backorder), kept as the team's term.
+export const BLOCKED_REASONS = [
+  { value: 'backordered', label: 'Backordered' },
+  { value: 'waiting_customer', label: 'Waiting on Customer' },
+  { value: 'shipping_to_supplier', label: 'Shipping to Supplier' },
+] as const;
+
+const STAGE_LABELS: Record<string, string> = Object.fromEntries(STAGES.map(s => [s.value, s.label]));
+const BLOCKED_LABELS: Record<string, string> = Object.fromEntries(BLOCKED_REASONS.map(b => [b.value, b.label]));
 export function stageLabel(s: string | null | undefined): string {
   return s ? (STAGE_LABELS[s] || s) : '—';
 }

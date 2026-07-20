@@ -48,6 +48,7 @@ export default function CloseoutModal({ orderId, onClose }: Props) {
     const today = formatLocalDate(new Date());
     saveOrderDebounced(orderId, {
       status: 'completed',
+      stage: 'done',
       completed_by: completedBy.trim(),
       completed_at: today,
       note_cxr: note ? (order!.note_cxr ? order!.note_cxr + ' | ' + note : note) : order!.note_cxr,
@@ -62,6 +63,7 @@ export default function CloseoutModal({ orderId, onClose }: Props) {
     setSaving(true);
     saveOrderDebounced(orderId, {
       status: 'cancelled',
+      stage: 'cancelled',
       cancel_reason: cancelReason,
       cancel_source: cancelSource,
       note_cxr: note ? (order!.note_cxr ? order!.note_cxr + ' | CANCELLED: ' + note : 'CANCELLED: ' + note) : order!.note_cxr,

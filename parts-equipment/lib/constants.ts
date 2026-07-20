@@ -38,29 +38,15 @@ export const INST_OWNERS_CONFIG: OwnerConfig[] = [
   { name: 'Unassigned', dot: '#95a5a6' },
 ];
 
+// Physical places only (migration 009). Pipeline status moved to `stage`, parked
+// reasons to `blocked` (both in pe-utils.ts). A blank location = not physically
+// anywhere yet (e.g. still on order or in transit).
 export const LOCATIONS = [
-  'Place Order',
-  'Shipping to Shop',
   'Lewisville Shop',
-  'Backordered',
-  'P/U Supply House',
-  'Waiting for Customer',
-  'Waiting for Tech/Cus',
-  'Cancel PO',
-  'Shipping to Supplier',
-  'Duct Cleaning - Schedule',
-  'Completed',
+  'Supply House',
 ];
 
-export const INSTALL_LOCATIONS = [
-  'Place Order',
-  'Shipping to Shop',
-  'Lewisville Shop',
-  'Backordered',
-  'P/U Supply House',
-  'Waiting for Customer',
-  'Cancel PO',
-];
+export const INSTALL_LOCATIONS = LOCATIONS;
 
 export const TECHS = [
   'Ash',

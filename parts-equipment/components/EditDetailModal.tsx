@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import { TECHS, OWNERS, LOCATIONS, INSTALL_LOCATIONS, SVC_SUBTYPES, INST_SUBTYPES, WARRANTY_TYPES, CANCEL_REASONS } from '@/lib/constants';
-import { formatLocalDate, looksLikeCurrency } from '@/lib/pe-utils';
+import { formatLocalDate, looksLikeCurrency, STAGES, BLOCKED_REASONS } from '@/lib/pe-utils';
 
 interface Props {
   orderId: number;
@@ -195,6 +195,17 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
               {fieldGroup(isInstall ? 'Equip. Cost' : 'Actual Cost', (
                 <input style={inputStyle} value={isInstall ? (order.equip_cost || '') : (order.cost || '')}
                   onChange={e => saveField(isInstall ? 'equip_cost' : 'cost', e.target.value)} placeholder="$0.00" />
+              ))}
+              {fieldGroup('Stage', (
+                <select style={inputStyle} value={order.stage || 'needs_order'} onChange={e => saveField('stage', e.target.value)}>
+                  {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              ))}
+              {fieldGroup('Blocked', (
+                <select style={inputStyle} value={order.blocked || ''} onChange={e => saveField('blocked', e.target.value)}>
+                  <option value="">—</option>
+                  {BLOCKED_REASONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+                </select>
               ))}
               {fieldGroup('Location', (
                 <select style={inputStyle} value={order.location || ''} onChange={e => saveField('location', e.target.value)}>
