@@ -27,27 +27,16 @@ export interface ExistingOrder {
   id: number;
   st_estimate_id: number | null;
   status: string;          // open | completed | cancelled
-  stage: string | null;    // parts pipeline stage (needs_order … staged)
   location: string | null;
   warranty: string | null;
   completed_by: string | null;
-  call_booked: boolean | null; // scheduled/booked in ST (context flag, not an exit)
-  job: string | null;
-  customer: string | null;
 }
 
 export interface QueuePlan {
-  toInsert: QueueEstimate[];       // sold + not already tracked (booked OR not — parts is independent of scheduling)
-  toReopen: ExistingOrder[];       // auto-completed while parts still unfinished -> back onto the board
-  toMarkBooked: ExistingOrder[];   // tracked & open, now booked in ST -> stamp call_booked (context; never ejects)
+  toInsert: QueueEstimate[];               // sold + unbooked + not already tracked
+  toSchedule: ExistingOrder[];             // tracked & open, now booked -> Scheduled
+  toReopen: ExistingOrder[];               // wrongly auto-completed, still unbooked -> back to open
 }
-
-// The parts pipeline is DONE for a job once parts reach the shop (staged) or it's
-// closed/cancelled. Everything before that is "active" and belongs on the board —
-// regardless of whether the install has been scheduled in ServiceTitan yet.
-const TERMINAL_STAGES = new Set(['staged', 'done', 'cancelled']);
-export const isPartsActive = (stage: string | null): boolean =>
-  !TERMINAL_STAGES.has((stage || '').toLowerCase());
 
 const sname = (s: unknown): string =>
   typeof s === 'string' ? s : (s && typeof s === 'object' && 'name' in s ? String((s as any).name) : '');
@@ -110,50 +99,34 @@ export function toQueueEstimate(e: any): QueueEstimate | null {
 /**
  * Diff the sold-estimate universe against what we already track.
  * Pure — no I/O. `soldEstimates` should already be filtered to status=Sold.
- *
- * Parts pipeline is INDEPENDENT of scheduling: a sold estimate belongs on the board
- * from the moment it sells until parts reach the shop (or a human closes it). Getting
- * booked/scheduled in ServiceTitan does NOT eject it — it just stamps context so the
- * coordinator can see "scheduled, parts still not ordered."
  */
-export function buildQueuePlan(
-  soldEstimates: QueueEstimate[],
-  existing: ExistingOrder[],
-  opts: { bookedInsertSince?: string } = {},
-): QueuePlan {
+export function buildQueuePlan(soldEstimates: QueueEstimate[], existing: ExistingOrder[]): QueuePlan {
   const byEst = new Map<number, ExistingOrder>();
   for (const o of existing) if (o.st_estimate_id != null) byEst.set(o.st_estimate_id, o);
   const soldById = new Map<number, QueueEstimate>();
   for (const e of soldEstimates) soldById.set(e.estimateId, e);
 
-  // A brand-new estimate that's ALREADY booked (sold + scheduled between two syncs)
-  // still needs parts, so we insert it. But an estimate booked long ago predates the
-  // app and is almost certainly installed — don't resurrect it. So booked estimates
-  // are only inserted if sold on/after `bookedInsertSince`. Unbooked estimates have no
-  // such cutoff: an old unbooked sale still needs ordering no matter its age.
-  const since = opts.bookedInsertSince;
   const toInsert: QueueEstimate[] = [];
   for (const e of soldEstimates) {
-    if (byEst.has(e.estimateId)) continue;                       // already tracked
-    if (e.booked && since && (e.soldOn || '').slice(0, 10) < since) continue; // old + booked ≈ installed
-    toInsert.push(e);                                            // scheduling is never an exit
+    if (e.booked) continue;                 // already on a job -> not queue-worthy
+    if (byEst.has(e.estimateId)) continue;  // already tracked
+    toInsert.push(e);
   }
 
+  const toSchedule: ExistingOrder[] = [];
   const toReopen: ExistingOrder[] = [];
-  const toMarkBooked: ExistingOrder[] = [];
   for (const o of existing) {
     if (o.st_estimate_id == null) continue;
     const est = soldById.get(o.st_estimate_id);
     if (!est) continue; // estimate not in current sold window -> leave alone (guardrail)
-    if (o.status === 'completed' && !o.completed_by && isPartsActive(o.stage)) {
-      // Auto-completed by the old "booked -> Scheduled" rule while parts work was
-      // still unfinished. No human closed it, so pull it back onto the board.
+    if (o.status === 'open' && est.booked) {
+      toSchedule.push(o); // got booked -> Scheduled
+    } else if (o.status === 'completed' && !est.booked && !o.completed_by) {
+      // Auto-completed (no human closed it) but the estimate is still unbooked ->
+      // it was wrongly closed by the old report-based sync. Reopen it.
       toReopen.push(o);
-    } else if (o.status === 'open' && est.booked && !o.call_booked) {
-      // Booked/scheduled in ST -> record it as context. Stays open; never ejects.
-      toMarkBooked.push(o);
     }
   }
 
-  return { toInsert, toReopen, toMarkBooked };
+  return { toInsert, toSchedule, toReopen };
 }
