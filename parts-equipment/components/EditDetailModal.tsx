@@ -118,7 +118,7 @@ export default function EditDetailModal({ orderId, onClose }: Props) {
             padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5,
             background: order.status === 'open' ? '#e8f4fd' : order.status === 'completed' ? '#eafaf1' : '#fdecec',
             color: order.status === 'open' ? '#1565c0' : order.status === 'completed' ? '#1a9e6a' : '#c0392b',
-          }}>{order.status}</span>
+          }}>{order.status === 'open' && order.call_booked ? 'Scheduled' : order.status === 'completed' ? 'Done' : order.status}</span>
           {order.owner && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Owner: <strong>{order.owner}</strong></span>}
         </div>
 

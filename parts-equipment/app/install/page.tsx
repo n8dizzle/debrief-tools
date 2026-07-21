@@ -109,7 +109,7 @@ export default function InstallPage() {
   const stats = useMemo(() => ({
     all: instOpen.length,
     bo: instOpen.filter((o: PEOrder) => o.blocked === 'backordered').length,
-    scheduled: instOpen.filter((o: PEOrder) => !!(o.sched_date || o.scheduled_date)).length,
+    scheduled: instOpen.filter((o: PEOrder) => !!(o.sched_date || o.scheduled_date || o.call_booked)).length,
     aging: instOpen.filter((o: PEOrder) => daysSince(o.date) > 30).length,
     done: instOrders.filter((o: PEOrder) => o.status === 'completed').length,
   }), [instOrders, instOpen]);
@@ -118,7 +118,7 @@ export default function InstallPage() {
     return instOrders.filter((o: PEOrder) => {
       if (statuses.size > 0 && !statuses.has(o.status)) return false;
       if (bucket === 'Backordered' && o.blocked !== 'backordered') return false;
-      if (bucket === 'scheduled' && !(o.sched_date || o.scheduled_date)) return false;
+      if (bucket === 'scheduled' && !(o.sched_date || o.scheduled_date || o.call_booked)) return false;
       if (bucket === 'aging' && daysSince(o.date) <= 30) return false;
       if (teamFilter && o.install_team !== teamFilter) return false;
       if (ownerFilter && o.owner !== ownerFilter) return false;
@@ -130,7 +130,7 @@ export default function InstallPage() {
         const hay = [
           o.job, o.tech, o.customer, o.owner, o.part, o.supplier, o.install_team,
           o.job_cost, o.equip_cost, o.order_num, o.location, o.warranty, o.eta,
-          o.bo_status, o.equip_avail, o.status === 'completed' ? 'booked' : o.status,
+          o.bo_status, o.equip_avail, o.status === 'completed' ? 'done' : (o.call_booked ? 'scheduled' : o.status),
           fmtMD(o.date), o.date, fmtMD(o.sched_date), o.sched_date, fmtMD(o.qc_date), o.qc_date,
           o.note_wh, o.note_cxr,
         ].join(' ').toLowerCase();
@@ -399,7 +399,7 @@ export default function InstallPage() {
           { key: 'Backordered', label: 'Backordered', count: stats.bo, color: 'col-red', status: 'open' as const },
           { key: 'scheduled', label: 'Scheduled', count: stats.scheduled, color: 'col-green', status: 'open' as const },
           { key: 'aging', label: 'Over 30 Days', count: stats.aging, color: 'col-red', status: 'open' as const },
-          { key: 'completed', label: 'Booked', count: stats.done, color: 'col-green', status: 'completed' as const },
+          { key: 'completed', label: 'Done', count: stats.done, color: 'col-green', status: 'completed' as const },
         ].map(s => (
           <div key={s.key} className={`stat${activeCard === s.key ? ' active' : ''}`}
             onClick={() => setActiveStatCard(s.key)}>
@@ -440,7 +440,7 @@ export default function InstallPage() {
           label="Statuses"
           options={[
             { value: 'open', label: 'Open' },
-            { value: 'completed', label: 'Booked' },
+            { value: 'completed', label: 'Done' },
             { value: 'cancelled', label: 'Cancelled' },
           ]}
           selected={statuses}

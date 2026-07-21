@@ -20,11 +20,17 @@ function fmtMD(d: string | null | undefined): string {
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   open: { label: 'Open', color: '#1565c0', bg: 'rgba(21,101,192,0.12)' },
-  completed: { label: 'Scheduled', color: '#1a7a4a', bg: 'rgba(26,122,74,0.14)' },
+  completed: { label: 'Done', color: '#5a6472', bg: 'rgba(90,100,114,0.14)' },
   cancelled: { label: 'Cancelled', color: '#8a8f9c', bg: 'rgba(120,125,140,0.16)' },
 };
-function StatusBadge({ status }: { status: string }) {
-  const m = STATUS_META[status] || { label: status || '—', color: '#6b7592', bg: 'var(--surface2)' };
+// "Scheduled" = booked in ST (call_booked), shown for jobs still open. It is NOT a
+// separate status — parts work continues while the install is scheduled. A closed job
+// reads "Done". This keeps the label honest now that booking no longer completes a job.
+const SCHEDULED_META = { label: 'Scheduled', color: '#1a7a4a', bg: 'rgba(26,122,74,0.14)' };
+function StatusBadge({ status, booked }: { status: string; booked?: boolean }) {
+  const m = status === 'open' && booked
+    ? SCHEDULED_META
+    : STATUS_META[status] || { label: status || '—', color: '#6b7592', bg: 'var(--surface2)' };
   return <span style={{ fontSize: 10, fontWeight: 700, color: m.color, background: m.bg, padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap' }}>{m.label}</span>;
 }
 
@@ -154,13 +160,13 @@ export default function ServicePage() {
       if (locationFilterSet.size > 0 && !locationFilterSet.has(o.location || '')) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        // Global search across every user-facing column (incl. the Status label so
-        // "scheduled" matches the 'completed' status, and both raw + M/D dates).
+        // Global search across every user-facing column (incl. the derived Status
+        // label so "scheduled"/"done" match, and both raw + M/D dates).
         const hay = [
           o.job, o.tech, o.customer, o.owner, o.subtype, o.tech_type,
           o.part, o.supplier, o.order_num, o.location, o.validity,
           o.estimate_cost, o.cost, o.eta, fmtMD(o.date), o.date,
-          o.warranty_type, STATUS_META[o.status]?.label || o.status,
+          o.warranty_type, (o.status === 'open' && o.call_booked) ? 'Scheduled' : (STATUS_META[o.status]?.label || o.status),
           o.note_wh, o.note_cxr,
         ].join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
@@ -208,7 +214,7 @@ export default function ServicePage() {
     },
     {
       key: 'status', label: 'Status', defaultWidth: 84, minWidth: 60, align: 'center',
-      render: (o) => <StatusBadge status={o.status} />,
+      render: (o) => <StatusBadge status={o.status} booked={!!o.call_booked} />,
     },
     {
       key: 'date', label: 'Date', sortKey: 'date', defaultWidth: 66, minWidth: 50,
@@ -481,7 +487,7 @@ export default function ServicePage() {
           label="Statuses"
           options={[
             { value: 'open', label: 'Open' },
-            { value: 'completed', label: 'Scheduled' },
+            { value: 'completed', label: 'Done' },
             { value: 'cancelled', label: 'Cancelled' },
           ]}
           selected={statuses}
