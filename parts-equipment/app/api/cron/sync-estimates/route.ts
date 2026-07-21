@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getServiceTitanClient } from '@/lib/servicetitan';
 import { fmtMoney } from '@/lib/pe-utils';
 import { broadcastChange } from '@/lib/realtime';
+import { DB_SCHEMA } from '@/lib/supabase';
 import {
   toQueueEstimate, buildQueuePlan,
   isInstallBU, hasInstallKeyword, classifyType, ownerForSubtype,
@@ -36,7 +37,8 @@ async function handle(request: Request) {
   }
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { db: { schema: DB_SCHEMA } }
   );
 
   const now = new Date();
