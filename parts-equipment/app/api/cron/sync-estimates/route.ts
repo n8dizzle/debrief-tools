@@ -65,10 +65,15 @@ async function handle(request: Request) {
 
     const { data: existingRows } = await supabase
       .from('pe_orders')
-      .select('id, st_estimate_id, status, location, warranty, completed_by');
+      .select('id, st_estimate_id, status, stage, location, warranty, completed_by, call_booked, job, customer');
     const existing = (existingRows || []) as ExistingOrder[];
 
-    const plan = buildQueuePlan(sold, existing);
+    // Only insert already-booked estimates if sold in the last 14 days — recent enough
+    // that parts may still be pending; older booked jobs predate the board and are done.
+    const bookedInsertSince = formatLocalDate(new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000));
+    const plan = buildQueuePlan(sold, existing, { bookedInsertSince });
+    // Sold-estimate lookup so we can stamp the booked/scheduled flag on reopens.
+    const soldByEst = new Map<number, QueueEstimate>(sold.map(e => [e.estimateId, e]));
 
     if (dryRun) {
       return NextResponse.json({
@@ -79,33 +84,38 @@ async function handle(request: Request) {
         soldTotal: sold.length,
         soldUnbooked: sold.filter(e => !e.booked).length,
         toInsert: plan.toInsert.length,
-        toSchedule: plan.toSchedule.length,
+        toInsertBooked: plan.toInsert.filter(e => e.booked).length,
         toReopen: plan.toReopen.length,
+        toMarkBooked: plan.toMarkBooked.length,
         insertSample: plan.toInsert.slice(0, 15).map(e => ({
           estimateId: e.estimateId, job: e.jobNumber, bu: e.businessUnit,
-          subtotal: e.subtotal, warranty: e.warrantyType, name: e.name,
+          subtotal: e.subtotal, warranty: e.warrantyType, booked: e.booked, name: e.name,
         })),
-        reopenOrderIds: plan.toReopen.map(o => o.id),
+        // Full reopen list so the 60-ish "scheduled but never ordered" jobs can be
+        // reviewed before anything mutates. Some may have had parts handled off-board.
+        reopenSample: plan.toReopen.map(o => ({
+          id: o.id, job: o.job, customer: o.customer, stage: o.stage,
+        })),
       });
     }
 
     // ── Apply ────────────────────────────────────────────────────────
-    let scheduled = 0, reopened = 0, created = 0, warrantyClaims = 0;
+    let booked = 0, reopened = 0, created = 0, warrantyClaims = 0;
 
-    // Booked now -> Scheduled (stored as 'completed', shown as "Scheduled").
-    for (const o of plan.toSchedule) {
-      await supabase.from('pe_orders')
-        .update({ status: 'completed', completed_at: today })
-        .eq('id', o.id);
-      scheduled++;
-    }
-
-    // Wrongly auto-completed but still unbooked -> back to the queue.
+    // Auto-completed by the old booked->Scheduled rule while parts were unfinished ->
+    // back onto the board. Stamp the booked flag as context (scheduling isn't an exit).
     for (const o of plan.toReopen) {
+      const est = o.st_estimate_id != null ? soldByEst.get(o.st_estimate_id) : undefined;
       await supabase.from('pe_orders')
-        .update({ status: 'open', completed_at: null })
+        .update({ status: 'open', completed_at: null, completed_by: '', call_booked: est?.booked ?? false })
         .eq('id', o.id);
       reopened++;
+    }
+
+    // Newly booked/scheduled in ST -> stamp context only. Job stays open on the board.
+    for (const o of plan.toMarkBooked) {
+      await supabase.from('pe_orders').update({ call_booked: true }).eq('id', o.id);
+      booked++;
     }
 
     // New sold + unbooked estimates -> insert.
@@ -159,6 +169,7 @@ async function handle(request: Request) {
           status: 'open',
           needs_order: true,
           stage: 'needs_order',
+          call_booked: e.booked, // scheduled/booked context; does not eject from board
           owner,
         });
         if (error) { console.error(`Insert failed (job ${e.jobNumber}):`, error.message); continue; }
@@ -181,13 +192,13 @@ async function handle(request: Request) {
       }
     }
 
-    console.log(`Estimates sync: sold=${sold.length} created=${created} scheduled=${scheduled} reopened=${reopened} warrantyClaims=${warrantyClaims}`);
-    if (created || scheduled || reopened || warrantyClaims) {
+    console.log(`Estimates sync: sold=${sold.length} created=${created} booked=${booked} reopened=${reopened} warrantyClaims=${warrantyClaims}`);
+    if (created || booked || reopened || warrantyClaims) {
       await broadcastChange({ source: 'sync' });
     }
     return NextResponse.json({
       ok: true, source: 'estimates-api', from: fromDate, to: today,
-      soldTotal: sold.length, created, scheduled, reopened, warrantyClaims,
+      soldTotal: sold.length, created, booked, reopened, warrantyClaims,
     });
   } catch (err) {
     console.error('Estimates sync failed:', err);
