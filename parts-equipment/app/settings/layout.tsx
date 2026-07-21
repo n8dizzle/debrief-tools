@@ -11,6 +11,7 @@ const SECTIONS = [
   { href: '/settings/blocked-reasons', label: 'Blocked Reasons' },
   { href: '/settings/validity', label: 'Validity' },
   { href: '/settings/service-workflow', label: 'Service Workflow' },
+  { href: '/settings/workflows', label: 'Workflows' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
