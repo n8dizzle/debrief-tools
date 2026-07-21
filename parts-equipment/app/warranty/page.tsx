@@ -3,11 +3,19 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { OrdersContextValue } from '@/hooks/useOrders';
 import type { PEWarrantyClaim } from '@/types';
-import { formatLocalDate, compareValues } from '@/lib/pe-utils';
+import { formatLocalDate, compareValues, parseMoney, fmtMoney, daysSince, warrantyAgeColor } from '@/lib/pe-utils';
 import PresenceBadge from '@/components/PresenceBadge';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import PrefsTable, { type PrefsColumn } from '@/components/PrefsTable';
 import { useFillViewportHeight } from '@/hooks/useFillViewportHeight';
+
+// How long a claim has been open: days from Date of Claim until today. The clock
+// stops once the claim is paid (nothing left to chase), and is blank if there's no
+// Date of Claim to measure from. Returns null when there's no age to show.
+function ageDays(w: PEWarrantyClaim): number | null {
+  if (w.paid === 'Yes' || !w.date_of_claim) return null;
+  return daysSince(w.date_of_claim);
+}
 
 export default function WarrantyPage() {
   const ctx = useOrders() as OrdersContextValue;
@@ -25,6 +33,8 @@ export default function WarrantyPage() {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [colsOpen, setColsOpen] = useState(false);
+  // Aging = unpaid claims open past the red threshold (>60 days since Date of Claim).
+  const [agingOnly, setAgingOnly] = useState(false);
 
   function toggleSort(col: string) {
     if (sortCol === col) setSortDir(d => (d === 1 ? -1 : 1));
@@ -46,7 +56,13 @@ export default function WarrantyPage() {
   }
 
   function deleteRow(id: number) {
-    setWarrantyOrders((prev: PEWarrantyClaim[]) => prev.filter((w: PEWarrantyClaim) => w.id !== id));
+    const w = warrantyOrders.find((c: PEWarrantyClaim) => c.id === id);
+    const label = w?.claim_num || w?.customer || (w?.job ? `Ticket ${w.job}` : '');
+    const msg = label
+      ? `Delete warranty claim ${label}? This can't be undone.`
+      : `Delete this warranty claim? This can't be undone.`;
+    if (!confirm(msg)) return;
+    setWarrantyOrders((prev: PEWarrantyClaim[]) => prev.filter((c: PEWarrantyClaim) => c.id !== id));
     fetch(`/api/warranty/${id}`, { method: 'DELETE' }).catch(() => {});
   }
 
@@ -79,6 +95,7 @@ export default function WarrantyPage() {
     return claims.filter(w => {
       const bucket = w.paid === 'Yes' ? 'completed' : 'active';
       if (statuses.size > 0 && !statuses.has(bucket)) return false;
+      if (agingOnly && (ageDays(w) ?? 0) <= 60) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         const hay = [
@@ -91,16 +108,24 @@ export default function WarrantyPage() {
       }
       return true;
     });
-  }, [claims, statuses, search]);
+  }, [claims, statuses, search, agingOnly]);
+
+  const agingCount = useMemo(() => claims.filter(w => (ageDays(w) ?? 0) > 60).length, [claims]);
 
   const sorted = useMemo(() => {
     if (!sortCol) return filtered;
     const key = sortCol;
+    if (key === 'age') {
+      // Age is computed, not a stored field. Sort numerically; claims with no age
+      // (paid or undated) sink to the bottom regardless of direction.
+      const v = (w: PEWarrantyClaim) => { const d = ageDays(w); return d == null ? -1 : d; };
+      return [...filtered].sort((a, b) => (v(a) - v(b)) * sortDir);
+    }
     return [...filtered].sort((a, b) => compareValues((a as unknown as Record<string, unknown>)[key], (b as unknown as Record<string, unknown>)[key]) * sortDir);
   }, [filtered, sortCol, sortDir]);
 
-  const totCharged = useMemo(() => filtered.reduce((s, w) => s + (parseFloat(w.amt_charged ?? '') || 0), 0), [filtered]);
-  const totRefunded = useMemo(() => filtered.reduce((s, w) => s + (parseFloat(w.amt_refunded ?? '') || 0), 0), [filtered]);
+  const totCharged = useMemo(() => filtered.reduce((s, w) => s + parseMoney(w.amt_charged), 0), [filtered]);
+  const totRefunded = useMemo(() => filtered.reduce((s, w) => s + parseMoney(w.amt_refunded), 0), [filtered]);
 
   // ── shared cell renderers ──
   const inp = (w: PEWarrantyClaim, field: keyof PEWarrantyClaim, type = 'text') => (
@@ -148,6 +173,15 @@ export default function WarrantyPage() {
     { key: 'repl_part_num', label: 'Repl. Part PN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'repl_part_num') },
     { key: 'repl_part_serial', label: 'Repl. Part SN', defaultWidth: 120, minWidth: 90, render: (w) => inp(w, 'repl_part_serial') },
     { key: 'date_of_claim', label: 'Date of Claim', defaultWidth: 130, minWidth: 110, render: (w) => inp(w, 'date_of_claim', 'date') },
+    {
+      key: 'age', label: 'Age', align: 'center', defaultWidth: 66, minWidth: 52,
+      render: (w) => {
+        const d = ageDays(w);
+        return d == null
+          ? <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
+          : <span title={`${d} days since Date of Claim`} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 700, color: warrantyAgeColor(d) }}>{d}d</span>;
+      },
+    },
     { key: 'claim_num', label: 'Claim #', defaultWidth: 110, minWidth: 80, render: (w) => inp(w, 'claim_num') },
     { key: 'credit_approved', label: 'Credit Approved?', align: 'center', defaultWidth: 90, minWidth: 70, render: (w) => ynSel(w, 'credit_approved') },
     { key: 'return_required', label: 'Return Required?', align: 'center', defaultWidth: 90, minWidth: 70, render: (w) => ynSel(w, 'return_required') },
@@ -182,9 +216,24 @@ export default function WarrantyPage() {
           selected={statuses}
           onChange={setStatuses}
         />
+        <button
+          className="btn"
+          onClick={() => setAgingOnly(v => !v)}
+          title="Show only unpaid claims open more than 60 days"
+          style={{
+            fontSize: 12,
+            padding: '5px 12px',
+            borderColor: agingOnly ? '#c0392b' : undefined,
+            background: agingOnly ? 'rgba(192,57,43,0.12)' : undefined,
+            color: agingOnly ? '#c0392b' : 'var(--muted)',
+            fontWeight: agingOnly ? 700 : undefined,
+          }}
+        >
+          Aging{agingCount ? ` (${agingCount})` : ''}
+        </button>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>
-          Charged <strong style={{ color: 'var(--text)' }}>${totCharged.toFixed(2)}</strong>
-          &nbsp;·&nbsp; Refunded <strong style={{ color: 'var(--green)' }}>${totRefunded.toFixed(2)}</strong>
+          Charged <strong style={{ color: 'var(--text)' }}>{fmtMoney(String(totCharged))}</strong>
+          &nbsp;·&nbsp; Refunded <strong style={{ color: 'var(--green)' }}>{fmtMoney(String(totRefunded))}</strong>
         </span>
         <button className="btn btn-primary" style={{ fontSize: 13 }} onClick={addRow}>+ Add Claim</button>
         <button className="btn" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--muted)' }} onClick={() => openAudit?.()}>Audit Trail</button>
