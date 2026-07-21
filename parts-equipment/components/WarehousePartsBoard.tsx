@@ -1,19 +1,30 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOrders, type OrdersContextValue } from '@/hooks/useOrders';
 import type { PEOrder } from '@/types';
 
-// The Warehouse lane — picks up where the Parts Coordinator hands off. Its whole job
-// is to get parts into the shop, two ways:
+// The Warehouse lane — get parts into the shop, then out to the tech.
 //
-//   To Pick Up  (part is at a supply house)      ──(picked up)──▶  Staged (at shop)
-//   Incoming    (carrier shipping it to the shop) ──(received)───▶  Staged (at shop)
-//
-// Once Staged, Warehouse is done and it's the dispatcher's to schedule.
-//
-// This board is exploratory — it reads the CURRENT model (stage + location) so we can
-// see how it lines up against the Parts board. Pickup signal = Location "Supply House";
-// incoming = Stage "Inbound" that isn't a pickup. PREVIEW MODE default (no real writes).
+// PHASE 1 of the configurable workflow engine: the COLUMNS (label, order, color, and
+// even which columns exist) come from `pe_wf_stages` (Settings → Workflows), fetched
+// from /api/workflow-config. Edit a stage row → this board changes, no deploy.
+// The per-stage FILTER + card actions stay coded (keyed by stage key) — that's the
+// "transitions stay in code" line from the eng-review. PREVIEW MODE default.
+
+interface WfStage { key: string; label: string; color: string | null; sort_order: number; is_terminal: boolean; }
+
+// Fallback if the config fetch fails — board still renders (systems over heroes).
+const FALLBACK: WfStage[] = [
+  { key: 'to_pick_up', label: 'To Pick Up', color: 'amber', sort_order: 1, is_terminal: false },
+  { key: 'incoming', label: 'Incoming', color: 'slate', sort_order: 2, is_terminal: false },
+  { key: 'staged', label: 'Staged — At Shop', color: 'green', sort_order: 3, is_terminal: false },
+];
+
+const COLOR: Record<string, string> = {
+  amber: 'var(--amber, #9a6410)', slate: 'var(--slate, #1a5276)',
+  green: 'var(--accent, #1b8a4b)', maroon: 'var(--maroon, #8a2433)',
+};
+const hue = (c: string | null) => COLOR[c || ''] || 'var(--muted)';
 
 const cell: React.CSSProperties = {
   background: 'var(--surface, #fff)', border: '1px solid var(--border)', borderRadius: 10,
@@ -26,34 +37,64 @@ const btn = (bg: string): React.CSSProperties => ({
 
 export default function WarehousePartsBoard() {
   const ctx = useOrders() as OrdersContextValue;
-  // Shared Preview sandbox (see InstallPartsBoard) — same overlay both boards read,
-  // so a card ordered on the Parts board lands here without touching the DB.
   const { orders, saveOrderDebounced, showToast, preview, setPreview, previewOverlay, applyPreview, resetPreview } = ctx;
+
+  const [stages, setStages] = useState<WfStage[]>(FALLBACK);
+  const [fromConfig, setFromConfig] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/workflow-config?board=warehouse')
+      .then(r => r.json())
+      .then(d => { if (alive && Array.isArray(d.stages) && d.stages.length) { setStages(d.stages); setFromConfig(true); } })
+      .catch(() => { /* keep fallback */ });
+    return () => { alive = false; };
+  }, []);
 
   function save(id: number, changes: Partial<PEOrder>) {
     if (preview) applyPreview(id, changes);
     else saveOrderDebounced(id, changes);
   }
 
-  const lane = useMemo(
-    () => orders.filter(o => o.order_type === 'install' && o.status === 'open'),
-    [orders]
-  );
+  const lane = useMemo(() => orders.filter(o => o.order_type === 'install' && o.status === 'open'), [orders]);
   const merged = useMemo(
     () => lane.map(o => previewOverlay[o.id] ? { ...o, ...previewOverlay[o.id] } : o),
     [lane, previewOverlay]
   );
 
-  // Warehouse's three columns. No overlap: pickup is location-based, incoming excludes pickups.
-  const notDone = (o: PEOrder) => o.stage !== 'staged' && o.stage !== 'done' && o.stage !== 'cancelled';
-  const toPickUp = merged.filter(o => o.location === 'Supply House' && notDone(o));
-  const incoming = merged.filter(o => o.stage === 'inbound' && o.location !== 'Supply House');
-  const staged = merged.filter(o => o.stage === 'staged');
-
   function land(o: PEOrder, verb: string) {
     save(o.id, { stage: 'staged', location: 'Lewisville Shop' });
     showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} ${verb} → at shop`, preview ? 'info' : 'success');
   }
+  function handoff(o: PEOrder, how: string) {
+    save(o.id, { stage: 'in_hands' });
+    showToast(`${preview ? '(preview) ' : ''}#${o.job || o.id} ${how} → in tech's hands`, preview ? 'info' : 'success');
+  }
+
+  // Coded behavior per stage key: which cards land here + what the card can do.
+  const notTerminal = (o: PEOrder) => !['staged', 'done', 'cancelled', 'in_hands'].includes(o.stage || '');
+  const BEHAVIOR: Record<string, { filter: (o: PEOrder) => boolean; card: (o: PEOrder) => React.ReactNode }> = {
+    to_pick_up: {
+      filter: o => o.location === 'Supply House' && notTerminal(o),
+      card: o => <button style={{ ...btn('var(--accent, #1b8a4b)'), width: '100%' }} onClick={() => land(o, 'picked up')}>Picked up → At Shop</button>,
+    },
+    incoming: {
+      filter: o => o.stage === 'inbound' && o.location !== 'Supply House',
+      card: o => <button style={{ ...btn('var(--accent, #1b8a4b)'), width: '100%' }} onClick={() => land(o, 'received')}>Received → At Shop</button>,
+    },
+    staged: {
+      filter: o => o.stage === 'staged',
+      card: o => (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button style={btn('var(--accent, #1b8a4b)')} onClick={() => handoff(o, 'tech pickup')}>Tech pickup</button>
+          <button style={btn('var(--amber, #9a6410)')} onClick={() => handoff(o, 'run-out')}>Run-out</button>
+        </div>
+      ),
+    },
+    in_hands: {
+      filter: o => o.stage === 'in_hands',
+      card: () => <div style={{ fontSize: 11, color: 'var(--accent, #1b8a4b)', fontWeight: 600 }}>✓ in tech&apos;s hands</div>,
+    },
+  };
 
   const head = (o: PEOrder) => (
     <>
@@ -67,7 +108,7 @@ export default function WarehousePartsBoard() {
     </>
   );
 
-  const col: React.CSSProperties = { flex: '0 0 320px', background: 'var(--surface2, #eef3ee)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column' };
+  const col: React.CSSProperties = { flex: '0 0 300px', background: 'var(--surface2, #eef3ee)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column' };
   const colHead = (accent: string): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 13px', borderBottom: '1px solid var(--border)', borderTop: `3px solid ${accent}`, borderRadius: '12px 12px 0 0' });
   const count: React.CSSProperties = { marginLeft: 'auto', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, fontWeight: 600, color: 'var(--muted)' };
   const body: React.CSSProperties = { padding: 10, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 80 };
@@ -96,68 +137,44 @@ export default function WarehousePartsBoard() {
             ↺ Reset preview
           </button>
         )}
-        <span style={{ fontSize: 12.5, color: preview ? 'var(--muted)' : 'var(--amber, #9a6410)', fontWeight: preview ? 400 : 700 }}>
-          {preview ? 'Preview — clicks & edits are not saved. Poke around freely.' : '⚠ Live — changes save to real orders.'}
+        <span style={{ fontSize: 11.5, fontFamily: 'IBM Plex Mono, monospace', color: fromConfig ? 'var(--accent, #1b8a4b)' : 'var(--faint,#889)' }}>
+          {fromConfig ? '⚙ columns from config' : '⚙ columns (fallback)'}
         </span>
       </div>
 
       <div style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 12px' }}>
-        <b style={{ color: 'var(--text)' }}>Warehouse</b> — get parts into the shop. Drive and grab the pickups, receive the incoming shipments, then it&apos;s staged and ready for the dispatcher.
+        <b style={{ color: 'var(--text)' }}>Warehouse</b> — get parts into the shop, then out to the tech. Columns below are driven by the workflow config — add or rename a stage in Settings and it shows here.
       </div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-
-        {/* To Pick Up */}
-        <section style={col}>
-          <div style={colHead('var(--amber, #9a6410)')}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>To Pick Up</span>
-            <span style={{ ...count, color: 'var(--amber, #9a6410)' }}>{toPickUp.length}</span>
-          </div>
-          <div style={body}>
-            {toPickUp.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint,#889)', padding: 4 }}>Nothing to pick up.</div>}
-            {toPickUp.map(o => (
-              <article key={o.id} style={{ ...cell, borderLeft: '3px solid var(--amber, #9a6410)' }}>
-                {head(o)}
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>📍 {o.location}</div>
-                <button style={{ ...btn('var(--accent, #1b8a4b)'), width: '100%' }} onClick={() => land(o, 'picked up')}>Picked up → At Shop</button>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* Incoming */}
-        <section style={col}>
-          <div style={colHead('var(--slate, #1a5276)')}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>Incoming</span>
-            <span style={count}>{incoming.length}</span>
-          </div>
-          <div style={body}>
-            {incoming.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint,#889)', padding: 4 }}>Nothing incoming.</div>}
-            {incoming.map(o => (
-              <article key={o.id} style={cell}>
-                {head(o)}
-                <button style={{ ...btn('var(--accent, #1b8a4b)'), width: '100%' }} onClick={() => land(o, 'received')}>Received → At Shop</button>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* Staged (landed) */}
-        <section style={col}>
-          <div style={colHead('var(--accent, #1b8a4b)')}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>Staged — At Shop</span>
-            <span style={count}>{staged.length}</span>
-          </div>
-          <div style={body}>
-            {staged.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint,#889)', padding: 4 }}>Nothing staged yet.</div>}
-            {staged.map(o => (
-              <article key={o.id} style={{ ...cell, opacity: 0.92 }}>
-                {head(o)}
-                <div style={{ fontSize: 11, color: 'var(--accent, #1b8a4b)', fontWeight: 600 }}>✓ ready for dispatch</div>
-              </article>
-            ))}
-          </div>
-        </section>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', overflowX: 'auto' }}>
+        {stages.map(s => {
+          const beh = BEHAVIOR[s.key];
+          const cards = beh ? merged.filter(beh.filter) : [];
+          return (
+            <section key={s.key} style={col}>
+              <div style={colHead(hue(s.color))}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{s.label}</span>
+                <span style={{ ...count, color: hue(s.color) }}>{cards.length}</span>
+              </div>
+              <div style={body}>
+                {cards.length === 0 && (
+                  <div style={{ fontSize: 12.5, color: 'var(--faint,#889)', padding: 4 }}>
+                    {beh ? 'Nothing here.' : 'No behavior wired for this stage yet.'}
+                  </div>
+                )}
+                {cards.map(o => (
+                  <article key={o.id} style={{ ...cell, borderLeft: `3px solid ${hue(s.color)}` }}>
+                    {head(o)}
+                    {o.location === 'Supply House' && s.key === 'to_pick_up' && (
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>📍 {o.location}</div>
+                    )}
+                    {beh?.card(o)}
+                  </article>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
