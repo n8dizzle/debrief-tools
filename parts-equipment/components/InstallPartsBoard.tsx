@@ -83,8 +83,6 @@ export default function InstallPartsBoard() {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)' }}>#{o.job || '—'}</span>
-        {/* Scheduled in ST but parts still not ordered — the coordinator's cue to act. */}
-        {o.call_booked && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--slate, #1a5276)' }}>🗓 scheduled</span>}
       </div>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{o.customer || '—'}</div>
       <div style={{ fontSize: 12.5, color: 'var(--text)', marginBottom: 8 }}>{o.part || '—'}</div>
