@@ -27,6 +27,9 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 // separate status — parts work continues while the install is scheduled. A closed job
 // reads "Done". This keeps the label honest now that booking no longer completes a job.
 const SCHEDULED_META = { label: 'Scheduled', color: '#1a7a4a', bg: 'rgba(26,122,74,0.14)' };
+// Booked-but-open job is its own filter group, "Scheduled", broken out from "Open".
+const effStatus = (o: { status: string; call_booked?: boolean | null }) =>
+  o.status === 'open' && o.call_booked ? 'scheduled' : o.status;
 function StatusBadge({ status, booked }: { status: string; booked?: boolean }) {
   const m = status === 'open' && booked
     ? SCHEDULED_META
@@ -56,7 +59,7 @@ export default function ServicePage() {
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
   // Multi-select filters. Empty set = no filter (show all). Status defaults to Open.
-  const [statuses, setStatuses] = useState<Set<string>>(() => new Set(['open']));
+  const [statuses, setStatuses] = useState<Set<string>>(() => new Set(['open', 'scheduled']));
   const [typeFilterSet, setTypeFilterSet] = useState<Set<string>>(new Set());
   const [prFilterSet, setPrFilterSet] = useState<Set<string>>(new Set());
   const [locationFilterSet, setLocationFilterSet] = useState<Set<string>>(new Set());
@@ -153,7 +156,7 @@ export default function ServicePage() {
 
   const filtered = useMemo(() => {
     return svcOrders.filter((o: PEOrder) => {
-      if (statuses.size > 0 && !statuses.has(o.status)) return false;
+      if (statuses.size > 0 && !statuses.has(effStatus(o))) return false;
       if (ownerFilter && o.owner !== ownerFilter) return false;
       if (typeFilterSet.size > 0 && !typeFilterSet.has(o.subtype || '')) return false;
       if (prFilterSet.size > 0 && !prFilterSet.has(o.tech_type || '')) return false;
@@ -487,6 +490,7 @@ export default function ServicePage() {
           label="Statuses"
           options={[
             { value: 'open', label: 'Open' },
+            { value: 'scheduled', label: 'Scheduled' },
             { value: 'completed', label: 'Done' },
             { value: 'cancelled', label: 'Cancelled' },
           ]}
