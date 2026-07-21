@@ -46,6 +46,15 @@ export function fmtMoney(v: string | null | undefined): string {
   return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Parse a stored money string ("$1,382.50", "382.5", "", "n/a") into a number for
+// summing. Strips currency/commas first so a plain parseFloat doesn't choke on the
+// leading "$" (which silently drops the row from totals). Empty/unparseable -> 0.
+export function parseMoney(v: string | null | undefined): number {
+  if (v == null) return 0;
+  const num = parseFloat(String(v).replace(/[^0-9.-]/g, ''));
+  return isNaN(num) ? 0 : num;
+}
+
 // Generic cell comparator for column sorting: money/plain numbers sort numerically,
 // ISO dates (YYYY-MM-DD) sort chronologically as strings, everything else alphabetically.
 // Blank values always sort to the end.
@@ -65,6 +74,15 @@ export function compareValues(a: unknown, b: unknown): number {
 export function ageColor(days: number): string {
   if (days > 30) return '#c0392b'; // red
   if (days > 20) return '#e67e22'; // amber
+  return '#27ae60'; // green
+}
+
+// Warranty claims resolve slower than parts orders — manufacturer credit routinely
+// takes weeks-to-months — so aging uses a longer scale than ageColor(): green <30,
+// amber 30–60, red >60 days open. Same palette so it reads native across the app.
+export function warrantyAgeColor(days: number): string {
+  if (days > 60) return '#c0392b'; // red
+  if (days > 30) return '#e67e22'; // amber
   return '#27ae60'; // green
 }
 
