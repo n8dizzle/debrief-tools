@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 import { getServiceTitanClient, formatAddress, STJob, STGrossPayItem } from '@/lib/servicetitan';
+import { enrichPendingJobs } from '@/lib/enrich-jobs';
 import { isValidCronRequest, formatLocalDate } from '@/lib/ap-utils';
 
 export const maxDuration = 60;
@@ -474,11 +475,9 @@ export async function POST(request: NextRequest) {
       console.error('ST crew population failed:', err);
     }
 
-    // Enrich new jobs with customer/location details (best-effort, 10s timeout)
-    const newJobs = allJobs.filter(j => !existingMap.has(j.id));
-    if (newJobs.length > 0) {
-      await enrichJobDetails(st, supabase, newJobs);
-    }
+    // Fill customer/location details for any job still missing them (this run's
+    // inserts plus any stragglers from earlier runs). Self-healing by design.
+    await enrichPendingJobs(st, supabase);
 
     // Enrich invoice numbers for jobs that have invoiceId but no invoice_number
     await enrichInvoiceNumbers(st, supabase, allJobs);
@@ -616,74 +615,6 @@ async function enrichInvoiceNumbers(
     console.log(`Invoice number enrichment: ${updated}/${jobsWithInvoice.length} jobs`);
   } catch (error) {
     console.error('Invoice number enrichment failed:', error);
-  }
-}
-
-/**
- * Best-effort enrichment: fetch customer/location details for newly created jobs.
- * All fetches run in parallel with a 10s timeout to stay within function limits.
- */
-async function enrichJobDetails(
-  st: ReturnType<typeof getServiceTitanClient>,
-  supabase: ReturnType<typeof getServerSupabase>,
-  jobs: STJob[]
-) {
-  const customerIds = [...new Set(jobs.map(j => j.customerId))];
-  const locationIds = [...new Set(jobs.map(j => j.locationId))];
-
-  const timeout = (ms: number) => new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('timeout')), ms)
-  );
-
-  try {
-    const [customerResults, locationResults] = await Promise.race([
-      Promise.all([
-        Promise.allSettled(customerIds.map(id => st.getCustomer(id))),
-        Promise.allSettled(locationIds.map(id => st.getLocation(id))),
-      ]),
-      timeout(10000).then(() => { throw new Error('timeout'); }),
-    ]) as [PromiseSettledResult<any>[], PromiseSettledResult<any>[]];
-
-    const customerMap = new Map<number, { name: string; phone: string; email: string }>();
-    const locationMap = new Map<number, string>();
-
-    customerResults.forEach((result, idx) => {
-      if (result.status === 'fulfilled' && result.value) {
-        customerMap.set(customerIds[idx], {
-          name: result.value.name || '',
-          phone: result.value.phoneNumber || '',
-          email: result.value.email || '',
-        });
-      }
-    });
-
-    locationResults.forEach((result, idx) => {
-      if (result.status === 'fulfilled' && result.value) {
-        locationMap.set(locationIds[idx], formatAddress(result.value));
-      }
-    });
-
-    // Update jobs with enriched data
-    for (const job of jobs) {
-      const customer = customerMap.get(job.customerId);
-      const address = locationMap.get(job.locationId);
-      if (customer || address) {
-        const updates: Record<string, unknown> = {};
-        if (customer?.name) updates.customer_name = customer.name;
-        if (customer?.phone) updates.customer_phone = customer.phone;
-        if (customer?.email) updates.customer_email = customer.email;
-        if (address) updates.job_address = address;
-
-        if (Object.keys(updates).length > 0) {
-          await supabase
-            .from('ap_install_jobs')
-            .update(updates)
-            .eq('st_job_id', job.id);
-        }
-      }
-    }
-  } catch {
-    console.log('Customer/location enrichment timed out - will retry on next sync');
   }
 }
 
