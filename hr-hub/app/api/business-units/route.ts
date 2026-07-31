@@ -6,27 +6,25 @@ import { getServerSupabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 type SessionUser = { role?: string; permissions?: Record<string, Record<string, boolean>> | null };
-function canView(user: SessionUser | undefined): boolean {
-  return !!user && (user.role === 'owner' || !!user.permissions?.hr_hub?.can_access);
-}
 function canEdit(user: SessionUser | undefined): boolean {
   return !!user && (user.role === 'owner' || !!user.permissions?.hr_hub?.can_manage_templates);
 }
 
-// GET /api/ladders            — active ladders (for the assessment picker)
-// GET /api/ladders?all=1      — include inactive (editor only; requires edit permission)
-export async function GET(req: Request) {
+// GET /api/business-units — distinct active business unit names (for the roster picker).
+export async function GET() {
   const session = await getServerSession(authOptions);
   const user = session?.user as SessionUser | undefined;
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!canView(user)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canEdit(user)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const all = new URL(req.url).searchParams.get('all') === '1' && canEdit(user);
   const supabase = getServerSupabase();
-  let q = supabase.from('hr_ladders').select('id, name, description, is_active, sort_order');
-  if (!all) q = q.eq('is_active', true);
-  const { data, error } = await q.order('sort_order').order('name');
-
+  const { data, error } = await supabase
+    .from('ap_technicians')
+    .select('business_unit_name')
+    .eq('is_active', true)
+    .not('business_unit_name', 'is', null);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ladders: data || [] });
+
+  const units = Array.from(new Set((data || []).map((r: any) => r.business_unit_name).filter(Boolean))).sort();
+  return NextResponse.json({ units });
 }
