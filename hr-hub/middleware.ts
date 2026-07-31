@@ -14,6 +14,6 @@ export const config = {
     // - api/cron/sync (cron endpoint - uses CRON_SECRET)
     // - api/sync/backfill (cron endpoint - uses CRON_SECRET)
     // - static files
-    "/((?!login|journey|me|api/auth|api/cron|api/sync|_next/static|_next/image|favicon.ico|logo.png).*)",
+    "/((?!login|journey/|me$|api/auth|api/cron|api/sync|_next/static|_next/image|favicon.ico|logo.png).*)",
   ],
 };

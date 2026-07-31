@@ -48,6 +48,36 @@ export async function getLadderTree(supabase: SB, id: string): Promise<LadderTre
   };
 }
 
+import type { LadderTree as _LadderTree, SkillStatus } from '@/lib/ladder-types';
+import { tierFromHourlyRate } from '@/lib/ladder-types';
+
+export interface TechJourneyData {
+  tree: _LadderTree;
+  statuses: Record<string, SkillStatus>;
+  curId: string | null;
+}
+
+/**
+ * Everything needed to render a technician's read-only journey: their ladder tree,
+ * their checkoff statuses, and current tier (explicit placement, else rate-inferred).
+ * Returns null if the tech resolves to no ladder. Shared by /me and the supervisor preview.
+ */
+export async function getTechJourney(supabase: SB, stId: number, businessUnitName: string | null, hourlyRate: number | null): Promise<TechJourneyData | null> {
+  const ladderId = await resolveTechLadderId(supabase, stId, businessUnitName);
+  if (!ladderId) return null;
+  const tree = await getLadderTree(supabase, ladderId);
+  if (!tree) return null;
+
+  const [{ data: placement }, { data: statusRows }] = await Promise.all([
+    supabase.from('hr_tech_ladder').select('current_tier_id').eq('st_technician_id', stId).maybeSingle(),
+    supabase.from('hr_tech_skill_status').select('item_id, status').eq('st_technician_id', stId).not('item_id', 'is', null),
+  ]);
+  const statuses: Record<string, SkillStatus> = {};
+  for (const r of statusRows || []) statuses[r.item_id as string] = r.status as SkillStatus;
+  const curId = placement?.current_tier_id ?? tierFromHourlyRate(tree, hourlyRate);
+  return { tree, statuses, curId };
+}
+
 /** Which ladder is this tech assessed on? Explicit placement first, else business-unit match. */
 export async function resolveTechLadderId(supabase: SB, stId: number, businessUnitName: string | null): Promise<string | null> {
   const { data: placement } = await supabase.from('hr_tech_ladder').select('ladder_id').eq('st_technician_id', stId).maybeSingle();

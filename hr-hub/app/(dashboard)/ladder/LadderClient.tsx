@@ -388,6 +388,11 @@ function TechDetail({ tree, tech, techs, onPick, statusOf, currentTierId, cycleS
               title="Text this tech a private link to view their own ladder journey">
               {sending ? 'Sending…' : 'Text journey link'}
             </button>
+            <a href={`/journey-preview/${tech.st_technician_id}`} target="_blank" rel="noopener noreferrer"
+              className="text-sm rounded-lg px-3 py-1.5 font-medium" style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+              title="See exactly what this tech sees on their phone">
+              Preview
+            </a>
             {sendMsg && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{sendMsg}</span>}
           </div>
         </div>
