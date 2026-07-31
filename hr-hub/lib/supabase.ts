@@ -55,7 +55,7 @@ export interface InstallTech {
   is_install_lead: boolean;
   hourly_rate: number | null;
   // ladder state (from hr_tech_ladder)
-  current_rung_id: string | null;
+  current_tier_id: string | null;
   hire_date: string | null;
   notes: string | null;
 }
