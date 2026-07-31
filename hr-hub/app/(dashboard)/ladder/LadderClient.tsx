@@ -147,6 +147,19 @@ export default function LadderClient() {
     }
   }
 
+  async function sendJourney(techId: number): Promise<{ ok: boolean; msg: string }> {
+    if (!ladderId) return { ok: false, msg: 'No ladder selected' };
+    try {
+      const res = await fetch('/api/journey/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ st_technician_id: techId, ladder_id: ladderId }),
+      });
+      const j = await res.json();
+      if (!res.ok) return { ok: false, msg: j.error || 'Failed to send' };
+      return { ok: true, msg: `Texted link to •••${j.phone_last4}` };
+    } catch { return { ok: false, msg: 'Failed to send' }; }
+  }
+
   const filteredTechs = useMemo(() => {
     const q = search.trim().toLowerCase();
     return q ? techs.filter((t) => t.name.toLowerCase().includes(q)) : techs;
@@ -189,7 +202,7 @@ export default function LadderClient() {
       ) : view === 'team' ? (
         <TeamHeatmap tree={tree} techs={filteredTechs} search={search} setSearch={setSearch} statusOf={statusOf} currentTierId={currentTierId} onSelect={(id) => { setSelectedId(id); setView('tech'); }} />
       ) : (
-        <TechDetail tree={tree} tech={selected} techs={techs} onPick={setSelectedId} statusOf={statusOf} currentTierId={currentTierId} cycleSkill={cycleSkill} setCurrentTier={setCurrentTier} canEdit={canEditLadder} />
+        <TechDetail tree={tree} tech={selected} techs={techs} onPick={setSelectedId} statusOf={statusOf} currentTierId={currentTierId} cycleSkill={cycleSkill} setCurrentTier={setCurrentTier} canEdit={canEditLadder} onSendJourney={sendJourney} />
       )}
     </div>
   );
@@ -318,11 +331,14 @@ function Legend() {
 }
 
 // ── tech detail ────────────────────────────────────────────────────────────────
-function TechDetail({ tree, tech, techs, onPick, statusOf, currentTierId, cycleSkill, setCurrentTier, canEdit }: {
+function TechDetail({ tree, tech, techs, onPick, statusOf, currentTierId, cycleSkill, setCurrentTier, canEdit, onSendJourney }: {
   tree: LadderTree; tech: InstallTech | null; techs: InstallTech[]; onPick: (id: number) => void;
   statusOf: (techId: number, itemId: string) => SkillStatus; currentTierId: (t: InstallTech) => string | null;
   cycleSkill: (techId: number, itemId: string) => void; setCurrentTier: (techId: number, tierId: string) => void; canEdit: boolean;
+  onSendJourney: (techId: number) => Promise<{ ok: boolean; msg: string }>;
 }) {
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState<string | null>(null);
   if (!tech) return <div className="mt-6 text-sm" style={{ color: 'var(--text-secondary)' }}>Pick someone from the Team overview to see their skill map.</div>;
 
   const flat = flatTiers(tree);
@@ -367,6 +383,12 @@ function TechDetail({ tree, tech, techs, onPick, statusOf, currentTierId, cycleS
                 </optgroup>
               ))}
             </select>
+            <button onClick={async () => { setSending(true); setSendMsg(null); const r = await onSendJourney(tech.st_technician_id); setSendMsg(r.msg); setSending(false); }} disabled={sending}
+              className="text-sm rounded-lg px-3 py-1.5 font-medium disabled:opacity-50" style={{ backgroundColor: 'var(--christmas-green)', color: 'var(--on-accent)' }}
+              title="Text this tech a private link to view their own ladder journey">
+              {sending ? 'Sending…' : 'Text journey link'}
+            </button>
+            {sendMsg && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{sendMsg}</span>}
           </div>
         </div>
 
