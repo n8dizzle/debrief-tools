@@ -23,7 +23,12 @@ function generateItemHash(item: STGrossPayItem): string {
   return crypto.createHash('md5').update(parts).digest('hex');
 }
 
-export const maxDuration = 60;
+// Raised from 60 alongside the active=Any sync fix: this route now upserts every
+// technician including deactivated ones (50 -> 142 as of 2026-08-03), one row at a
+// time, on top of the gross-pay and payroll-adjustment fetches. 300 matches the sync
+// routes in ap-payments, payroll-tracker, and service-dashboard. A cron that times out
+// here fails silently and labor_employees just quietly stops updating.
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const isCron = isValidCronRequest(request);
