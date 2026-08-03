@@ -267,12 +267,19 @@ export class ServiceTitanClient {
   }
 
   /**
-   * Get all technicians.
+   * Get technicians. Defaults to EVERY technician, active or not.
+   *
+   * ServiceTitan defaults this filter to active-only, so 'Any' is the only way to see
+   * deactivated records. Without them a mirror cannot learn that someone was deactivated:
+   * their row simply stops coming back and keeps whatever is_active it last had. Pulling
+   * everyone lets the upsert write each record's true state instead of inferring it from
+   * absence. Verified against the live API 2026-08-03: active=true -> 41 employees,
+   * active=Any -> 81.
    */
-  async getTechnicians(): Promise<STTechnician[]> {
+  async getTechnicians(activeOnly: boolean = false): Promise<STTechnician[]> {
     return this.requestAllPages<STTechnician>(
       `settings/v2/tenant/${this.tenantId}/technicians`,
-      { active: 'true' },
+      { active: activeOnly ? 'true' : 'Any' },
       20
     );
   }
