@@ -6,7 +6,10 @@ import { getServiceTitanClient, formatAddress, STJob, STGrossPayItem } from '@/l
 import { enrichPendingJobs } from '@/lib/enrich-jobs';
 import { isValidCronRequest, formatLocalDate } from '@/lib/ap-utils';
 
-export const maxDuration = 60;
+// Real runs land at 50-59s, so 60 left roughly one second of headroom before a
+// hard timeout. 300 matches the sibling sync-margins cron and the other apps'
+// sync routes.
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const isCron = isValidCronRequest(request);
