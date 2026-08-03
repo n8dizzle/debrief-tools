@@ -14,6 +14,7 @@ type Align = {
     buDrift: { label: string; businessUnit: string; gustoDepartment: string }[];
     notInGusto: { stName: string; stRole: string | null; businessUnit: string | null; idSpace: string; stId: number }[];
   };
+  notAConcern: { stName: string; idSpace: string; stId: string; disposition: string; note: string | null }[];
   unsyncable: string[];
   openCount: number;
 };
@@ -106,9 +107,85 @@ function Row({ children }: { children: React.ReactNode }) {
 const nameStyle = { color: 'var(--text-primary)', minWidth: '13rem' } as const;
 const dimStyle = { color: 'var(--text-muted)' } as const;
 
+const KINDS: { key: string; label: string; hint: string }[] = [
+  { key: 'not_a_person', label: 'Not a person', hint: 'scheduling placeholder, team bucket, queue' },
+  { key: 'vendor', label: 'Vendor', hint: 'an outside company, not staff' },
+  { key: 'system_account', label: 'System account', hint: 'an integration or login, not a human' },
+  { key: 'unmanaged', label: 'Not ours to manage', hint: 'a real person we deliberately do not track here' },
+];
+
+/**
+ * Classify a ServiceTitan record as something we do not manage.
+ *
+ * This is a statement about what the record IS, which stays true — deliberately not a
+ * "done" checkbox, because a completion claim goes stale the moment ServiceTitan changes
+ * and then the list lies to you. A classification cannot go stale, so it can be trusted.
+ */
+function Disposition({
+  system, id, name, onDone,
+}: { system: string; id: string | number; name: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const set = async (kind: string) => {
+    setBusy(true); setErr(null);
+    try {
+      const r = await fetch('/api/people-disposition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system, external_id: String(id), external_name: name, disposition: kind }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+      onDone();
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBusy(false); setOpen(false);
+    }
+  };
+
+  if (err) return <span className="text-[10px]" style={{ color: 'var(--danger-text, #f87171)' }}>{err}</span>;
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        disabled={busy}
+        className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+        style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+        title="Classify this record as something we do not manage, so it stops appearing here"
+      >
+        {busy ? '...' : 'not a concern'}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex flex-wrap gap-1">
+      {KINDS.map((k) => (
+        <button
+          key={k.key}
+          onClick={() => set(k.key)}
+          className="px-1.5 py-0.5 rounded text-[10px]"
+          style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+          title={k.hint}
+        >
+          {k.label}
+        </button>
+      ))}
+      <button onClick={() => setOpen(false)} className="px-1.5 py-0.5 text-[10px]" style={dimStyle}>
+        cancel
+      </button>
+    </span>
+  );
+}
+
 export default function FixList() {
   const [data, setData] = useState<Align | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
     fetch('/api/people-align')
@@ -118,7 +195,7 @@ export default function FixList() {
       })
       .then(setData)
       .catch((e) => setError(e.message));
-  }, []);
+  }, [reloadKey]);
 
   if (error) return <div className="text-sm" style={{ color: 'var(--text-primary)' }}>Could not load: {error}</div>;
   if (!data) return <div className="text-sm" style={dimStyle}>Comparing every system against Gusto...</div>;
@@ -211,7 +288,38 @@ export default function FixList() {
               <span style={nameStyle}>{r.stName}</span>
               <span style={dimStyle}>{r.stRole || '—'}</span>
               <span style={dimStyle}>{r.businessUnit || 'no business unit'}</span>
-              <span className="ml-auto text-[10px] font-mono" style={dimStyle}>{r.stId}</span>
+              <span className="ml-auto flex items-center gap-2">
+                <span className="text-[10px] font-mono" style={dimStyle}>{r.stId}</span>
+                <Disposition system={r.idSpace} id={r.stId} name={r.stName} onDone={reload} />
+              </span>
+            </Row>
+          ))}
+        </Group>
+
+        <Group
+          title="Classified as not a concern"
+          count={data.notAConcern.length}
+          note="kept here so a wrong call can be undone"
+        >
+          {data.notAConcern.map((r) => (
+            <Row key={`${r.idSpace}-${r.stId}`}>
+              <span style={nameStyle}>{r.stName}</span>
+              <span style={dimStyle}>{KINDS.find((k) => k.key === r.disposition)?.label ?? r.disposition}</span>
+              {r.note && <span style={dimStyle}>{r.note}</span>}
+              <button
+                onClick={async () => {
+                  await fetch('/api/people-disposition', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ system: r.idSpace, external_id: r.stId, disposition: null }),
+                  });
+                  reload();
+                }}
+                className="ml-auto px-1.5 py-0.5 rounded text-[10px]"
+                style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+              >
+                put back
+              </button>
             </Row>
           ))}
         </Group>

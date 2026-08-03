@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import FixList from './FixList';
+import SideBySide from './SideBySide';
 
 // Raw people explorer. One tab per system, showing every row that system holds with
 // no filtering, matching, or de-duplication. Non-human entities, terminated people, and
@@ -77,10 +78,11 @@ type Payload = {
   pulledAt: string | null;
 };
 
-type TabKey = 'fix' | 'gusto' | 'stEmployees' | 'stTechs' | 'contractors' | 'portal';
+type TabKey = 'fix' | 'compare' | 'gusto' | 'stEmployees' | 'stTechs' | 'contractors' | 'portal';
 
 const TABS: { key: TabKey; label: string; source: string }[] = [
   { key: 'fix', label: 'Fix list', source: 'computed live — what disagrees with Gusto' },
+  { key: 'compare', label: 'Side by side', source: 'computed live — Gusto next to ServiceTitan, per person' },
   { key: 'gusto', label: 'Gusto', source: 'hr_gusto_snapshot — HR source of record' },
   { key: 'stEmployees', label: 'ServiceTitan people', source: 'pr_employees — ST employee-id space' },
   { key: 'stTechs', label: 'ServiceTitan techs', source: 'ap_technicians — ST technician-id space' },
@@ -123,6 +125,7 @@ export default function PeopleExplorer() {
     if (!data) return null;
     return {
       fix: 0,
+      compare: 0,
       gusto: data.gusto.length,
       stEmployees: data.stEmployees.length,
       stTechs: data.stTechs.length,
@@ -188,12 +191,12 @@ export default function PeopleExplorer() {
             }}
           >
             {t.label}
-            {t.key !== 'fix' && <span className="opacity-70"> ({counts[t.key]})</span>}
+            {t.key !== 'fix' && t.key !== 'compare' && <span className="opacity-70"> ({counts[t.key]})</span>}
           </button>
         ))}
       </div>
 
-      {tab !== 'fix' && (
+      {tab !== 'fix' && tab !== 'compare' && (
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={q}
@@ -217,8 +220,9 @@ export default function PeopleExplorer() {
       )}
 
       {tab === 'fix' && <FixList />}
+      {tab === 'compare' && <SideBySide />}
 
-      {tab !== 'fix' && (
+      {tab !== 'fix' && tab !== 'compare' && (
       <div
         className="rounded-lg overflow-x-auto"
         style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}

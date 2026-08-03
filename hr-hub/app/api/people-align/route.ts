@@ -44,7 +44,7 @@ export async function GET() {
 
   const supabase = getServerSupabase();
 
-  const [gustoRes, stEmpRes, stTechRes] = await Promise.all([
+  const [gustoRes, stEmpRes, stTechRes, dispRes] = await Promise.all([
     supabase
       .from('hr_gusto_snapshot')
       .select(
@@ -55,9 +55,12 @@ export async function GET() {
     supabase
       .from('ap_technicians')
       .select('st_technician_id, name, business_unit_name, team, is_active'),
+    supabase
+      .from('hr_people_dispositions')
+      .select('system, external_id, external_name, disposition, note'),
   ]);
 
-  const err = gustoRes.error || stEmpRes.error || stTechRes.error;
+  const err = gustoRes.error || stEmpRes.error || stTechRes.error || dispRes.error;
   if (err) return NextResponse.json({ error: err.message }, { status: 500 });
 
   const gusto = (gustoRes.data ?? []) as unknown as GustoPerson[];
@@ -69,6 +72,13 @@ export async function GET() {
     st_technician_id: number; name: string | null; business_unit_name: string | null;
     team: string | null; is_active: boolean | null;
   }>;
+
+  // Records the company has classified as "not a person we manage". Keyed
+  // system|external_id so a technician and an employee id never collide.
+  type Disp = { system: string; external_id: string; external_name: string | null; disposition: string; note: string | null };
+  const dispositions = (dispRes.data ?? []) as unknown as Disp[];
+  const dispByKey = new Map(dispositions.map((d) => [`${d.system}|${d.external_id}`, d]));
+  const isDispositioned = (system: string, id: number | string) => dispByKey.has(`${system}|${id}`);
 
   const index = buildGustoIndex(gusto);
 
@@ -152,14 +162,95 @@ export async function GET() {
   // ── Active in ServiceTitan with no Gusto counterpart (people? vendors? queues?) ──
   const notInGusto = stEmpActive
     .filter((r) => !matchToGusto(r.name, index))
+    .filter((r) => !isDispositioned('st_employee', r.st_employee_id))
     .map((r) => ({
       stName: r.name ?? '', stRole: r.role, businessUnit: r.business_unit_name,
       idSpace: 'st_employee', stId: r.st_employee_id,
     }))
     .sort((a, b) => a.stName.localeCompare(b.stName));
 
+  // Already classified as something we do not manage. Shown so a wrong call can be undone.
+  const notAConcern = dispositions
+    .map((d) => ({
+      stName: d.external_name ?? '(name not recorded)', idSpace: d.system,
+      stId: d.external_id, disposition: d.disposition, note: d.note,
+    }))
+    .sort((a, b) => a.stName.localeCompare(b.stName));
+
+  // ── Side by side: every Gusto person with whatever ServiceTitan holds for them ────
+  //
+  // Gusto owns title and department; ServiceTitan has no field for either, so those
+  // cells are marked 'none' rather than 'differs' — an empty shelf is not a mismatch.
+  // Comparable fields are name, business unit vs department, and active status.
+  const stEmpByKey = new Map<string, typeof stEmp>();
+  const stTechByKey = new Map<string, typeof stTech>();
+  for (const r of stEmp) {
+    const k = nameKey(r.name);
+    stEmpByKey.set(k, [...(stEmpByKey.get(k) ?? []), r]);
+  }
+  for (const r of stTech) {
+    const k = nameKey(r.name);
+    stTechByKey.set(k, [...(stTechByKey.get(k) ?? []), r]);
+  }
+
+  const pairs = gusto
+    .map((g) => {
+      const keys = gustoNameForms(g).map(nameKey);
+      const emps = keys.flatMap((k) => stEmpByKey.get(k) ?? []);
+      const techs = keys.flatMap((k) => stTechByKey.get(k) ?? []);
+      const stNames = [...new Set([...emps, ...techs].map((r) => r.name ?? ''))].filter(Boolean);
+      const stBus = [...new Set([...emps, ...techs].map((r) => r.business_unit_name).filter(Boolean))] as string[];
+      const stAnyActive = [...emps, ...techs].some((r) => r.is_active);
+      const present = emps.length + techs.length > 0;
+
+      const expectedDept = stBus.map((b) => ST_BU_TO_GUSTO_DEPT[b]).filter(Boolean);
+
+      return {
+        gustoUuid: g.gusto_uuid,
+        label: gustoDisplayName(g),
+        workerKind: g.worker_kind,
+        gusto: {
+          name: gustoNameForms(g)[0] ?? '',
+          preferred: g.preferred_first_name && g.last_name ? `${g.preferred_first_name} ${g.last_name}` : null,
+          department: g.department,
+          title: g.title,
+          status: g.terminated ? 'terminated' : 'active',
+          endedOn: g.termination_date,
+        },
+        st: {
+          present,
+          names: stNames,
+          businessUnits: stBus,
+          status: present ? (stAnyActive ? 'active' : 'inactive') : null,
+          employeeIds: emps.map((r) => r.st_employee_id),
+          technicianIds: techs.map((r) => r.st_technician_id),
+        },
+        verdict: {
+          name: !present ? 'none' : stNames.some((n) => !nameDiffersFromGusto(n, g)) ? 'match' : 'differs',
+          department: !present ? 'none'
+            : stBus.length === 0 ? 'none'
+            : expectedDept.length === 0 ? 'unmapped'
+            : expectedDept.includes(g.department ?? '') ? 'match' : 'differs',
+          status: !present ? 'none'
+            : (g.terminated ? !stAnyActive : stAnyActive) ? 'match' : 'differs',
+          title: 'gusto_only',
+        },
+      };
+    })
+    .sort((a, b) => {
+      // Anything that disagrees floats to the top; terminated people sink.
+      const bad = (x: typeof a) => Object.values(x.verdict).filter((v) => v === 'differs').length;
+      if (bad(b) !== bad(a)) return bad(b) - bad(a);
+      if ((a.gusto.status === 'terminated') !== (b.gusto.status === 'terminated')) {
+        return a.gusto.status === 'terminated' ? 1 : -1;
+      }
+      return a.label.localeCompare(b.label);
+    });
+
   return NextResponse.json({
     fixInSt: { terminatedStillActive, missingInSt, nameDrift, buDrift, notInGusto },
+    notAConcern,
+    pairs,
     // Fields Gusto owns that ServiceTitan has nowhere to store.
     unsyncable: ['job title', 'department', 'hire date', 'worker type'],
     openCount:
