@@ -77,17 +77,21 @@ export async function POST(request: NextRequest) {
       if (!error) synced++;
     }
 
-    // Reconcile: ServiceTitan's technicians endpoint only returns ACTIVE techs, so anyone
-    // deactivated/terminated drops out of the response. Flag any tech not in the active set
-    // as inactive so they stop showing in the list.
+    // Backstop only. The fetch above now asks for active=Any, so a deactivated tech comes
+    // back with active=false and the upsert writes that straight through — this sweep no
+    // longer carries the deactivation logic. It still catches the one case the upsert cannot
+    // see: a technician deleted outright in ServiceTitan, present in no response at all.
+    // Expect 0 here on a normal run.
     let deactivated = 0;
-    const activeIds = stTechnicians.map((t) => t.id).filter((id) => id != null);
-    if (activeIds.length > 0) {
+    // Coerced to numbers: these ids are interpolated into a PostgREST filter string
+    // below, so anything non-numeric must never reach it.
+    const seenIds = stTechnicians.map((t) => Number(t.id)).filter((id) => Number.isFinite(id));
+    if (seenIds.length > 0) {
       const { data: deact } = await supabase
         .from('ap_technicians')
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('is_active', true)
-        .not('st_technician_id', 'in', `(${activeIds.join(',')})`)
+        .not('st_technician_id', 'in', `(${seenIds.join(',')})`)
         .select('id');
       deactivated = deact?.length || 0;
     }

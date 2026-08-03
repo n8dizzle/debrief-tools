@@ -260,9 +260,12 @@ export class ServiceTitanClient {
         page: page.toString(),
       };
 
-      if (activeOnly) {
-        params.active = 'true';
-      }
+      // ServiceTitan defaults this filter to active-only, so omitting it is identical to
+      // sending active=true. Passing 'Any' is the ONLY way to see deactivated records, and
+      // without them a mirror can never learn that someone was deactivated — their row just
+      // stops being returned and keeps whatever is_active it last had. Verified against the
+      // live API 2026-08-03: omitted -> 41 employees, active=true -> 41, active=Any -> 81.
+      params.active = activeOnly ? 'true' : 'Any';
 
       const response = await this.request<STPagedResponse<STTechnician>>(
         'GET',
@@ -290,9 +293,12 @@ export class ServiceTitanClient {
         page: page.toString(),
       };
 
-      if (activeOnly) {
-        params.active = 'true';
-      }
+      // ServiceTitan defaults this filter to active-only, so omitting it is identical to
+      // sending active=true. Passing 'Any' is the ONLY way to see deactivated records, and
+      // without them a mirror can never learn that someone was deactivated — their row just
+      // stops being returned and keeps whatever is_active it last had. Verified against the
+      // live API 2026-08-03: omitted -> 41 employees, active=true -> 41, active=Any -> 81.
+      params.active = activeOnly ? 'true' : 'Any';
 
       const response = await this.request<STPagedResponse<STEmployee>>(
         'GET',

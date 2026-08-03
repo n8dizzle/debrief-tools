@@ -82,18 +82,25 @@ export async function POST(request: NextRequest) {
             { onConflict: 'st_technician_id', ignoreDuplicates: false }
           );
       }
-      // Reconcile: ST only returns ACTIVE techs, so deactivated/terminated ones drop out of
-      // the response and would otherwise stay is_active=true forever. Flag anyone not in the
-      // active set as inactive so they auto-disappear from the technicians list.
-      const activeIds = stTechnicians.map(t => t.id).filter(id => id != null);
-      if (activeIds.length > 0) {
+      // Backstop only. The fetch above now asks for active=Any, so deactivated techs come
+      // back with active=false and the upsert writes that straight through — this sweep no
+      // longer carries the deactivation logic. It still catches the one case the upsert
+      // cannot see: a technician deleted outright in ServiceTitan, who appears in no
+      // response at all. Expect 0 here on a normal run.
+      // Coerced to numbers: these ids are interpolated into a PostgREST filter string
+      // below, so anything non-numeric must never reach it.
+      const seenIds = stTechnicians.map(t => Number(t.id)).filter(id => Number.isFinite(id));
+      if (seenIds.length > 0) {
         const { data: deact } = await supabase
           .from('ap_technicians')
           .update({ is_active: false, updated_at: new Date().toISOString() })
           .eq('is_active', true)
-          .not('st_technician_id', 'in', `(${activeIds.join(',')})`)
+          .not('st_technician_id', 'in', `(${seenIds.join(',')})`)
           .select('id');
-        console.log(`Synced ${stTechnicians.length} technicians, deactivated ${deact?.length || 0}`);
+        console.log(
+          `Synced ${stTechnicians.length} technicians (active+inactive), ` +
+            `${deact?.length || 0} not present in ST at all`
+        );
       } else {
         console.log(`Synced ${stTechnicians.length} technicians`);
       }

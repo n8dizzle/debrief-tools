@@ -83,8 +83,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Deactivate techs that exist in our DB but are no longer returned by ST
-    // (e.g. removed from ST entirely, or moved out of a service BU).
+    // Backstop only. The fetch above asks for active=Any, so a deactivated tech comes back
+    // with active=false and the upsert writes that straight through — deactivation is no
+    // longer inferred from absence. This still catches the two cases the upsert cannot see:
+    // a tech deleted outright in ServiceTitan, and a tech moved out of a service business
+    // unit (filtered out of serviceTechs above, so never upserted).
     const stTechIds = new Set(serviceTechs.map(t => t.id));
     const { data: existingActiveTechs } = await supabase
       .from('sd_technicians')
