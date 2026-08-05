@@ -58,21 +58,11 @@ export function hasInstallKeyword(title: string): boolean {
   const t = (title || '').toLowerCase();
   return INSTALL_KEYWORDS.some(k => t.includes(k));
 }
-export function classifyType(businessUnit: string, estimateTitle: string): string {
-  const bu = (businessUnit || '').trim().toLowerCase();
-  const title = (estimateTitle || '').toLowerCase();
-  if (title.includes('christmas list')) return 'Membership';
-  if (title.includes('duct cleaning')) return 'Duct Cleaning';
-  if (bu.startsWith('hvac')) return 'Service';
-  if (bu.startsWith('plumbing')) return 'Plumbing';
-  return '';
-}
-export function ownerForSubtype(subtype: string): string {
-  return subtype === 'Membership' ? 'CXR Team'
-    : subtype === 'Duct Cleaning' ? 'Install Dispatcher'
-    : subtype === 'Plumbing' ? 'Plumbing Dispatcher'
-    : 'Parts Coordinator';
-}
+// classifyType() and ownerForSubtype() were REMOVED. They guessed subtype from the
+// estimate title and owner from that subtype. Measured 2026-08-05: only 4 of 11
+// memberships matched the rule; a human had relabeled the other 7 by hand. A wrong
+// label gets trusted; a blank asks a person to decide. Do not reintroduce a
+// title-keyword classifier here.
 
 /** Warranty SKU (CA-W-*) → warranty type; else null. */
 export function warrantyTypeFor(items: Array<{ sku?: { name?: string }; name?: string; description?: string }>): string | null {

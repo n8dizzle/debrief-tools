@@ -5,7 +5,7 @@ import { fmtMoney } from '@/lib/pe-utils';
 import { broadcastChange } from '@/lib/realtime';
 import {
   toQueueEstimate, buildQueuePlan,
-  isInstallBU, hasInstallKeyword, classifyType, ownerForSubtype,
+  isInstallBU, hasInstallKeyword,
   type QueueEstimate, type ExistingOrder,
 } from '@/lib/queue-sync';
 
@@ -139,9 +139,14 @@ async function handle(request: Request) {
             if (tech) techCache.set(e.soldById, tech);
           }
         }
+        // order_type is still guessed ONLY because the Service and Install tabs key off
+        // it — a blank would make new rows show on neither tab. It dies with those tabs.
         const orderType = (isInstallBU(e.businessUnit) || hasInstallKeyword(e.name)) ? 'install' : 'service';
-        const subtype = classifyType(e.businessUnit, e.name);
-        const owner = ownerForSubtype(subtype);
+        // NOT guessed any more. New rows arrive unlabelled and Unassigned; the Parts
+        // Coordinator routes them. Existing rows are untouched — the sync never rewrites
+        // these fields on a row that already exists.
+        const subtype = '';
+        const owner = 'Unassigned';
         const money = fmtMoney(String(e.subtotal));
         const jobIdNum = e.jobNumber ? parseInt(e.jobNumber, 10) : NaN;
         const stUrl = !isNaN(jobIdNum) ? `https://go.servicetitan.com/#/Job/Index/${jobIdNum}` : '';
