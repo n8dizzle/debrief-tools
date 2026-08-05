@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
         }
         if (!existingUser) return '/login?error=NotRegistered';
         if (!existingUser.is_active) return '/login?error=AccountInactive';
-        supabase.from('portal_users').update({ last_login_at: new Date().toISOString() }).eq('email', email);
+        await supabase.from('portal_users').update({ last_login_at: new Date().toISOString() }).eq('email', email);
         return true;
       } catch (err) {
         console.error('SignIn callback error:', err);
