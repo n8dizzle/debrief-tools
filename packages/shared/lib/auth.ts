@@ -135,8 +135,9 @@ export function createAuthOptions(config: AuthConfig): NextAuthOptions {
             return `${config.signInPage || '/login'}?error=AccountInactive`;
           }
 
-          // Update last login (fire and forget)
-          supabase
+          // Update last login (awaited — the Supabase query builder is lazy, so an
+        // un-awaited call never executes at all)
+          await supabase
             .from('portal_users')
             .update({ last_login_at: new Date().toISOString() })
             .eq('email', email);

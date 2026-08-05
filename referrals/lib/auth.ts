@@ -33,7 +33,7 @@ export const authOptions: NextAuthOptions = {
         if (!existingUser) return "/login?error=NotRegistered";
         if (!existingUser.is_active) return "/login?error=AccountInactive";
 
-        supabase
+        await supabase
           .from("portal_users")
           .update({ last_login_at: new Date().toISOString() })
           .eq("email", email);

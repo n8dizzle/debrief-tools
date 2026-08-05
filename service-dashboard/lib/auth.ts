@@ -43,7 +43,7 @@ export const authOptions: NextAuthOptions = {
           return "/login?error=AccountInactive";
         }
 
-        supabase
+        await supabase
           .from("portal_users")
           .update({ last_login_at: new Date().toISOString() })
           .eq("email", email);
