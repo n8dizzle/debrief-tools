@@ -33,6 +33,8 @@ const SECTIONS: NavSection[] = [
     links: [
       { href: '/parts', label: 'Parts Board', icon: 'board' },
       { href: '/warehouse', label: 'Warehouse Board', icon: 'box' },
+      { href: '/dispatch', label: 'Dispatcher Board', icon: 'dispatch' },
+      { href: '/master', label: 'Master (Control Tower)', icon: 'grid' },
     ],
   },
   {
@@ -48,6 +50,8 @@ function NavIcon({ type }: { type: string }) {
     box: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />,
     shield: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />,
     board: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5h4v14H4zM10 5h4v14h-4zM16 5h4v9h-4z" />,
+    dispatch: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 8h9m0 0l-3-3m3 3l-3 3M20 16h-9m0 0l3-3m-3 3l3 3" />,
+    grid: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 13h6v6h-6z" />,
     settings: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />,
     portal: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />,
   };

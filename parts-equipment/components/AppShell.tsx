@@ -31,6 +31,8 @@ export default function AppShell({ children }: AppShellProps) {
     pathname?.startsWith('/parts') ? 'Parts Board' :
     pathname?.startsWith('/warehouse') ? 'Warehouse Board' :
     pathname?.startsWith('/warranty') ? 'Warranty Tracker' :
+    pathname?.startsWith('/dispatch') ? 'Dispatcher Board' :
+    pathname?.startsWith('/master') ? 'Master — Control Tower' :
     pathname?.startsWith('/settings') ? 'Settings' :
     pathname?.startsWith('/dashboard') ? 'Dashboard' : '';
 
