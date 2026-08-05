@@ -4,3 +4,4 @@
 # Supabase CLI local cache/scratch
 supabase/.temp
 supabase/.branches
+.env*.local

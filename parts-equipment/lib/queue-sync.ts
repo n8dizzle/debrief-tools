@@ -1,13 +1,20 @@
 // Core logic for the estimates-API-sourced parts queue.
 //
 // Source of truth = ServiceTitan SOLD estimates. An estimate belongs in the queue
-// while its line items have NOT been invoiced onto a job yet (every item's
-// `invoiceItemId` is null). This exactly reproduces the report's "Install Job(s)
-// is empty" curation, but computed from data we control — no hidden report filters
-// (the report silently dropped Opportunity=Dismissed rows like Shweta/Rothwell).
+// while ANY of its line items still needs ordering — i.e. at least one item has a
+// null `invoiceItemId` (not yet invoiced onto a job).
 //
-// Once any item gets an invoiceItemId (work booked onto a job), the estimate is
-// "Scheduled" and leaves the queue.
+// `booked` therefore means EVERY item is invoiced, not "any". The old "any item
+// invoiced" rule silently hid partly-invoiced estimates: measured 2026-08-05, 14
+// estimates holding 20 unordered line items were invisible — one sold Jun 22 with
+// 4 of 5 parts never ordered. A rule should not be the thing that hides work; a
+// person should, via an explicit dismiss that leaves a trace.
+//
+// Some of what this surfaces is junk (placeholder/labor-matrix SKUs like
+// "Template Item Material"). That is handled by human dismissal, not by guessing.
+//
+// Once every item has an invoiceItemId (all work booked onto a job), the estimate
+// is "Scheduled" and leaves the queue.
 
 export interface QueueEstimate {
   estimateId: number;
@@ -20,7 +27,7 @@ export interface QueueEstimate {
   tech: string;            // Sold By name (blank if ST returns only an id — resolve via soldById)
   soldById: number | null; // technician id to resolve into the Sold By name
   warrantyType: string | null; // 'P' | 'P/L' | null  (CA-W- SKUs)
-  booked: boolean;         // any item invoiced onto a job
+  booked: boolean;         // EVERY item invoiced onto a job (nothing left to order)
 }
 
 export interface ExistingOrder {
@@ -80,7 +87,9 @@ export function toQueueEstimate(e: any): QueueEstimate | null {
   if (sname(e.status) !== 'Sold') return null;
   const items = (e.items || []) as Array<any>;
   if (items.length === 0) return null; // nothing to order
-  const booked = items.some(it => it.invoiceItemId != null);
+  // EVERY, not some — see the header note. An estimate stays in the queue as long as
+  // one item still needs ordering.
+  const booked = items.every(it => it.invoiceItemId != null);
   return {
     estimateId: Number(e.id),
     jobNumber: String(e.jobNumber ?? e.jobId ?? '').trim(),

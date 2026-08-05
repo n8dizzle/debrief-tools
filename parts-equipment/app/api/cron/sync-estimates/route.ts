@@ -41,11 +41,17 @@ async function handle(request: Request) {
 
   const now = new Date();
   const today = formatLocalDate(now);
-  // Year-to-date by default: a sold-but-unbooked estimate still needs ordering no
-  // matter how long ago this year it sold.
+  // Fixed start of 2026 — NOT "January 1 of the current year". A sold-but-unbooked
+  // estimate still needs ordering no matter how long ago it sold, so a window that
+  // resets each January would silently drop live work: a job sold in December that
+  // still needs parts would vanish from the board on New Year's Day.
+  // Measured 2026-08-05 before changing this: moving the start earlier than 2026
+  // would pull in 126 more estimates, nearly all stale pre-2024 ones, so 2026 is
+  // the intended floor. Override per-run with ?since=YYYY-MM-DD.
+  const QUEUE_START_DATE = '2026-01-01';
   const fromDate = since && /^\d{4}-\d{2}-\d{2}/.test(since)
     ? since.slice(0, 10)
-    : formatLocalDate(new Date(now.getFullYear(), 0, 1));
+    : QUEUE_START_DATE;
 
   try {
     // ── Source of truth: SOLD estimates whose items aren't invoiced onto a job yet.

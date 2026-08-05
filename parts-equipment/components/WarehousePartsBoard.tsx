@@ -26,7 +26,7 @@ const btn = (bg: string): React.CSSProperties => ({
 
 export default function WarehousePartsBoard() {
   const ctx = useOrders() as OrdersContextValue;
-  // Shared Preview sandbox (see InstallPartsBoard) — same overlay both boards read,
+  // Shared Preview sandbox (see PartsBoard) — same overlay both boards read,
   // so a card ordered on the Parts board lands here without touching the DB.
   const { orders, saveOrderDebounced, showToast, preview, setPreview, previewOverlay, applyPreview, resetPreview } = ctx;
 
@@ -35,8 +35,11 @@ export default function WarehousePartsBoard() {
     else saveOrderDebounced(id, changes);
   }
 
+  // ALL open orders, install and service alike — same leftover install-only filter
+  // that was hiding service work on the Parts board (see PartsBoard).
+  // Warehouse receives a part regardless of which tab the job lives on.
   const lane = useMemo(
-    () => orders.filter(o => o.order_type === 'install' && o.status === 'open'),
+    () => orders.filter(o => o.status === 'open'),
     [orders]
   );
   const merged = useMemo(
@@ -59,7 +62,22 @@ export default function WarehousePartsBoard() {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)' }}>#{o.job || '—'}</span>
+        {o.st_url && (
+          <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+            onClick={e => e.stopPropagation()}
+            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--muted)', flexShrink: 0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        )}
         {o.blocked && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--amber, #9a6410)' }}>⚠ blocked</span>}
+        {o.estimate_cost && (
+          <span title="Est. Subtotal (sold estimate)"
+            style={{ marginLeft: 'auto', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+            {o.estimate_cost}
+          </span>
+        )}
       </div>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{o.customer || '—'}</div>
       <div style={{ fontSize: 12.5, color: 'var(--text)', marginBottom: 6 }}>{o.part || '—'}</div>

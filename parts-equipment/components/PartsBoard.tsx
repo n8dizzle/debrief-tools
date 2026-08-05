@@ -29,7 +29,7 @@ const btn = (bg: string): React.CSSProperties => ({
   border: '1px solid ' + bg, background: bg, color: '#fff', cursor: 'pointer',
 });
 
-export default function InstallPartsBoard() {
+export default function PartsBoard() {
   const ctx = useOrders() as OrdersContextValue;
   // Preview (safe) vs Live — shared across the Parts + Warehouse boards via context,
   // so a card moved here shows up on the Warehouse board (and survives navigation).
@@ -41,8 +41,15 @@ export default function InstallPartsBoard() {
     else saveOrderDebounced(id, changes);
   }
 
+  // ALL open orders, install and service alike. This board used to filter to
+  // order_type === 'install' — a leftover from when the file was an install-only
+  // board (hence the name) rather than a decision. It hid every service job from
+  // the Parts Coordinator: measured 2026-08-05, the board showed 2 of 26 jobs
+  // actually sitting at Needs Order. At this point in the workflow the install vs
+  // service split doesn't matter — a part needs ordering either way, and that split
+  // is only a guess made at sync time anyway (see queue-sync.ts isInstallBU).
   const lane = useMemo(
-    () => orders.filter(o => o.order_type === 'install' && o.status === 'open'),
+    () => orders.filter(o => o.status === 'open'),
     [orders]
   );
   const merged = useMemo(
@@ -83,6 +90,26 @@ export default function InstallPartsBoard() {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)' }}>#{o.job || '—'}</span>
+        {/* Same open-in-ServiceTitan affordance as the Service/Install tables. Only
+            renders when st_url exists — a sold estimate with no job attached has none
+            (see Carol Welch, estimate 173688210), so there'd be nothing to open. */}
+        {o.st_url && (
+          <a href={o.st_url} target="_blank" rel="noopener noreferrer" title="Open job in ServiceTitan"
+            onClick={e => e.stopPropagation()}
+            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--muted)', flexShrink: 0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        )}
+        {/* Est. Subtotal — same field the Service/Install tables show under that label.
+            Right-aligned so the eye can scan value down the column. */}
+        {o.estimate_cost && (
+          <span title="Est. Subtotal (sold estimate)"
+            style={{ marginLeft: 'auto', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+            {o.estimate_cost}
+          </span>
+        )}
       </div>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{o.customer || '—'}</div>
       <div style={{ fontSize: 12.5, color: 'var(--text)', marginBottom: 8 }}>{o.part || '—'}</div>
