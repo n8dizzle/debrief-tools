@@ -91,11 +91,11 @@ export default function ServiceWorkflowPage() {
           <div className="step"><div className="rail"><div className="num a">0</div><div className="connector" /></div>
             <div className="card"><span className="who a">ServiceTitan</span>
               <h4>Estimate sold, not yet scheduled</h4>
-              <p>A tech sells an estimate; the customer approves it but the repair isn&apos;t booked — usually waiting on a part. It lands on <strong>Report&nbsp;#54646792</strong>.</p></div></div>
+              <p>A tech sells an estimate; the customer approves it but the repair isn&apos;t booked — usually waiting on a part. In ServiceTitan terms: the estimate is <strong>Sold</strong> and none of its line items have been invoiced onto a job yet.</p></div></div>
           <div className="step"><div className="rail"><div className="num a">1</div><div className="connector" /></div>
-            <div className="card"><span className="who a">Automatic · every 15 min</span>
+            <div className="card"><span className="who a">Automatic · every 15 min in work hours</span>
               <h4>The sync creates the order</h4>
-              <p>Reads the report and drops a new row on the board, pre-filled from ServiceTitan. Starts at Location &ldquo;Place Order&rdquo;.</p>
+              <p>Reads sold estimates straight from the ServiceTitan API and drops a new row on the board, pre-filled. Starts at Stage <strong>Needs Order</strong>, already assigned to an owner. Runs <strong>every 15 min</strong> weekdays 9am–7pm, hourly the rest of the time.</p>
               <div className="fields">{['Date','Job #','Sold By','Customer','Est. Subtotal','Type','Part / Description'].map(f => <span className="chip a" key={f}>{f}</span>)}</div></div></div>
           <div className="step"><div className="rail"><div className="num t">2</div><div className="connector" /></div>
             <div className="card"><span className="who t">Team</span>
@@ -105,8 +105,9 @@ export default function ServiceWorkflowPage() {
           <div className="step"><div className="rail"><div className="num t">3</div><div className="connector" /></div>
             <div className="card"><span className="who t">Team</span>
               <h4>Track it in &amp; chase the customer</h4>
-              <p>Watch the ETA, move the Location as the part travels, handle backorders, keep the running call/text log, and mark it when it lands at the shop.</p>
-              <div className="fields">{['ETA','Location','Cust. Informed B/O','Parts at Shop','2 Techs?','WH / CXR Notes'].map(f => <span className="chip t" key={f}>{f}</span>)}</div></div></div>
+              <p>Advance the <b>Stage</b> as the part moves (Ordered → Inbound → Staged), watch the ETA, park it with a <b>Blocked</b> reason if it stalls, keep the running call/text log, and mark it when it lands at the shop.</p>
+              <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '4px 0 0' }}>Three separate fields, on purpose: <b>Stage</b> = where it is in the pipeline · <b>Location</b> = the physical place it&apos;s sitting · <b>Blocked</b> = why it&apos;s parked.</p>
+              <div className="fields">{['ETA','Stage','Location','Blocked','Cust. Informed B/O','Parts at Shop','2 Techs?','WH / CXR Notes'].map(f => <span className="chip t" key={f}>{f}</span>)}</div></div></div>
           <div className="step"><div className="rail"><div className="num mix">4</div><div className="connector" /></div>
             <div className="card"><span className="who mix">Team → ServiceTitan</span>
               <h4>Schedule the customer</h4>
@@ -151,30 +152,33 @@ export default function ServiceWorkflowPage() {
             <span className="arrow">→<small>scheduled</small></span>
             <span className="pill done">Done</span>
           </div>
-          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)' }}>Ticking <b>Part B/O</b> sets Location = &ldquo;Backordered&rdquo; and hands it to CXR Team to work the customer; once the customer&apos;s been told, it goes back to Parts Coordinator to keep chasing the part.</p>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)' }}>Ticking <b>Part B/O</b> marks the row <b>Blocked → Backordered</b>, advances Stage to <b>Ordered</b>, and hands it to CXR Team to work the customer; once the customer&apos;s been told, it goes back to Parts Coordinator to keep chasing the part. Unticking clears the backorder block.</p>
         </div>
 
         <h4 style={{ margin: '18px 0 4px', fontSize: 14.5, fontWeight: 700 }}>What triggers each hand-off</h4>
         <table>
           <tbody>
             <tr><th>When you set…</th><th>Owner becomes</th></tr>
-            <tr><td><b>Location</b> → Place Order · Cancel PO · Shipping to Supplier</td><td><span className="ownertag ot-pc">Parts Coordinator</span></td></tr>
-            <tr><td><b>Location</b> → Shipping to Shop · P/U Supply House</td><td><span className="ownertag ot-wh">Warehouse</span></td></tr>
-            <tr><td><b>Location</b> → Lewisville Shop</td><td><span className="ownertag ot-sd">Service Dispatcher</span></td></tr>
-            <tr><td><b>Location</b> → Backordered · Waiting for Customer · Waiting for Tech/Cus</td><td><span className="ownertag ot-cxr">CXR Team</span></td></tr>
-            <tr><td><b>Location</b> → Duct Cleaning – Schedule</td><td><span className="ownertag ot-id">Install Dispatcher</span></td></tr>
-            <tr><td><b>☑ Part B/O</b> (part backordered)</td><td><span className="ownertag ot-cxr">CXR Team</span> <span style={{ color: 'var(--muted)', fontSize: 12 }}>(+ Location = Backordered)</span></td></tr>
+            <tr><td><b>New row from the sync</b> — Type = Service or blank</td><td><span className="ownertag ot-pc">Parts Coordinator</span></td></tr>
+            <tr><td><b>New row from the sync</b> — Type = Membership</td><td><span className="ownertag ot-cxr">CXR Team</span></td></tr>
+            <tr><td><b>New row from the sync</b> — Type = Duct Cleaning</td><td><span className="ownertag ot-id">Install Dispatcher</span></td></tr>
+            <tr><td colSpan={2} style={{ background: 'var(--surface-2, rgba(127,127,127,0.07))', fontWeight: 700, fontSize: 12.5 }}>Service board</td></tr>
+            <tr><td><b>☑ Part B/O</b> (part backordered)</td><td><span className="ownertag ot-cxr">CXR Team</span> <span style={{ color: 'var(--muted)', fontSize: 12 }}>(+ Blocked = Backordered, Stage → Ordered)</span></td></tr>
             <tr><td><b>☑ Cust. Informed of B/O</b></td><td><span className="ownertag ot-pc">Parts Coordinator</span></td></tr>
             <tr><td><b>☑ Parts at Shop</b></td><td><span className="ownertag ot-cxr">CXR Team</span></td></tr>
+            <tr><td colSpan={2} style={{ background: 'var(--surface-2, rgba(127,127,127,0.07))', fontWeight: 700, fontSize: 12.5 }}>Install board</td></tr>
+            <tr><td><b>B/O = Yes</b></td><td><span className="ownertag ot-id">Install Dispatcher</span> <span style={{ color: 'var(--muted)', fontSize: 12 }}>(+ Blocked = Backordered, Stage → Ordered)</span></td></tr>
+            <tr><td><b>☑ Cust. Informed</b></td><td><span className="ownertag ot-pc">Parts Coordinator</span></td></tr>
+            <tr><td><b>☑ Call Booked</b></td><td><span className="ownertag ot-id">Install Dispatcher</span></td></tr>
           </tbody>
         </table>
 
         <div className="q"><b>To confirm with the team — a few things in the current logic look off:</b>
           <ul>
             <li><b>Service Manager</b> and <b>Rachel</b> are owner options, but nothing auto-routes to them. Intended, or should something hand off to them?</li>
-            <li><b>Duct Cleaning – Schedule</b> on the Service board routes to <b>Install Dispatcher</b> — right?</li>
+            <li>Type = <b>Duct Cleaning</b> on the Service board routes to <b>Install Dispatcher</b> — right?</li>
             <li>During a backorder, ownership bounces <b>CXR → Parts Coordinator → CXR</b>. Real hand-off, or should Parts Coordinator own the whole backorder chase?</li>
-            <li>New rows land <b>Unassigned</b> even though Location starts at &ldquo;Place Order.&rdquo; Should they auto-route to Parts Coordinator?</li>
+            <li>Owner only auto-routes off the <b>checkboxes</b> and <b>Type</b> — never off <b>Location</b> or <b>Stage</b>. So advancing Stage to <b>Staged</b> (parts at the shop, on the Install board) doesn&apos;t hand it to anyone. Should it?</li>
           </ul>
         </div>
 
@@ -184,7 +188,7 @@ export default function ServiceWorkflowPage() {
             <tr><th>Automatic (ServiceTitan / sync)</th><th>Team (manual)</th></tr>
             <tr>
               <td>Date · Job # · Sold By · Customer · Est. Subtotal · Type · Part/Description · <span className="tag a">Status</span> · <span className="tag a">Owner (auto-routes)</span></td>
-              <td>Owner (override) · Supplier · Order # · Cost · Parts Ordered · ETA · Cust. Informed B/O · Location · Parts at Shop · 2 Techs · War? · W.Type · Notes</td>
+              <td>Owner (override) · Supplier · Order # · Cost · Parts Ordered · ETA · Cust. Informed B/O · <b>Stage</b> · <b>Location</b> · <b>Blocked</b> · Parts at Shop · 2 Techs · War? · W.Type · Notes</td>
             </tr>
           </tbody>
         </table>
