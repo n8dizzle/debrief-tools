@@ -1,38 +1,42 @@
-# Track parts, not estimates
+# Track parts, not estimates — and follow them to cash
 
 **Status:** proposal, nothing built
-**Written:** 2026-08-07
-**Numbers in here** were measured against live ServiceTitan and production data on 2026-08-05/07, not estimated.
+**Written:** 2026-08-07 (v2 — rewritten after Jon's challenge to the definition of "done")
+**Numbers** were measured against live ServiceTitan and the production database on 2026-08-05/07.
+
+---
+
+## What changed in this version
+
+v1 said a part was done when it reached the shop. Jon's push-back: **that's still the parts team's finish line, not the business's.** Nothing is done until the work is completed, the customer is invoiced, and the money is collected.
+
+He's right, and it makes the rest simpler. There is no "done" stage owned by parts. There is one record that keeps flowing, and it ends at paid.
 
 ---
 
 ## The problem, in one job
 
-Mary Moilan, job `188471543`. The Parts Coordinator says two of three parts are ordered and moving, one is on backorder. Here is what ServiceTitan holds:
+Mary Moilan, job `188471543`. The Parts Coordinator says two of three parts are moving and one is on backorder. ServiceTitan holds:
 
 ```
-EST 188609954  "Warranty System Controller, Thermostat"  $0
+EST 188609954  "Warranty System Controller, Thermostat"   $0
     INVOICED   CA-W-TSTAT      thermostat
     INVOICED   CHR
     INVOICED   CA-W-CBOARD     control board   <-- the backordered one
 
-EST 188611878  "Warranty Furnace Control Board"  $0
-    INVOICED   CA-W-CBOARD     <-- second estimate, created as a workaround
+EST 188611878  "Warranty Furnace Control Board"           $0
+    INVOICED   CA-W-CBOARD     <-- workaround, also swallowed
 ```
 
 **The board shows this job as `done`.**
 
-Worse, the workaround failed silently. The PC created that second estimate specifically to represent "install the backordered board when it arrives." It was invoiced the instant it was created, so the app ignores it too. He built a signal the app swallows, and had no way to know.
-
-This single job is the whole trust problem in miniature: the board is confidently wrong, and the person closest to the work can't correct it.
+The workaround failed silently: the PC created that second estimate to represent "install the backordered board when it arrives," and it was invoiced at creation, so the app ignores it too. He built a signal the app swallows and had no way to know.
 
 ## Two root causes
 
 ### 1. The unit of work is wrong
 
-The app stores **one row per estimate**. Reality's unit is **one part**. A row holds exactly one `stage`, so the moment two parts on an estimate diverge, the board is lying about at least one of them.
-
-This is not an edge case:
+One row per **estimate**; reality's unit is one **part**. A row holds one status, so the moment two parts diverge the board is lying about one of them.
 
 | Unbilled parts on the estimate | Estimates |
 |---:|---:|
@@ -44,81 +48,111 @@ This is not an edge case:
 | 6 | 2 |
 | **12** | **2** |
 
-**114 estimates are queue-worthy right now, holding 212 unbilled parts. 44 of them — 39% — have more than one part and therefore cannot be represented correctly today.** Two of them have twelve parts sharing a single status.
+**114 queue-worthy estimates hold 212 unbilled parts. 44 of them — 39% — have more than one and cannot be represented correctly today.**
 
-### 2. "Invoiced" is being used to mean "done," and it doesn't
+### 2. Every "done" signal so far has been someone else's finish line
 
-`invoiceItemId` means *billed onto the job*. It says nothing about whether the physical part exists. For warranty parts at $0 it gets set at creation — so the app's only completion signal fires the moment work *starts*.
+- ServiceTitan's `invoiceItemId` means *billed onto the job*. For warranty parts at $0 it fires at creation — before the part exists.
+- "At the shop" means *parts is finished*. The customer still has a broken system and an unpaid invoice.
 
-That is why Mary Moilan's job reads `done` while a board sits on backorder at a supplier.
+Both close a record while the work is live. That's the whole trust problem.
 
-## What changes
+## The model
 
-**One row per line item.** The sync reads each estimate's items and creates a row per part that still needs ordering, keyed on the ServiceTitan line-item ID.
+**One row per line item**, keyed on the ServiceTitan line-item `id` (verified stable, and every item carries `sku`, `qty`, `unitCost`, `invoiceItemId` alongside it).
 
-This is feasible with no guessing. Every line item already carries what we need:
+**One pipeline, running to cash:**
 
 ```
-id, sku, description, qty, unitRate, unitCost, total,
-invoiceItemId, itemGroupName, createdOn, modifiedOn
+needs order → ordered → inbound → at shop → installed → invoiced → paid
+└──────────── parts team ───────────┘   └─ field ─┘   └─── office / AR ───┘
 ```
 
-`id` is stable, so rows can be matched on re-sync without string-matching descriptions.
+Nothing closes because a system said so. The record moves because a person did the work, or because money arrived.
 
-**The parts flow owns its own states.** Stop inheriting "done" from ServiceTitan billing. The existing stages already describe the real journey — `needs_order → ordered → inbound → staged` — and `staged` (physically at the shop) is the honest completion signal. ServiceTitan goes back to being the billing record instead of doubling as a status field.
+**Ownership moves along the chain; visibility does not.** A part leaves the Parts Coordinator's queue at "at shop" — it stops being their problem — but the record stays alive and visible on the Master view until it's paid. That's the difference between *whose queue it's in* and *whether it's finished*.
 
-## Three decisions needed before building
+## Where each stage's truth comes from
+
+| Stage | Source | Set by |
+|---|---|---|
+| needs order → ordered | app | Parts Coordinator |
+| inbound → at shop | app | Warehouse |
+| installed | ServiceTitan job completion | read |
+| invoiced | ServiceTitan invoice | read |
+| paid | ServiceTitan payment | read |
+| in collections, promise-to-pay, escalated | AR app (`ar_*`) | read |
+
+### An important caveat about the AR app
+
+The AR app is the right place to read **collections state**, but it is **not** a complete invoice ledger. Measured:
+
+- `ar_invoices` holds **2,144** invoices spanning 2024-04 to 2026-08 — 163 unpaid, 1,981 paid.
+- Of **630** parts rows with a job number, only **99** match an AR invoice.
+
+That's too few to be a coverage gap in the join — the join works, `ar_invoices.job_number` lines up with `pe_orders.job` cleanly. It means AR holds a *subset*: the invoices collections cares about.
+
+**So: read `invoiced` and `paid` from ServiceTitan, which is complete. Read collections status from the AR app, which is where that judgment lives.** Don't rebuild either.
+
+## Decisions needed
 
 ### A. What the board displays
 
 212 loose part-cards would be worse than 114 wrong ones.
 
-**Recommendation:** one card per **job**, parts listed inside it, card status driven by the worst part. Mary Moilan reads *"3 parts · 2 ordered · 1 backordered"* and expands to show which. The Parts Coordinator still works a job at a time; they just stop losing the detail.
+**Recommendation:** one card per **job**, parts listed inside, card status driven by the worst part. Mary Moilan reads *"3 parts · 2 ordered · 1 backordered"* and expands.
 
-### B. What "done" means
+### B. What each team sees
 
-**Recommendation:** a part is done when it is physically at the shop (`staged`), set by a human — Warehouse receiving it. Not when ServiceTitan bills it.
+With rows living for months, no one should stare at the whole pipeline.
 
-Consequence worth naming: the board will no longer close things by itself. That is the point. Every current auto-close we examined was wrong.
+**Recommendation:** each board filters to the stages that team owns, plus a persistent "waiting on me" count. The Master view is the only place the full pipeline is visible. A Parts Coordinator sees ~27 rows, not 300.
 
-### C. The existing rows
+### C. The rows that already exist
 
-628 rows total, **77 open**, 620 distinct estimates, 8 created by hand with no estimate behind them.
+628 rows total · **77 open** · 620 distinct estimates · 8 created by hand with no estimate behind them.
 
-Open rows by stage today:
-
-| stage | rows |
+| stage | open rows |
 |---|---:|
 | staged | 37 |
-| needs_order | 27 |
+| needs order | 27 |
 | inbound | 7 |
 | ordered | 6 |
 
-**Recommendation:** migrate only the 77 open rows; leave the closed 551 as historical records in their current shape. Each open row expands into one row per unbilled part on its estimate, inheriting the current stage. The 8 manual rows have no estimate to expand and carry over as single parts.
+**Recommendation:** migrate only the 77 open rows; leave the 551 closed ones as historical records in their current shape. Each open row expands into one row per unbilled part, inheriting its current stage. The 8 manual rows carry over as single parts.
 
-## Suggested sequencing
+### D. What happens to the 37 rows sitting at "staged"
 
-Each step is shippable on its own and leaves the app working.
+Under the new model these aren't finished — they're parts at the shop waiting to be installed.
 
-1. **Add the part fields alongside what exists** — line-item ID, SKU, qty, unit cost — populated by the sync but not yet driving the UI. Nothing visibly changes; the data starts arriving.
-2. **Verify the shape** against real syncs for a few days. Does every part get an ID? Do re-syncs match correctly rather than duplicating?
-3. **Migrate the 77 open rows**, with a dry run first and a full before/after count.
-4. **Switch the boards to grouped-by-job display.** This is the visible change and the one needing team warning.
-5. **Retire `invoiced` as the completion signal**, replacing it with `staged`. Do this last — it changes what closes and what doesn't.
+**Recommendation:** they move to `at shop` and stay open, which will make the board look busier overnight. That's accurate, and worth warning the team about before it happens.
+
+## Sequencing
+
+Each step ships on its own and leaves the app working. The visible changes are late on purpose.
+
+1. **Add the part fields** — line-item id, SKU, qty, unit cost — populated by the sync, not yet driving the screen. Nothing visibly changes.
+2. **Verify the shape** over a few days of real syncs. Does every part get an id? Do re-syncs match instead of duplicating?
+3. **Migrate the 77 open rows.** Dry run first, full before/after count.
+4. **Switch the boards to grouped-by-job display**, with per-team stage filters. First visible change; needs team warning.
+5. **Add `installed` and `invoiced`** read from ServiceTitan.
+6. **Add `paid`, and surface AR collections status.** Retire every auto-close along the way.
 
 ## Risks
 
-- **Duplicate rows on re-sync** if line-item IDs turn out unstable in practice. Step 2 exists to catch this before any migration.
-- **Row count growth** — roughly 1.9× on the queue. Fine at this scale; worth remembering the board must group, not list.
-- **Auto-close stops.** Things that used to disappear will now sit until a person moves them. Expect the board to look busier before it looks better, and expect that to be correct.
-- **This does not fix the `order_type` guess.** That dies with the Service/Install tabs, separately.
+- **Duplicate rows on re-sync** if line-item ids prove unstable. Step 2 exists to catch that before migration.
+- **Row count grows** roughly 1.9× on the queue. Fine at this scale — but the board must group, not list.
+- **Rows now live for months.** Without per-team filtering (decision B) the boards become unusable. B is not optional.
+- **Auto-close disappears entirely.** Work that used to vanish will sit until a person or a payment moves it. Expect the board to look worse before it looks right — and expect that to be the truth.
+- **ServiceTitan invoice/payment reads are unverified.** The app already talks to ST for estimates; steps 5 and 6 assume invoices and payments are reachable the same way. Confirm before committing to those steps.
 
-## Explicitly not in scope
+## Not in scope
 
-- Retiring the Service and Install tabs (separate, sequenced after the team boards exist)
-- The `subtype`/`owner` guess removal (already built, held on `fix/pe-drop-subtype-owner-guess` pending training)
-- Slack notifications (deferred — an accountability layer on a workflow that isn't solid yet just teaches people to ignore Slack)
+- Retiring the Service and Install tabs — sequenced after the team boards exist.
+- Removing the guessed subtype and owner — built, held on `fix/pe-drop-subtype-owner-guess` until routing and training are ready.
+- Rebuilding anything AR already does. Read it.
+- Slack notifications — deferred. An accountability layer on a workflow that isn't solid yet just teaches people to ignore Slack.
 
-## The test of whether this worked
+## How we know it worked
 
-Mary Moilan's job shows **"2 of 3 parts ready, 1 backordered,"** the Parts Coordinator never invents a phantom estimate to express it, and nobody has to ask why the board says done.
+Mary Moilan's job shows **"2 of 3 parts ready, 1 backordered."** The Parts Coordinator never invents a phantom estimate to say so. And the record doesn't disappear when the part reaches the shelf — it stays alive, in someone's hands, until the invoice is paid.
