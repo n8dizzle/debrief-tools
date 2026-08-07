@@ -1,0 +1,38 @@
+/* rigor — minimal ground only. Component styles live with their components.
+   Deliberately NOT parts-equipment's 844-line sheet: that carries table styling
+   this app has none of, and every stray rule is a cascade collision waiting to
+   happen in a board built from flex columns. */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+:root {
+  --bg:      #ffffff;
+  --line:    #dde3dd;
+  --text:    #15181a;
+  --accent:  #1b6b45;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1211; --line: #2a312d; --text: #e7ece8; --accent: #5fbf8c; }
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Long unbreakable strings (ServiceTitan descriptions, SKUs) must never widen a
+   flex column — this is what made the first version run off the right edge. */
+:where(button, input, select, textarea) { font: inherit; color: inherit; }
+:where(a) { color: inherit; }
+:where(button):focus-visible, :where(a):focus-visible, :where(input):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
